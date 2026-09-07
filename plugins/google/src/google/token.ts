@@ -17,14 +17,10 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
     const cache = ((ctx.state as any).google ??= { tokens: {} as Record<string, { access_token: string; expires_at: number }> });
     const cached = cache.tokens[account];
     if (cached && Date.now() < cached.expires_at - 60_000) return { account, access_token: cached.access_token };
-    const tokenField: Record<string, string> = {
-        "niquola@gmail.com": "token-personal",
-        "niquola@health-samurai.io": "token-work",
-    };
-    const field = tokenField[account];
-    if (!field) throw new Error(`No token binding for ${account}`);
     const tokenName = `token:${account}`;
-    const tokenRaw = await ctx.fns.secrets.get({ ref: `op://hyper/google/${field}`, namespace: "google", name: tokenName });
+    // Every authorized account uses the same stable local key. secrets.get
+    // reads encrypted local storage first; there is no account allowlist.
+    const tokenRaw = await ctx.fns.secrets.get({ ref: `op://hyper/google/${tokenName}`, namespace: "google", name: tokenName });
     if (!tokenRaw) throw new Error(`No token for ${account}. Run google.reauth({ account: "${account}" })`);
     let token = JSON.parse(tokenRaw);
 

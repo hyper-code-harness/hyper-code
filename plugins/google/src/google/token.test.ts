@@ -44,4 +44,17 @@ describe("google encrypted local OAuth storage", () => {
         expect(stored).toMatchObject({ access_token: "fresh-access", refresh_token: "refresh-new" });
         expect(stored.expires_at).toBeGreaterThan(Date.now() + 3_500_000);
     });
+    test("discovers and serves an arbitrary reauthorized account without a hardcoded binding", async () => {
+        const ctx = await makeCtx();
+        const account = "anna.ryzhikova@health-samurai.io";
+        await ctx.fns.secrets.putLocal({ namespace: "google", name: `token:${account}`, value: JSON.stringify({ access_token: "anna-access", refresh_token: "anna-refresh", expires_at: Date.now() + 3_600_000 }), source: "test" });
+        ctx.state.registry.secrets.resolve = async () => { throw new Error("1Password unavailable"); };
+        (ctx.state as any).secrets = undefined;
+        (ctx.state as any).google = undefined;
+
+        expect(await ctx.fns.google.accounts({})).toContain(account);
+        expect(await ctx.fns.google.token({ account })).toEqual({ account, access_token: "anna-access" });
+    });
+
+
 });

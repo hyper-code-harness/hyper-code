@@ -101,6 +101,10 @@ export default async function (
     const token = { access_token: tok.access_token, refresh_token: tok.refresh_token, expires_at: Date.now() + (tok.expires_in ?? 3600) * 1000 };
     await ctx.fns.secrets.putLocal({ namespace: "google", name: `token:${account}`, value: JSON.stringify(token), source: "oauth-consent" });
     const tokenPath = resolve(secretsDir, `token-${account}.json`);
+    const accounts = await ctx.fns.google.accounts({});
+    if (!accounts.includes(account)) {
+        await ctx.fns.secrets.putLocal({ namespace: "google", name: "accounts", value: JSON.stringify([...accounts, account].sort()), source: "oauth-consent" });
+    }
     // Best-effort compatibility export for older tools; encrypted Postgres is authoritative.
     await Bun.write(tokenPath, JSON.stringify(token, null, 2)).catch(() => undefined);
     await Bun.$`chmod 600 ${tokenPath}`.quiet().nothrow();

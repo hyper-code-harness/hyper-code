@@ -16,7 +16,7 @@
 export default function (ctx: Context, _session: Session | null, opts: { token?: string; url: string; days?: number; name?: string }): string {
     const cookies = new Bun.CookieMap();
     cookies.set({
-        name: opts.name ?? ctx.fns.procs.config.resolve({ module: "procs/auth" }).cookie,
+        name: opts.name ?? ctx.fns.procs.auth.cookieName({}),
         value: opts.token ?? "",
         path: "/",
         httpOnly: true,

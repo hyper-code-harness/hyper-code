@@ -8,7 +8,7 @@
  * @param opts.req The incoming HTTP request.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
-    const name = ctx.fns.procs.config.resolve({ module: "procs/auth" }).cookie;
+    const name = ctx.fns.procs.auth.cookieName({});
     const token = new Bun.CookieMap(opts.req.headers.get("cookie") ?? "").get(name);
     if (!token) return null;
     const claims = await ctx.fns.procs.auth.verify({ token });

@@ -250,12 +250,14 @@ ${opts.headExtra ?? ""}
   ${hideNavigation ? "" : `<nav id="quick-bar" aria-label="Quick access" class="my-2 ml-2 mr-1 flex h-[calc(100%-1rem)] w-10 shrink-0 flex-col items-center rounded-2xl border border-ui-border py-2 shadow-sm">
     ${ctx.fns.procs.ui.button({ action: "open-global-menu", html: '<i class="ph ph-squares-four text-base" aria-hidden="true"></i>', appearance: "plain", title: "Global menu — ⌘/", ariaLabel: "Open global menu", class: "flex size-7 items-center justify-center rounded-md text-base-content/60 hover:bg-base-300 hover:text-base-content", attrs: { onclick: "window.__navOpen?.()" } })}
     ${ctx.fns.procs.ui.button({ action: "toggle-theme", html: '<i class="ph ph-moon" aria-hidden="true"></i>', appearance: "plain", title: "Switch color theme", ariaLabel: "Switch color theme", class: "mt-1 flex size-7 items-center justify-center rounded-md text-base-content/60 hover:bg-base-300 hover:text-base-content", attrs: { id: "theme-toggle", "aria-pressed": "false" } })}
+    ${await ctx.fns.ui.gapBadge({})}
     <div id="quick-items" class="mt-2 flex min-h-0 flex-1 flex-col items-center gap-1" aria-label="Pinned pages"></div>
     <!-- Subscription quota, loaded by itself so the shell never waits on it.
          Collapsed to rings in the narrow bar; the title carries the detail. -->
     <div id="quota-rings" class="mt-auto w-full" hx-get="/llms/usage" hx-trigger="load" hx-swap="innerHTML" hx-target="this"></div>
     <script>(function(){var button=document.getElementById('theme-toggle');function paint(){var dark=document.documentElement.dataset.theme==='dark';button.setAttribute('aria-pressed',String(dark));button.title=dark?'Use light theme':'Use dark theme';button.querySelector('i').className='ph '+(dark?'ph-sun':'ph-moon')}paint();button.addEventListener('click',function(){var next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;document.documentElement.style.colorScheme=next;try{localStorage.setItem('hyper-theme',next)}catch(_){}paint()})})()</script>
   </nav>`}
+    <script src="/ui/gap-count.js" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

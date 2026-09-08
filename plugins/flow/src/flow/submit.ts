@@ -31,5 +31,7 @@ export default async function (
     if(!claimed.length){const row=await ctx.fns.procs.db.select({sql:'SELECT result FROM flow.receipts WHERE id=?',params:[f.submissionId]});return retry(row[0].result)??await ctx.fns.flow.card({flow,gap,message:'Отправка уже обрабатывается. Не повторяйте действие; обновите список.',closed:true});}
     let html:string;
     try{const output=await ctx.state.flow.declarations[flow]!.fn(ctx,session,{mode:'submit',now,target,action:gap.form.id,values,submissionId:f.submissionId!});if(typeof output.html!=='string')throw new Error('Handler did not return card HTML');html=output.html;}catch(error){html=await ctx.fns.flow.card({flow,gap,message:'Результат не подтверждён: '+String(error instanceof Error?error.message:error)+'. Обновите список перед повторной записью.',closed:true});}
-    await ctx.fns.procs.db.run({sql:'UPDATE flow.receipts SET result=?::jsonb WHERE id=?',params:[JSON.stringify({payload,status:'completed',html}),f.submissionId]});return html;
+    await ctx.fns.procs.db.run({sql:'UPDATE flow.receipts SET result=?::jsonb WHERE id=?',params:[JSON.stringify({payload,status:'completed',html}),f.submissionId]});
+    await ctx.fns.flow.refreshCount({force:true});
+    return html;
 }

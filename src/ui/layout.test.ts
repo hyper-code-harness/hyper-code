@@ -31,6 +31,9 @@ describe("ui.layout", () => {
         expect(html).toContain('id="quick-bar"');
         expect(html).toContain('id="quick-items"');
         expect(html).not.toContain('data-action="open-tab"');
+        const rail=/<nav id="quick-bar"[\s\S]*?<\/nav>/.exec(html)?.[0]??'';
+        expect(rail).toContain('id="gap-count-badge"');
+        expect(rail).toContain('href="/gaps"');
     });
 
     test("initializes and exposes a persisted light-dark theme switcher", async () => {

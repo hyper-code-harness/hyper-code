@@ -9,5 +9,6 @@ export default async function(ctx:Context, _session:Session|null, opts:{entries:
   } catch(error) {const message=String(error instanceof Error?error.message:error);fn=async()=>{throw new Error(message);};}
   declarations[entry.name]={name:entry.name,source:entry.abs,fn};
  }
- ctx.state.flow={declarations};
+ ctx.state.flow ??= {declarations};
+ ctx.state.flow.declarations=declarations;
 }

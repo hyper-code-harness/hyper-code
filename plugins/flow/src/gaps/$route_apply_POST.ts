@@ -7,5 +7,6 @@ export default async function(ctx:Context,_session:Session|null,opts:{req:Reques
  let notice:string;
  try {const result=await ctx.fns.flow.reconcile({flow:value('flow'),mode:'apply',target:{id:value('id'),revision:value('revision')}});notice=`${result.status}; receipt ${result.id}${result.error?': '+result.error:''}`;}
  catch(error){notice='Action not confirmed: '+String(error instanceof Error?error.message:error);}
+ await ctx.fns.flow.refreshCount({force:true});
  return {title:'Gaps',main:await ctx.fns.flow.page({notice})};
 }

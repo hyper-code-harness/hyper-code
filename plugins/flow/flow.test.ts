@@ -7,6 +7,7 @@ async function fixture(kind='close') {
  ctx.fns.procs.ui={};for(const n of ['escape','attr','field','button']){const fn=(await import(`../../src/procs/ui/${n}.ts`)).default;ctx.fns.procs.ui[n]=(o:any)=>fn(ctx,null,o);}for(const name of ['discover','reconcile','list','page','formField','card']){const fn=await raw(name);ctx.fns.flow[name]=(opts:any)=>fn(ctx,null,opts);}
  ctx.fns.flow.refresh=async()=>{};
  const gap={id:'need:1',revision:'r1',summary:'Incomplete <script>',will:'Complete'};
+ ctx.fns.flow.refreshCount=async()=>({count:0,stale:false});
  ctx.state.flow.declarations.check={name:'check',source:'synthetic',fn:async(_ctx:any,_s:any,opts:any)=>{if(opts.mode==='preview'){reads++;if(kind==='discoverError'||(kind==='verifyError'&&calls))throw new Error('discovery failed');return {gaps:closed?[]:[gap]};}calls++;if(kind==='actionError')throw new Error('action failed');if(kind==='close')closed=true;return {effects:[{reference:'synthetic:1'}]};}};
  return {ctx,receipts,gap,stats:()=>({calls,reads})};
 }

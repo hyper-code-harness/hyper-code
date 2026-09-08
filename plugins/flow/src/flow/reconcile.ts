@@ -32,6 +32,7 @@ export default async function (
     if(opts.mode==='apply') await ctx.fns.procs.db.run({sql:'INSERT INTO flow.receipts(id,flow,result) VALUES (?,?,?::jsonb)',params:[result.id,opts.flow,JSON.stringify({...result,error:'Attempt started; completion not recorded'})]});
     let phase='discover';
     try {
+     if(opts.mode==='apply') await ctx.fns.flow.refresh({});
      result.gaps=await ctx.fns.flow.discover({flow:opts.flow,now});
      result.before=result.after=result.gaps.length;
      result.trace.push({phase});

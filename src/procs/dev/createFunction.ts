@@ -57,7 +57,8 @@ export default async function (
     if (opts.dryRun) return { ok: true, name: `${module.replaceAll("/", ".")}.${name}`, path: rel, source, written: false };
     if (await Bun.file(path).exists() && !opts.overwrite) throw new Error(`createFunction: ${rel} already exists; use edit for updates or pass overwrite explicitly`);
     const previous = await Bun.file(path).exists() ? await Bun.file(path).text() : null;
-    const temp = join(rootDir, ".authoring", module, `${name}.${crypto.randomUUID()}.ts`);
+    // Staging lives under host src so the host tsconfig also checks user-plugin functions.
+    const temp = join(project, "src", ".authoring", module, `${name}.${crypto.randomUUID()}.ts`);
     await mkdir(dirname(temp), { recursive: true });
     await Bun.write(temp, source);
     const filter = temp.startsWith(project + "/") ? temp.slice(project.length + 1) : temp;
@@ -70,6 +71,7 @@ export default async function (
         const runtimeName = `${module.replaceAll("/", ".")}.${name}`;
         await ctx.fns.procs.repl.load({ name: runtimeName });
         const validation = await ctx.fns.runtime.docs.validate({ name: runtimeName, strict: true, typecheck: true });
+        if (!validation.ok) throw new Error(`createFunction validation failed: ${JSON.stringify(validation.errors)}`);
         const index = opts.index ? await ctx.fns.runtime.docs.index({ localizationBatch: 1 }) : null;
         return { ok: true, name: runtimeName, path: rel, created: previous == null, typecheck: preflight, validation, index };
     } catch (error) {

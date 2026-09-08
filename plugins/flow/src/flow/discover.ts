@@ -24,6 +24,7 @@ export default async function (
      if (!gap || typeof gap.id !== 'string' || !gap.id.trim() || gap.id.length>1024 || typeof gap.revision !== 'string' || !gap.revision.trim() || gap.revision.length>1024 || typeof gap.summary !== 'string' || !gap.summary.trim()) throw new Error('Gap requires bounded id/revision and summary');
      if (ids.has(gap.id)) throw new Error('Duplicate gap id: '+gap.id);
      if (gap.will !== undefined && (typeof gap.will !== 'string' || !gap.will.trim())) throw new Error('Action label must be nonempty');
+     if(gap.form){const f=gap.form;if(!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(f.id)||!f.label?.trim()||!Array.isArray(f.fields)||f.fields.length<1||f.fields.length>4)throw new Error('Invalid form');const names=new Set<string>();for(const field of f.fields){if(!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(field.name)||names.has(field.name)||!['datetime-local','text'].includes(field.type)||!field.label?.trim())throw new Error('Unsupported form field');if(field.type==='datetime-local')new Intl.DateTimeFormat('en',{timeZone:field.timezone});else if(!Number.isInteger(field.maxLength)||field.maxLength<1||field.maxLength>2000)throw new Error('Invalid text limit');names.add(field.name);}}
      ids.add(gap.id);
     }
     return output.gaps;

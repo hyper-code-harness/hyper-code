@@ -4,7 +4,7 @@
 // are returned instead.
 import { homedir } from "node:os";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 
 /** Return clickable workspace-directory suggestions for the new-agent form.
  * @param opts.req Incoming request containing `workspaceDir` (or `q`).
@@ -38,14 +38,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 
         const needle = (isAbsolute(expanded) ? expanded.slice(root.length) : expanded)
             .split(sep).filter(Boolean).join("");
-        const fuzzy = needle.split("").map(ch => ch.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")).join(".*") || ".";
-        const proc = Bun.spawn(["fd", "--type", "d", "--max-depth", "1", "--absolute-path", "--full-path", "--ignore-case", "--max-results", "250", fuzzy, root], {
-            stdout: "pipe", stderr: "ignore",
-        });
-        const timer = setTimeout(() => proc.kill(), 1500);
-        const output = await new Response(proc.stdout).text().catch(() => "");
-        await proc.exited.catch(() => -1);
-        clearTimeout(timer);
+        const output = await shallowDirectories(root);
 
         const normalizedNeedle = expanded.toLowerCase().replaceAll(sep, "");
         const score = (path: string) => {
@@ -60,7 +53,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             }
             return gaps * 10 + first + path.length / 1000;
         };
-        paths = [...new Set(output.split("\n").map(path => path.trim()).filter(Boolean))]
+        paths = [...new Set(output)]
             .sort((a, b) => score(a) - score(b) || a.localeCompare(b))
             .slice(0, 10);
     }
@@ -71,4 +64,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         return `<button type="button" role="option" class="flex w-full items-center gap-2 px-3 py-2 text-left font-mono text-xs hover:bg-base-200" hx-get="/agent/dirs/status?q=${encoded}" hx-target="#workspace-dir-status" hx-swap="innerHTML" onclick="document.getElementById('workspace-dir-input').value=this.dataset.path;this.parentElement.replaceChildren()" data-path="${esc(path)}"><i class="ph ph-folder shrink-0 text-base-content/50"></i><span class="truncate">${esc(path)}</span></button>`;
     }).join("");
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+
+async function shallowDirectories(root: string): Promise<string[]> {
+    const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+    return entries.filter(entry => entry.isDirectory()).slice(0, 250).map(entry => resolve(root, entry.name));
 }

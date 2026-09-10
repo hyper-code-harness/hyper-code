@@ -62,6 +62,43 @@ function rewriteFileLinks(html: string, baseDir: string): string {
 }
 
 
+// GitHub-Flavored Markdown recognizes plain URLs, www-hosts and email
+// addresses outside links/code. Bun's CommonMark renderer does not, so apply
+// the extension to HTML text nodes after parsing; existing links and code stay untouched.
+function autolinkTextNodes(html: string): string {
+    const excluded = new Set(["a", "code", "pre", "script", "style"]);
+    const stack: string[] = [];
+    return html.split(/(<[^>]+>)/g).map(part => {
+        if (part.startsWith("<")) {
+            const close = /^<\s*\/\s*([a-z0-9-]+)/i.exec(part)?.[1]?.toLowerCase();
+            const open = /^<\s*([a-z0-9-]+)/i.exec(part)?.[1]?.toLowerCase();
+            if (close) {
+                const at = stack.lastIndexOf(close);
+                if (at >= 0) stack.splice(at, 1);
+            } else if (open && excluded.has(open) && !/\/\s*>$/.test(part)) stack.push(open);
+            return part;
+        }
+        return stack.length ? part : linkifyText(part);
+    }).join("");
+}
+
+function linkifyText(text: string): string {
+    const re = /(?:https?:\/\/|www\.)[a-z0-9](?:[a-z0-9_-]*\.)+[a-z0-9_-]+[^\s<]*|[a-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*\.)+[a-z]{2,}/gi;
+    return text.replace(re, raw => {
+        let value = raw;
+        let trailing = "";
+        while (/[?!.,:*_~]$/.test(value)) { trailing = value.slice(-1) + trailing; value = value.slice(0, -1); }
+        while (value.endsWith(")") && (value.match(/\)/g)?.length ?? 0) > (value.match(/\(/g)?.length ?? 0)) {
+            trailing = ")" + trailing;
+            value = value.slice(0, -1);
+        }
+        const email = !/^(?:https?:\/\/|www\.)/i.test(value);
+        const href = email ? `mailto:${value}` : /^www\./i.test(value) ? `http://${value}` : value;
+        return `<a href="${escapeHtml(href)}">${value}</a>${trailing}`;
+    });
+}
+
+
 /**
  * Renders Markdown to sanitized, highlighted HTML.
  * @param opts.source Markdown or Mermaid source.
@@ -71,7 +108,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { s
     const frontmatter = frontmatterTable(source);
     if (frontmatter) source = frontmatter.source;
     if (source.includes("```mermaid")) source = await preprocessMermaid(ctx, source);
-    let html = Bun.markdown.html(source);
+    let html = autolinkTextNodes(Bun.markdown.html(source));
     const re = /<pre><code class="language-([^"]+)">([\s\S]*?)<\/code><\/pre>/g;
     const replacements: Array<{ full: string; pretty: string }> = [];
     for (const m of html.matchAll(re)) {

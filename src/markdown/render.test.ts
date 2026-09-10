@@ -100,4 +100,21 @@ describe("markdown.render", () => {
         expect(html).toContain('href="#x"');
     });
 
+    test("GFM-style autolinks plain URLs, www hosts and email outside code", async () => {
+        const ctx = mkCtx();
+        const html = await render(ctx, null, { source: "See https://example.com/a_(b). Then www.example.org/test. Mail me@example.com; keep `https://code.test` literal." });
+        expect(html).toContain('<a href="https://example.com/a_(b)">https://example.com/a_(b)</a>.');
+        expect(html).toContain('<a href="http://www.example.org/test">www.example.org/test</a>.');
+        expect(html).toContain('<a href="mailto:me@example.com">me@example.com</a>');
+        expect(html).toContain('<code>https://code.test</code>');
+        expect(html).not.toContain('<code><a');
+    });
+
+    test("does not relink explicit markdown links", async () => {
+        const ctx = mkCtx();
+        const html = await render(ctx, null, { source: "[Example](https://example.com) and <https://other.example>" });
+        expect(html.match(/<a /g)?.length).toBe(2);
+    });
+
+
 });

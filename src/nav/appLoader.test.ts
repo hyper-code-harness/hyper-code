@@ -25,12 +25,33 @@ test("nav items orders declared apps and exposes presentation metadata", async (
     await loader(ctx, null, { entries: [{ name: "late", rel: "$app_late.json", abs: late }, { name: "early", rel: "$app_early.json", abs: early }] });
     ctx.fns.plugins.list = () => [];
     ctx.fns.session.list = async () => [];
+    ctx.state.procs.http.routes = {};
     const result = await items(ctx, null, { limit: 10 });
     expect(result.map(item => item.label)).toEqual(["early", "late"]);
     expect(result[0]).toMatchObject({ icon: "ph-star", group: "Projects & files", order: 10 });
     await Promise.all([Bun.file(late).delete(), Bun.file(early).delete()]);
     await ctx.fns.procs.db.close?.({});
 });
+
+test("nav items discovers parameterless GET pages but excludes assets and parameterized routes", async () => {
+    const ctx: any = await mkTestCtx();
+    ctx.state.nav = { apps: {} };
+    ctx.state.procs.http.routes = {
+        "/gaps": { GET: Object.assign(async () => {}, { from: "flow/gaps/$route__GET.ts" }) },
+        "/ui/app.js": { GET: async () => {} },
+        "/agent/:id": { GET: async () => {} },
+        "/api/mobile/v1/news": { GET: async () => {} },
+    };
+    ctx.fns.plugins.list = () => [];
+    ctx.fns.session.list = async () => [];
+    const result = await items(ctx, null, { limit: 20 });
+    expect(result).toContainEqual(expect.objectContaining({ href: "/gaps", label: "Gaps", group: "Pages" }));
+    expect(result.map(item => item.href)).not.toContain("/ui/app.js");
+    expect(result.map(item => item.href)).not.toContain("/agent/:id");
+    expect(result.map(item => item.href)).not.toContain("/api/mobile/v1/news");
+    await ctx.fns.procs.db.close?.({});
+});
+
 
 test("app loader rejects external URLs and invalid icon classes", async () => {
     const ctx: any = await mkTestCtx();

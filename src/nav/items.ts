@@ -20,6 +20,22 @@ export default async function (
             icon: String(app.icon ?? "ph-gear"), group: String(app.group ?? "System"), order: Number(app.order ?? 100),
         }));
 
+
+    // Parameterless GET pages are valid destinations even when their owner did
+    // not add an $app manifest. Assets, APIs and fragment endpoints stay out.
+    const represented = new Set(apps.map(item => item.href));
+    const pages: types.nav.Item[] = Object.entries((ctx.state as any).procs?.http?.routes ?? {})
+        .filter(([path, methods]: [string, any]) => methods?.GET && !path.includes(":") && isPageRoute(path) && !represented.has(path))
+        .map(([path, methods]: [string, any]): types.nav.Item => {
+            const source = String(methods.GET?.from ?? "");
+            const plugin = source && !source.startsWith("core/") ? source.split("/")[0] : null;
+            return {
+                label: pageLabel(path), href: path,
+                hint: `${plugin ? `plugin page · ${plugin}` : "system page"} · ${path}`,
+                icon: "ph-browser", group: "Pages",
+            };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
     const seenPluginPaths = new Set<string>();
     const plugins: types.nav.Item[] = ctx.fns.plugins.list({})
         .filter((plugin: any) => {
@@ -42,7 +58,21 @@ export default async function (
         group: "Chats",
     }));
 
-    const all = [...apps, ...plugins, ...agents];
+    const all = [...apps, ...pages, ...plugins, ...agents];
     const hit = (item: types.nav.Item) => !q || item.label.toLowerCase().includes(q) || item.href.toLowerCase().includes(q) || (item.hint ?? "").toLowerCase().includes(q);
     return all.filter(hit).slice(0, limit);
+}
+
+
+function isPageRoute(path: string): boolean {
+    if (path === "/" || /\.(?:js|css|map|ico|png|jpg|jpeg|svg|md)$/i.test(path)) return false;
+    if (/^\/(?:api|external|nav|procs)(?:\/|$)/.test(path)) return false;
+    if (/\/(?:raw|status|usage|accounts|jobs|dirs)(?:\/|$)/.test(path)) return false;
+    return true;
+}
+
+function pageLabel(path: string): string {
+    const words = path.split("/").filter(Boolean).map(part => decodeURIComponent(part).replace(/[-_]+/g, " "));
+    const label = words.join(" · ");
+    return label ? label.replace(/\b\w/g, char => char.toUpperCase()) : "Home";
 }

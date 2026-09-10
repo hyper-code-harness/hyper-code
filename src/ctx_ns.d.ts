@@ -500,6 +500,7 @@ declare global {
             classifyError: Injected<typeof import("./llm/classifyError").default>;
             claudeCodeCliVersion: Injected<typeof import("./llm/claudeCodeCliVersion").default>;
             codexCliVersion: Injected<typeof import("./llm/codexCliVersion").default>;
+            compactCodex: Injected<typeof import("./llm/compactCodex").default>;
             completeAnthropicOAuth: Injected<typeof import("./llm/completeAnthropicOAuth").default>;
             connectFetch: Injected<typeof import("./llm/connectFetch").default>;
             consumeResetCredit: Injected<typeof import("./llm/consumeResetCredit").default>;

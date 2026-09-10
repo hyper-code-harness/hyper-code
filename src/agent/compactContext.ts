@@ -17,7 +17,7 @@ export default async function (
 ): Promise<{ status: "compacted" | "not_needed" | "stale"; revision?: number; tokensBefore: number; tokensAfter?: number; keptMessages?: number; summary?: string }> {
     const parent = opts.agent;
     const estimate = (messages: any[]) => Math.ceil(messages.reduce((n: number, m: any) => n + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content ?? "").length) + JSON.stringify(m.tool_calls ?? []).length, 0) / 4);
-    const compactMessage = (m: any) => ({ role: m.role, content: m.content, ...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}), ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}) });
+    const compactMessage = (m: any) => ({ role: m.role, content: m.content, ...(m.message_type ? { message_type: m.message_type } : {}), ...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}), ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}) });
     const rootMessages = await ctx.fns.session.getMessages({ id: parent.id });
     const sourceFrontier = rootMessages.length;
     const row = ((await ctx.fns.procs.db.select({ sql: "SELECT updated_at, run_state, sleep_context FROM agents WHERE id = ? AND archived_at IS NULL", params: [parent.id] })) as any[])[0];
@@ -58,12 +58,27 @@ export default async function (
     await ctx.fns.session.appendEventWithHtml({ id: parent.id, type: "compaction_start", payload: { revision } });
     try {
       const prompt = "Create a concise continuation checkpoint for another coding agent. Include current goal, progress, decisions and rationale, constraints, rejected approaches, files changed/read, errors, unresolved issues, exact identifiers/paths/references, and clear next steps. Recent messages after this summary will be preserved verbatim. Do not repeat runtime/system instructions. Do not continue the task." + (opts.instructions?.trim() ? "\n\nFocus instructions: " + opts.instructions.trim() : "");
-      const call = await ctx.fns.llm.call({ model: child.model, sessionId: child.id, system: prompt, user: JSON.stringify(effective.map(compactMessage)) });
-      const summary = String(call.text ?? "").trim();
-      if (!summary) throw new Error("compaction summary was empty");
-      const summaryMessage = { role: "user", content: summary, message_type: "compaction_summary" };
+      let summary: string;
+      let summaryMessage: any;
+      let tokensAfter: number;
+      if (/^codex(?:\/[^:]+)?:/.test(child.model)) {
+        const checkpoint = await ctx.fns.llm.compactCodex({
+          model: child.model,
+          sessionId: child.id,
+          instructions: await ctx.fns.agent.fullSystemPrompt({ agent: parent }),
+          messages: effective.map(compactMessage),
+        });
+        summary = `Native Codex server checkpoint · ${checkpoint.responseId}`;
+        summaryMessage = { role: "user", content: JSON.stringify(checkpoint.item), message_type: "codex_compaction" };
+        tokensAfter = estimate([summaryMessage, ...rootMessages.slice(tailStart)]);
+      } else {
+        const call = await ctx.fns.llm.call({ model: child.model, sessionId: child.id, system: prompt, user: JSON.stringify(effective.map(compactMessage)) });
+        summary = String(call.text ?? "").trim();
+        if (!summary) throw new Error("compaction summary was empty");
+        summaryMessage = { role: "user", content: summary, message_type: "compaction_summary" };
+        tokensAfter = estimate([summaryMessage, ...rootMessages.slice(tailStart)]);
+      }
       await ctx.fns.session.appendMessage({ id: child.id, message: summaryMessage });
-      const tokensAfter = estimate([summaryMessage, ...rootMessages.slice(tailStart)]);
       const currentCount = (await ctx.fns.session.getMessages({ id: parent.id })).length;
       const currentRow = ((await ctx.fns.procs.db.select({ sql: "SELECT updated_at, run_state, sleep_context FROM agents WHERE id = ?", params: [parent.id] })) as any[])[0];
       const currentSleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: currentRow?.sleep_context });

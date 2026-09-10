@@ -92,6 +92,29 @@ describe("agent.compactContext", () => {
   });
 
 
+  test("uses native server compaction for Codex and replays its opaque checkpoint", async () => {
+    const ctx = await mkTestCtx();
+    const agent = await seeded(ctx);
+    agent.model = "codex:gpt-test";
+    await ctx.fns.session.save({ agent });
+    let compactOpts: any;
+    ctx.state.registry.llm.compactCodex = (_c: any, _s: any, opts: any) => {
+      compactOpts = opts;
+      return { item: { type: "compaction", id: "cmp", encrypted_content: "opaque" }, responseId: "resp", usage: { prompt_tokens: 10, completion_tokens: 1 } };
+    };
+    ctx.state.registry.llm.call = () => { throw new Error("text summarizer must not run"); };
+    const result = await ctx.fns.agent.compactContext({ agent });
+    expect(result.status).toBe("compacted");
+    expect(compactOpts.model).toBe("codex:gpt-test");
+    const generation = agent.sleepContext.generations.at(-1);
+    const stored = await ctx.fns.session.getMessages({ id: generation.contextAgentId });
+    expect(stored[0].message_type).toBe("codex_compaction");
+    const request = await ctx.fns.agent.buildLlmRequest({ agent });
+    const converted = ctx.fns.llm.toCodexInput({ messages: request.messages });
+    expect(converted.input).toContainEqual({ type: "compaction", id: "cmp", encrypted_content: "opaque" });
+  });
+
+
   test("summarizer failure leaves no active projection", async () => {
     const ctx = await mkTestCtx();
     const agent = await seeded(ctx);

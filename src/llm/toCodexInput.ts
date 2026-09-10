@@ -15,13 +15,21 @@ export default function (
     _ctx: Context,
     _session: Session | null,
     opts: {
-        /** Conversation messages to convert. */ messages: { role: string; content?: any; tool_calls?: any[]; tool_call_id?: string }[] },
+        /** Conversation messages to convert. */ messages: { role: string; content?: any; tool_calls?: any[]; tool_call_id?: string; message_type?: string }[] },
 ): { instructions: string; input: any[] } {
     const messages = opts.messages;
     let instructions = "";
     const input: any[] = [];
 
     for (const m of messages) {
+        if (m.message_type === "codex_compaction") {
+            let checkpoint: any = null;
+            try { checkpoint = typeof m.content === "string" ? JSON.parse(m.content) : m.content; } catch {}
+            if (checkpoint?.type === "compaction" && typeof checkpoint.encrypted_content === "string") {
+                input.push({ type: "compaction", ...(checkpoint.id ? { id: checkpoint.id } : {}), encrypted_content: checkpoint.encrypted_content });
+            }
+            continue;
+        }
         if (m.role === "system") {
             instructions = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
             continue;

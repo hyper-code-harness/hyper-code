@@ -284,6 +284,13 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
             catch (error) { console.error(`could not schedule reflection for ${agentId}:`, error); }
         }
 
+        // compactContext requires the finalized idle row. Run it in the
+        // background so compaction cannot change the outcome of a successful turn.
+        if (advanceCursor) {
+            void ctx.fns.agent.autoCompactIfNeeded({ agent }).catch((error: any) => {
+                ctx.fns.procs.log.warn({ event: "agent.auto-compact.failed", agentId, msg: String(error?.message ?? error) });
+            });
+        }
     }
 
 }

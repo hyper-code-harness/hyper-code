@@ -10,6 +10,7 @@ declare global {
             acceptMessage: Injected<typeof import("./agent/acceptMessage").default>;
             archiveCompleted: Injected<typeof import("./agent/archiveCompleted").default>;
             archiveMember: Injected<typeof import("./agent/archiveMember").default>;
+            autoCompactIfNeeded: Injected<typeof import("./agent/autoCompactIfNeeded").default>;
             ask: Injected<typeof import("./agent/ask").default>;
             buildDelegatedTaskPrompt: Injected<typeof import("./agent/buildDelegatedTaskPrompt").default>;
             buildLlmRequest: Injected<typeof import("./agent/buildLlmRequest").default>;

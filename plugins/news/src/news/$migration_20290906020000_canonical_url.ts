@@ -1,0 +1,2 @@
+const sql=`ALTER TABLE news.items ADD COLUMN IF NOT EXISTS canonical_url text;CREATE INDEX IF NOT EXISTS news_items_canonical_url_idx ON news.items(canonical_url) WHERE canonical_url IS NOT NULL;`;
+export default{up:async(ctx:Context)=>{await ctx.fns.procs.db.exec({sql})},down:async(ctx:Context)=>{await ctx.fns.procs.db.exec({sql:"DROP INDEX IF EXISTS news.news_items_canonical_url_idx;ALTER TABLE news.items DROP COLUMN IF EXISTS canonical_url"})}};

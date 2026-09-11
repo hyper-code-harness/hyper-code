@@ -15,7 +15,7 @@ describe('settings declared registry + resolution', () => {
         const ctx = await mkTestCtx();
         const item = (await ctx.fns.settings.declared({})).find((i: any) => i.key === 'defaultModel');
         expect(item.source).toBe('default');
-        expect(item.currentValue).toBe('minimax/minimax-m2.7');
+        expect(item.currentValue).toBe('claude-code:claude-opus-5');
     });
 
     test('source = env when env var set, no DB row', async () => {
@@ -42,7 +42,7 @@ describe('settings declared registry + resolution', () => {
 
         // 1. nothing → declared default
         expect(await ctx.fns.settings.get({ module: 'llm', scopeType: 'global', key: 'defaultModel' }))
-            .toBe('minimax/minimax-m2.7');
+            .toBe('claude-code:claude-opus-5');
 
         // 2. with env → env value
         ctx.env.MODEL = 'env-model';

@@ -19,7 +19,7 @@ export default async function (
     const fromSettings = await ctx.fns?.settings?.getString?.({
         module: 'llm', scopeType: 'global', key: 'defaultModel',
     });
-    const model = (opts.model ?? fromSettings ?? 'minimax/minimax-m2.7').trim();
+    const model = (opts.model ?? fromSettings ?? 'claude-code:claude-opus-5').trim();
     const agent = await ctx.fns.agent.start({
         model,
         systemPrompt: opts.systemPrompt ?? '',

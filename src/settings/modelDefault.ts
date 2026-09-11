@@ -4,6 +4,6 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         module: 'llm',
         scopeType: 'global',
         key: 'defaultModel',
-        fallback: ctx.env.MODEL ?? 'minimax/minimax-m2.7',
-    })) ?? (ctx.env.MODEL ?? 'minimax/minimax-m2.7');
+        fallback: ctx.env.MODEL ?? 'claude-code:claude-opus-5',
+    })) ?? (ctx.env.MODEL ?? 'claude-code:claude-opus-5');
 }

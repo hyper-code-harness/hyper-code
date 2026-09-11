@@ -60,7 +60,7 @@ describe('GET/POST /settings/declared', () => {
 
         // Now falls back to declared default.
         expect(await ctx.fns.settings.get({ module: 'llm', scopeType: 'global', key: 'defaultModel' }))
-            .toBe('minimax/minimax-m2.7');
+            .toBe('claude-code:claude-opus-5');
     });
 
     test('POST validates enum and silently ignores bad values', async () => {
@@ -71,7 +71,7 @@ describe('GET/POST /settings/declared', () => {
 
         // Bad enum was rejected — value stays at default.
         expect(await ctx.fns.settings.get({ module: 'llm', scopeType: 'global', key: 'defaultModel' }))
-            .toBe('minimax/minimax-m2.7');
+            .toBe('claude-code:claude-opus-5');
     });
 
     test('POST validates number bounds and ignores NaN', async () => {

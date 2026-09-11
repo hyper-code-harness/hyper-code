@@ -1,9 +1,9 @@
 export default {
     type: 'enum',
     env: 'MODEL',
-    default: 'minimax/minimax-m2.7',
+    default: 'claude-code:claude-opus-5',
     options: [
-        'minimax/minimax-m2.7',
+        'claude-code:claude-opus-5',
         'kimi-coding:k3',
         'kimi-coding:k3-256k',
         'kimi-coding:kimi-for-coding',

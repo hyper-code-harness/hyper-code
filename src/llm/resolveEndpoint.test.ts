@@ -38,9 +38,9 @@ const mkCtx = (env: Record<string, string> = {}) => {
 
 describe("ai.resolveEndpoint", () => {
     test("no prefix → lmstudio default", async () => {
-        const r = await resolve(mkCtx(), null, { model: "minimax/minimax-m2.7" });
+        const r = await resolve(mkCtx(), null, { model: "some-local/model" });
         expect(r.provider).toBe("lmstudio");
-        expect(r.modelId).toBe("minimax/minimax-m2.7");
+        expect(r.modelId).toBe("some-local/model");
         expect(r.url).toBe("http://localhost:1234/v1/chat/completions");
         expect(r.apiKey).toBeNull();
     });

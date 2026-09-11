@@ -19,9 +19,9 @@ const mkCtx = () => {
 describe("agent.start", () => {
     test("creates agent with default shape", async () => {
         const ctx = mkCtx();
-        const agent = await start(ctx, null, { model: "minimax/minimax-m2.7" });
+        const agent = await start(ctx, null, { model: "claude-code:claude-opus-5" });
         expect(agent.id).toBe('a');
-        expect(agent.model).toBe("minimax/minimax-m2.7");
+        expect(agent.model).toBe("claude-code:claude-opus-5");
         expect(agent.systemPrompt).toBe("");
         expect(agent.messages).toEqual([]);
         expect(agent.events).toEqual([]);

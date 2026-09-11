@@ -10,18 +10,23 @@ export default async function (
         localizationBatch?: number;
         /** Rebuild localization and embeddings even when content is unchanged. @default false */
         force?: boolean;
+        /** Generate missing localized retrieval text. Disable for cheap reload-time reindexing. @default true */
+        localize?: boolean;
     } = {},
 ): Promise<{ indexed: number; localized: number; embedded: number; deleted: number; provider: string; failed?: string }> {
     const state = ((ctx.state as any).pluginDocsIndex ??= {});
-    if (state.running) return state.running;
-    const running = runIndex(ctx, opts).finally(() => { if (state.running === running) delete state.running; });
-    state.running = running;
+    // A cheap `localize:false` pass must not satisfy a caller that wants the
+    // expensive localization, so the in-flight guard is keyed by that flag.
+    const key = opts.localize === false ? "runningPlain" : "running";
+    if (state[key]) return state[key];
+    const running = runIndex(ctx, opts).finally(() => { if (state[key] === running) delete state[key]; });
+    state[key] = running;
     return running;
 }
 
 async function runIndex(
     ctx: Context,
-    opts: { localizationBatch?: number; force?: boolean },
+    opts: { localizationBatch?: number; force?: boolean; localize?: boolean },
 ): Promise<{ indexed: number; localized: number; embedded: number; deleted: number; provider: string; failed?: string }> {
     const mounted = (ctx.fns.procs.modules.list({}) as any[]).filter((module: any) => module.plugin);
     const canonical = await Promise.all(mounted.map(async plugin => {
@@ -41,7 +46,7 @@ async function runIndex(
     const previous = new Map(existing.map((row: any) => [row.name, row]));
     const provider = await ctx.fns.embeddings.provider({});
     const model = provider === "off" ? null : await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "model", fallback: "text-embedding-3-large" });
-    const localizationModel = await ctx.fns.settings.modelDefault({});
+    const localizationModel = await ctx.fns.llm.localizationModel({});
     const locales = [...new Set(String(await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "locales", fallback: "ru" }) || "ru").split(",").map(x => x.trim()).filter(Boolean))];
     const localesKey = locales.join(",");
     const localizationIdentity = (hash: string) => Bun.hash(`${hash}|${localizationModel}|${localesKey}`).toString(16);
@@ -50,7 +55,7 @@ async function runIndex(
     const generated = new Map<string, string>();
     const localizationFailed = new Set<string>();
     let failed: string | undefined;
-    if (locales.length && batch.length) {
+    if (opts.localize !== false && locales.length && batch.length) {
         try {
             const localized = await ctx.fns.llm.localize({ functions: batch.map(item => ({ name: item.plugin.name, text: item.text })), locales, model: localizationModel });
             for (const [name, text] of Object.entries(localized.localized)) generated.set(name, text);

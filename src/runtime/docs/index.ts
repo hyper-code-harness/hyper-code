@@ -7,12 +7,17 @@ export default async function (
         localizationBatch?: number;
         /** Rebuild localization and embeddings even when cache identities match. */
         force?: boolean;
+        /** Generate missing localized retrieval text. Disable for cheap reload-time reindexing. @default true */
+        localize?: boolean;
     } = {},
 ): Promise<{ indexed: number; localized: number; pendingLocalization: number; embedded: number; deleted: number; provider: string; failed?: string }> {
     const state = ((ctx.state as any).runtimeDocsIndex ??= {});
-    if (state.running) return state.running;
-    const running = runIndex(ctx, session, opts).finally(() => { if (state.running === running) delete state.running; });
-    state.running = running;
+    // A cheap `localize:false` pass must not satisfy a caller that wants the
+    // expensive localization, so the in-flight guard is keyed by that flag.
+    const key = opts.localize === false ? "runningPlain" : "running";
+    if (state[key]) return state[key];
+    const running = runIndex(ctx, session, opts).finally(() => { if (state[key] === running) delete state[key]; });
+    state[key] = running;
     return running;
 }
 
@@ -22,6 +27,7 @@ async function runIndex(
     opts: {
         localizationBatch?: number;
         force?: boolean;
+        localize?: boolean;
     } = {},
 ): Promise<{ indexed: number; localized: number; pendingLocalization: number; embedded: number; deleted: number; provider: string; failed?: string }> {
     const docs = ctx.fns.runtime.docs.list({}).map((item: any) => ctx.fns.runtime.docs.get({ name: item.name }));
@@ -38,7 +44,7 @@ async function runIndex(
     const previous = new Map(existing.map((row: any) => [row.name, row]));
     const provider = await ctx.fns.embeddings.provider({});
     const model = provider === "off" ? null : await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "model", fallback: "text-embedding-3-large" });
-    const localizationModel = await ctx.fns.settings.modelDefault({});
+    const localizationModel = await ctx.fns.llm.localizationModel({});
     const locales = parseLocales(await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "locales", fallback: "ru" }));
     const localesKey = locales.join(",");
     const canonical: Array<{ doc: any; namespace: string; text: string; hash: string }> = docs.map((doc: any) => {
@@ -55,7 +61,7 @@ async function runIndex(
     let localized = 0;
     const generated = new Map<string, string>();
     const localizationFailed = new Set<string>();
-    if (locales.length && localizationBatch.length) {
+    if (opts.localize !== false && locales.length && localizationBatch.length) {
         try {
             const result = await ctx.fns.llm.localize({ functions: localizationBatch.map(item => ({ name: item.doc.name, text: item.text })), locales, model: localizationModel });
             for (const [name, text] of Object.entries(result.localized)) generated.set(name, text);

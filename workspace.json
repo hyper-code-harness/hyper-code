@@ -35,6 +35,12 @@
     },
     "flow": {
       "path": "plugins/flow"
+    },
+    "docs": {
+      "path": "~/.hyper/user/docs"
+    },
+    "applehealth": {
+      "path": "/Users/niquola/.hyper/user/applehealth"
     }
   }
 }

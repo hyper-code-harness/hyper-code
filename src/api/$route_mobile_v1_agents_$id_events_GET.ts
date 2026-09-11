@@ -72,6 +72,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         agentId: id,
         events: mobileEvents,
         nextAfter: maxIdx + 1,
+        olderBefore: events.length > 0 ? Number(events[0]?.idx ?? 0) : null,
         hasOlder: events.length > 0 && Number(events[0]?.idx ?? 0) > 0,
         isRunning,
         runState: status?.run_state || "idle",

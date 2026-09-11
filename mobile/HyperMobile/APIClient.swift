@@ -4,6 +4,10 @@ struct APIClient {
     private struct SendBody: Encodable { let text: String; let debounceMs: Int }
     private struct PinBody: Encodable { let pinned: Bool }
     let baseURL: URL
+    private struct HealthSamplesBody: Encodable { let kind: String; let samples: [HealthSampleUpload] }
+
+    private struct SleepSyncBody: Encodable { let sessions: [SleepUploadSession] }
+
     private struct NewsAgentBody: Encodable { let id: String; let prompt: String }
     private struct NewsReadBody: Encodable { let id: String }
     private struct NewsLikeBody: Encodable { let id: String; let liked: Bool }
@@ -54,6 +58,21 @@ struct APIClient {
         try await request(path: "api/mobile/v1/news/agent", method: "POST", body: NewsAgentBody(id: id, prompt: prompt))
     }
 
+
+
+    func healthStatus() async throws -> HealthServerStatus {
+        try await request(path: "api/mobile/v1/health/status")
+    }
+
+
+    func syncHealthSamples(kind: String, samples: [HealthSampleUpload]) async throws -> HealthSamplesResponse {
+        try await request(path: "api/mobile/v1/health/samples", method: "POST", body: HealthSamplesBody(kind: kind, samples: samples))
+    }
+
+
+    func syncSleep(_ sessions: [SleepUploadSession]) async throws -> SleepSyncResponse {
+        try await request(path: "api/mobile/v1/health/sleep", method: "POST", body: SleepSyncBody(sessions: sessions))
+    }
 
 
     func newAgentOptions() async throws -> NewAgentOptions {
@@ -164,7 +183,9 @@ struct APIClient {
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
-            request.httpBody = try JSONEncoder().encode(body)
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            request.httpBody = try encoder.encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         let (data, response) = try await session.data(for: request)
@@ -182,7 +203,11 @@ struct APIClient {
             let api = try? JSONDecoder().decode(APIErrorBody.self, from: data)
             throw APIClientError.server(api?.message ?? api?.error ?? "HTTP \(http.statusCode)")
         }
-        do { return try JSONDecoder().decode(T.self, from: data) }
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode(T.self, from: data)
+        }
         catch { throw APIClientError.decoding(error.localizedDescription) }
     }
 }

@@ -5,6 +5,7 @@ struct NativeRootView: View {
     @AppStorage("hyper.tunnelDefault.v1") private var tunnelDefaultApplied = false
     @StateObject private var store = AgentListStore()
     @State private var showingSettings = false
+    @State private var showingHealth = false
     @State private var showingWeb = false
     @State private var showingNewAgent = false
     @State private var createdAgentToOpen: AgentSummary?
@@ -89,6 +90,7 @@ struct NativeRootView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     NavigationLink { if let baseURL { NewsReaderView(baseURL: baseURL) } } label: { Image(systemName: "newspaper") }.accessibilityLabel("News")
                     Button { showingWeb = true } label: { Image(systemName: "safari") }
+                    Button { showingHealth = true } label: { Image(systemName: "heart.text.square") }.accessibilityLabel("Health Sync")
                     Button { showingSettings = true } label: { Image(systemName: "gearshape") }
                 }
             }
@@ -109,6 +111,7 @@ struct NativeRootView: View {
             if let baseURL { NativeChatView(agent: agent, baseURL: baseURL, onRead: { Task { await reload() } }, onNextUnread: { openNextUnread(after: agent.id) }).id(agent.id) }
         }
         .sheet(isPresented: $showingNewAgent) { if let baseURL { NewAgentView(baseURL: baseURL) { created in showingNewAgent = false; openCreatedAgent(created) } } }
+        .sheet(isPresented: $showingHealth) { if let baseURL { HealthSyncView(baseURL: baseURL) } }
         .sheet(isPresented: $showingSettings) { NativeSettingsView(serverURL: $serverURL) { Task { await reload() } } }
         .sheet(isPresented: $showingWeb) { NavigationStack { HyperWebViewScreen(urlString: serverURL) } }
         .sheet(isPresented: $needsLogin) { NativeLoginView(password: $loginPassword, error: loginError, isLoading: isLoggingIn) { login() } }

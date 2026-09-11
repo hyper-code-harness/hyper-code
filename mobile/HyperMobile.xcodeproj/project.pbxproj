@@ -28,6 +28,11 @@
 		100000000000000000000013 /* HyperMarkdownTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* HyperMarkdownTheme.swift */; };
 		100000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* Assets.xcassets */; };
 		100000000000000000000015 /* NativePadRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NativePadRootView.swift */; };
+		100000000000000000000016 /* HealthKitSleepSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* HealthKitSleepSync.swift */; };
+		100000000000000000000017 /* HealthSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* HealthSyncView.swift */; };
+		100000000000000000000018 /* MessagingUI in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000004 /* MessagingUI */; };
+		100000000000000000000019 /* ChatTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* ChatTimelineView.swift */; };
+		10000000000000000000001A /* HealthSyncScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* HealthSyncScheduler.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +58,11 @@
 		200000000000000000000014 /* HyperMarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyperMarkdownTheme.swift; sourceTree = "<group>"; };
 		200000000000000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		200000000000000000000016 /* NativePadRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePadRootView.swift; sourceTree = "<group>"; };
+		200000000000000000000017 /* HealthKitSleepSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepSync.swift; sourceTree = "<group>"; };
+		200000000000000000000018 /* HealthSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncView.swift; sourceTree = "<group>"; };
+		200000000000000000000019 /* HyperMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HyperMobile.entitlements; sourceTree = "<group>"; };
+		20000000000000000000001A /* ChatTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTimelineView.swift; sourceTree = "<group>"; };
+		20000000000000000000001B /* HealthSyncScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncScheduler.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +71,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				100000000000000000000011 /* MarkdownUI in Frameworks */,
+				100000000000000000000018 /* MessagingUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,6 +109,11 @@
 				200000000000000000000014 /* HyperMarkdownTheme.swift */,
 				200000000000000000000015 /* Assets.xcassets */,
 				200000000000000000000016 /* NativePadRootView.swift */,
+				200000000000000000000017 /* HealthKitSleepSync.swift */,
+				200000000000000000000018 /* HealthSyncView.swift */,
+				200000000000000000000019 /* HyperMobile.entitlements */,
+				20000000000000000000001A /* ChatTimelineView.swift */,
+				20000000000000000000001B /* HealthSyncScheduler.swift */,
 				200000000000000000000004 /* Info.plist */,
 			);
 			path = HyperMobile;
@@ -129,6 +145,7 @@
 			name = HyperMobile;
 			packageProductDependencies = (
 				A00000000000000000000002 /* MarkdownUI */,
+				A00000000000000000000004 /* MessagingUI */,
 			);
 			productName = Hyper;
 			productReference = 200000000000000000000005 /* Hyper.app */;
@@ -160,6 +177,7 @@
 			mainGroup = 400000000000000000000001;
 			packageReferences = (
 				A00000000000000000000001 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				A00000000000000000000003 /* XCRemoteSwiftPackageReference "swiftui-messaging-ui" */,
 			);
 			productRefGroup = 400000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -205,6 +223,10 @@
 				100000000000000000000012 /* NewsReaderView.swift in Sources */,
 				100000000000000000000013 /* HyperMarkdownTheme.swift in Sources */,
 				100000000000000000000015 /* NativePadRootView.swift in Sources */,
+				100000000000000000000016 /* HealthKitSleepSync.swift in Sources */,
+				100000000000000000000017 /* HealthSyncView.swift in Sources */,
+				100000000000000000000019 /* ChatTimelineView.swift in Sources */,
+				10000000000000000000001A /* HealthSyncScheduler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -217,8 +239,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = HyperMobile/HyperMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = A4332S5P69;
 				ENABLE_PREVIEWS = YES;
@@ -249,8 +272,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = HyperMobile/HyperMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = A4332S5P69;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -334,6 +358,11 @@
 				version = 2.4.1;
 			};
 		};
+		A00000000000000000000003 /* XCRemoteSwiftPackageReference "swiftui-messaging-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidGroup/swiftui-messaging-ui.git";
+			requirement = { kind = upToNextMajorVersion; minimumVersion = 1.0.0; };
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -341,6 +370,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A00000000000000000000001 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
+		};
+		A00000000000000000000004 /* MessagingUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A00000000000000000000003 /* XCRemoteSwiftPackageReference "swiftui-messaging-ui" */;
+			productName = MessagingUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -28,6 +28,13 @@ struct ReadNewsResponse: Codable { let version: Int; let id: String; let read: B
 
 
 struct NewsAgentResponse: Codable { let version: Int; let id: String; let workspaceDir: String; let started: Bool }
+struct SleepUploadSession: Codable { let recordedAt: Date; let sleepStart: Date?; let sleepEnd: Date?; let inBedStart: Date?; let inBedEnd: Date?; let totalMinutes: Int; let deepMinutes: Int; let remMinutes: Int; let coreMinutes: Int; let awakeMinutes: Int; let source: String }
+struct SleepSyncResponse: Codable { let version: Int; let ok: Bool; let inserted: Int; let updated: Int }
+struct HealthSampleUpload: Codable { let id: String; let recordedAt: Date; let startAt: Date?; let endAt: Date?; let value: [String: Double]; let source: String }
+struct HealthSamplesResponse: Codable { let version: Int; let ok: Bool; let inserted: Int; let updated: Int }
+struct HealthServerMetric: Codable, Identifiable { let kind: String; let samples: Int; let earliestMetric: Date?; let latestMetric: Date?; let latestRecentMetric: Date?; let latestUpload: Date?; var id: String { kind } }
+struct CanonicalSleepStatus: Codable { let recordedAt: Date?; let sleepEnd: Date?; let totalMinutes: Int? }
+struct HealthServerStatus: Codable { let version: Int; let metrics: [HealthServerMetric]; let canonicalSleep: CanonicalSleepStatus? }
 struct NewAgentOptions: Codable {
     let version: Int
     let defaultModel: String
@@ -65,6 +72,7 @@ struct EventsResponse: Codable {
     let agentId: String
     let events: [MobileEvent]
     let nextAfter: Int
+    let olderBefore: Int?
     let hasOlder: Bool
     let isRunning: Bool
     let runState: String

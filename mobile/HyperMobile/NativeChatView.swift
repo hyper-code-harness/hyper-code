@@ -2,6 +2,7 @@ import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 import MarkdownUI
+import MessagingUI
 
 private enum ChatItem: Identifiable {
     case event(MobileEvent)
@@ -53,54 +54,42 @@ struct NativeChatView: View {
         flush(); return result
     }
 
+    private var timelineRows: [ChatTimelineRow] {
+        var rows = items.map { item -> ChatTimelineRow in
+            switch item {
+            case .event(let event): return .init(id: item.id, kind: .event(event))
+            case .tools(let tools): return .init(id: item.id, kind: .tools(tools))
+            }
+        }
+        if let pending = store.pendingUserEvent { rows.append(.init(id: "pending-user", kind: .pending(pending))) }
+        if let partial = store.partial { rows.append(.init(id: "live-assistant", kind: .partial(partial))) }
+        return rows
+    }
+
     var body: some View {
         ZStack {
             DotGridBackground()
             VStack(spacing: 0) {
             if let error = store.error { ErrorBanner(message: error) }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 10) {
-                        if store.isLoading { ProgressView().padding() }
-                        ForEach(items) { item in
-                            switch item {
-                            case .event(let event): EventBubble(event: event, agentID: agent.id, baseURL: baseURL)
-                            case .tools(let tools): ToolTray(events: tools) { selectedToolGroup = ToolGroupSelection(events: tools) }
-                            }
-                        }
-                        if let pending = store.pendingUserEvent {
-                            EventBubble(event: pending, agentID: agent.id, baseURL: baseURL)
-                                .id("pending-user")
-                        }
-                        if let partial = store.partial {
-                            LiveAssistantBubble(partial: partial)
-                                .id("live-assistant")
-                        }
-                    }.frame(maxWidth: 860).padding(.horizontal, 20).padding(.vertical, 12)
-                    .transaction { $0.animation = nil }
-                }
-                .scrollDismissesKeyboard(.immediately)
-                .contentShape(Rectangle())
-                .simultaneousGesture(TapGesture().onEnded { focused = false })
-                .defaultScrollAnchor(.bottom)
-                .onChange(of: store.events.last?.idx) { _, _ in
-                    if let last = items.last {
-                        var transaction = Transaction()
-                        transaction.disablesAnimations = true
-                        withTransaction(transaction) { proxy.scrollTo(last.id, anchor: .bottom) }
+            ChatTimelineView(
+                rows: timelineRows,
+                hasOlder: store.hasOlder,
+                isLoadingOlder: store.isLoadingOlder,
+                loadOlder: { await store.loadOlder(baseURL: baseURL, agentID: agent.id) },
+                dismissKeyboard: { focused = false }
+            ) { row in
+                Group {
+                    switch row.kind {
+                    case .event(let event), .pending(let event): EventBubble(event: event, agentID: agent.id, baseURL: baseURL)
+                    case .tools(let tools): ToolTray(events: tools) { selectedToolGroup = ToolGroupSelection(events: tools) }
+                    case .partial(let partial): LiveAssistantBubble(partial: partial)
                     }
                 }
-                .onChange(of: store.pendingUserEvent?.ts) { _, value in
-                    guard value != nil else { return }
-                    var transaction = Transaction(); transaction.disablesAnimations = true
-                    withTransaction(transaction) { proxy.scrollTo("pending-user", anchor: .bottom) }
-                }
-                .onChange(of: store.partial?.revision) { _, revision in
-                    guard revision != nil else { return }
-                    var transaction = Transaction(); transaction.disablesAnimations = true
-                    withTransaction(transaction) { proxy.scrollTo("live-assistant", anchor: .bottom) }
-                }
+                .frame(maxWidth: 860)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 5)
             }
+            .scrollDismissesKeyboard(.immediately)
                 AttachmentComposer(text: $draft, attachments: $attachments, focused: $focused, resetID: composerResetID, sending: store.isSending, running: store.isRunning, injectText: injectText, injectEvery: injectEvery, send: sendAction, stop: stopAction)
                     .frame(maxWidth: 860)
                     .frame(maxWidth: .infinity)
@@ -109,10 +98,10 @@ struct NativeChatView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(agent.title).navigationBarTitleDisplayMode(.inline)
         .offset(x: swipeTranslation)
-        .highPriorityGesture(
-            DragGesture(minimumDistance: 14)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 18)
                 .onChanged { value in
-                    let horizontal = abs(value.translation.width) > abs(value.translation.height) * 1.05
+                    let horizontal = abs(value.translation.width) > abs(value.translation.height) * 1.5
                     guard horizontal else { return }
                     if value.startLocation.x < 32, value.translation.width > 0 {
                         swipeTranslation = min(90, value.translation.width * 0.35)
@@ -148,6 +137,7 @@ struct NativeChatView: View {
             Button("OK") { actionMessage = nil }
         } message: { Text(actionMessage ?? "") }
     }
+
 
     @ToolbarContentBuilder private var chatToolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {

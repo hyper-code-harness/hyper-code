@@ -44,9 +44,14 @@ final class ChatStore: ObservableObject {
     @Published var error: String?
     @Published var partial: PartialAssistant?
     @Published var pendingUserEvent: MobileEvent?
+    @Published var hasOlder = false
+    @Published var isLoadingOlder = false
+    @Published var historyRevision = 0
+    @Published var historyAnchorID: Int?
     private var nextAfter = 0
     private var pollTask: Task<Void, Never>?
     private var pollInFlight = false
+    private var olderBefore: Int?
 
     func start(baseURL: URL, agentID: String) async {
         pollTask?.cancel()
@@ -55,6 +60,8 @@ final class ChatStore: ObservableObject {
             let page = try await APIClient(baseURL: baseURL).events(agentID: agentID, limit: 100)
             _ = try? await APIClient(baseURL: baseURL).markRead(agentID: agentID)
             events = page.events
+            olderBefore = page.olderBefore
+            hasOlder = page.hasOlder
             nextAfter = page.nextAfter
             isRunning = page.isRunning
             error = nil
@@ -68,6 +75,20 @@ final class ChatStore: ObservableObject {
                 await self.poll(baseURL: baseURL, agentID: agentID)
             }
         }
+    }
+
+    func loadOlder(baseURL: URL, agentID: String) async {
+        guard hasOlder, !isLoadingOlder, let before = olderBefore else { return }
+        isLoadingOlder = true; defer { isLoadingOlder = false }
+        do {
+            let previousFirst = events.first?.idx
+            let page = try await APIClient(baseURL: baseURL).events(agentID: agentID, before: before, limit: 100)
+            merge(page.events)
+            olderBefore = page.olderBefore
+            hasOlder = page.hasOlder
+            historyAnchorID = previousFirst
+            historyRevision += 1
+        } catch { self.error = error.localizedDescription }
     }
 
     func stopPolling() { pollTask?.cancel(); pollTask = nil }

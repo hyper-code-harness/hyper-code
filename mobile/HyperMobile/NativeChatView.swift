@@ -33,6 +33,7 @@ struct NativeChatView: View {
     @State private var showingModelPicker = false
     @State private var currentModel: String
     @State private var showingInjectEditor = false
+    @State private var showingFiles = false
     @State private var injectText = ""
     @State private var injectEvery = 1
 
@@ -129,6 +130,7 @@ struct NativeChatView: View {
         .sheet(item: $selectedTool) { event in ToolDetailSheet(baseURL: baseURL, agentID: agent.id, event: event) }
         .sheet(isPresented: $showingModelPicker) { ModelPickerSheet(baseURL: baseURL, agentID: agent.id, selection: $currentModel) }
         .sheet(isPresented: $showingInjectEditor) { InjectEditorSheet(baseURL: baseURL, agentID: agent.id, text: $injectText, every: $injectEvery) }
+        .fullScreenCover(isPresented: $showingFiles) { FileBrowserView(baseURL: baseURL, workspacePath: agent.workspaceDir) }
         .alert("Delete this chat?", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) { deleteChat() }
@@ -147,6 +149,7 @@ struct NativeChatView: View {
             Menu {
                 Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
                 Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
+                Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
                 Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
                 Divider()
                 Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)

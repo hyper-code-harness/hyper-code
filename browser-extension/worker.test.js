@@ -15,8 +15,9 @@ async function worker(saved, cold = false) {
       expect(options.get(x.tabId)?.enabled).toBe(true); opened.push(x);
     }},
     action: {onClicked: event('click')},
+    commands: {onCommand: event('command')},
     runtime: {id: 'test', getURL: path => `chrome-extension://test/${path}`, sendMessage: async () => {}, onInstalled: event('install'), onStartup: event('startup'), onMessage: event('message')},
-    tabs: {query: async () => [...tabs.values()], get: async id => { if (!tabs.has(id)) throw Error('Missing tab'); return tabs.get(id); },
+    tabs: {query: async query => query?.currentWindow ? [...tabs.values()].map((tab, index) => ({...tab, index, active: index === 0})) : [...tabs.values()], get: async id => { if (!tabs.has(id)) throw Error('Missing tab'); return tabs.get(id); }, update: async (id, changes) => Object.assign(tabs.get(id), changes),
       ...Object.fromEntries(['Created', 'Removed', 'Updated', 'Replaced', 'Attached', 'Activated'].map(name => [`on${name}`, event(name)]))},
   };
   const context = vm.createContext({chrome, ...helpers, crypto, console, URL, AbortSignal, fetch: async () => { throw Error('Unexpected network'); }});

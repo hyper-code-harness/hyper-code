@@ -129,6 +129,18 @@ chrome.action.onClicked.addListener(tab => {
     pendingActions.delete(tab.id);
   }).catch(error => console.error('Sidebar action state:', error));
 });
+chrome.commands.onCommand.addListener(event(async command => {
+  if (command !== 'previous-tab' && command !== 'next-tab') return;
+  const tabs = (await chrome.tabs.query({currentWindow: true})).filter(tab => Number.isInteger(tab.index));
+  if (tabs.length < 2) return;
+  tabs.sort((a, b) => a.index - b.index);
+  const current = tabs.findIndex(tab => tab.active);
+  if (current < 0) return;
+  const step = command === 'next-tab' ? 1 : -1;
+  const target = tabs[(current + step + tabs.length) % tabs.length];
+  await chrome.tabs.update(target.id, {active: true});
+}));
+
 chrome.runtime.onInstalled.addListener(event(boot));
 chrome.runtime.onStartup.addListener(event(boot));
 chrome.tabs.onCreated.addListener(event(ensure));

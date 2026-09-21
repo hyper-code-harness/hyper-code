@@ -8,6 +8,10 @@
   "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
   "background": {"service_worker": "worker.js", "type": "module"},
   "action": {"default_title": "Open Hyper sidebar"},
+  "commands": {
+    "previous-tab": {"suggested_key": {"default": "Ctrl+K", "mac": "MacCtrl+K"}, "description": "Go to previous tab"},
+    "next-tab": {"suggested_key": {"default": "Ctrl+J", "mac": "MacCtrl+J"}, "description": "Go to next tab"}
+  },
   "side_panel": {"default_path": "panel.html"},
   "options_ui": {"page": "options.html", "open_in_tab": true},
   "content_security_policy": {

@@ -8,6 +8,8 @@
     "repl": "bun script/repl.ts",
     "hyper": "bun script/hyper.ts",
     "cli": "bun script/cli.ts",
+    "extension:watch": "bun script/watch-extension.ts",
+    "extension:reload": "bun script/watch-extension.ts --once",
     "test": "bun test"
   },
   "devDependencies": {

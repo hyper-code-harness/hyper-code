@@ -64,33 +64,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         html: stopControlHtml,
     });
 
-    const reflectionHtml = await ctx.fns.ui.reflectionDropdown({ agent });
-    // Switching and creating agents live in the rail on the far left — the
-    const sleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: agent.sleepContext });
-    const activeSleep = sleep ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" }) : null;
-    const draftSleep = sleep ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "draft" }) : null;
-    const shownSleep = draftSleep ?? activeSleep;
-    const sleepState = shownSleep?.state ?? {};
-    const fullCount = (await ctx.fns.session.getFullMessages({ id })).length;
-    const tailCount = activeSleep ? Math.max(0, fullCount - Number(activeSleep.sourceOffset ?? 0)) : 0;
-    const sleepControl = sleep && shownSleep ? await ctx.fns.ui.inplacePopup({
-        id: `sleep-popover-${id}`,
-        triggerHtml: `<i class="ph ${sleep.mode === 'compact' ? 'ph-moon-stars' : 'ph-moon'}"></i>${draftSleep ? `<span class="ml-0.5 rounded-full bg-amber-100 px-1 text-[9px] text-amber-700">v${draftSleep.revision}</span>` : ''}`,
-        triggerAttrs: `class="px-1 ${sleep.mode === 'compact' ? 'text-indigo-600' : 'text-amber-500'} hover:text-indigo-700" title="${sleep.mode === 'compact' ? `compact v${sleep.activeRevision} · tail ${tailCount}` : `sleep draft v${sleep.draftRevision ?? shownSleep.revision}`}" aria-label="Sleep context"`,
-        panelAttrs: 'aria-label="Sleep context"',
-        contentHtml: `<div class="font-medium text-base-content/80">${sleep.mode === 'compact' ? `Active v${sleep.activeRevision} · tail ${tailCount}` : 'Full history active'}${draftSleep ? ` · draft v${draftSleep.revision} ready` : ''}</div>
-        <div class="mt-2 text-base-content/65">${esc(sleepState.situation ?? 'No situation summary')}</div>
-        ${sleepState.nextStep ? `<div class="mt-2 text-base-content/55"><span class="font-medium">Next:</span> ${esc(sleepState.nextStep)}</div>` : ''}
-        ${(sleepState.openWork ?? []).length ? `<div class="mt-3 border-t border-gray-100 pt-2 font-medium text-base-content/70">Open work</div><ul class="mt-1 list-disc space-y-1 pl-4 text-base-content/55">${sleepState.openWork.slice(0, 5).map((x: any) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-        <div class="mt-3 flex flex-wrap gap-2">${draftSleep ? `<form hx-post="/agent/${encodeURIComponent(id)}/sleep" hx-swap="none"><input type="hidden" name="action" value="activate"><input type="hidden" name="revision" value="${draftSleep.revision}">${ctx.fns.procs.ui.button({ action: 'activate-sleep-draft', label: `Use draft v${draftSleep.revision}`, type: 'submit', appearance: 'plain', class: 'rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-700' })}</form>` : ''}${sleep.mode === 'compact' ? `<form hx-post="/agent/${encodeURIComponent(id)}/sleep" hx-swap="none"><input type="hidden" name="action" value="deactivate">${ctx.fns.procs.ui.button({ action: 'deactivate-sleep-context', label: 'Show full history', type: 'submit', appearance: 'plain', class: 'rounded border border-ui-border px-2 py-1 text-xs text-base-content/65' })}</form>` : ''}<form hx-post="/agent/${encodeURIComponent(id)}/sleep" hx-swap="none"><input type="hidden" name="action" value="prepare">${ctx.fns.procs.ui.button({ action: 'prepare-sleep-context', label: 'Build next draft', type: 'submit', appearance: 'plain', class: 'rounded border border-ui-border px-2 py-1 text-xs text-base-content/55' })}</form></div>`,
-    }) : `<form hx-post="/agent/${encodeURIComponent(id)}/sleep" hx-swap="none" class="inline"><input type="hidden" name="action" value="prepare">${ctx.fns.procs.ui.button({ action: 'prepare-sleep-context', html: '<i class="ph ph-bed"></i>', type: 'submit', appearance: 'plain', title: 'prepare compact sleep context', class: 'px-1 text-base-content/45 hover:text-indigo-700' })}</form>`;
-    // Use the same turn/TTL calculation as the LLM request builder, so the UI
-    // shows exactly the reflection instruction that is currently injected.
-    const activeInstructions = await ctx.fns.agent.statusLineForTurn({ agent });
-    const reflectionNudge = activeInstructions
-        .split('\n')
-        .find((line: string) => line.startsWith('Reflection nudge: '))
-        ?.slice('Reflection nudge: '.length) ?? '';
     const compactPopup = await ctx.fns.ui.inplacePopup({
         id: `compact-popover-${id}`,
         triggerHtml: '<i class="ph ph-arrows-in-line-vertical"></i>',
@@ -144,12 +117,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
   </span>
    ${agent.parentId ? `<a href="/agent/${encodeURIComponent(String(agent.parentId))}" class="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-amber-700 hover:bg-amber-100 hover:text-amber-900" title="forked from ${esc(parent?.title || agent.parentId)} · inherited ${inheritedCount} msgs" aria-label="Back to parent agent ${esc(parent?.title || agent.parentId)}"><i class="ph ph-arrow-bend-up-left mr-0.5"></i>${esc(String(parent?.title || agent.parentId).slice(0, 24))}</a>` : ""}
   ${statusBarHtml}
-  <span class="ml-auto flex items-center gap-1 [&_[title]]:relative [&_[title]]:after:pointer-events-none [&_[title]]:after:absolute [&_[title]]:after:right-0 [&_[title]]:after:top-full [&_[title]]:after:z-[70] [&_[title]]:after:mt-1 [&_[title]]:after:hidden [&_[title]]:after:whitespace-nowrap [&_[title]]:after:rounded [&_[title]]:after:bg-base-content [&_[title]]:after:px-2 [&_[title]]:after:py-1 [&_[title]]:after:text-[10px] [&_[title]]:after:text-base-100 [&_[title]]:after:content-[attr(title)] [&_[title]]:hover:after:block [&_[title]]:focus-visible:after:block">
+  <span class="ml-auto flex items-center gap-1">
     ${effortControl}
-    ${reflectionHtml}
     ${compactPopup}
-
-    ${sleepControl}
 
     ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-base-content/45 hover:text-indigo-600"' })}
 
@@ -159,14 +129,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 
     <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" title="agent page" class="px-1 text-base-content/45 hover:text-base-content/70">ⓘ</a>
     <span class="mx-1 h-5 w-px bg-ui-border" aria-hidden="true"></span>
-    <span class="flex items-center gap-1 rounded-md border border-red-200/70 bg-red-50/60 px-0.5">
     <form method="POST" action="/agent/${encodeURIComponent(id)}/archive" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'px-1 text-base-content/45 hover:text-base-content/70' })}
+      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'rounded px-1 text-base-content/45 hover:bg-red-50 hover:text-red-600' })}
     </form>
     <form method="POST" action="/agent/${encodeURIComponent(id)}/delete" hx-boost="false" class="inline" onsubmit="return confirm('delete ${esc(id)}? The transcript goes with it.')">
-      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'px-1 text-base-content/45 hover:text-red-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'rounded px-1 text-base-content/45 hover:bg-red-50 hover:text-red-600' })}
     </form>
-    </span>
   </span>
 </header>
 <div id="messages" data-agent-id="${esc(id)}" data-inherited-count="${inheritedCount}" style="overflow-anchor:none" class="dot-grid-surface chat-dot-grid flex-1 overflow-y-auto px-3 py-3 space-y-2">${historyHead}${eventsHtml}
@@ -177,7 +145,6 @@ ${agent.sleepContext?.active === true
 ${await ctx.fns.ui.chatComposer({ action: `/agent/${encodeURIComponent(id)}?debounceSeconds=0.1`, controlsHtml: stopControlRegion, statusHtml: statusLinePopup })}
 
 <form id="status-line-form-${esc(id)}" hx-post="/agent/${encodeURIComponent(id)}/status-line" hx-target="#status-line-label-${esc(id)}" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) document.getElementById('status-line-popover-${esc(id)}')?.hidePopover()"></form>
-  ${reflectionNudge ? `<div class="flex items-start gap-2 border-t border-violet-100 bg-violet-50/60 px-3 py-2 text-[11px] leading-4 text-violet-700" title="Active reflection instruction"><i class="ph ph-brain mt-0.5 shrink-0" aria-hidden="true"></i><span class="min-w-0 flex-1">${esc(reflectionNudge)}</span>${ctx.fns.procs.ui.button({ action: 'dismiss-reflection-nudge', html: '<i class="ph ph-x"></i>', appearance: 'plain', post: `/agent/${encodeURIComponent(id)}/reflection-nudge/delete`, target: 'closest div', swap: 'outerHTML', title: 'Dismiss reflection nudge', ariaLabel: 'Dismiss reflection nudge', class: '-mr-1 -mt-1 inline-flex size-6 shrink-0 items-center justify-center rounded text-violet-400 hover:bg-violet-100 hover:text-violet-700' })}</div>` : ''}
 
 `;
 }

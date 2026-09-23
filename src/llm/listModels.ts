@@ -118,6 +118,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         // Current Claude Platform aliases verified against Anthropic's live
         // Models overview. Availability remains account/plan-specific.
         "claude-opus-5",
+        "claude-opus-5-5",
         "claude-fable-5",
         "claude-fable-5-1",
     ];

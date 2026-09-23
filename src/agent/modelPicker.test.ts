@@ -74,6 +74,18 @@ describe("agent.modelPicker", () => {
         expect((await ctx.fns.session.load({ id: agent.id })).model).toBe("mock:other");
     });
 
+    test("shows the model count and keeps quota-exhausted accounts selectable", async () => {
+        const ctx: any = await mkTestCtx();
+        const agent = await ctx.fns.agent.start({ model: "codex:gpt-test" });
+        ctx.fns.llm.listModels = async () => ({ "claude-code": ["claude-code:claude-haiku-4-5", "claude-code:claude-sonnet-5", "claude-code:claude-opus-5"] });
+        ctx.fns.llm.listAccounts = async () => ([{ provider: "claude-code", account: "default", available: false, needsReconnect: false, usedPercent: 100, planType: "team" }]);
+        const html = await (await ctx.fns.agent.modelPicker({ agentId: agent.id })).text();
+        expect(html).toContain("3 models");
+        expect(html).toContain("claude-code:claude-opus-5");
+        expect(html).not.toMatch(/claude-code:claude-opus-5[\s\S]*?disabled/);
+    });
+
+
     test("renders reconnect-required accounts and disables their models", async () => {
         const ctx: any = await mkTestCtx();
         const agent = await ctx.fns.agent.start({ model: "codex:gpt-test" });

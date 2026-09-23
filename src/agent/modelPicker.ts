@@ -63,7 +63,7 @@ export default async function (
 
     const providerNav = entries.map((entry, providerIndex) => {
         const selected = entry.provider === currentRoute.provider || (!entries.some(e => e.provider === currentRoute.provider) && providerIndex === 0);
-        const html = `${ctx.fns.ui.modelLogo({ model: entry.models[0] ?? entry.provider + ":?", bare: true, compact: true })}<span class="truncate">${esc(labels[entry.provider] ?? entry.provider)}</span><span class="ml-auto text-[10px] text-base-content/35">${entry.accounts.length}</span>`;
+        const html = `${ctx.fns.ui.modelLogo({ model: entry.models[0] ?? entry.provider + ":?", bare: true, compact: true })}<span class="truncate">${esc(labels[entry.provider] ?? entry.provider)}</span><span class="ml-auto text-[10px] text-base-content/35">${entry.models.length} models</span>`;
         return ctx.fns.procs.ui.button({ action: "select-model-provider", html, ariaLabel: `Show ${labels[entry.provider] ?? entry.provider} accounts`, class: `flex w-full items-center gap-2 rounded-lg text-left text-xs ${selected ? "bg-primary/10 font-medium text-primary" : "text-base-content/60"}`, attrs: { "data-model-provider-tab": true, "aria-selected": selected, onclick: providerScript(providerIndex) } });
     }).join("");
 
@@ -83,7 +83,7 @@ export default async function (
                 const selected = target === current;
                 const modelId = parseRoute(target).modelId;
                 const html = `<span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium">${esc(modelId)}</span><span class="block truncate font-mono text-[9px] text-base-content/35">${esc(target)}</span></span>${selected ? '<i class="ph ph-check-circle text-primary" aria-hidden="true"></i>' : '<i class="ph ph-arrow-right text-base-content/25" aria-hidden="true"></i>'}`;
-                return `<form hx-post="/agent/${encodeURIComponent(id)}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(target)}"><input type="hidden" name="scope" value="agent">${ctx.fns.procs.ui.button({ action: "select-model", html, type: "submit", disabled: selected || !account.available, class: `flex w-full items-center gap-2 rounded-lg text-left ${selected ? "border-primary/30 bg-primary/10 text-primary" : "text-base-content/70"}`, attrs: selected ? { "aria-current": "true" } : {} })}</form>`;
+                return `<form hx-post="/agent/${encodeURIComponent(id)}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(target)}"><input type="hidden" name="scope" value="agent">${ctx.fns.procs.ui.button({ action: "select-model", html, type: "submit", disabled: selected || account.needsReconnect, class: `flex w-full items-center gap-2 rounded-lg text-left ${selected ? "border-primary/30 bg-primary/10 text-primary" : "text-base-content/70"}`, attrs: selected ? { "aria-current": "true" } : {} })}</form>`;
             }).join("");
             return `<section data-model-account-panel class="${accountSelected ? "" : "hidden "}min-h-0"><div class="mb-2 flex items-center justify-between gap-2"><div><h3 class="text-xs font-semibold">${esc(account.account === "default" ? "main" : account.account)}</h3><p class="text-[9px] text-base-content/40">${esc(`${entry.provider}${account.account === "default" ? "" : `/${account.account}`}:`)}</p></div>${account.planType ? `<span class="badge badge-sm">${esc(planName(entry.provider, account.planType))}</span>` : ""}</div><div class="grid gap-1.5">${rows}</div></section>`;
         }).join("");

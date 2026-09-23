@@ -24,7 +24,7 @@ async function cdp(wsUrl: string, method: string, params: Record<string, unknown
 async function reload() {
   const response = await fetch(`${browserUrl}/json/list`, { signal: AbortSignal.timeout(3000) });
   if (!response.ok) throw new Error(`Chrome CDP returned HTTP ${response.status}`);
-  const targets: any[] = await response.json();
+  const targets = await response.json() as any[];
   const worker = targets.find(target =>
     target.type === "service_worker" &&
     String(target.url).startsWith("chrome-extension://") &&

@@ -70,7 +70,7 @@ describe("ui.layout", () => {
     test("sidebar presentation reuses the live page without navigation and keeps popup hosts", async () => {
         const ctx: any = await mkTestCtx();
         const url = new URL("http://localhost/agent/ab?presentation=sidebar");
-        const session: any = { url, req: new Request(url) };
+        const session: any = { url, req: new Request(url.toString()) };
         const main = '<div data-page="agent"><section id="chat-panel"><header>Chat</header><div id="messages" data-stream="live"></div></section><aside id="agent-meta-ab">Meta</aside></div>';
         const html = await ctx.state.registry.ui.layout(ctx, session, { main, currentId: "ab" });
         expect(html).toContain(main);
@@ -97,7 +97,7 @@ describe("ui.layout", () => {
         const ctx: any = await mkTestCtx();
         for (const query of ["", "?presentation=other", "?presentation=sidebar&embed=1"]) {
             const url = new URL(`http://localhost/agent/ab${query}`);
-            const html = await ctx.state.registry.ui.layout(ctx, { url, req: new Request(url) }, { main: "page" });
+            const html = await ctx.state.registry.ui.layout(ctx, { url, req: new Request(url.toString()) }, { main: "page" });
             expect(html).not.toMatch(/<body[^>]*data-presentation="sidebar"/);
             if (query.includes("embed=1")) {
                 expect(html).not.toContain('id="app-popup"');

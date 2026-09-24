@@ -309,6 +309,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         // provider (429 / connection errors) and Postgres serialising row writes.
         let drained = 0;
         await recoverStaleRuns(ctx, Date.now()).catch(() => undefined);
+        await (ctx.fns.agent as any).recoverOrphanedCompactions({}).catch((error: any) => console.error('compaction recovery failed:', error));
         await ctx.fns.agent.deliverWakes({ now: Date.now() }).catch((error: any) => console.error('wake delivery failed:', error));
         await ctx.fns.agent.pollWatches({ now: Date.now() }).catch((error: any) => console.error('watch polling failed:', error));
         const lastSleepScan = Number((ctx.state as any).lastSleepScan ?? 0);

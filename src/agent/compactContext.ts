@@ -46,11 +46,12 @@ export default async function (
     if (tailStart <= Math.max(0, Number(active?.tailStart ?? 0))) return { status: "not_needed", tokensBefore };
     const revision = Math.max(0, ...(sleep?.generations ?? []).map((g: any) => Number(g.revision ?? 0))) + 1;
     const createdAt = Date.now();
+    const draftOwner = ((ctx.state as any).compactionOwner ??= crypto.randomUUID());
     const child = await ctx.fns.agent.start({ model: parent.model, systemPrompt: parent.systemPrompt, title: (parent.title || parent.id) + " · compact", workspaceDir: parent.workspaceDir, parentId: parent.id, forkOffset: 0 });
     child.scratchpad = { compaction: { sourceAgentId: parent.id, revision, status: "draft" } };
     await ctx.fns.session.updateScratchpad({ id: child.id, scratchpad: child.scratchpad });
     const generation: any = { revision, kind: "compaction", status: "draft", contextAgentId: child.id, sourceAgentId: parent.id, sourceOffset: sourceFrontier, sourceFrontier, tailStart, summary: "", ...(opts.instructions?.trim() ? { instructions: opts.instructions.trim() } : {}), tokensBefore, tokensAfter: 0, model: parent.model, createdAt };
-    const draftContext = { mode: sleep?.mode ?? "full", activeRevision: oldHead, draftRevision: revision, generations: [...(sleep?.generations ?? []), generation].slice(-8) };
+    const draftContext = { mode: sleep?.mode ?? "full", activeRevision: oldHead, draftRevision: revision, draftOwner, generations: [...(sleep?.generations ?? []), generation].slice(-8) };
     const draftAt = Date.now();
     const drafted = await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb, updated_at = ? WHERE id = ? AND updated_at = ? AND run_state = 'idle'", params: [JSON.stringify(draftContext), draftAt, parent.id, Number(row.updated_at)] });
     if (!drafted.changes) { await ctx.fns.session.archive({ id: child.id }).catch(() => undefined); return { status: "stale", tokensBefore }; }
@@ -85,18 +86,18 @@ export default async function (
       const valid = currentRow?.run_state === "idle" && currentCount === sourceFrontier && currentSleep?.draftRevision === revision && currentSleep?.activeRevision === oldHead;
       if (!valid) {
         generation.status = "stale"; generation.summary = summary;
-        const stale = { ...draftContext, draftRevision: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
+        const stale = { ...draftContext, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
         await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context->>'draftRevision' = ?", params: [JSON.stringify(stale), parent.id, String(revision)] });
         parent.sleepContext = stale;
         return { status: "stale", tokensBefore };
       }
       Object.assign(generation, { status: "active", summary, tokensAfter, activatedAt: Date.now() });
-      const next = { mode: "compact", activeRevision: revision, draftRevision: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
+      const next = { mode: "compact", activeRevision: revision, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
       const activated = await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb, updated_at = ? WHERE id = ? AND updated_at = ? AND run_state = 'idle' AND (SELECT COUNT(*) FROM messages WHERE agent_id = ?) = ?", params: [JSON.stringify(next), generation.activatedAt, parent.id, Number(currentRow.updated_at), parent.id, sourceFrontier] });
       if (!activated.changes) {
         generation.status = "stale";
         delete generation.activatedAt;
-        const stale = { ...draftContext, draftRevision: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
+        const stale = { ...draftContext, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
         await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context->>'draftRevision' = ?", params: [JSON.stringify(stale), parent.id, String(revision)] });
         parent.sleepContext = stale;
         return { status: "stale", tokensBefore };
@@ -106,7 +107,7 @@ export default async function (
       return { status: "compacted", revision, tokensBefore, tokensAfter, keptMessages: rootMessages.length - tailStart, summary };
     } catch (error: any) {
       generation.status = "failed";
-      const failed = { ...draftContext, draftRevision: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
+      const failed = { ...draftContext, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
       await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context->>'draftRevision' = ?", params: [JSON.stringify(failed), parent.id, String(revision)] }).catch(() => undefined);
       parent.sleepContext = failed;
       await ctx.fns.session.appendEventWithHtml({ id: parent.id, type: "compaction_failed", payload: { revision, error: String(error?.message ?? error) } }).catch(() => undefined);

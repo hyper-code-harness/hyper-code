@@ -53,3 +53,12 @@ describe("agent durable triggers", () => {
     expect((await ctx.fns.session.getMessages({ id: agent.id })).some((m: any) => m.content === "Never")).toBe(false);
   });
 });
+
+
+
+test("watch validates predicate configuration before persisting", async () => {
+  const ctx: any = await mkTestCtx();
+  const agent = await ctx.fns.agent.start({ model: "mock:test" });
+  await expect(ctx.fns.agent.watch({ id: agent.id, predicate: "http.ok", opts: { url: "not-a-url" }, prompt: "ready" })).rejects.toThrow(/http\(s\) URL/);
+  expect(await ctx.fns.agent.triggers({ id: agent.id, status: "all" })).toEqual([]);
+});

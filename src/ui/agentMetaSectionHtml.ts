@@ -37,7 +37,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             ctx.fns.agent.team({ agent, includeArchived: true }),
         ]);
     } else if (section === "automation") {
-        triggers = await ctx.fns.agent.triggers({ id: agentId, status: "active" });
+        triggers = await ctx.fns.agent.triggers({ id: agentId, status: "all" });
         if (agent.scratchpad?.parked) {
             [models, accounts] = await Promise.all([
                 ctx.fns.llm.listModels({}).catch(() => ({})),

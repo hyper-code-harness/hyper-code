@@ -33,6 +33,7 @@
     document.addEventListener('click', event => {
         const button = event.target.closest?.('[data-plan-remove], [data-plan-move]');
 
+
         const toggle = event.target.closest?.('[data-agent-meta-toggle]');
         if (toggle) {
             const panel = toggle.closest('[data-agent-meta-panel]');
@@ -62,7 +63,7 @@
         if (button.matches('[data-plan-move="down"]') && index >= 0 && index < rows.length - 1) tasks.insertBefore(rows[index + 1], row);
     });
 
-    const SECTIONS = ['goal', 'knowledge', 'automation', 'wake', 'team', 'plan'];
+    const SECTIONS = ['goal', 'knowledge', 'automation', 'settings', 'team', 'plan'];
     const pending = new Map(); // element -> timer
 
     function redraw(slot) {

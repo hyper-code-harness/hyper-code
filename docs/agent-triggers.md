@@ -37,7 +37,7 @@ await ctx.fns.agent.cancelTrigger({ id: agent.id, triggerId });
 await ctx.fns.agent.cancelAllTriggers({ id: agent.id });
 ```
 
-Supported watch predicates are `file.exists`, `db.rows`, `http.ok`, and `runtime.fn`. `mode: "once"` completes after the first true result. `mode: "edge"` fires on each false-to-true transition and does not fire repeatedly while the condition remains true.
+Supported watch predicates are `file.exists`, `db.rows`, `http.ok`, and `runtime.fn`. A watch evaluates its predicate once before it is saved: invalid SQL, URL, runtime-function configuration, and immediate provider errors are returned to the caller instead of creating a broken trigger. A valid `ready: false` result still creates the watch. `mode: "once"` completes after the first true result. `mode: "edge"` fires on each false-to-true transition and does not fire repeatedly while the condition remains true.
 
 Legacy `wakeAt`, `wakeIn`, `wakeUpWhen`, and `cancelWake` calls are compatibility wrappers over this engine. New code should use `wake`, `cron`, and `watch`.
 
@@ -51,4 +51,4 @@ Cron uses explicit IANA timezones. If the process was unavailable at a scheduled
 
 ## Inspector UI
 
-The right-side **Automation** section is the single control surface for Wake-up, Schedule, and Watch triggers. It lists active triggers and supports Run now, Cancel, Cancel all, and creation of all three types. Function retrieval and reranking controls live separately under **Agent settings**.
+The right-side **Automation** section is the single control surface for Wake-up, Schedule, and Watch triggers. It lists active triggers and supports Run now, Cancel, Cancel all, and creation of all three types. **Recent runs** shows completed, timed-out, cancelled, and failed work with the last outcome, attempt count, result preview, error, and timestamps. Function retrieval and reranking controls live separately under **Agent settings**.

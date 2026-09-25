@@ -110,8 +110,9 @@ test("automation unifies wake, schedule and watch controls at the top", () => {
     expect(html).toContain('>Automation');
     const slot = html.slice(html.indexOf('id="agent-meta-automation-eh"'), html.indexOf('id="agent-meta-settings-eh"'));
     expect(slot).toContain("Wake-up");
-    expect(slot).toContain("Add schedule");
-    expect(slot).toContain("Add watch");
+    expect(slot).toContain("Schedule");
+    expect(slot).toContain("Watch condition");
+    expect(slot).toContain("Add trigger");
     expect(slot).not.toContain("Function RAG");
     expect(html).toContain(">Agent settings");
 });
@@ -130,4 +131,13 @@ test("meta panel exposes a persistent collapse control", () => {
     expect(html).toContain("data-agent-meta-panel");
     expect(html).toContain('data-action="toggle-agent-meta"');
     expect(html).toContain("data-agent-meta-content");
+});
+
+
+
+test("automation shows recent trigger outcomes and errors", () => {
+    const html = render(mkCtx(), null, { agent: { id: "eh", goal: null } as any, triggers: [{ id: "tr_bad", kind: "watch", prompt: "Check endpoint", status: "timed_out", mode: "once", config: { predicate: "http.ok" }, attempts: 2, lastOutcome: "error", lastRunError: "connection refused", lastRunAt: Date.now() }] });
+    expect(html).toContain("Recent runs");
+    expect(html).toContain("connection refused");
+    expect(html).toContain("2 attempts");
 });

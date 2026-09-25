@@ -28,7 +28,7 @@ params: Record<string, string> }) {
     const [team, archivedTeam, triggers, metaState] = await Promise.all([
         ctx.fns.agent.team({ agent }),
         ctx.fns.agent.team({ agent, includeArchived: true }),
-        ctx.fns.agent.triggers({ id, status: "active" }),
+        ctx.fns.agent.triggers({ id, status: "all" }),
         ctx.fns.procs.db.select({ sql: "SELECT value FROM kv WHERE key = ?", params: ["ui:rightPanelCollapsed"] }).catch(() => [] as any[]),
     ]);
     const metaCollapsed = String((metaState as any[])[0]?.value ?? "0") === "1";

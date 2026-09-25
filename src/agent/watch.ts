@@ -33,5 +33,24 @@ export default async function (
         onTimeoutPrompt?: string;
     },
 ): Promise<{ id: string; nextAt: number; timeoutAt: number | null }> {
-    const id=String(opts.id??"").trim(),prompt=String(opts.prompt??"").trim();if(!id||!prompt)throw new Error("agent.watch: id and prompt are required");if(!["file.exists","db.rows","http.ok","runtime.fn"].includes(opts.predicate))throw new Error("agent.watch: unsupported predicate");const exists=(await ctx.fns.procs.db.select({sql:"SELECT id FROM agents WHERE id=? AND archived_at IS NULL",params:[id]}))[0];if(!exists)throw new Error(`agent not found: ${id}`);const everyMs=Math.max(5000,Math.min(86400000,Math.floor(Number(opts.everyMs??300000))));const now=Date.now();const timeoutAt=opts.timeoutMs==null?null:now+Math.max(everyMs,Math.min(2592000000,Math.floor(Number(opts.timeoutMs))));const mode=opts.mode??"once";const triggerId=`tr_${Bun.randomUUIDv7()}`;const config={predicate:opts.predicate,opts:opts.opts??{},everyMs,...(opts.onTimeoutPrompt?{onTimeoutPrompt:String(opts.onTimeoutPrompt)}:{})};await ctx.fns.procs.db.run({sql:"INSERT INTO agent_triggers(id,agent_id,kind,prompt,config,mode,status,next_at,timeout_at,created_at,updated_at) VALUES(?,?,'watch',?,?::jsonb,?,'active',?,?,?,?)",params:[triggerId,id,prompt,JSON.stringify(config),mode,now,timeoutAt,now,now]});ctx.fns.agent.wakeWorker({});return{id:triggerId,nextAt:now,timeoutAt};
+    const id = String(opts.id ?? "").trim();
+    const prompt = String(opts.prompt ?? "").trim();
+    if (!id || !prompt) throw new Error("agent.watch: id and prompt are required");
+    if (!["file.exists", "db.rows", "http.ok", "runtime.fn"].includes(opts.predicate)) throw new Error("agent.watch: unsupported predicate");
+    const exists = (await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents WHERE id=? AND archived_at IS NULL", params: [id] }))[0];
+    if (!exists) throw new Error(`agent not found: ${id}`);
+
+    // Validate predicate configuration and surface network/SQL/function errors
+    // before persisting. A valid false result is expected and still creates the watch.
+    await ctx.fns.agent.watchPredicate({ predicate: opts.predicate, opts: opts.opts ?? {} });
+
+    const everyMs = Math.max(5000, Math.min(86400000, Math.floor(Number(opts.everyMs ?? 300000))));
+    const now = Date.now();
+    const timeoutAt = opts.timeoutMs == null ? null : now + Math.max(everyMs, Math.min(2592000000, Math.floor(Number(opts.timeoutMs))));
+    const mode = opts.mode ?? "once";
+    const triggerId = `tr_${Bun.randomUUIDv7()}`;
+    const config = { predicate: opts.predicate, opts: opts.opts ?? {}, everyMs, ...(opts.onTimeoutPrompt ? { onTimeoutPrompt: String(opts.onTimeoutPrompt) } : {}) };
+    await ctx.fns.procs.db.run({ sql: "INSERT INTO agent_triggers(id,agent_id,kind,prompt,config,mode,status,next_at,timeout_at,created_at,updated_at) VALUES(?,?,'watch',?,?::jsonb,?,'active',?,?,?,?)", params: [triggerId, id, prompt, JSON.stringify(config), mode, now, timeoutAt, now, now] });
+    ctx.fns.agent.wakeWorker({});
+    return { id: triggerId, nextAt: now, timeoutAt };
 }

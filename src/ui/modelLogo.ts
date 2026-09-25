@@ -45,7 +45,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         : `<i class="ph ph-cpu ${markSize} ${opts.compact ? 'text-xs' : 'text-sm'}${motion}" aria-hidden="true"></i>`;
 
     const frameSize = opts.compact ? 'size-4' : 'size-6';
-    const tone = opts.compact ? 'text-base-content/40' : 'text-base-content/60';
+    const tone = opts.compact ? 'text-faint' : 'text-subtle';
     const frame = opts.bare
         ? `inline-flex ${frameSize} shrink-0 items-center justify-center ${tone}`
         : `inline-flex ${frameSize} shrink-0 items-center justify-center rounded-md border border-base-300 bg-base-100 ${tone}`;

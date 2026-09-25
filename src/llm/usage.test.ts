@@ -185,7 +185,7 @@ describe("ui.usageDial", () => {
     });
 
     test("crossing the thresholds changes the colour", () => {
-        expect(dial(escCtx, null, { entries: [entry({ usedPercent: 20, tone: "neutral" })], now: NOW })).toContain("text-base-content/45");
+        expect(dial(escCtx, null, { entries: [entry({ usedPercent: 20, tone: "neutral" })], now: NOW })).toContain("text-faint");
         expect(dial(escCtx, null, { entries: [entry({ usedPercent: 70, tone: "warning" })], now: NOW })).toContain("text-warning");
         expect(dial(escCtx, null, { entries: [entry({ usedPercent: 92, tone: "error" })], now: NOW })).toContain("text-error");
     });

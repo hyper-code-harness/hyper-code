@@ -42,6 +42,12 @@
   --color-border-focus: var(--color-primary);
   --color-border-subtle: var(--color-base-300);
   --color-ui-border: var(--ui-border);
+  /* Secondary text has exactly three levels. Use `text-muted` for supporting
+   * copy, `text-subtle` for metadata and `text-faint` for hints, timestamps and
+   * placeholders — never an ad-hoc `text-base-content/NN`. */
+  --color-muted: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  --color-subtle: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  --color-faint: color-mix(in oklab, var(--color-base-content) 40%, transparent);
   --color-ui-border-strong: var(--ui-border-strong);
   --color-text-primary: var(--color-base-content);
   --color-text-heading: var(--color-base-content);

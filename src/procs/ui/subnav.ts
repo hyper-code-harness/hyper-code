@@ -13,9 +13,9 @@ export default function (ctx: Context, _session: Session | null, opts: {items: A
     return `<nav class="${wrap} ${opts.class ?? ""}" ${ctx.fns.procs.ui.attr({ role: "subnav" })}>
   ${opts.items.map(it => {
         const active = it.id === opts.current || opts.current === it.href;
-        return `<a class="ui-focusable block rounded-md px-2.5 py-1.5 text-sm ${active ? "bg-primary/10 font-medium text-base-content" : "text-base-content/70 hover:bg-base-200 hover:text-base-content"}"
+        return `<a class="ui-focusable block rounded-md px-2.5 py-1.5 text-sm ${active ? "bg-primary/10 font-medium text-base-content" : "text-muted hover:bg-base-200 hover:text-base-content"}"
     ${ctx.fns.procs.ui.attr({ entity: "nav", id: it.id ?? it.label, status: active ? "active" : "" })} aria-current="${active ? "page" : "false"}"
-    href="${esc(it.href)}" hx-get="${esc(it.href)}" hx-target="#main" hx-swap="innerHTML" hx-push-url="true">${it.icon ? `<i class="ph ${esc(it.icon)} mr-2 text-base-content/60" aria-hidden="true"></i>` : ""}${esc(it.label)}</a>`;
+    href="${esc(it.href)}" hx-get="${esc(it.href)}" hx-target="#main" hx-swap="innerHTML" hx-push-url="true">${it.icon ? `<i class="ph ${esc(it.icon)} mr-2 text-subtle" aria-hidden="true"></i>` : ""}${esc(it.label)}</a>`;
     }).join("")}
 </nav>`;
 }

@@ -32,7 +32,7 @@ export default async function (
     if(req.method==='GET'){
      const model=await ctx.fns.settings.modelDefault({});
      const composer=await ctx.fns.ui.chatComposer({action:u.pathname+'?presentation=sidebar'});
-     const main='<div data-page="agent" class="flex min-h-0 min-w-0 flex-1 bg-base-200"><section id="chat-panel" class="flex min-w-0 flex-1 flex-col"><header class="p-3 border-b border-ui-border"><h1>'+Bun.escapeHTML(b.title)+'</h1><div class="text-xs text-base-content/50">'+Bun.escapeHTML(model)+'</div></header><div id="messages" class="dot-grid-surface chat-dot-grid flex-1 overflow-y-auto px-3 py-3 space-y-2"></div>'+composer+'</section></div>';
+     const main='<div data-page="agent" class="flex min-h-0 min-w-0 flex-1 bg-base-200"><section id="chat-panel" class="flex min-w-0 flex-1 flex-col"><header class="p-3 border-b border-ui-border"><h1>'+Bun.escapeHTML(b.title)+'</h1><div class="text-xs text-subtle">'+Bun.escapeHTML(model)+'</div></header><div id="messages" class="dot-grid-surface chat-dot-grid flex-1 overflow-y-auto px-3 py-3 space-y-2"></div>'+composer+'</section></div>';
      return new Response(await ctx.fns.ui.layout({title:b.title,main}),{headers:{...headers,'content-type':'text/html; charset=utf-8'}});
     }
     const form=await req.clone().formData();

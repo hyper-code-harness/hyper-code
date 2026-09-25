@@ -30,6 +30,6 @@ export default function (
     const percent = max > 0 ? Math.round(value / max * 100) : 0;
     const tone = opts.tone ?? 'primary';
     const colors = { primary: 'progress-primary', success: 'progress-success', warning: 'progress-warning', error: 'progress-error' } as const;
-    const head = opts.label || opts.showValue !== false ? `<div class="mb-1 flex items-center gap-2 text-[11px] text-base-content/60">${opts.label ? `<span class="min-w-0 flex-1 truncate">${esc(opts.label)}</span>` : '<span class="flex-1"></span>'}${opts.showValue !== false ? `<span class="shrink-0 font-mono tabular-nums">${value}/${max}</span>` : ''}</div>` : '';
+    const head = opts.label || opts.showValue !== false ? `<div class="mb-1 flex items-center gap-2 text-2xs text-subtle">${opts.label ? `<span class="min-w-0 flex-1 truncate">${esc(opts.label)}</span>` : '<span class="flex-1"></span>'}${opts.showValue !== false ? `<span class="shrink-0 font-mono tabular-nums">${value}/${max}</span>` : ''}</div>` : '';
     return `<div data-progress="${percent}">${head}<progress class="progress ${colors[tone]} h-1.5 w-full" value="${value}" max="${max || 1}" aria-label="${esc(opts.label ?? 'Progress')}: ${percent}%"></progress></div>`;
 }

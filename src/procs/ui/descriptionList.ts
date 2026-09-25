@@ -13,7 +13,7 @@ export default function (ctx: Context, _session: Session | null, opts: {items: A
     // next row looks like a second line of this row's value.
     return `<dl class="grid grid-cols-1 gap-x-6 gap-y-4${cols} ${opts.class ?? ""}">
   ${opts.items.map(i => `<div ${ctx.fns.procs.ui.attr({ role: i.role })}>
-    <dt class="text-xs text-base-content/60">${esc(i.term)}</dt>
+    <dt class="text-xs text-subtle">${esc(i.term)}</dt>
     <dd class="mt-0.5 text-sm text-base-content">${i.html ?? (esc(i.detail) || "—")}</dd>
   </div>`).join("")}
 </dl>`;

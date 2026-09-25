@@ -8,6 +8,6 @@ export default async function (ctx: Context, _session: Session | null, opts: { a
     return new Response(ctx.fns.ui.popupContent({
         title: `Initial prompt · ${agent.title || id}`,
         kind: 'initial-prompt',
-        html: `<div class="mb-3 text-[11px] text-base-content/40">${prompt.length.toLocaleString()} chars · ${Math.ceil(prompt.length / 4).toLocaleString()} estimated tokens</div><article class="prose prose-sm max-w-none break-words text-base-content">${html}</article>`,
+        html: `<div class="mb-3 text-2xs text-faint">${prompt.length.toLocaleString()} chars · ${Math.ceil(prompt.length / 4).toLocaleString()} estimated tokens</div><article class="prose prose-sm max-w-none break-words text-base-content">${html}</article>`,
     }), { headers: { 'content-type': 'text/html; charset=utf-8' } });
 }

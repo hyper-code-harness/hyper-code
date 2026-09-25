@@ -43,7 +43,7 @@ export default function (
         const parked = entry.parkedAgents > 0;
         const colour = parked || entry.tone === "error" ? "text-error"
             : entry.tone === "warning" ? "text-warning"
-                : "text-base-content/45";
+                : "text-faint";
         // A stroke-dasharray on a circle of r=12 (circumference ≈ 75.4) needs no
         // JS and no layout: the fill IS the number.
         const circumference = 75.4;
@@ -75,7 +75,7 @@ export default function (
               ${known ? `<circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="${filled.toFixed(1)} ${circumference}"></circle>` : ""}
             </svg>
             ${parked
-            ? `<i class="ph ph-pause text-[11px]" aria-hidden="true"></i>`
+            ? `<i class="ph ph-pause text-2xs" aria-hidden="true"></i>`
             : ctx.fns.ui.modelLogo({ model: entry.model ?? `${entry.provider}:`, bare: true })}
           </span>
         </a>`;

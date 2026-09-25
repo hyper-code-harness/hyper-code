@@ -11,13 +11,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
 
     const rows = hits.map(h => `
       <a href="/agent/${encodeURIComponent(h.agentId)}" hx-boost="false" ${ctx.fns.procs.ui.attr({ entity: "hit", id: `${h.agentId}#${h.idx}` })} class="block rounded-lg border border-base-300 bg-base-100 p-3 hover:bg-base-200">
-        <div class="flex items-center gap-2 text-xs text-base-content/55 mb-1">
-          <span class="font-mono font-semibold text-base-content/75">${esc(h.agentId)}</span>
+        <div class="flex items-center gap-2 text-xs text-subtle mb-1">
+          <span class="font-mono font-semibold text-muted">${esc(h.agentId)}</span>
           <span>#${h.idx}</span>
           <span>${esc(h.role)}</span>
           <span class="ml-auto">score ${h.score.toFixed(2)}</span>
         </div>
-        <div class="text-sm text-base-content/80 leading-snug">${snip(h.snippet)}</div>
+        <div class="text-sm text-muted leading-snug">${snip(h.snippet)}</div>
       </a>`).join("\n");
 
     return {
@@ -30,7 +30,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
       ${agentId ? `<input type="hidden" name="agent" value="${esc(agentId)}"/>` : ""}
       ${ctx.fns.procs.ui.button({ action: "search", label: "search", type: "submit", tone: "primary", size: "md" })}
     </form>
-    ${q && hits.length === 0 ? '<p class="text-sm text-base-content/55">Nothing found.</p>' : ""}
+    ${q && hits.length === 0 ? '<p class="text-sm text-subtle">Nothing found.</p>' : ""}
     <div class="space-y-2">${rows}</div>
   </div>
 </div>`,

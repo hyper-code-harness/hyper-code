@@ -18,10 +18,10 @@ export default async function (
     const hasMore = rows.length > 30, entries = rows.slice(0, 30);
     const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
     const value = (item: Json): string => {
-        if (item === null) return '<span class="text-base-content/50">null</span>';
-        if (item === '') return '<code>""</code> <span class="text-base-content/50">(empty string)</span>';
+        if (item === null) return '<span class="text-subtle">null</span>';
+        if (item === '') return '<code>""</code> <span class="text-subtle">(empty string)</span>';
         if (typeof item === 'string' && /^[A-Za-z][\w-]*\/[\w.@-]+$/.test(item)) return '<a class="text-primary underline" href="/knowledge/' + esc(item.split('/').map(encodeURIComponent).join('/')) + '">' + esc(item) + '</a>';
-        if (Array.isArray(item)) return item.length ? '[' + item.map(value).join(', ') + ']' : '<code>[]</code> <span class="text-base-content/50">(empty array)</span>';
+        if (Array.isArray(item)) return item.length ? '[' + item.map(value).join(', ') + ']' : '<code>[]</code> <span class="text-subtle">(empty array)</span>';
         return esc(typeof item === 'string' ? item : JSON.stringify(item));
     };
     const cards = entries.map(row => {
@@ -30,11 +30,11 @@ export default async function (
         // Build links only from the journal's original source identity; arbitrary stored URL schemes cannot become executable links.
         const source = row.source_agent_id && Number.isSafeInteger(row.source_message_idx) && row.source_message_idx >= 0
             ? '<a class="text-primary underline break-all" href="/agent/' + esc(encodeURIComponent(row.source_agent_id)) + '/message/' + row.source_message_idx + '">Source chat · ' + esc(row.source_agent_id) + ' · message ' + row.source_message_idx + '</a>'
-            : '<span class="text-base-content/50">Source message unavailable</span>';
-        const before = row.before_value === null ? '<span class="text-base-content/50">Not set (added)</span>' : value(row.before_value);
+            : '<span class="text-subtle">Source message unavailable</span>';
+        const before = row.before_value === null ? '<span class="text-subtle">Not set (added)</span>' : value(row.before_value);
         const operation = row.operation === 'correct' ? 'Corrected' : 'Added';
-        return '<li class="min-w-0 border-t border-base-200 py-3 first:border-t-0"><div class="flex flex-wrap items-baseline justify-between gap-2"><span class="font-mono text-xs break-all">' + esc(row.attribute) + '</span><span class="text-[11px] text-base-content/50">' + operation + ' · ' + timestamp + '</span></div><div class="mt-2 grid min-w-0 gap-1 text-xs sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"><div class="min-w-0 whitespace-pre-wrap break-words"><span class="sr-only">Before: </span>' + before + '</div><span aria-hidden="true">→</span><div class="min-w-0 whitespace-pre-wrap break-words"><span class="sr-only">After: </span>' + value(row.after_value) + '</div></div><div class="mt-2 text-[11px]">' + source + '</div><details class="mt-2 text-xs"><summary class="cursor-pointer text-base-content/60">Evidence</summary><p class="mt-2 whitespace-pre-wrap break-words leading-5">' + (row.evidence ? esc(row.evidence) : 'No evidence recorded.') + '</p></details></li>';
+        return '<li class="min-w-0 border-t border-base-200 py-3 first:border-t-0"><div class="flex flex-wrap items-baseline justify-between gap-2"><span class="font-mono text-xs break-all">' + esc(row.attribute) + '</span><span class="text-2xs text-subtle">' + operation + ' · ' + timestamp + '</span></div><div class="mt-2 grid min-w-0 gap-1 text-xs sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"><div class="min-w-0 whitespace-pre-wrap break-words"><span class="sr-only">Before: </span>' + before + '</div><span aria-hidden="true">→</span><div class="min-w-0 whitespace-pre-wrap break-words"><span class="sr-only">After: </span>' + value(row.after_value) + '</div></div><div class="mt-2 text-2xs">' + source + '</div><details class="mt-2 text-xs"><summary class="cursor-pointer text-subtle">Evidence</summary><p class="mt-2 whitespace-pre-wrap break-words leading-5">' + (row.evidence ? esc(row.evidence) : 'No evidence recorded.') + '</p></details></li>';
     }).join('');
     const notice = hasMore ? 'Showing the latest 30 changes; older changes are not shown.' : 'Only canonical changes recorded since the journal was enabled appear here.';
-    return { count: entries.length, hasMore, html: '<section aria-labelledby="knowledge-history-heading" class="min-w-0 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm lg:col-span-2"><h2 id="knowledge-history-heading" class="mb-2 text-sm font-semibold">History <span class="font-normal text-base-content/40">' + entries.length + (hasMore ? '+' : '') + '</span></h2><p class="mb-3 text-xs text-base-content/50">' + notice + '</p>' + (cards ? '<ol>' + cards + '</ol>' : '<p class="py-2 text-xs text-base-content/50">No recorded canonical changes. Earlier observations are not reconstructed as history.</p>') + '</section>' };
+    return { count: entries.length, hasMore, html: '<section aria-labelledby="knowledge-history-heading" class="min-w-0 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm lg:col-span-2"><h2 id="knowledge-history-heading" class="mb-2 text-sm font-semibold">History <span class="font-normal text-faint">' + entries.length + (hasMore ? '+' : '') + '</span></h2><p class="mb-3 text-xs text-subtle">' + notice + '</p>' + (cards ? '<ol>' + cards + '</ol>' : '<p class="py-2 text-xs text-subtle">No recorded canonical changes. Earlier observations are not reconstructed as history.</p>') + '</section>' };
 }

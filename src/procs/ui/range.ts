@@ -23,9 +23,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const value = has ? Number(opts.value) : Math.round((min + max) / 2);
     return `<div class="${opts.class ?? ""}" ${ctx.fns.procs.ui.attr({ field: opts.name })}>
   <div class="flex items-baseline justify-between">
-    <span class="text-base-content/60 text-xs">${esc(min)}</span>
+    <span class="text-subtle text-xs">${esc(min)}</span>
     <span class="text-base font-semibold tabular-nums">${esc(value)}</span>
-    <span class="text-base-content/60 text-xs">${esc(max)}</span>
+    <span class="text-subtle text-xs">${esc(max)}</span>
   </div>
   <input type="range" name="${esc(opts.name)}" min="${esc(min)}" max="${esc(max)}" step="${esc(step)}" value="${esc(value)}"
     aria-label="${esc(opts.ariaLabel ?? opts.name)}" class="range range-sm range-primary mt-1 w-full">

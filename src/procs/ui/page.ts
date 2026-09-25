@@ -23,7 +23,7 @@ export default function (ctx: Context, _session: Session | null, opts: {page: st
     // what made a finished screen still read as a debug view.
     return `<section ${ctx.fns.procs.ui.attr({ page: opts.page })}>
 ${opts.title ? `<div class="flex items-center gap-2"><h1 class="text-2xl font-semibold tracking-tight">${esc(opts.title)}</h1>${opts.right ?? ""}</div>` : ""}
-${opts.lead ? `<p class="mt-1.5 text-sm text-base-content/60">${opts.lead}</p>` : ""}
+${opts.lead ? `<p class="mt-1.5 text-sm text-subtle">${opts.lead}</p>` : ""}
 ${opts.main}
 </section>`;
 }

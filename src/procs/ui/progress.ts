@@ -19,7 +19,7 @@ export default function (ctx: Context, _session: Session | null, opts: {value: n
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     const max = opts.max ?? 100;
     return `<div class="${opts.class ?? ""}" ${ctx.fns.procs.ui.attr({ role: "progress" })}>
-  ${opts.label ? `<div class="text-base-content/60 mb-1 flex justify-between text-xs"><span>${esc(opts.label)}</span><span>${opts.value}/${max}</span></div>` : ""}
+  ${opts.label ? `<div class="text-subtle mb-1 flex justify-between text-xs"><span>${esc(opts.label)}</span><span>${opts.value}/${max}</span></div>` : ""}
   <progress class="progress ${TONE[opts.tone ?? "default"]} w-full" value="${opts.value}" max="${max}"></progress>
 </div>`;
 }

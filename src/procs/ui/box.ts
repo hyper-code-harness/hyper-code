@@ -22,9 +22,9 @@
 export default function (ctx: Context, _session: Session | null, opts: {title: string; head?: string; right?: string; body: string; empty?: string; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     return `<div class="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-xs ${opts.class ?? ""}">
-  <div class="flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3 text-xs text-base-content/60">
+  <div class="flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3 text-xs text-subtle">
     ${opts.head ?? `<span>${esc(opts.title)}</span>`}${opts.right ?? ""}
   </div>
-  ${opts.body || `<div class="border-t border-base-300 px-4 py-3 text-xs text-base-content/60">${esc(opts.empty ?? "nothing here")}</div>`}
+  ${opts.body || `<div class="border-t border-base-300 px-4 py-3 text-xs text-subtle">${esc(opts.empty ?? "nothing here")}</div>`}
 </div>`;
 }

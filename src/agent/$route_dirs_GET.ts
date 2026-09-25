@@ -58,10 +58,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             .slice(0, 10);
     }
 
-    if (!paths.length) return new Response(`<div class="px-3 py-2 text-xs text-base-content/60">no folders found</div>`, { headers: { "content-type": "text/html; charset=utf-8" } });
+    if (!paths.length) return new Response(`<div class="px-3 py-2 text-xs text-subtle">no folders found</div>`, { headers: { "content-type": "text/html; charset=utf-8" } });
     const html = paths.map(path => {
         const encoded = encodeURIComponent(path);
-        return `<button type="button" role="option" class="flex w-full items-center gap-2 px-3 py-2 text-left font-mono text-xs hover:bg-base-200" hx-get="/agent/dirs/status?q=${encoded}" hx-target="#workspace-dir-status" hx-swap="innerHTML" onclick="document.getElementById('workspace-dir-input').value=this.dataset.path;this.parentElement.replaceChildren()" data-path="${esc(path)}"><i class="ph ph-folder shrink-0 text-base-content/50"></i><span class="truncate">${esc(path)}</span></button>`;
+        return `<button type="button" role="option" class="flex w-full items-center gap-2 px-3 py-2 text-left font-mono text-xs hover:bg-base-200" hx-get="/agent/dirs/status?q=${encoded}" hx-target="#workspace-dir-status" hx-swap="innerHTML" onclick="document.getElementById('workspace-dir-input').value=this.dataset.path;this.parentElement.replaceChildren()" data-path="${esc(path)}"><i class="ph ph-folder shrink-0 text-subtle"></i><span class="truncate">${esc(path)}</span></button>`;
     }).join("");
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }

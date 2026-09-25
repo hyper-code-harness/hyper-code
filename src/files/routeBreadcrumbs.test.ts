@@ -94,7 +94,7 @@ describe("GET /files — reachable as an htmx fragment", () => {
         const html = await res.text();
         expect(res.status).toBe(200);
         expect(html).toContain("mx-auto flex min-h-full w-full max-w-5xl flex-col");
-        expect(html).toContain("rounded-md border border-gray-300 bg-white shadow-sm");
+        expect(html).toContain("rounded-md border border-ui-border bg-base-100 shadow-sm");
         expect(html).toContain("dot-grid-surface");
     });
 

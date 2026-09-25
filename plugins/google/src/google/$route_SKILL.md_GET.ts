@@ -33,15 +33,15 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         desc = desc.slice(0, kw.index).trim().replace(/\s*keywords:?\s*$/i, "");
     }
     const chips = keywords
-        .map((k) => `<span class="inline-block text-[11px] leading-5 rounded-full px-2 bg-[#eaeef2] text-[#57606a]">${esc(k)}</span>`)
+        .map((k) => `<span class="inline-block text-2xs leading-5 rounded-full px-2 bg-[#eaeef2] text-[#57606a]">${esc(k)}</span>`)
         .join(" ");
 
     const card = `
 <div class="border border-[#d0d7de] rounded-lg overflow-hidden mb-6">
   <div class="bg-[#f6f8fa] px-4 py-2.5 border-b border-[#d0d7de] flex items-baseline gap-2">
     <span class="font-mono text-base font-semibold text-[#1f2328]">${esc(name)}</span>
-    <a href="/${esc(name)}" class="text-[11px] text-[#0969da] hover:underline">/${esc(name)}</a>
-    <span class="ml-auto text-[11px] text-[#8c959f] font-mono">SKILL.md</span>
+    <a href="/${esc(name)}" class="text-2xs text-[#0969da] hover:underline">/${esc(name)}</a>
+    <span class="ml-auto text-2xs text-[#8c959f] font-mono">SKILL.md</span>
   </div>
   ${desc ? `<div class="px-4 py-3 text-sm leading-relaxed text-[#1f2328]">${esc(desc)}</div>` : ""}
   ${keywords.length ? `<div class="px-4 pb-3 flex flex-wrap gap-1.5">${chips}</div>` : ""}

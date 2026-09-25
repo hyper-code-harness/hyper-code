@@ -13,7 +13,7 @@ export default async function (ctx: Context, _session: Session | null, opts: any
     if (result.confirmation) {
         const esc = (v: any) => ctx.fns.procs.ui.escape({ text: v });
         const hidden = Object.entries(result.confirmation.values).flatMap(([name, value]: any) => (Array.isArray(value) ? value : [value]).map(value => `<input type="hidden" name="${esc(name)}" value="${esc(value)}">`)).join('');
-        return new Response(ctx.fns.ui.popupContent({ title: 'Create workspace', kind: 'new-agent', html: `<p class="text-sm text-base-content/70">Create <code>${esc(result.confirmation.dir)}</code>?</p><form hx-popup="agent.createFromPopup" title="Create workspace">${hidden}<input type="hidden" name="createWorkspaceDir" value="1">${ctx.fns.procs.ui.button({ action: 'create-directory-agent', label: 'Create directory and agent', type: 'submit', tone: 'primary', class: 'mt-4' })}</form>` }), { headers: { 'content-type': 'text/html' } });
+        return new Response(ctx.fns.ui.popupContent({ title: 'Create workspace', kind: 'new-agent', html: `<p class="text-sm text-muted">Create <code>${esc(result.confirmation.dir)}</code>?</p><form hx-popup="agent.createFromPopup" title="Create workspace">${hidden}<input type="hidden" name="createWorkspaceDir" value="1">${ctx.fns.procs.ui.button({ action: 'create-directory-agent', label: 'Create directory and agent', type: 'submit', tone: 'primary', class: 'mt-4' })}</form>` }), { headers: { 'content-type': 'text/html' } });
     }
     return new Response('', { status: 204, headers: { 'HX-Redirect': `/agent/${encodeURIComponent(result.agent.id)}` } });
 }

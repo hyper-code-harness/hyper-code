@@ -66,7 +66,7 @@ initialUsage?: any;
     } else {
         label = '<i class="ph ph-circle" aria-hidden="true"></i>';
         title = 'idle';
-        cls = 'text-base-content/45';
+        cls = 'text-faint';
         borderCls = '';
     }
 
@@ -75,12 +75,12 @@ initialUsage?: any;
     const statusBadge = row?.last_error && row?.run_state !== 'running' && !parked
         ? `<span class="text-xs px-2 py-0.5 rounded border font-mono ${cls} max-w-[16rem] truncate inline-block align-bottom" title="${esc(String(row.last_error))} — send a message to retry">error: ${esc(String(row.last_error).slice(0, 48))}</span>`
         : `<span class="text-xs px-2 py-0.5 rounded ${borderCls} font-mono inline-flex items-center gap-1 ${cls}" title="${esc(title)}">${label}</span>`;
-    const tokensBadge = usage ? `<span title="context tokens" class="rounded px-1 py-0.5 font-mono text-xs text-base-content/65">${(((usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0)) / 1000).toFixed(1)}k</span>` : '';
+    const tokensBadge = usage ? `<span title="context tokens" class="rounded px-1 py-0.5 font-mono text-xs text-muted">${(((usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0)) / 1000).toFixed(1)}k</span>` : '';
     // Stop is rendered by this live fragment so it appears and disappears with
     // the run, but CSS anchors it inside the composer instead of the top bar.
     const busy = row?.run_state === 'running' || !!row?.next_run_at;
     const stopBtn = busy
-        ? ctx.fns.procs.ui.button({ action: 'stop', entity: 'agent', id: agentId, post: `/agent/${encodeURIComponent(agentId)}/stop`, swap: 'none', title: 'stop this run', ariaLabel: 'Stop generation', tone: 'primary', class: 'size-8 rounded-full shadow-md', html: '<span class="block size-2.5 rounded-[2px] bg-white" aria-hidden="true"></span>' })
+        ? ctx.fns.procs.ui.button({ action: 'stop', entity: 'agent', id: agentId, post: `/agent/${encodeURIComponent(agentId)}/stop`, swap: 'none', title: 'stop this run', ariaLabel: 'Stop generation', tone: 'primary', class: 'size-8 rounded-full shadow-md', html: '<span class="block size-2.5 rounded-[2px] bg-base-100" aria-hidden="true"></span>' })
         : '';
     if (part === 'stop') return stopBtn;
     // The SSE stream is the real trigger (it dispatches hyper-tick on every

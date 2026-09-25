@@ -25,5 +25,5 @@ export default async function (
     const timed=f.type==='datetime-local';
     let input=ctx.fns.procs.ui.field({name:'field.'+f.name,type:f.type,value:opts.value??f.value??'',ariaLabel:f.label,class:'w-full rounded-lg bg-base-100 text-sm',...(timed?{step:60,min:f.min?f.min+'T00:00':undefined}:{maxlength:f.maxLength,placeholder:'Необязательно'})});
     input=input.replace('<input ','<input id="'+e(id)+'" '+(timed?'required ':'')+(opts.error?'aria-invalid="true" aria-describedby="'+e(id)+'-error" ':''));
-    return '<div class="space-y-2"><div class="flex items-center justify-between gap-2"><label class="text-xs font-medium text-base-content/70" for="'+e(id)+'">'+e(f.label)+'</label>'+(timed?'<span class="text-xs text-base-content/40">'+e(f.timezone)+'</span>':'')+'</div>'+input+(opts.error?'<p class="text-xs text-error" role="alert" id="'+e(id)+'-error">'+e(opts.error)+'</p>':'')+'</div>';
+    return '<div class="space-y-2"><div class="flex items-center justify-between gap-2"><label class="text-xs font-medium text-muted" for="'+e(id)+'">'+e(f.label)+'</label>'+(timed?'<span class="text-xs text-faint">'+e(f.timezone)+'</span>':'')+'</div>'+input+(opts.error?'<p class="text-xs text-error" role="alert" id="'+e(id)+'-error">'+e(opts.error)+'</p>':'')+'</div>';
 }

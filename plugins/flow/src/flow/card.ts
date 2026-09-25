@@ -32,17 +32,17 @@ export default async function (
 ): Promise<string> {
     const e=(v:string)=>Bun.escapeHTML(v), g=opts.gap;
     const dom='gap-'+Bun.hash(opts.flow+':'+g.id).toString(16), form=g.form, d=g.display;
-    let content='<div class="flex items-center justify-between gap-3"><span class="text-xs font-medium text-base-content/45">'+e(opts.flow)+'</span><span class="flex items-center gap-1.5 text-xs '+(opts.closed?'text-success':'text-base-content/60')+'"><span class="h-1.5 w-1.5 rounded-full '+(opts.closed?'bg-success':'bg-amber-400')+'"></span>'+e(opts.closed?'Записано':d?.status??'Требует внимания')+'</span></div>';
-    content+='<header class="mt-4"><h2 class="text-lg font-semibold leading-snug tracking-tight">'+e(d?.title??g.summary)+'</h2>'+(d?.subtitle?'<p class="mt-1 text-sm text-base-content/60">'+e(d.subtitle)+'</p>':'')+'</header>';
-    if(d?.detail)content+='<p class="mt-3 text-xs leading-relaxed text-base-content/55">'+e(d.detail)+'</p>';
-    if(opts.message)content+='<p class="mt-4 rounded-lg '+(opts.closed?'bg-success/10 text-success':'bg-base-200 text-base-content/80')+' px-3 py-2.5 text-sm" role="status">'+e(opts.message)+'</p>';
+    let content='<div class="flex items-center justify-between gap-3"><span class="text-xs font-medium text-faint">'+e(opts.flow)+'</span><span class="flex items-center gap-1.5 text-xs '+(opts.closed?'text-success':'text-subtle')+'"><span class="h-1.5 w-1.5 rounded-full '+(opts.closed?'bg-success':'bg-amber-400')+'"></span>'+e(opts.closed?'Записано':d?.status??'Требует внимания')+'</span></div>';
+    content+='<header class="mt-4"><h2 class="text-lg font-semibold leading-snug tracking-tight">'+e(d?.title??g.summary)+'</h2>'+(d?.subtitle?'<p class="mt-1 text-sm text-subtle">'+e(d.subtitle)+'</p>':'')+'</header>';
+    if(d?.detail)content+='<p class="mt-3 text-xs leading-relaxed text-subtle">'+e(d.detail)+'</p>';
+    if(opts.message)content+='<p class="mt-4 rounded-lg '+(opts.closed?'bg-success/10 text-success':'bg-base-200 text-muted')+' px-3 py-2.5 text-sm" role="status">'+e(opts.message)+'</p>';
     if(!opts.closed && form){
         content+='<form class="mt-5 space-y-4 border-t border-base-200 pt-4" method="post" action="/gaps/submit" hx-post="/gaps/submit" hx-target="#'+dom+'" hx-swap="outerHTML" hx-disabled-elt="find button">';
         for(const [name,value] of Object.entries({flow:opts.flow,id:g.id,revision:g.revision,action:form.id,submissionId:opts.submissionId??crypto.randomUUID()}))content+='<input type="hidden" name="'+name+'" value="'+e(value)+'">';
         for(const field of form.fields)content+=await ctx.fns.flow.formField({field,domId:dom,value:opts.values?.[field.name],error:opts.errors?.[field.name]});
-        content+='<div class="flex items-end justify-between gap-4 pt-1"><p class="max-w-48 text-xs leading-relaxed text-base-content/45">Проверьте время перед записью.</p>'+ctx.fns.procs.ui.button({type:'submit',label:form.label,tone:'primary',size:'sm'})+'</div></form>';
+        content+='<div class="flex items-end justify-between gap-4 pt-1"><p class="max-w-48 text-xs leading-relaxed text-faint">Проверьте время перед записью.</p>'+ctx.fns.procs.ui.button({type:'submit',label:form.label,tone:'primary',size:'sm'})+'</div></form>';
     } else if(!opts.closed && g.will){
         content+='<form class="mt-5" method="post" action="/gaps/apply" hx-post="/gaps/apply" hx-target="#gaps-page" hx-select="#gaps-page" hx-swap="outerHTML" hx-disabled-elt="find button"><input type="hidden" name="flow" value="'+e(opts.flow)+'"><input type="hidden" name="id" value="'+e(g.id)+'"><input type="hidden" name="revision" value="'+e(g.revision)+'">'+ctx.fns.procs.ui.button({type:'submit',label:g.will,tone:'primary',size:'sm'})+'</form>';
-    } else if(!opts.closed)content+='<p class="mt-4 text-xs text-base-content/45">Пока без действия</p>';
+    } else if(!opts.closed)content+='<p class="mt-4 text-xs text-faint">Пока без действия</p>';
     return '<article id="'+dom+'" class="rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-md transition-shadow hover:shadow-lg" style="min-width:0;border-radius:16px;box-shadow:0 2px 4px rgb(0 0 0 / 4%),0 8px 24px rgb(0 0 0 / 7%)">'+content+'</article>';
 }

@@ -8,7 +8,7 @@ export default function (ctx: Context, _session: Session | null, opts: {items: A
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     const last = opts.items.length - 1;
     // the shared component layer's `breadcrumbs` draws the separators itself, so the caret icon goes.
-    return `<nav class="breadcrumbs text-base-content/60 py-0 text-xs" ${ctx.fns.procs.ui.attr({ role: "breadcrumb" })}>
+    return `<nav class="breadcrumbs text-subtle py-0 text-xs" ${ctx.fns.procs.ui.attr({ role: "breadcrumb" })}>
   <ul>${opts.items.map((c, i) => {
         const crumb = c.href && i < last
             ? `<a href="${esc(c.href)}" hx-get="${esc(c.href)}" hx-target="#main" hx-swap="innerHTML" hx-push-url="true">${esc(c.label)}</a>`

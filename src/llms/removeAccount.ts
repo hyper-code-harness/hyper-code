@@ -15,6 +15,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     return ctx.fns.ui.popupContent({
         title: "Remove account?",
         kind: "danger",
-        html: `<div class="space-y-3"><p class="text-sm">Remove <code class="font-mono">${esc(opts.provider)}/${esc(opts.account)}</code>?</p><p class="text-xs leading-5 text-base-content/50">This deletes its encrypted managed token or isolated CLI credential directory. It is refused while an agent still uses the account.</p><form hx-popup="llms.confirmRemoveAccount" hx-popup-params="${esc(JSON.stringify(opts))}">${confirm}</form></div>`,
+        html: `<div class="space-y-3"><p class="text-sm">Remove <code class="font-mono">${esc(opts.provider)}/${esc(opts.account)}</code>?</p><p class="text-xs leading-5 text-subtle">This deletes its encrypted managed token or isolated CLI credential directory. It is refused while an agent still uses the account.</p><form hx-popup="llms.confirmRemoveAccount" hx-popup-params="${esc(JSON.stringify(opts))}">${confirm}</form></div>`,
     });
 }

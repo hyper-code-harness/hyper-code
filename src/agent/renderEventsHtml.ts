@@ -27,7 +27,7 @@ export default async function (
             } catch (error: any) {
                 const message = String(error?.message ?? error);
                 ctx.fns.procs.log.warn({ event: "renderEvent.failed", msg: `${agentId}#${event?.idx}: ${message}` });
-                return `<div class="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-[11px] text-error">`
+                return `<div class="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-2xs text-error">`
                     + `this message could not be rendered (#${ctx.fns.procs.ui.escape({ text: String(event?.idx ?? "?") })})`
                     + `<div class="mt-0.5 font-mono text-error/80">${ctx.fns.procs.ui.escape({ text: message })}</div></div>`;
             }

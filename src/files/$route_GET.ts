@@ -33,22 +33,22 @@ async function renderDir(ctx: Context, path: string, wide = false, embedded = fa
     const rows = (await Promise.all(entries.map(async (e, index) => {
         // Joining an absolute parent must not double the slash: "/" + "Users".
         const full = path ? `${path.replace(/\/$/, "")}/${e.name}` : e.name;
-        const icon = e.isDir ? "ph-folder text-gray-500" : fileIcon(e.name);
+        const icon = e.isDir ? "ph-folder text-subtle" : fileIcon(e.name);
         const href = await browserHref(ctx, full, embedded);
-        return `<a href="${href}" class="group grid min-h-9 grid-cols-[minmax(0,1fr)_7rem] items-center border-t border-gray-200 px-4 text-sm hover:bg-gray-50 ${index === 0 ? "border-t-0" : ""}">
-<span class="flex min-w-0 items-center gap-3"><i class="ph ${icon} text-base"></i><span class="truncate text-gray-900 group-hover:text-blue-600 group-hover:underline">${esc(e.name)}</span></span>
-<span class="text-right text-xs text-gray-400">${e.isDir ? "Directory" : fileKind(e.name)}</span>
+        return `<a href="${href}" class="group grid min-h-9 grid-cols-[minmax(0,1fr)_7rem] items-center border-t border-ui-border px-4 text-sm hover:bg-base-200 ${index === 0 ? "border-t-0" : ""}">
+<span class="flex min-w-0 items-center gap-3"><i class="ph ${icon} text-base"></i><span class="truncate text-base-content group-hover:text-blue-600 group-hover:underline">${esc(e.name)}</span></span>
+<span class="text-right text-xs text-faint">${e.isDir ? "Directory" : fileKind(e.name)}</span>
 </a>`;
     }))).join("");
     const body = `<div class="dot-grid-surface flex-1 overflow-y-auto ${wide ? "p-2" : "px-5 py-5"}">
 <div class="mx-auto w-full ${wide ? "max-w-none" : "max-w-5xl"}">
-  <div class="mb-4 flex min-w-0 items-center gap-2 text-sm text-gray-600">${crumbs}</div>
-  <div class="overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm">
-    <div class="flex h-10 items-center gap-2 border-b border-gray-300 bg-gray-50 px-4">
-      <i class="ph ph-folder-open text-gray-500"></i><span class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">${esc(path ? basename(path) || path : "workspace")}</span>
-      <span class="text-xs text-gray-500">${entries.length} item${entries.length === 1 ? "" : "s"}</span>
+  <div class="mb-4 flex min-w-0 items-center gap-2 text-sm text-muted">${crumbs}</div>
+  <div class="overflow-hidden rounded-md border border-ui-border bg-base-100 shadow-sm">
+    <div class="flex h-10 items-center gap-2 border-b border-ui-border bg-base-200 px-4">
+      <i class="ph ph-folder-open text-subtle"></i><span class="min-w-0 flex-1 truncate text-sm font-semibold text-base-content">${esc(path ? basename(path) || path : "workspace")}</span>
+      <span class="text-xs text-subtle">${entries.length} item${entries.length === 1 ? "" : "s"}</span>
     </div>
-    <div>${rows || '<div class="px-4 py-10 text-center text-sm text-gray-500">This directory is empty.</div>'}</div>
+    <div>${rows || '<div class="px-4 py-10 text-center text-sm text-subtle">This directory is empty.</div>'}</div>
   </div>
 </div>
 </div>`;
@@ -72,8 +72,8 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
     const content = isMedia ? "" : await ctx.fns.files.read({ path });
 
     const tabCls = (id: string) => id === tab
-        ? "border-b-2 border-orange-500 px-3 py-2 text-sm font-semibold text-gray-900"
-        : "border-b-2 border-transparent px-3 py-2 text-sm text-gray-600 hover:border-gray-300 hover:text-gray-900";
+        ? "border-b-2 border-orange-500 px-3 py-2 text-sm font-semibold text-base-content"
+        : "border-b-2 border-transparent px-3 py-2 text-sm text-muted hover:border-ui-border hover:text-base-content";
     const fileUrl = await browserHref(ctx, path, embedded);
     const tabLink = (id: string, label: string) =>
         `<a href="${fileUrl}?tab=${id}" class="${tabCls(id)}">${label}</a>`;
@@ -90,11 +90,11 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
     if (tab === "preview" && isImage) {
         contentEl = `<div class="flex flex-1 items-center justify-center overflow-auto bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] p-8"><img src="${rawUrl}" alt="${esc(name)}" class="max-h-full max-w-full object-contain shadow-lg" loading="eager"></div>`;
     } else if (tab === "preview" && isVideo) {
-        contentEl = `<div class="flex flex-1 items-center justify-center overflow-auto bg-gray-950 p-6"><video src="${rawUrl}" class="max-h-full max-w-full" controls preload="metadata"></video></div>`;
+        contentEl = `<div class="flex flex-1 items-center justify-center overflow-auto bg-black p-6"><video src="${rawUrl}" class="max-h-full max-w-full" controls preload="metadata"></video></div>`;
     } else if (tab === "preview" && isAudio) {
-        contentEl = `<div class="flex flex-1 flex-col items-center justify-center gap-5 bg-gray-50 p-8"><i class="ph ph-waveform text-6xl text-indigo-400"></i><div class="text-sm font-medium text-gray-600">${esc(name)}</div><audio src="${rawUrl}" class="w-full max-w-xl" controls preload="metadata"></audio></div>`;
+        contentEl = `<div class="flex flex-1 flex-col items-center justify-center gap-5 bg-base-200 p-8"><i class="ph ph-waveform text-6xl text-indigo-400"></i><div class="text-sm font-medium text-muted">${esc(name)}</div><audio src="${rawUrl}" class="w-full max-w-xl" controls preload="metadata"></audio></div>`;
     } else if (tab === "preview" && isPdf) {
-        contentEl = `<iframe src="${rawUrl}" title="${esc(name)}" class="flex-1 w-full border-0 bg-gray-100"></iframe>`;
+        contentEl = `<iframe src="${rawUrl}" title="${esc(name)}" class="flex-1 w-full border-0 bg-base-200"></iframe>`;
     } else if (tab === "preview" && isMd) {
         const html = await ctx.fns.markdown.render({ source: content });
         contentEl = `<div class="flex-1 overflow-auto p-6"><div class="prose prose-sm max-w-none">${html}</div></div>`;
@@ -117,7 +117,7 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
 <script src="/files/editor.js"></script>`;
     } else {
         const html = await ctx.fns.markdown.highlight({ code: content, lang: shikiLang });
-        contentEl = `<div class="flex-1 overflow-auto text-xs bg-white [&_pre]:m-0 [&_pre]:rounded-none [&_pre]:p-4">${html}</div>`;
+        contentEl = `<div class="flex-1 overflow-auto text-xs bg-base-100 [&_pre]:m-0 [&_pre]:rounded-none [&_pre]:p-4">${html}</div>`;
     }
 
     const crumbs = await breadcrumbs(ctx, path, embedded);
@@ -125,18 +125,18 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
 <div class="dot-grid-surface flex-1 min-h-0 overflow-auto ${wide ? "p-2" : "px-5 py-5"}">
   <div class="mx-auto flex min-h-full w-full ${wide ? "max-w-none" : "max-w-5xl"} flex-col">
     <div class="mb-4 flex min-w-0 items-center gap-2 text-sm">${crumbs}</div>
-    <div class="flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm">
-      <div class="shrink-0 border-b border-gray-300 bg-gray-50 px-4 pt-3">
+    <div class="flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-md border border-ui-border bg-base-100 shadow-sm">
+      <div class="shrink-0 border-b border-ui-border bg-base-200 px-4 pt-3">
         <div class="flex min-w-0 items-center gap-2">
-          <i class="ph ${fileIcon(name)} text-gray-500"></i>
-          <span class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">${esc(name)}</span>
+          <i class="ph ${fileIcon(name)} text-subtle"></i>
+          <span class="min-w-0 flex-1 truncate text-sm font-semibold text-base-content">${esc(name)}</span>
           <span id="save-status" class="text-xs hidden"></span>
-          ${tab === "edit" ? `<label class="flex cursor-pointer items-center gap-1 text-xs text-gray-500"><input type="checkbox" id="vim-toggle" class="h-3 w-3">vim</label>` : ""}
-          <span class="shrink-0 text-xs text-gray-400">${isMedia ? ext.toUpperCase() : `${content.length} chars · ${content.split("\n").length} lines`}</span>
+          ${tab === "edit" ? `<label class="flex cursor-pointer items-center gap-1 text-xs text-subtle"><input type="checkbox" id="vim-toggle" class="h-3 w-3">vim</label>` : ""}
+          <span class="shrink-0 text-xs text-faint">${isMedia ? ext.toUpperCase() : `${content.length} chars · ${content.split("\n").length} lines`}</span>
         </div>
         <nav class="mt-2 flex items-end gap-1">${tabs.join("")}</nav>
       </div>
-      ${tab === "edit" ? `<div id="vim-status" class="hidden shrink-0 bg-gray-800 px-3 py-0.5 font-mono text-xs text-gray-100"></div>` : ""}
+      ${tab === "edit" ? `<div id="vim-status" class="hidden shrink-0 bg-base-content px-3 py-0.5 font-mono text-xs text-base-100"></div>` : ""}
       ${contentEl}
     </div>
   </div>
@@ -165,7 +165,7 @@ async function breadcrumbs(ctx: Context, path: string, embedded = false): Promis
         const sub = (absolute ? "/" : "") + parts.slice(0, i + 1).join("/");
         links.push(`<a href="${await browserHref(ctx, sub, embedded)}" class="font-semibold text-blue-600 hover:underline">${esc(parts[i]!)}</a>`);
     }
-    return links.join(` <i class="ph ph-caret-right text-[10px] text-gray-400"></i> `);
+    return links.join(` <i class="ph ph-caret-right text-3xs text-faint"></i> `);
 }
 
 async function browserHref(ctx: Context, path: string, embedded: boolean): Promise<string> {
@@ -176,12 +176,12 @@ async function browserHref(ctx: Context, path: string, embedded: boolean): Promi
 
 function fileIcon(name: string): string {
     const ext = extname(name).slice(1).toLowerCase();
-    if (IMAGE_EXT.has(ext)) return "ph-image text-gray-400";
-    if (VIDEO_EXT.has(ext)) return "ph-video text-gray-400";
-    if (AUDIO_EXT.has(ext)) return "ph-music-note text-gray-400";
-    if (ext === "pdf") return "ph-file-pdf text-gray-400";
-    if (["ts", "tsx", "js", "jsx", "json", "css", "html", "md", "py", "go", "rs"].includes(ext)) return "ph-file-code text-gray-400";
-    return "ph-file text-gray-400";
+    if (IMAGE_EXT.has(ext)) return "ph-image text-faint";
+    if (VIDEO_EXT.has(ext)) return "ph-video text-faint";
+    if (AUDIO_EXT.has(ext)) return "ph-music-note text-faint";
+    if (ext === "pdf") return "ph-file-pdf text-faint";
+    if (["ts", "tsx", "js", "jsx", "json", "css", "html", "md", "py", "go", "rs"].includes(ext)) return "ph-file-code text-faint";
+    return "ph-file text-faint";
 }
 
 function fileKind(name: string): string {

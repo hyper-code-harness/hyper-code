@@ -15,10 +15,10 @@
  */
 export default function (ctx: Context, _session: Session | null, opts: { name: string; url: string; items: Array<{ value: string; label: string; hint?: string; href?: string }> }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
-    if (!opts.items.length) return `<div class="px-3 py-2 text-xs text-base-content/60">no matches</div>`;
+    if (!opts.items.length) return `<div class="px-3 py-2 text-xs text-subtle">no matches</div>`;
     const cls = "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-base-content hover:bg-base-200";
     return opts.items.map(o => {
-        const inside = `<span class="min-w-0 truncate">${esc(o.label)}</span>${o.hint ? `<span class="ml-2 shrink-0 text-xs text-base-content/60">${esc(o.hint)}</span>` : ""}`;
+        const inside = `<span class="min-w-0 truncate">${esc(o.label)}</span>${o.hint ? `<span class="ml-2 shrink-0 text-xs text-subtle">${esc(o.hint)}</span>` : ""}`;
         return ctx.fns.procs.ui.button({
             action: "pick", id: o.value, html: inside, href: o.href,
             get: o.href ? undefined : `${opts.url}?pick=${encodeURIComponent(o.value)}&name=${encodeURIComponent(opts.name)}`,

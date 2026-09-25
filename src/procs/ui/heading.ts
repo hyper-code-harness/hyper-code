@@ -11,7 +11,7 @@ export default function (ctx: Context, _session: Session | null, opts: {title: s
     return `<div class="flex flex-wrap items-center justify-between gap-3">
   <div class="min-w-0">
     <h2 class="text-base font-semibold text-base-content">${esc(opts.title)}</h2>
-    ${opts.meta ? `<p class="mt-0.5 text-xs text-base-content/60">${opts.meta}</p>` : ""}
+    ${opts.meta ? `<p class="mt-0.5 text-xs text-subtle">${opts.meta}</p>` : ""}
   </div>
   ${opts.actions ? `<div class="flex shrink-0 items-center gap-2">${opts.actions}</div>` : ""}
 </div>`;

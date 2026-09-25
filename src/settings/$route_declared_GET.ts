@@ -5,9 +5,9 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
     const items = await ctx.fns.settings.declared({});
     const form = await ctx.fns.settings.renderDeclaredForm({});
     const main = `
-<header class="px-6 py-3 border-b border-gray-200 flex items-center gap-3 text-sm">
-  <span class="font-semibold text-gray-700">declared settings</span>
-  <span class="text-xs text-gray-400">${items.length} declared</span>
+<header class="px-6 py-3 border-b border-ui-border flex items-center gap-3 text-sm">
+  <span class="font-semibold text-muted">declared settings</span>
+  <span class="text-xs text-faint">${items.length} declared</span>
 </header>
 ${form}`;
     return { title: 'settings', main };

@@ -36,20 +36,20 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         if (agent) {
             const active = agent.runState !== "idle";
             const badge = Number(agent.unread ?? 0) > 0
-                ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-emerald-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
+                ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-emerald-500 px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
                 : "";
             const pinned = pinnedIds.has(String(agent.id));
-            const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-base-content/35 hover:bg-base-200 hover:text-amber-600"><i class="ph ${pinned ? "ph-push-pin-slash text-red-500" : "ph-push-pin"}"></i></button></form>`;
+            const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-amber-600"><i class="ph ${pinned ? "ph-push-pin-slash text-red-500" : "ph-push-pin"}"></i></button></form>`;
             return `<div class="group flex items-center gap-0.5"><a href="${esc(item.href)}" class="nav-row flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">
   ${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}
-  <span class="min-w-0 flex-1 truncate text-xs text-base-content/80">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-amber-500" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-[10px] font-normal text-base-content/45">(${esc(agent.id)})</span></span>
+  <span class="min-w-0 flex-1 truncate text-xs text-muted">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-amber-500" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>
   ${badge}
 </a>${pinControl}</div>`;
         }
         return `<a href="${esc(item.href)}" class="nav-row flex min-h-8 items-center gap-2 rounded px-2 py-1 text-sm outline-none hover:bg-base-200/60">
-  <i class="ph ${esc(item.icon || (group(item) === "Projects & files" ? "ph-folder" : group(item) === "Plugins" ? "ph-plugs" : "ph-gear"))} shrink-0 text-base-content/45"></i>
+  <i class="ph ${esc(item.icon || (group(item) === "Projects & files" ? "ph-folder" : group(item) === "Plugins" ? "ph-plugs" : "ph-gear"))} shrink-0 text-faint"></i>
   <span class="min-w-0 flex-1 truncate">${esc(item.label)}</span>
-  ${item.hint ? `<span class="max-w-32 shrink-0 truncate text-[10px] text-base-content/45">${esc(item.hint)}</span>` : ""}
+  ${item.hint ? `<span class="max-w-32 shrink-0 truncate text-3xs text-faint">${esc(item.hint)}</span>` : ""}
 </a>`;
     };
     let html: string;
@@ -66,44 +66,44 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const quickAgentRow = (agent: any) => {
         const active = agent.runState !== "idle";
         const badge = Number(agent.unread ?? 0) > 0
-            ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-emerald-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
+            ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-emerald-500 px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
             : "";
-        return `<a href="/agent/${encodeURIComponent(agent.id)}" class="nav-row flex min-h-7 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}<span class="min-w-0 flex-1 truncate text-xs text-base-content/80">${esc(agent.title || agent.id)} <span class="font-mono text-[10px] font-normal text-base-content/45">(${esc(agent.id)})</span></span>${badge}</a>`;
+        return `<a href="/agent/${encodeURIComponent(agent.id)}" class="nav-row flex min-h-7 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}<span class="min-w-0 flex-1 truncate text-xs text-muted">${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>${badge}</a>`;
     };
     const pinnedAgents = visibleAgents.filter((agent: any) => pinnedIds.has(String(agent.id)));
     const unreadAgents = visibleAgents.filter((agent: any) => !pinnedIds.has(String(agent.id)) && Number(agent.unread ?? 0) > 0);
-    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-600">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${unreadAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Unread</h4>${unreadAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${[...agentGroups.entries()].map(([dir, list]) => `<section class="mb-2">
+    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-amber-600">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${unreadAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-emerald-600">Unread</h4>${unreadAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${[...agentGroups.entries()].map(([dir, list]) => `<section class="mb-2">
   ${dir === "(no workdir)"
-      ? `<h4 class="mb-0.5 px-1.5 text-[10px] font-semibold text-base-content/45">${dir}</h4>`
-      : `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row mb-0.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold text-base-content/60 hover:bg-base-200"><i class="ph ph-folder-open"></i><span class="truncate">${esc(workspaceLabel(dir))}</span></a>`}
+      ? `<h4 class="mb-0.5 px-1.5 text-3xs font-semibold text-faint">${dir}</h4>`
+      : `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row mb-0.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-semibold text-subtle hover:bg-base-200"><i class="ph ph-folder-open"></i><span class="truncate">${esc(workspaceLabel(dir))}</span></a>`}
   ${list.map((parent: any) => `${agentRow(parent)}${(childrenByParent.get(String(parent.id)) ?? []).map((child: any) => `<div class="ml-5 border-l border-ui-border pl-1">${agentRow(child, true)}</div>`).join("")}`).join("")}
 </section>`).join("")}`;
     const projects = () => {
         const folders = [...agentGroups.entries()].filter(([dir]) => dir !== "(no workdir)");
         return folders.map(([dir, list]) => `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row flex min-h-8 items-center gap-2 rounded px-2 py-1 text-sm outline-none hover:bg-base-200/60">
-  <i class="ph ph-folder-open shrink-0 text-base-content/45"></i>
+  <i class="ph ph-folder-open shrink-0 text-faint"></i>
   <span class="min-w-0 flex-1 truncate">${esc(workspaceLabel(dir))}</span>
-  <span class="shrink-0 text-[10px] text-base-content/45">${list.length} ${list.length === 1 ? "agent" : "agents"}</span>
+  <span class="shrink-0 text-3xs text-faint">${list.length} ${list.length === 1 ? "agent" : "agents"}</span>
 </a>`).join("");
     };
 
-    const sharedAgentRows = () => sharedAgents.map((card: any) => `<a href="/shared-agents?agent=${encodeURIComponent(card.agentId)}" class="nav-row flex min-h-10 items-start gap-2 rounded px-2 py-1.5 text-left outline-none hover:bg-base-200/60"><i class="ph ph-brain mt-0.5 shrink-0 text-primary"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium text-base-content/80">${esc(card.name)}</span><span class="block truncate text-[10px] text-base-content/45">${esc((card.capabilities ?? []).join(" · ") || card.description)}</span></span><span class="font-mono text-[9px] text-base-content/35">${esc(card.agentId)}</span></a>`).join("");
+    const sharedAgentRows = () => sharedAgents.map((card: any) => `<a href="/shared-agents?agent=${encodeURIComponent(card.agentId)}" class="nav-row flex min-h-10 items-start gap-2 rounded px-2 py-1.5 text-left outline-none hover:bg-base-200/60"><i class="ph ph-brain mt-0.5 shrink-0 text-primary"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium text-muted">${esc(card.name)}</span><span class="block truncate text-3xs text-faint">${esc((card.capabilities ?? []).join(" · ") || card.description)}</span></span><span class="font-mono text-micro text-faint">${esc(card.agentId)}</span></a>`).join("");
 
     if (q) {
         html = `<div class="p-2">${sharedAgentRows()}${items.map(row).join("")}</div>`;
     } else {
         const newAgent = `<a href="/agent/new" class="nav-row mb-1 flex min-h-10 items-center gap-2 rounded-lg border border-ui-border bg-base-100/35 px-3 py-2 text-left text-base-content shadow-sm outline-none transition hover:border-ui-border-strong hover:bg-base-100/60 hover:text-primary"><i class="ph ph-plus-circle shrink-0 text-lg text-primary" aria-hidden="true"></i><span class="min-w-0 flex-1 text-xs">New agent</span></a>`;
-        const quick = `<section class="mb-3 border-b border-ui-border pb-2"><h4 class="mb-1 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-base-content/45">Quick</h4>${newAgent}${hotAgents.map((agent: any) => quickAgentRow(agent)).join("")}</section>`;
+        const quick = `<section class="mb-3 border-b border-ui-border pb-2"><h4 class="mb-1 px-1.5 text-3xs font-semibold uppercase tracking-wider text-faint">Quick</h4>${newAgent}${hotAgents.map((agent: any) => quickAgentRow(agent)).join("")}</section>`;
         const columns = [
             { title: "Chats", content: `${quick}${chats()}` },
             { title: "Shared Agents", content: `${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },
             { title: "Pages", content: items.filter(item => group(item) === "Pages").map(row).join("") },
             { title: "Projects & files", content: `${projects()}${items.filter(item => group(item) === "Projects & files").map(row).join("")}` },
-            { title: "System & plugins", content: `<h4 class="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/35">System</h4>${items.filter(item => group(item) === "System").map(row).join("")}<h4 class="mb-1 mt-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/35">Plugins</h4>${items.filter(item => group(item) === "Plugins").map(row).join("")}` },
+            { title: "System & plugins", content: `<h4 class="mb-1 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">System</h4>${items.filter(item => group(item) === "System").map(row).join("")}<h4 class="mb-1 mt-3 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">Plugins</h4>${items.filter(item => group(item) === "Plugins").map(row).join("")}` },
         ];
-        html = `<div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">${columns.map(column => `<section class="min-w-0 p-2.5"><h3 class="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/45">${column.title}</h3>${column.content || `<div class="px-2 py-2 text-xs text-base-content/30">empty</div>`}</section>`).join("")}</div>`;
+        html = `<div class="grid grid-cols-1 divide-y divide-base-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">${columns.map(column => `<section class="min-w-0 p-2.5"><h3 class="mb-1 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">${column.title}</h3>${column.content || `<div class="px-2 py-2 text-xs text-faint">empty</div>`}</section>`).join("")}</div>`;
     }
-    return new Response(html || `<div class="px-4 py-5 text-sm text-base-content/45">nothing</div>`, {
+    return new Response(html || `<div class="px-4 py-5 text-sm text-faint">nothing</div>`, {
         headers: { "content-type": "text/html; charset=utf-8" },
     });
 }

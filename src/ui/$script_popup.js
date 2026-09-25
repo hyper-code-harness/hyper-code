@@ -22,7 +22,7 @@
         }
         if (body) body.className = file
             ? 'app-popup-body min-h-0 flex-1 overflow-hidden bg-base-200 p-0'
-            : 'app-popup-body min-h-0 flex-1 overflow-auto bg-base-200/60 p-5 text-xs text-base-content/70';
+            : 'app-popup-body min-h-0 flex-1 overflow-auto bg-base-200/60 p-5 text-xs text-muted';
     };
 
     window.hyperPopup = {
@@ -54,7 +54,7 @@
         loading(title = '', kind = '') {
             this.open(title, kind);
             const body = document.getElementById('app-popup-body');
-            if (body) body.innerHTML = '<div class="text-sm text-gray-400">loading…</div>';
+            if (body) body.innerHTML = '<div class="text-sm text-faint">loading…</div>';
         },
     };
 

@@ -31,7 +31,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             (ctx.state as any).agent[id] = agent;
         }
     }
-    if (!agent) return `<div class="p-4 text-sm text-base-content/45">agent ${esc(id)} not found</div>`;
+    if (!agent) return `<div class="p-4 text-sm text-faint">agent ${esc(id)} not found</div>`;
 
     const parent = agent.parentId ? await ctx.fns.session.load({ id: String(agent.parentId) }) : null;
     const maxIdx = await ctx.fns.session.getMaxEventIdx({ id });
@@ -41,7 +41,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         : 0;
 
     const historyHead = events.length && Number(events[0]?.idx ?? 0) > 0
-        ? `<div id="msg-head" hx-get="/agent/${encodeURIComponent(id)}/events.html?before=${Number(events[0].idx)}&limit=100" hx-trigger="load-older" hx-target="this" hx-swap="outerHTML" class="flex justify-center py-1">${ctx.fns.procs.ui.button({ action: 'load-older-messages', label: 'older messages', appearance: 'plain', class: 'rounded-full border border-ui-border bg-base-100 px-3 py-1 text-[10px] text-base-content/45 hover:text-base-content/65', attrs: { onclick: "htmx.trigger(this.parentElement, 'load-older')" } })}</div>`
+        ? `<div id="msg-head" hx-get="/agent/${encodeURIComponent(id)}/events.html?before=${Number(events[0].idx)}&limit=100" hx-trigger="load-older" hx-target="this" hx-swap="outerHTML" class="flex justify-center py-1">${ctx.fns.procs.ui.button({ action: 'load-older-messages', label: 'older messages', appearance: 'plain', class: 'rounded-full border border-ui-border bg-base-100 px-3 py-1 text-3xs text-faint hover:text-muted', attrs: { onclick: "htmx.trigger(this.parentElement, 'load-older')" } })}</div>`
         : '';
     const activeSleepForView = ctx.fns.agent.getSleepGeneration({ sleepContext: agent.sleepContext, kind: "active" });
     const eventsHtml = activeSleepForView
@@ -67,7 +67,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const compactPopup = await ctx.fns.ui.inplacePopup({
         id: `compact-popover-${id}`,
         triggerHtml: '<i class="ph ph-arrows-in-line-vertical"></i>',
-        triggerAttrs: 'class="px-1 text-base-content/45 hover:text-indigo-600" title="Compact context" aria-label="Compact context"',
+        triggerAttrs: 'class="px-1 text-faint hover:text-indigo-600" title="Compact context" aria-label="Compact context"',
         panelAttrs: 'aria-label="Compact context"',
         contentHtml: `<form hx-post="/agent/${encodeURIComponent(id)}/compact" hx-swap="none"><div class="text-sm font-medium">Compact context</div><textarea name="instructions" rows="3" placeholder="Optional focus instructions" class="mt-2 w-full rounded border border-ui-border bg-base-100 p-2 text-xs"></textarea>${ctx.fns.procs.ui.button({ action: 'compact-context', label: 'Compact', type: 'submit', tone: 'primary', class: 'mt-2' })}</form>`,
     });
@@ -76,7 +76,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         method: 'agent.modelPicker',
         params: { agentId: id },
         html: ctx.fns.ui.modelLogo({ model: agent.model, bare: true }),
-        attrs: `class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-base-100/25 text-base-content/65 transition hover:bg-base-100/60 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/25" title="Change provider or model · ${esc(agent.model)}" aria-label="Change provider or model: ${esc(agent.model)}"`,
+        attrs: `class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-base-100/25 text-muted transition hover:bg-base-100/60 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/25" title="Change provider or model · ${esc(agent.model)}" aria-label="Change provider or model: ${esc(agent.model)}"`,
     });
 
     const reasoning = await ctx.fns.llm.resolveReasoningEffort({ model: agent.model, effort: agent.reasoningEffort ?? "auto" });
@@ -85,7 +85,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         method: 'agent.effortPicker',
         params: { agentId: id },
         html: `<i class="ph ph-brain" aria-hidden="true"></i><span class="hidden sm:inline capitalize">${esc(effortLabel)}</span>`,
-        attrs: `class="inline-flex h-7 items-center gap-1 rounded-full border border-ui-border bg-base-100/35 px-2 text-[10px] font-medium text-base-content/60 transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary" title="Reasoning effort · ${esc(effortLabel)}" aria-label="Change reasoning effort: ${esc(effortLabel)}"`,
+        attrs: `class="inline-flex h-7 items-center gap-1 rounded-full border border-ui-border bg-base-100/35 px-2 text-3xs font-medium text-subtle transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary" title="Reasoning effort · ${esc(effortLabel)}" aria-label="Change reasoning effort: ${esc(effortLabel)}"`,
     });
     const workspaceDir = String(agent.workspaceDir ?? '').trim();
     const workspaceName = workspaceDir.split('/').filter(Boolean).pop() || workspaceDir;
@@ -93,7 +93,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         method: 'ui.previewFile',
         params: { path: workspaceDir, mode: 'auto', title: workspaceName },
         html: `<i class="ph ph-folder-open shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceName)}</span>`,
-        attrs: `class="hidden min-w-0 items-center gap-1 text-[9px] leading-none text-base-content/40 transition hover:text-primary sm:inline-flex" title="Files · ${esc(workspaceDir)}" aria-label="Open files in ${esc(workspaceDir)}"`,
+        attrs: `class="hidden min-w-0 items-center gap-1 text-micro leading-none text-faint transition hover:text-primary sm:inline-flex" title="Files · ${esc(workspaceDir)}" aria-label="Open files in ${esc(workspaceDir)}"`,
     }) : '';
 
 
@@ -102,17 +102,17 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const statusLinePopup = await ctx.fns.ui.inplacePopup({
         id: `status-line-popover-${id}`,
         triggerHtml: `<span id="status-line-label-${esc(id)}" class="min-w-0 truncate"><i class="ph ph-note-pencil mr-1"></i>${statusLabel}${statusMode === "custom" && agent.statusLine && Number(agent.statusLineEvery ?? 1) > 1 ? ` · every ${Number(agent.statusLineEvery)} turns` : ''}</span>`,
-        triggerAttrs: 'class="min-w-0 max-w-full truncate text-[10px] text-base-content/45 hover:text-base-content/70" title="Edit prompt inject" aria-label="Edit prompt inject"',
+        triggerAttrs: 'class="min-w-0 max-w-full truncate text-3xs text-faint hover:text-muted" title="Edit prompt inject" aria-label="Edit prompt inject"',
         panelAttrs: 'aria-label="Edit prompt inject"',
-        contentHtml: `<div class="min-w-0 space-y-3"><label class="block text-xs font-medium text-base-content/70">Mode<select form="status-line-form-${esc(id)}" name="mode" class="mt-1 block w-full rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs"><option value="global"${statusMode === "global" ? " selected" : ""}>Global</option><option value="custom"${statusMode === "custom" ? " selected" : ""}>Custom</option><option value="off"${statusMode === "off" ? " selected" : ""}>Off</option></select></label><label class="block min-w-0 text-xs font-medium text-base-content/70">Custom text<textarea form="status-line-form-${esc(id)}" name="text" maxlength="500" rows="4" placeholder="Overrides the global Status Line…" class="mt-1 block w-full min-w-0 max-w-full box-border resize-y rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content">${esc(agent.statusLine ?? '')}</textarea></label><label class="block min-w-0 text-xs font-medium text-base-content/70">Custom cadence: every <input form="status-line-form-${esc(id)}" name="every" type="number" min="1" max="100" value="${Math.max(1, Number(agent.statusLineEvery ?? 1))}" class="mt-1 block w-full min-w-0 max-w-full box-border rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content"></label>${ctx.fns.procs.ui.button({ action: 'save-status-line', label: 'Save', type: 'submit', tone: 'primary', class: 'w-full', attrs: { form: `status-line-form-${id}` } })}</div>`,
+        contentHtml: `<div class="min-w-0 space-y-3"><label class="block text-xs font-medium text-muted">Mode<select form="status-line-form-${esc(id)}" name="mode" class="mt-1 block w-full rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs"><option value="global"${statusMode === "global" ? " selected" : ""}>Global</option><option value="custom"${statusMode === "custom" ? " selected" : ""}>Custom</option><option value="off"${statusMode === "off" ? " selected" : ""}>Off</option></select></label><label class="block min-w-0 text-xs font-medium text-muted">Custom text<textarea form="status-line-form-${esc(id)}" name="text" maxlength="500" rows="4" placeholder="Overrides the global Status Line…" class="mt-1 block w-full min-w-0 max-w-full box-border resize-y rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content">${esc(agent.statusLine ?? '')}</textarea></label><label class="block min-w-0 text-xs font-medium text-muted">Custom cadence: every <input form="status-line-form-${esc(id)}" name="every" type="number" min="1" max="100" value="${Math.max(1, Number(agent.statusLineEvery ?? 1))}" class="mt-1 block w-full min-w-0 max-w-full box-border rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content"></label>${ctx.fns.procs.ui.button({ action: 'save-status-line', label: 'Save', type: 'submit', tone: 'primary', class: 'w-full', attrs: { form: `status-line-form-${id}` } })}</div>`,
     });
 
     // header names THIS agent and holds its controls, nothing more.
     return `
-<header class="glass-bar absolute inset-x-0 top-0 z-40 mx-auto mt-2 flex h-11 w-[calc(100%-2rem)] max-w-3xl shrink-0 items-center gap-2.5 overflow-visible rounded-[22px] border border-ui-border pl-2 pr-5 text-xs text-base-content/70">
+<header class="glass-bar absolute inset-x-0 top-0 z-40 mx-auto mt-2 flex h-11 w-[calc(100%-2rem)] max-w-3xl shrink-0 items-center gap-2.5 overflow-visible rounded-[22px] border border-ui-border pl-2 pr-5 text-xs text-muted">
   ${modelControl}
   <span class="flex min-w-0 flex-col">
-    <span class="truncate font-mono font-medium leading-4 text-base-content/80">${esc(String(agent.title ?? id).slice(0, 40) || id)} <span class="text-base-content/45">(${esc(id)})</span></span>
+    <span class="truncate font-mono font-medium leading-4 text-muted">${esc(String(agent.title ?? id).slice(0, 40) || id)} <span class="text-faint">(${esc(id)})</span></span>
     ${workspaceControl}
   </span>
    ${agent.parentId ? `<a href="/agent/${encodeURIComponent(String(agent.parentId))}" class="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-amber-700 hover:bg-amber-100 hover:text-amber-900" title="forked from ${esc(parent?.title || agent.parentId)} · inherited ${inheritedCount} msgs" aria-label="Back to parent agent ${esc(parent?.title || agent.parentId)}"><i class="ph ph-arrow-bend-up-left mr-0.5"></i>${esc(String(parent?.title || agent.parentId).slice(0, 24))}</a>` : ""}
@@ -121,21 +121,21 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     ${effortControl}
     ${compactPopup}
 
-    ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-base-content/45 hover:text-indigo-600"' })}
+    ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-faint hover:text-indigo-600"' })}
 
-    <a href="/shared-agents?from=${encodeURIComponent(id)}" title="Publish or use Shared Agents" aria-label="Shared Agents" class="px-1 text-base-content/45 hover:text-indigo-600"><i class="ph ph-users-three" aria-hidden="true"></i></a>
+    <a href="/shared-agents?from=${encodeURIComponent(id)}" title="Publish or use Shared Agents" aria-label="Shared Agents" class="px-1 text-faint hover:text-indigo-600"><i class="ph ph-users-three" aria-hidden="true"></i></a>
 
     <form method="POST" action="/agent/${encodeURIComponent(id)}/fork" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>', type: 'submit', appearance: 'plain', title: 'fork and open', ariaLabel: 'Fork and open agent', class: 'px-1 text-base-content/45 transition hover:text-indigo-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>', type: 'submit', appearance: 'plain', title: 'fork and open', ariaLabel: 'Fork and open agent', class: 'px-1 text-faint transition hover:text-indigo-600' })}
     </form>
 
-    <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" title="agent page" class="px-1 text-base-content/45 hover:text-base-content/70">ⓘ</a>
+    <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" title="agent page" class="px-1 text-faint hover:text-muted">ⓘ</a>
     <span class="mx-1 h-5 w-px bg-ui-border" aria-hidden="true"></span>
     <form method="POST" action="/agent/${encodeURIComponent(id)}/archive" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'rounded px-1 text-base-content/45 hover:bg-red-50 hover:text-red-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'rounded px-1 text-faint hover:bg-red-50 hover:text-red-600' })}
     </form>
     <form method="POST" action="/agent/${encodeURIComponent(id)}/delete" hx-boost="false" class="inline" onsubmit="return confirm('delete ${esc(id)}? The transcript goes with it.')">
-      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'rounded px-1 text-base-content/45 hover:bg-red-50 hover:text-red-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'rounded px-1 text-faint hover:bg-red-50 hover:text-red-600' })}
     </form>
   </span>
 </header>

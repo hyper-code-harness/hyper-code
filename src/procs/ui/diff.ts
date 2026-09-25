@@ -7,11 +7,11 @@
  */
 export default function (ctx: Context, _session: Session | null, opts: {patch: string; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
-    if (!opts.patch.trim()) return `<div class="px-4 py-3 text-xs text-base-content/60">no textual change</div>`;
+    if (!opts.patch.trim()) return `<div class="px-4 py-3 text-xs text-subtle">no textual change</div>`;
     const lines = opts.patch.split("\n").map(line => {
         const color = line.startsWith("+") && !line.startsWith("+++") ? "text-success bg-success/10"
             : line.startsWith("-") && !line.startsWith("---") ? "text-error bg-error/10"
-                : line.startsWith("@@") ? "text-primary" : "text-base-content/70";
+                : line.startsWith("@@") ? "text-primary" : "text-muted";
         return `<span class="block px-4 ${color}">${esc(line) || "&nbsp;"}</span>`;
     }).join("");
     return `<pre class="overflow-x-auto py-2 text-xs leading-5 ${opts.class ?? ""}" ${ctx.fns.procs.ui.attr({ role: "diff" })}>${lines}</pre>`;

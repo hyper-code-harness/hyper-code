@@ -27,7 +27,7 @@ function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true
     const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.procs.ui.button({
         action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`,
         post: url, swap: 'none', vals: { idx: String(idx), mode }, title, ariaLabel: title,
-        class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-base-content/45 shadow-sm backdrop-blur transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-200',
+        class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-200',
         attrs: { 'hx-confirm': confirm, 'hx-on::after-request': 'if (event.detail.successful) location.reload();' },
     });
     return '<div class="' + (placement === 'side' ? 'flex gap-1' : 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100') + '">'
@@ -60,8 +60,8 @@ function timeHtml(ts: any, tone: 'dark' | 'light', suffix = ''): string {
     // Telegram-style: an inline stamp consumes only the tail of the final line.
     // It stays beside a one-liner and naturally lands at the lower-right when
     // text wraps.
-    return '<span class="inline-block ml-2 whitespace-nowrap text-[10px] leading-none '
-        + (tone === 'dark' ? 'text-white/70' : 'text-base-content/70')
+    return '<span class="inline-block ml-2 whitespace-nowrap text-3xs leading-none '
+        + (tone === 'dark' ? 'text-white/70' : 'text-muted')
         + '">' + esc(time) + suffix + '</span>';
 }
 
@@ -78,7 +78,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     if (!ev || typeof ev !== "object") return "";
     const eventCard = (card: any) => (ctx as any).fns.ui.chatEventCard
         ? (ctx as any).fns.ui.chatEventCard(card)
-        : `<div class="w-full rounded-lg border border-ui-border bg-base-200/45 px-3 py-2"><div class="flex items-center gap-2 text-xs font-semibold">${card.icon ? `<i class="ph ph-${esc(card.icon)}"></i>` : ''}<span>${esc(card.title)}</span>${card.badge ?? ''}</div>${card.body ? `<div class="mt-1 text-[11px]">${card.body}</div>` : ''}${card.details ? `<details><summary>Details</summary>${card.details}</details>` : ''}</div>`;
+        : `<div class="w-full rounded-lg border border-ui-border bg-base-200/45 px-3 py-2"><div class="flex items-center gap-2 text-xs font-semibold">${card.icon ? `<i class="ph ph-${esc(card.icon)}"></i>` : ''}<span>${esc(card.title)}</span>${card.badge ?? ''}</div>${card.body ? `<div class="mt-1 text-2xs">${card.body}</div>` : ''}${card.details ? `<details><summary>Details</summary>${card.details}</details>` : ''}</div>`;
     const badge = (label: string, tone: 'neutral' | 'info' | 'success' | 'warning' | 'error' = 'neutral') => (ctx as any).fns.ui.statusBadge
         ? (ctx as any).fns.ui.statusBadge({ label, tone })
         : `<span class="badge badge-sm">${esc(label)}</span>`;
@@ -88,7 +88,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         // audit stays visible, dimmed, with an out-of-context chip. Recurse
         // through the registry for the normal rendering of the same event.
         const inner: string = await (ctx as any).fns.agent.renderEventHtml({ event: { ...ev, excludedFromLlm: false }, agentId });
-        return '<div class="relative opacity-50"><span class="absolute -top-2 right-2 z-10 text-[10px] px-1.5 py-0.5 rounded-full border border-ui-border bg-base-200 text-base-content/55">вне контекста</span>' + inner + '</div>';
+        return '<div class="relative opacity-50"><span class="absolute -top-2 right-2 z-10 text-3xs px-1.5 py-0.5 rounded-full border border-ui-border bg-base-200 text-subtle">вне контекста</span>' + inner + '</div>';
     }
 
     if (ev.type === "user") {
@@ -103,12 +103,12 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const retrieved = Number(ev.functionRag?.retrieved ?? 0);
         const badge = (html: string, label: string, tip: string) =>
             '<span class="group/rag relative ml-2 inline-flex items-center gap-1 align-middle" aria-label="' + esc(label) + '" tabindex="0">' + html
-            + '<span role="tooltip" class="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[32rem] whitespace-pre-wrap rounded-lg border border-ui-border bg-base-100 px-3 py-2 font-mono text-[10px] leading-4 text-base-content/70 opacity-0 shadow-xl transition group-hover/rag:visible group-hover/rag:opacity-100 group-focus/rag:visible group-focus/rag:opacity-100">' + esc(tip) + '</span></span>';
+            + '<span role="tooltip" class="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[32rem] whitespace-pre-wrap rounded-lg border border-ui-border bg-base-100 px-3 py-2 font-mono text-3xs leading-4 text-muted opacity-0 shadow-xl transition group-hover/rag:visible group-hover/rag:opacity-100 group-focus/rag:visible group-focus/rag:opacity-100">' + esc(tip) + '</span></span>';
         const gateBadge = !ev.functionRag ? '' : badge(
             ragGate === "closed"
                 ? '<span class="h-1.5 w-1.5 rounded-full border border-white/50" aria-hidden="true"></span>'
-                : ragGate === 'error' ? '<span class="text-red-300 text-[10px]" aria-hidden="true">!</span>'
-                : ragGate === 'off' ? '<span class="text-white/40 text-[10px]" aria-hidden="true">−</span>'
+                : ragGate === 'error' ? '<span class="text-red-300 text-3xs" aria-hidden="true">!</span>'
+                : ragGate === 'off' ? '<span class="text-white/40 text-3xs" aria-hidden="true">−</span>'
                 : '<span class="h-1.5 w-1.5 rounded-full" style="background:rgb(251 191 36)" aria-hidden="true"></span>',
             `Gate: ${ragGate}`,
             `gate ${ragGate}` + (needsTool == null ? '' : ` · heuristic score ${Number(needsTool).toFixed(2)}`)
@@ -145,7 +145,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         // Defensive: if the pre-rendered html is unbalanced (markdown.render
         const indicators = ev.instructionIndicators ?? {};
         const statusDot = indicators.statusLine
-            ? '<span title="Status line: ' + esc(indicators.statusLine) + '" aria-label="status line applied" class="ml-1.5 inline-block size-1.5 rounded-full bg-gray-400 align-middle"></span>'
+            ? '<span title="Status line: ' + esc(indicators.statusLine) + '" aria-label="status line applied" class="ml-1.5 inline-block size-1.5 rounded-full bg-base-300 align-middle"></span>'
             : '';
         const instructionMarks = statusDot;
         // sometimes chokes on heredoc / shell `>` / mixed-code prose) fall
@@ -157,7 +157,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             : '<pre class="text-xs whitespace-pre-wrap break-words">' + esc(ev.text || '') + '</pre>';
         return '<div class="group relative flex justify-start">'
             + '<div class="assistant chat-glass w-full rounded-2xl px-4 py-3 text-base-content shadow-sm border border-ui-border">'
-            + '<div class="prose prose-sm max-w-none text-base-content prose-headings:text-base-content prose-p:text-base-content prose-li:text-base-content prose-strong:text-base-content prose-code:text-base-content prose-a:text-base-content/80 prose-p:my-1 prose-headings:my-2 prose-pre:my-2">'
+            + '<div class="prose prose-sm max-w-none text-base-content prose-headings:text-base-content prose-p:text-base-content prose-li:text-base-content prose-strong:text-base-content prose-code:text-base-content prose-a:text-muted prose-p:my-1 prose-headings:my-2 prose-pre:my-2">'
             + appendTime(safeHtml, ev.ts, 'light', instructionMarks)
             + '</div>'
             + usage
@@ -167,7 +167,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     }
 
     if (ev.type === "thinking") {
-        return eventCard({ title: `Thinking · ${ev.text?.length ?? 0} chars`, icon: 'brain', tone: 'neutral', details: `<pre class="whitespace-pre-wrap font-mono text-[11px] leading-snug text-base-content/65">${esc(ev.text || '')}</pre>` });
+        return eventCard({ title: `Thinking · ${ev.text?.length ?? 0} chars`, icon: 'brain', tone: 'neutral', details: `<pre class="whitespace-pre-wrap font-mono text-2xs leading-snug text-muted">${esc(ev.text || '')}</pre>` });
     }
 
     if (ev.type === "tool_call") {
@@ -176,7 +176,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const destructive = new Set(['write', 'edit', 'remove', 'rename']).has(String(ev.name ?? ''));
         const cardStyle = ev.isError
             ? 'border-error/55 bg-error/10 text-error'
-            : destructive ? 'border-ui-border-strong bg-transparent text-base-content/65' : 'border-ui-border-strong bg-transparent text-base-content/60';
+            : destructive ? 'border-ui-border-strong bg-transparent text-muted' : 'border-ui-border-strong bg-transparent text-subtle';
         const bodyMethod = agentId && ev.idx != null ? 'agent.toolDetails' : '';
         const title = String(meta.label + ' ' + meta.subject).trim();
 
@@ -189,7 +189,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     }
 
     if (ev.type === "plan_activation") {
-        return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: `<div class="font-medium text-base-content/80">${esc(ev.title ?? ev.taskId ?? "Task")}</div>${ev.instructions ? `<div class="mt-1 whitespace-pre-wrap">${esc(ev.instructions)}</div>` : ""}` });
+        return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: `<div class="font-medium text-muted">${esc(ev.title ?? ev.taskId ?? "Task")}</div>${ev.instructions ? `<div class="mt-1 whitespace-pre-wrap">${esc(ev.instructions)}</div>` : ""}` });
     }
 
 
@@ -199,7 +199,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const title = watched ? (ready ? "Condition met" : "Condition timed out") : "Scheduled wake-up";
         const icon = watched ? (ready ? "ph-check-circle" : "ph-timer") : "ph-alarm";
         const result = ev.result == null ? "" : JSON.stringify(ev.result, null, 2);
-        return eventCard({ title, icon: icon.replace(/^ph-/, ''), tone: ready || !watched ? 'info' : 'warning', badge: watched ? badge('watch', ready ? 'success' : 'warning') : undefined, body: esc(ev.reason ?? ev.summary ?? ""), details: result ? `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-[10px] leading-4 text-base-content/65">${esc(result)}</pre>` : undefined });
+        return eventCard({ title, icon: icon.replace(/^ph-/, ''), tone: ready || !watched ? 'info' : 'warning', badge: watched ? badge('watch', ready ? 'success' : 'warning') : undefined, body: esc(ev.reason ?? ev.summary ?? ""), details: result ? `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(result)}</pre>` : undefined });
     }
 
 
@@ -214,7 +214,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             icon: "pause-circle",
             tone: "warning",
             badge: badge(`${ev.provider ?? "provider"}${account}`, "warning"),
-            body: `${esc(ev.message ?? "Квота исчерпана.")}<div class="mt-1 text-base-content/55">Проснусь сам ${esc(when)} и продолжу. Можно не ждать: переключите модель или аккаунт.</div>`,
+            body: `${esc(ev.message ?? "Квота исчерпана.")}<div class="mt-1 text-subtle">Проснусь сам ${esc(when)} и продолжу. Можно не ждать: переключите модель или аккаунт.</div>`,
         });
     }
 
@@ -233,7 +233,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             title: "Модель изменена",
             icon: "swap",
             tone: "info",
-            body: `<span class="font-mono text-[11px]">${esc(ev.from ?? "?")}</span> → <span class="font-mono text-[11px]">${esc(ev.to ?? "?")}</span>`,
+            body: `<span class="font-mono text-2xs">${esc(ev.from ?? "?")}</span> → <span class="font-mono text-2xs">${esc(ev.to ?? "?")}</span>`,
         });
     }
 
@@ -249,14 +249,14 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const tone = achieved ? 'success' : limited ? 'error' : status === 'continue' ? 'info' : 'warning';
         const icon = achieved ? "ph-check-circle" : limited ? "ph-stop-circle" : status === "continue" ? "ph-target" : "ph-warning-circle";
         const count = ev.maxIterations ? ` · ${Number(ev.iteration ?? 0)}/${Number(ev.maxIterations)}` : "";
-        return eventCard({ title: `Goal check: ${status}${count}`, icon: icon.replace(/^ph-/, ''), tone, badge: badge(status, tone), body: `${esc(ev.reason ?? '')}${ev.nextStep ? `<div class="mt-1"><span class="font-medium text-base-content/80">Next:</span> ${esc(ev.nextStep)}</div>` : ''}` });
+        return eventCard({ title: `Goal check: ${status}${count}`, icon: icon.replace(/^ph-/, ''), tone, badge: badge(status, tone), body: `${esc(ev.reason ?? '')}${ev.nextStep ? `<div class="mt-1"><span class="font-medium text-muted">Next:</span> ${esc(ev.nextStep)}</div>` : ''}` });
     }
 
 
     if (ev.type === "attempt") {
         // A protocol-invalid candidate that was repaired before commit — never
         // part of the LLM transcript; kept for the audit trail.
-        return '<div class="relative opacity-60">' + eventCard({ title: 'Invalid attempt · repaired before commit', icon: 'wrench', tone: 'warning', badge: badge('audit', 'warning'), body: esc(String(ev.error ?? '').slice(0, 160)), details: `<pre class="whitespace-pre-wrap break-words font-mono text-[10px] text-base-content/65">${esc(ev.text)}</pre>` }) + '</div>';
+        return '<div class="relative opacity-60">' + eventCard({ title: 'Invalid attempt · repaired before commit', icon: 'wrench', tone: 'warning', badge: badge('audit', 'warning'), body: esc(String(ev.error ?? '').slice(0, 160)), details: `<pre class="whitespace-pre-wrap break-words font-mono text-3xs text-muted">${esc(ev.text)}</pre>` }) + '</div>';
     }
 
     if (ev.type === "team_update") {
@@ -271,7 +271,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     if (ev.type === "compaction_completed") {
         const before = Math.round(Number(ev.tokensBefore ?? 0) / 1000);
         const after = Math.round(Number(ev.tokensAfter ?? 0) / 1000);
-        return eventCard({ title: `Context compacted · ${before}k → ${after}k`, icon: 'arrows-in-line-vertical', tone: 'success', badge: badge(`${Number(ev.keptMessages ?? 0)} kept`, 'success'), details: `<pre class="whitespace-pre-wrap text-xs text-base-content/65">${esc(ev.summary ?? '')}</pre>` });
+        return eventCard({ title: `Context compacted · ${before}k → ${after}k`, icon: 'arrows-in-line-vertical', tone: 'success', badge: badge(`${Number(ev.keptMessages ?? 0)} kept`, 'success'), details: `<pre class="whitespace-pre-wrap text-xs text-muted">${esc(ev.summary ?? '')}</pre>` });
     }
     if (ev.type === "compaction_failed") {
         return eventCard({ title: 'Context compaction failed', icon: 'warning-circle', tone: 'error', body: `Context unchanged · ${esc(ev.error ?? '')}` });

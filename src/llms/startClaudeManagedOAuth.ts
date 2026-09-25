@@ -21,8 +21,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const html = `<div class="space-y-3">
       <div class="rounded-lg border border-ui-border bg-base-200 p-3 text-xs leading-5"><div class="font-semibold">Claude · ${escape(ctx, account)}</div><p class="mt-1">Open Anthropic authorization and finish signing in. The localhost callback will complete this popup flow automatically.</p></div>
       ${open}
-      <form hx-popup="llms.completeClaudeManagedOAuth" class="space-y-2"><label class="block text-[11px] font-medium">Fallback: paste final redirect URL or authorization code<input name="authorization" autocomplete="one-time-code" placeholder="Only if localhost callback did not complete" class="input input-bordered input-sm mt-1 w-full font-mono text-xs"></label>${complete}</form>
-      <p class="text-[10px] leading-4 text-base-content/40">Tokens are encrypted before storage and are never returned to the browser.</p>
+      <form hx-popup="llms.completeClaudeManagedOAuth" class="space-y-2"><label class="block text-2xs font-medium">Fallback: paste final redirect URL or authorization code<input name="authorization" autocomplete="one-time-code" placeholder="Only if localhost callback did not complete" class="input input-bordered input-sm mt-1 w-full font-mono text-xs"></label>${complete}</form>
+      <p class="text-3xs leading-4 text-faint">Tokens are encrypted before storage and are never returned to the browser.</p>
     </div>`;
     return ctx.fns.ui.popupContent({ title: "Claude managed OAuth", kind: "oauth", html });
 }

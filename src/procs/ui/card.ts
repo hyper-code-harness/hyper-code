@@ -17,6 +17,6 @@ export default function (ctx: Context, _session: Session | null, opts: {title?: 
     ${opts.actions ? `<div class="card-actions">${opts.actions}</div>` : ""}
   </div>` : ""}
   <div class="card-body p-5">${opts.body}</div>
-  ${opts.footer ? `<div class="border-base-300 bg-base-200 text-base-content/60 border-t px-5 py-3 text-xs">${opts.footer}</div>` : ""}
+  ${opts.footer ? `<div class="border-base-300 bg-base-200 text-subtle border-t px-5 py-3 text-xs">${opts.footer}</div>` : ""}
 </div>`;
 }

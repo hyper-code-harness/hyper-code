@@ -36,7 +36,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     return `<div class="border-base-300 bg-base-100 overflow-x-auto rounded-md border ${opts.class ?? ""}">
   <table class="table table-sm table-pin-rows">
     <thead><tr>${head}</tr></thead>
-    <tbody>${body || `<tr><td colspan="${opts.columns.length}" class="text-base-content/60">${esc(opts.empty ?? "nothing here")}</td></tr>`}</tbody>
+    <tbody>${body || `<tr><td colspan="${opts.columns.length}" class="text-subtle">${esc(opts.empty ?? "nothing here")}</td></tr>`}</tbody>
   </table>
 </div>`;
 }

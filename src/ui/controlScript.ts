@@ -68,7 +68,7 @@ export default async function (_ctx: Context, _session: Session | null, _opts?: 
         "    let detail = null;",
         "    if (ev.bodyHtml || ev.body) {",
         "      detail = document.createElement('div');",
-        "      detail.className = 'toast-detail mt-1 max-h-28 overflow-hidden text-[11px] leading-snug';",
+        "      detail.className = 'toast-detail mt-1 max-h-28 overflow-hidden text-2xs leading-snug';",
         "      if (ev.bodyHtml) detail.innerHTML = ev.bodyHtml;",
         "      else {",
         "        const pre = document.createElement('pre');",

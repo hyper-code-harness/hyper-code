@@ -12,7 +12,7 @@ export default function (ctx: Context, _session: Session | null, opts: {lines?: 
     const line = (l: any) => {
         const text = typeof l === "string" ? l : l.text;
         const err = typeof l === "object" && l.stream === "err";
-        return `<span class="block ${err ? "text-error" : "text-base-content/70"}">${esc(text) || "&nbsp;"}</span>`;
+        return `<span class="block ${err ? "text-error" : "text-muted"}">${esc(text) || "&nbsp;"}</span>`;
     };
     const sse = opts.stream ? ` hx-sse:connect="${esc(opts.stream)}" hx-swap="beforeend"` : "";
     return `<div class="max-h-96 overflow-auto rounded-md border border-base-300 bg-base-200 p-3 font-mono text-xs leading-5 ${opts.class ?? ""}"${sse} ${ctx.fns.procs.ui.attr({ role: "log" })}>${(opts.lines ?? []).map(line).join("")}</div>`;

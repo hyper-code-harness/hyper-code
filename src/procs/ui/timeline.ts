@@ -18,10 +18,10 @@ export default function (ctx: Context, _session: Session | null, opts: {items: A
   ${opts.items.map(it => `<li class="mb-5 ml-5" ${ctx.fns.procs.ui.attr({ role: "event" })}>
     <span class="absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full ${it.tone ? TONE[it.tone] : "bg-primary"}"></span>
     <div class="flex items-baseline justify-between gap-3">
-      <p class="text-sm font-medium text-base-content">${it.icon ? `<i class="ph ${esc(it.icon)} mr-1 text-base-content/60" aria-hidden="true"></i>` : ""}${esc(it.title)}</p>
-      ${it.meta ? `<span class="shrink-0 font-mono text-xs text-base-content/60">${esc(it.meta)}</span>` : ""}
+      <p class="text-sm font-medium text-base-content">${it.icon ? `<i class="ph ${esc(it.icon)} mr-1 text-subtle" aria-hidden="true"></i>` : ""}${esc(it.title)}</p>
+      ${it.meta ? `<span class="shrink-0 font-mono text-xs text-subtle">${esc(it.meta)}</span>` : ""}
     </div>
-    ${it.body ? `<p class="mt-0.5 text-xs text-base-content/70">${esc(it.body)}</p>` : ""}
+    ${it.body ? `<p class="mt-0.5 text-xs text-muted">${esc(it.body)}</p>` : ""}
   </li>`).join("")}
 </ol>`;
 }

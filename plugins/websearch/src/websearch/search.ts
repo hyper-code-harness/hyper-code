@@ -1,15 +1,43 @@
 type SearchEngine = 'brave' | 'google-browser';
 
 type SearchResult = {
+    /** Result title as reported by the engine. */
     title: string;
+    /** Result URL. */
     url: string;
+    /** Snippet with engine highlight markup removed. */
     description: string;
+    /** Original snippet including the engine's `<strong>` highlight markup, when it provided any. */
+    descriptionHtml: string | null;
+    /** Publication or crawl age reported by the engine, when available. */
+    publishedAt: string | null;
+    /** Language code reported by the engine, when available. */
+    language: string | null;
+    /** Site or profile label reported by the engine, when available. */
+    site: string | null;
+    /** Additional page excerpts returned by the engine; often enough to answer without opening the page. */
+    extraSnippets: string[];
 };
 
+const stripTags = (value: string): string =>
+    String(value ?? '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+
 /**
- * Searches the public web through the configured engine and returns ranked links in one stable shape.
+ * Searches the public web through the configured engine and returns ranked links with every field the engine supplied.
  *
  * Use this for retrieval-only web discovery. It does not open result pages or ask an LLM to summarize them.
+ * Snippets are returned twice: `description` with the engine's highlight markup stripped, and `descriptionHtml` as the
+ * engine sent it. Engine extras are preserved instead of discarded: `publishedAt` tells an agent whether a page is
+ * current, and `extraSnippets` often answers the question without opening the page at all. Fields an engine does not
+ * provide are null or empty rather than omitted, so both engines share one shape.
  *
  * @param opts.query Search query sent to the selected engine.
  * @param opts.limit Maximum number of ranked results to return. @default 10 @minimum 1 @maximum 20
@@ -45,10 +73,24 @@ export default async function (
     let results: SearchResult[];
     if (engine === 'brave') {
         const response = await ctx.fns.brave.search({ query, count: limit });
-        results = response.results.map((item: { title: string; url: string; description: string }) => ({
-            title: item.title,
+        results = response.results.map((item: {
+            title: string;
+            url: string;
+            description: string;
+            age?: string | null;
+            pageAge?: string | null;
+            language?: string | null;
+            profile?: string | null;
+            extraSnippets?: string[] | null;
+        }) => ({
+            title: stripTags(item.title),
             url: item.url,
-            description: item.description,
+            description: stripTags(item.description),
+            descriptionHtml: /<[^>]+>/.test(String(item.description ?? '')) ? item.description : null,
+            publishedAt: item.age ?? item.pageAge ?? null,
+            language: item.language ?? null,
+            site: item.profile ?? null,
+            extraSnippets: (item.extraSnippets ?? []).map(stripTags).filter((snippet) => snippet.length > 0),
         }));
     } else {
         const response = await ctx.fns.browser.googleSearch({
@@ -57,9 +99,14 @@ export default async function (
             session: `websearch-${Date.now()}`,
         });
         results = response.results.map((item: { title: string; url: string; snippet?: string }) => ({
-            title: item.title,
+            title: stripTags(item.title),
             url: item.url,
-            description: item.snippet ?? '',
+            description: stripTags(item.snippet ?? ''),
+            descriptionHtml: null,
+            publishedAt: null,
+            language: null,
+            site: null,
+            extraSnippets: [],
         }));
     }
 

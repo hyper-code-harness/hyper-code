@@ -12,6 +12,12 @@ Use `websearch.search` for ranked public-web links and snippets. It returns one 
 
 The engine can be selected per call. When omitted, `websearch.defaultEngine` is used. Search is retrieval-only and does not generate an LLM answer.
 
+Every field the engine supplied is preserved. `description` has highlight markup stripped, `descriptionHtml` keeps it, and Brave additionally fills `publishedAt` (is this page current?), `language`, `site` and `extraSnippets` — extra page excerpts that often answer the question without opening the page. Google fills the shared fields and leaves the rest null/empty.
+
+## Ranking and filtering results
+
+Engines rank by their own signals, so a result that merely shares keywords can outrank the one that answers the question — and finding out costs a page load. `websearch.rankResults` embeds each result (title + snippet + extra snippets), scores it against the query by cosine similarity, reorders, and drops everything under `minSimilarity`. The score is calibrated and comparable within one query: on-topic results land around 0.6–0.8, off-topic ones under 0.2, so `minSimilarity: 0.3` removes noise without touching good hits. Needs an embeddings provider and throws without one instead of pretending to rank.
+
 Use `websearch.fetch` on a selected result URL with a focused prompt. It opens the URL through Browser, captures readable Markdown, and asks an LLM to apply the prompt. The model can be overridden per call; otherwise `websearch.fetchModel` is used, falling back to Hyper's global default model. Authenticated/private pages are not guaranteed; use a specialized plugin for those.
 
 Fetch keeps the evidence, not only the summary: `markdown` holds the readable page as captured and `highlights` the verbatim passages matching the prompt, so a claim can be quoted instead of trusted. Pass `includeMarkdown: false` or `highlights: 0` when only the generated answer is wanted.

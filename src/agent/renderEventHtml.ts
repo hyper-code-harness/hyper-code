@@ -96,9 +96,32 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const ragFunctions = Array.isArray(ev.functionRag?.functions) ? ev.functionRag.functions : [];
         const ragNames = ragFunctions.map((item: any) => String(typeof item === "string" ? item : item?.name ?? "")).filter(Boolean);
         const injected = String(ev.functionRag?.injected ?? ragNames.join("\n"));
-        const ragIcon = ragNames.length
-            ? '<span class="group/rag relative ml-1.5 inline-flex align-middle text-indigo-200" aria-label="Function RAG retrieved ' + ragNames.length + ' functions" tabindex="0"><i class="ph ph-function text-xs" aria-hidden="true"></i><span role="tooltip" class="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[32rem] whitespace-pre-wrap rounded-lg border border-ui-border bg-base-100 px-3 py-2 font-mono text-[10px] leading-4 text-base-content/70 opacity-0 shadow-xl transition group-hover/rag:visible group-hover/rag:opacity-100 group-focus/rag:visible group-focus/rag:opacity-100">' + esc(injected) + '</span></span>'
-            : '';
+        // Separate heuristic gate and retrieval outcomes, including empty results.
+        const ragGate = String(ev.functionRag?.gate ?? "off");
+        const ragReranked = ev.functionRag?.reranked === true;
+        const needsTool = ev.functionRag?.needsTool;
+        const retrieved = Number(ev.functionRag?.retrieved ?? 0);
+        const badge = (html: string, label: string, tip: string) =>
+            '<span class="group/rag relative ml-2 inline-flex items-center gap-1 align-middle" aria-label="' + esc(label) + '" tabindex="0">' + html
+            + '<span role="tooltip" class="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[32rem] whitespace-pre-wrap rounded-lg border border-ui-border bg-base-100 px-3 py-2 font-mono text-[10px] leading-4 text-base-content/70 opacity-0 shadow-xl transition group-hover/rag:visible group-hover/rag:opacity-100 group-focus/rag:visible group-focus/rag:opacity-100">' + esc(tip) + '</span></span>';
+        const gateBadge = !ev.functionRag ? '' : badge(
+            ragGate === "closed"
+                ? '<span class="h-1.5 w-1.5 rounded-full border border-white/50" aria-hidden="true"></span>'
+                : ragGate === 'error' ? '<span class="text-red-300 text-[10px]" aria-hidden="true">!</span>'
+                : ragGate === 'off' ? '<span class="text-white/40 text-[10px]" aria-hidden="true">−</span>'
+                : '<span class="h-1.5 w-1.5 rounded-full" style="background:rgb(251 191 36)" aria-hidden="true"></span>',
+            `Gate: ${ragGate}`,
+            `gate ${ragGate}` + (needsTool == null ? '' : ` · heuristic score ${Number(needsTool).toFixed(2)}`)
+                + (ragGate === 'error' ? '\nclassification failed; retrieval allowed' : '')
+                + (ragGate === 'closed' ? '\nno retrieval, nothing injected' : `\nretrieved ${retrieved}`),
+        );
+        const dotColor = ragReranked ? 'background:rgb(52 211 153)' : 'background:rgb(165 180 252)';
+        const dots = ragNames.map(() => '<span class="h-1.5 w-1.5 rounded-full" style="' + dotColor + '" aria-hidden="true"></span>').join('');
+        const scores = ragFunctions.filter((fn: any) => typeof fn !== 'string').map((fn: any) => `${fn.name}: RRF ${fn.score ?? 'n/a'} · BM25 ${fn.bm25 ?? 'n/a'} · cosine ${fn.similarity ?? 'n/a'} · rerank ${fn.jev ?? 'n/a'}`).join('\n');
+        const ragIcon = gateBadge + (ev.functionRag
+            ? badge(dots || '<span aria-hidden="true">0</span>', `Function RAG: retrieved ${retrieved}, kept ${ragNames.length}`,
+                `retrieved ${retrieved} · kept ${ragNames.length} · rerank ${ev.functionRag.rerankStatus ?? (ragReranked ? 'ok' : 'off')}\n${scores}\n${injected}`)
+            : '');
         const attachmentHtml = Array.isArray(ev.attachments) && ev.attachments.length
             ? '<div class="mb-2 flex flex-wrap justify-end gap-2">' + ev.attachments.map((item: any) => {
                 const url = '/attachments/' + encodeURIComponent(agentId) + '/' + encodeURIComponent(String(item.id));
@@ -124,10 +147,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const statusDot = indicators.statusLine
             ? '<span title="Status line: ' + esc(indicators.statusLine) + '" aria-label="status line applied" class="ml-1.5 inline-block size-1.5 rounded-full bg-gray-400 align-middle"></span>'
             : '';
-        const nudgeDot = indicators.reflectionNudge
-            ? '<span title="Reflection nudge: ' + esc(indicators.reflectionNudge) + '" aria-label="reflection nudge applied" class="ml-1 inline-flex align-middle text-violet-500"><i class="ph ph-brain text-[11px]"></i></span>'
-            : '';
-        const instructionMarks = statusDot + nudgeDot;
+        const instructionMarks = statusDot;
         // sometimes chokes on heredoc / shell `>` / mixed-code prose) fall
         // back to a plain escaped <pre>. One bad bubble must not break the
         // whole page layout below it.

@@ -23,6 +23,20 @@ const followUp = await ctx.fns.research.ask({
 });
 ```
 
+## Figures and tables
+
+Ask Consensus explicitly for visuals, then parse only the references it actually returns:
+
+```ts
+const answer = await ctx.fns.research.ask({
+  query: "How much weight do people lose on GLP-1 agonists? Show figures and tables from the papers.",
+});
+const visuals = await ctx.fns.research.figures({ answer_md: answer.answer_md });
+```
+
+`research.figures` returns labels, captions, cited `paper_id`s, and Consensus image URLs for `<figure_reference>` markup. These URLs are served by Consensus and may require the logged-in browser session. Availability is limited to visuals that Consensus selects from eligible open-access papers; this does not extract arbitrary figures from every cited paper. Tables use the same provider endpoint when Consensus emits them as figure references.
+
+
 ## Filters
 
 `filters` supports Consensus fields such as `study_types`, `year_min`, `year_max`, `sample_size_min`, `sjr_min`, `sjr_max`, `exclude_preprints`, `open_access`, `human`, `controlled`, `domain`, `clinical_guideline`, and `medical_mode`. Array values are converted to comma-separated API values.

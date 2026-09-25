@@ -196,3 +196,12 @@ describe("llm.call", () => {
     });
 
 });
+
+
+for (const api of ['anthropic','openai','responses']) test(`deadline aborts ${api} HTTP without orphan retry`, async()=>{
+ const previous=globalThis.fetch; let calls=0,aborted=false;
+ globalThis.fetch=(async(_url:any,init:any)=>{calls++;return await new Promise((resolve,reject)=>{init.signal.addEventListener('abort',()=>{aborted=true;reject(init.signal.reason);},{once:true});});}) as any;
+ try {const ctx:any={fns:{llm:{resolveEndpoint:async()=>({api,provider:api==='anthropic'?'kimi-coding':api==='responses'?'codex':'openai',modelId:'k3',url:'https://example.test',apiKey:'fake'}),refreshKimiCode:async()=> 'fake',refreshCodex:async()=> 'fake'}}};
+ await expect(call(ctx,null,{user:'x',model:'kimi-coding:k3',noFallback:true,timeoutMs:30})).rejects.toThrow();expect(calls).toBe(1);expect(aborted).toBe(true);
+ } finally {globalThis.fetch=previous;}
+});

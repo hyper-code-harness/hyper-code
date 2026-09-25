@@ -67,7 +67,7 @@ export async function boot(opts?: { root?: string }): Promise<Context> {
     process.on("SIGINT", () => shutdown("SIGINT"));
     process.on("SIGTERM", () => shutdown("SIGTERM"));
     // A server does not die because somebody else's API said no. Background work
-    // — a sleep pass, a reflection sidecar, a wake delivery — runs detached, so a
+    // — a wake delivery, a watch poll — runs detached, so a
     // provider rejection there had nothing above it to catch: xAI answered 402
     // ("out of credits"), the rejection reached the top, and the whole runtime
     // exited with code 1, taking every agent and the tunnel with it.

@@ -28,8 +28,12 @@ export default async function (
         noFallback?: boolean;
         /** Stable request/session identifier for subscription providers. */
         sessionId?: string;
+        /** Total request deadline across retries; aborts provider HTTP requests and response reads. Credential refresh is checked after it returns. Omit for no deadline. @minimum 1 @maximum 3600000 */
+        timeoutMs?: number;
     },
 ): Promise<{ text: string; finishReason: string | null; usage: any; raw: any; model?: string; fallback?: { primary: string; attempted: string[]; attempts: Array<{ model: string; count: number }> } }> {
+    if(opts.timeoutMs!==undefined&&(!Number.isInteger(opts.timeoutMs)||opts.timeoutMs<1||opts.timeoutMs>3600000))throw new Error('timeoutMs must be an integer in 1..3600000');
+    const signal=opts.timeoutMs===undefined?undefined:AbortSignal.timeout(opts.timeoutMs);
     const user = String(opts.user ?? "").trim();
     if (!user) throw new Error("llm.call: user is required");
     const primary = String(opts.model ?? await ctx.fns.settings.modelDefault({})).trim();
@@ -51,18 +55,21 @@ export default async function (
             while (true) {
                 count++;
                 try {
-                    const result = await callModel(ctx, { ...opts, model, user });
+                    signal?.throwIfAborted();
+                    const result = await callModel(ctx, { ...opts, model, user, signal });
                     attempts.push({ model, count });
                     return attempted.length === 1 && count === 1
                         ? { ...result, model }
                         : { ...result, model, fallback: { primary, attempted, attempts } };
                 } catch (error) {
+                    signal?.throwIfAborted();
                     lastError = error;
                     if (count >= 3 || !shouldRetrySameModel(error)) throw error;
                     await Bun.sleep(count === 1 ? 500 : 1_500);
                 }
             }
         } catch (error) {
+            signal?.throwIfAborted();
             lastError = error;
             attempts.push({ model, count });
             if (opts.noFallback || !shouldFallback(error) || model === models.at(-1)) throw error;
@@ -124,6 +131,7 @@ async function xaiResponses(ctx: Context, endpoint: any, opts: any) {
     if (opts.max_tokens != null) body.max_output_tokens = opts.max_tokens;
     if (opts.temperature != null) body.temperature = opts.temperature;
     const response = await fetch(endpoint.url, {
+        signal: opts.signal,
         method: "POST",
         headers: {
             authorization: `Bearer ${token}`,
@@ -156,6 +164,7 @@ async function responses(ctx: Context, endpoint: any, opts: any) {
     // ChatGPT Codex backend controls output limits and sampling; neither
     // max_output_tokens nor temperature is accepted by the subscription API.
     const response = await fetch(endpoint.url, {
+        signal: opts.signal,
         method: "POST",
         headers: {
             authorization: `Bearer ${token}`,
@@ -178,8 +187,8 @@ async function openAI(endpoint: any, opts: any) {
     if (opts.temperature != null) body.temperature = opts.temperature;
     if (opts.max_tokens != null) body.max_tokens = opts.max_tokens;
     if (opts.response_format != null) body.response_format = opts.response_format;
-    let response = await fetch(endpoint.url, { method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) });
-    response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) }));
+    let response = await fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) });
+    response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) }));
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await response.json();
     const choice = raw?.choices?.[0] ?? {};
@@ -217,8 +226,8 @@ async function anthropic(ctx: Context, endpoint: any, opts: any) {
         if (opts.system) body.system.push({ type: "text", text: opts.system });
     } else if (opts.system) body.system = opts.system;
     if (opts.temperature != null) body.temperature = opts.temperature;
-    let response = await fetch(endpoint.url, { method: "POST", headers, body: JSON.stringify(body) });
-    response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { method: "POST", headers, body: JSON.stringify(body) }));
+    let response = await fetch(endpoint.url, { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) });
+    response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) }));
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await response.json();
     return { text: (raw.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join(""), finishReason: raw.stop_reason ?? null, usage: raw.usage, raw };

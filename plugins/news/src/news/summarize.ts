@@ -12,7 +12,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const source=String(item.article_md||item.summary||item.title||"").trim();
     if(!source)throw new Error(`news.summarize: no source text for ${opts.id}`);
     const root=globalThis as typeof globalThis&{__newsSummaryTail?:Promise<void>};const previous=root.__newsSummaryTail??Promise.resolve();let release!:()=>void;root.__newsSummaryTail=new Promise<void>(resolve=>{release=resolve});await previous.catch(()=>undefined);let result:any;
-    const model="anthropic-oauth/pro:claude-haiku-4-5";
+    const model="openai:gpt-4o-mini";
     try{for(let attempt=0;attempt<4;attempt++){try{result=await ctx.fns.llm.call({
         system:"Ты — технический редактор новостной ленты. Отвечай строго в указанном формате, без markdown и без дополнительных пояснений.",
         model,

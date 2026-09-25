@@ -63,3 +63,47 @@ Initial calibrated policy for the current corpus (`runtime.docs.ragBenchmark`, 1
 - semantic-only results below `.35` are rejected.
 
 This policy intentionally does not solve Russian `проверить почту`; with `text-embedding-3-large` its relevant public Gmail candidates are below `.35`. The current clean retrieval evidence is not strong enough.
+
+## Transcript-mined evaluation set (2026-09-20)
+
+The original 13 cases were hand-written and easy: eight of nine positives restate
+a function's own summary, so a lexical retriever passes them by construction.
+They measured vocabulary overlap, not intent matching.
+
+The set now also carries cases mined from real agent history. Every user prompt
+in `messages` was paired with the `ctx.fns.*` calls the agent made next: 4649
+pairs, 443 unambiguous, then filtered by hand — "what the agent called" is not
+"what was correct", and prompts that only make sense inside their conversation
+were dropped. Negatives come from prompts after which the agent called nothing.
+
+`src/runtime/docs/ragCases.ts` now holds 60 cases: 44 positive, 16 negative,
+47 of them transcript-mined. `runtime.docs.ragBenchmark({ mode: "compare" })`
+scores plain retrieval and the Jev reranking stage on identical candidate
+windows and reports the delta.
+
+| metric | base (best cosine .25) | Jev rerank | delta |
+|---|---:|---:|---:|
+| query accuracy | 0.550 | **0.667** | +0.117 |
+| Recall@5 | 0.523 | 0.545 | +0.022 |
+| no-result precision | 0.625 | **1.000** | +0.375 |
+
+### The real finding is the retrieval ceiling
+
+On this harder set the correct function is absent from the entire 20-candidate
+window for **16 of 44 positives** — a hard ceiling of 0.636 that no reranker can
+lift. Measured against what is actually reachable, recall is 24/28 = **0.857**
+for Jev versus 0.822 for the baseline.
+
+So reranking is not the bottleneck; first-stage recall is. Prompts like «запушь
+на телефон» → `mobiledev.install`, «когда у нас сегодня визит?» → `gcal.events`
+and «поносик - но мало» → `healthrepo.createDiary` share no vocabulary with the
+documentation and sit outside the window entirely.
+
+Where Jev does pay is silence: it never injects on a conversational prompt
+(precision 1.000 against 0.625), which removes the tax the baseline pays on the
+majority of real turns. The `needs_tool` question does that work; the floor is
+0.15.
+
+Next moves follow from the ceiling, not from the reranker: widen the candidate
+window, and improve the localized retrieval documents for plugin functions whose
+summaries never use the words users type.

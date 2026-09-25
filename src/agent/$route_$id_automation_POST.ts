@@ -7,12 +7,15 @@ req: Request;
         /** Values bound to the operation. */
 params: Record<string, string> }) {
     const form = await opts.req.formData();
+    // The form carries every automation toggle and is posted on any change, so an
+    // absent field means the user just unchecked it — not "leave it alone".
+    // Sending undefined here made every toggle one-way: switchable on, never off.
     try {
         await ctx.fns.agent.setAutomation({
             id: opts.params.id!,
-            reflectionEnabled: form.get('reflectionEnabled') === '1' ? true : undefined,
-            sleepEnabled: form.get('sleepEnabled') === '1' ? true : undefined,
-            functionRagEnabled: form.get('functionRagEnabled') === '1' ? true : undefined,
+            functionRagEnabled: form.get('functionRagEnabled') === '1',
+            jevRerankEnabled: form.get('jevRerankEnabled') === '1',
+            functionRagGateEnabled: form.get('functionRagGateEnabled') === '1',
         });
     } catch (error: any) {
         return new Response(error?.message ?? 'Invalid automation settings', { status: 400 });

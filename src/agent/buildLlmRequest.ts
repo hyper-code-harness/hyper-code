@@ -54,12 +54,18 @@ export default async function (
             .find(({ message }) => message?.role === "user" && typeof message.content === "string")?.index;
         if (at != null) {
             const message = base[at];
-            const block = functionRag.functions.map((fn: any) => `- #${fn.rank} ${fn.name} [RRF ${formatRagScore(fn.score)}${fn.bm25 == null ? "" : ` · BM25 ${formatRagScore(fn.bm25)}`}${fn.similarity == null ? "" : ` · cos ${formatRagScore(fn.similarity)}`}]: ${fn.summary}\n  ${fn.signature}`).join("\n");
-            const injected = `<relevant_runtime_functions>\n${block}\n</relevant_runtime_functions>\nUse these only if relevant; inspect one with runtime.docs.get before calling when details are needed.`;
-            base[at] = { ...message, content: `${message.content}\n\n${injected}` };
+            // A run that retrieved nothing — or was stopped by the gate before it
+            // retrieved — changes no prompt, but is still recorded, so the UI can
+            // show that the decision happened and why.
+            let injected = "";
+            if (functionRag.functions.length) {
+                const block = functionRag.functions.map((fn: any) => `- #${fn.rank} ${fn.name} [${fn.jev == null ? `RRF ${formatRagScore(fn.score)}` : `jev ${formatRagScore(fn.jev)}`}${fn.bm25 == null ? "" : ` · BM25 ${formatRagScore(fn.bm25)}`}${fn.similarity == null ? "" : ` · cos ${formatRagScore(fn.similarity)}`}]: ${fn.summary}\n  ${fn.signature}`).join("\n");
+                injected = `<relevant_runtime_functions>\n${block}\n</relevant_runtime_functions>\nUse these only if relevant; inspect one with runtime.docs.get before calling when details are needed.`;
+                base[at] = { ...message, content: `${message.content}\n\n${injected}` };
+            }
             agent.scratchpad ??= {};
-            agent.scratchpad.functionRag = { messageIdx: functionRag.messageIdx, functions: functionRag.functions.map((fn: any) => fn.name), updatedAt: Date.now() };
-            queueMicrotask(() => ctx.fns.agent.markFunctionRag({ agent, messageIdx: functionRag.messageIdx, functions: functionRag.functions, injected }).catch(() => undefined));
+            agent.scratchpad.functionRag = { messageIdx: functionRag.messageIdx, functions: functionRag.functions.map((fn: any) => fn.name), reranked: functionRag.reranked === true, gate: functionRag.gate, rerankStatus: functionRag.rerankStatus, needsTool: functionRag.needsTool, retrieved: functionRag.retrieved, updatedAt: Date.now() };
+            queueMicrotask(() => ctx.fns.agent.markFunctionRag({ agent, messageIdx: functionRag.messageIdx, functions: functionRag.functions, injected, reranked: functionRag.reranked === true, gate: functionRag.gate, rerankStatus: functionRag.rerankStatus, needsTool: functionRag.needsTool, retrieved: functionRag.retrieved }).catch(() => undefined));
         }
     }
     if (repaired.length) {

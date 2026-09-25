@@ -11,7 +11,7 @@ export default function (
     ctx: Context,
     _session: Session | null,
     opts: {
-        /** Dotted function name, for example `agent.reflect`. */
+        /** Dotted function name, for example `agent.compact`. */
         name: string;
     },
 ): Record<string, any> {

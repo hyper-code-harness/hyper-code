@@ -171,7 +171,6 @@ export default async function (
             const activeStatus = String(agent.scratchpad?.activeStatusLine ?? "");
             const instructionIndicators = {
                 statusLine: activeStatus.split("\n").find((line: string) => line.startsWith("User status line: "))?.slice("User status line: ".length) || null,
-                reflectionNudge: activeStatus.split("\n").find((line: string) => line.startsWith("Reflection nudge: "))?.slice("Reflection nudge: ".length) || null,
             };
             await ctx.fns.session.appendAssistantEvent({ id: agent.id, payload: {
                 text: prose, html, usage, messageIdx: append.idx, instructionIndicators,
@@ -316,7 +315,6 @@ export default async function (
             const activeStatus = String(agent.scratchpad?.activeStatusLine ?? '');
             const instructionIndicators = {
                 statusLine: activeStatus.split('\n').find((line: string) => line.startsWith('User status line: '))?.slice('User status line: '.length) || null,
-                reflectionNudge: activeStatus.split('\n').find((line: string) => line.startsWith('Reflection nudge: '))?.slice('Reflection nudge: '.length) || null,
             };
             await ctx.fns.session.appendAssistantEvent({ id: agent.id, payload: {
                 text, html, usage, messageIdx: final.idx, instructionIndicators,

@@ -68,6 +68,7 @@ export default async function (
             const item = entry("anthropic-oauth", String(row.account ?? "default"), "oauth", byKey, reconnectKeys);
             item.label = row.label ? String(row.label) : (item.account === "default" ? "Claude managed" : item.account);
             out.push(item);
+            if (Number(row.expires_at) <= now) { item.needsReconnect = true; item.available = false; }
         }
     }
 

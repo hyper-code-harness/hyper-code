@@ -20,7 +20,6 @@ export default async function (
     for (const row of rows) {
       const scratchpad = typeof row.scratchpad === "string" ? JSON.parse(row.scratchpad) : (row.scratchpad ?? {});
       const delegation = scratchpad.delegation ?? scratchpad.delegateTask ?? {};
-      if (delegation.taskKind === "reflection") continue;
       const allDone = Array.isArray(scratchpad.plan?.tasks) && scratchpad.plan.tasks.length > 0 && scratchpad.plan.tasks.every((task: any) => task.status === "done");
       members.push({ id: String(row.id), title: String(row.title ?? ""), runState: String(row.run_state ?? "idle"), status: String(delegation.status ?? (allDone ? "ready" : "working")), plan: scratchpad.plan ?? null, summary: delegation.summary ?? delegation.result?.summary ?? null, updatedAt: Number(row.updated_at ?? 0), archivedAt: row.archived_at == null ? null : Number(row.archived_at) });
     }

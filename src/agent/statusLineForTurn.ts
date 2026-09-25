@@ -19,12 +19,5 @@ export default async function (
     const parts: string[] = [];
     const turn = Number(row?.n ?? 0);
     if (userText && turn > 0 && turn % every === 0) parts.push(`User status line: ${userText}`);
-
-    const nudge = agent.reflection?.state?.reflectionNudge;
-    if (nudge?.text) {
-        const createdAt = Number(nudge.createdAtUserCount ?? agent.reflection?.reflectedUserCount ?? 0);
-        const ttl = Math.max(1, Number(nudge.expiresAfterTurns ?? 3));
-        if (turn >= createdAt && turn <= createdAt + ttl) parts.push(`Reflection nudge: ${String(nudge.text).trim()}`);
-    }
     return parts.join("\n");
 }

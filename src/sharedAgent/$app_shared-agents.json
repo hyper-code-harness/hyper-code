@@ -1,0 +1,8 @@
+{
+  "label": "Shared Agents",
+  "href": "/shared-agents",
+  "hint": "published context agents and delegated tasks",
+  "icon": "ph-users-three",
+  "group": "Shared Agents",
+  "order": 15
+}

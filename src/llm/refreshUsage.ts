@@ -48,6 +48,11 @@ export default async function (
             return { provider, account, status: "refreshed" as const, error: null };
         } catch (error: any) {
             const message = sanitize(error?.message ?? error);
+            // A failed telemetry request says nothing about inference quota.
+            // Hide the stale snapshot so the UI cannot present an old 100% as
+            // a current hard limit while normal Claude calls still succeed.
+            await ctx.fns.procs.db.run({ sql: "DELETE FROM kv WHERE key = ?", params: [`llm:usage:${provider}:${account}`] }).catch(() => undefined);
+            try { ctx.fns.procs.events.refresh({ topic: "llm-usage", reason: "usage refresh failed" }); } catch {}
             return { provider, account, status: "failed" as const, error: message };
         }
     }));

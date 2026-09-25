@@ -41,6 +41,12 @@
     },
     "applehealth": {
       "path": "/Users/niquola/.hyper/user/applehealth"
+    },
+    "doonto": {
+      "path": "/Users/niquola/.hyper/user/doonto"
+    },
+    "ghpulse": {
+      "path": "/Users/niquola/.hyper/user/ghpulse"
     }
   }
 }

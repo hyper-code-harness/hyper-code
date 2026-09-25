@@ -25,14 +25,15 @@ export type Agent = {
     /** Controls where the agent is listed; it is not an access-control boundary. */
     visibility?: "nav" | "team" | "hidden";
     statusLineEvery?: number;
-    reflection?: Record<string, any> | null;
     forkOffset?: number | null;
     sleepContext?: Record<string, any> | null;
     currentJobId?: string | null;
-    reflectionEnabled?: boolean;
-    sleepEnabled?: boolean;
     /** Inject compact hybrid-search function candidates for new user prompts. */
     functionRagEnabled?: boolean;
+    /** Rerank retrieved function candidates with Jev before injecting them. */
+    /** Independently gate runtime-function retrieval before search; new agents default off. */
+    functionRagGateEnabled?: boolean;
+    jevRerankEnabled?: boolean;
     goal?: Record<string, any> | null;
     drainPromise?: Promise<any> | null;
     wakeAt?: number | null;

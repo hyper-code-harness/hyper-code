@@ -8,6 +8,7 @@
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const q = new URL(opts.req.url).searchParams.get("q")?.trim() ?? "";
     const items = await ctx.fns.nav.items({ q, limit: q ? 40 : 500 });
+    const sharedAgents = await ctx.fns.sharedAgent.list({ query: q });
     const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const agents = await ctx.fns.session.list({}).catch(() => [] as any[]);
     const visibleAgents = agents;
@@ -22,7 +23,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         if (item.group === "Pages") return "Pages";
         if (item.group) {
             const declared = String(item.group);
-            return ["Chats", "Projects & files", "Plugins", "System"].includes(declared) ? declared : "Pages";
+            return ["Chats", "Shared Agents", "Projects & files", "Plugins", "System"].includes(declared) ? declared : "Pages";
         }
         const hint = String(item.hint ?? "").toLowerCase();
         if (hint.includes("agent")) return "Chats";
@@ -86,18 +87,21 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
 </a>`).join("");
     };
 
+    const sharedAgentRows = () => sharedAgents.map((card: any) => `<a href="/shared-agents?agent=${encodeURIComponent(card.agentId)}" class="nav-row flex min-h-10 items-start gap-2 rounded px-2 py-1.5 text-left outline-none hover:bg-base-200/60"><i class="ph ph-brain mt-0.5 shrink-0 text-primary"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium text-base-content/80">${esc(card.name)}</span><span class="block truncate text-[10px] text-base-content/45">${esc((card.capabilities ?? []).join(" · ") || card.description)}</span></span><span class="font-mono text-[9px] text-base-content/35">${esc(card.agentId)}</span></a>`).join("");
+
     if (q) {
-        html = `<div class="p-2">${items.map(row).join("")}</div>`;
+        html = `<div class="p-2">${sharedAgentRows()}${items.map(row).join("")}</div>`;
     } else {
         const newAgent = `<a href="/agent/new" class="nav-row mb-1 flex min-h-10 items-center gap-2 rounded-lg border border-ui-border bg-base-100/35 px-3 py-2 text-left text-base-content shadow-sm outline-none transition hover:border-ui-border-strong hover:bg-base-100/60 hover:text-primary"><i class="ph ph-plus-circle shrink-0 text-lg text-primary" aria-hidden="true"></i><span class="min-w-0 flex-1 text-xs">New agent</span></a>`;
         const quick = `<section class="mb-3 border-b border-ui-border pb-2"><h4 class="mb-1 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-base-content/45">Quick</h4>${newAgent}${hotAgents.map((agent: any) => quickAgentRow(agent)).join("")}</section>`;
         const columns = [
             { title: "Chats", content: `${quick}${chats()}` },
+            { title: "Shared Agents", content: `${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },
             { title: "Pages", content: items.filter(item => group(item) === "Pages").map(row).join("") },
             { title: "Projects & files", content: `${projects()}${items.filter(item => group(item) === "Projects & files").map(row).join("")}` },
             { title: "System & plugins", content: `<h4 class="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/35">System</h4>${items.filter(item => group(item) === "System").map(row).join("")}<h4 class="mb-1 mt-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/35">Plugins</h4>${items.filter(item => group(item) === "Plugins").map(row).join("")}` },
         ];
-        html = `<div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">${columns.map(column => `<section class="min-w-0 p-2.5"><h3 class="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/45">${column.title}</h3>${column.content || `<div class="px-2 py-2 text-xs text-base-content/30">empty</div>`}</section>`).join("")}</div>`;
+        html = `<div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">${columns.map(column => `<section class="min-w-0 p-2.5"><h3 class="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-base-content/45">${column.title}</h3>${column.content || `<div class="px-2 py-2 text-xs text-base-content/30">empty</div>`}</section>`).join("")}</div>`;
     }
     return new Response(html || `<div class="px-4 py-5 text-sm text-base-content/45">nothing</div>`, {
         headers: { "content-type": "text/html; charset=utf-8" },

@@ -1,41 +1,25 @@
-/** Set automation for the runtime.  * @param opts.id Target agent identifier.
- * @param opts.reflectionEnabled Whether automatic reflection is enabled.
- * @param opts.sleepEnabled Whether automatic sleep is enabled.
-*/
-export default async function (
-    ctx: Context,
-    _session: Session | null,
-    opts: {
-        /** Agent identifier. */
+/** Persist independent retrieval, pre-retrieval gate and rerank toggles without changing omitted settings. */
+export default async function (ctx: Context, _session: Session | null, opts: {
+    /** Identifier of the non-archived agent to update. */
     id: string;
-        /** Reflection enabled used by the operation. */
-    reflectionEnabled?: boolean;
-        /** Sleep enabled used by the operation. */
-    sleepEnabled?: boolean;
-        /** Whether function retrieval is enabled for user prompts. */
-    functionRagEnabled?: boolean },
-): Promise<{ reflectionEnabled: boolean; sleepEnabled: boolean; functionRagEnabled: boolean }> {
-    const row = ((await ctx.fns.procs.db.select({ sql: "SELECT sleep_context, reflection_enabled, sleep_enabled, function_rag_enabled FROM agents WHERE id = ? AND archived_at IS NULL", params: [opts.id] })) as any[])[0];
+    /** Master switch for the entire function retrieval pipeline. */
+    functionRagEnabled?: boolean;
+    /** Enable the heuristic pre-retrieval gate independently of reranking. */
+    functionRagGateEnabled?: boolean;
+    /** Enable candidate reranking independently of the gate. */
+    jevRerankEnabled?: boolean;
+}): Promise<{ functionRagEnabled: boolean; functionRagGateEnabled: boolean; jevRerankEnabled: boolean }> {
+    const row = (await ctx.fns.procs.db.select({ sql: 'SELECT function_rag_enabled, function_rag_gate_enabled, jev_rerank_enabled FROM agents WHERE id = ? AND archived_at IS NULL', params: [opts.id] }))[0];
     if (!row) throw new Error(`agent not found: ${opts.id}`);
-    const reflectionEnabled = opts.reflectionEnabled ?? (row.reflection_enabled === true || row.reflection_enabled === 1);
-    const sleepEnabled = opts.sleepEnabled ?? (row.sleep_enabled === true || row.sleep_enabled === 1);
-    const functionRagEnabled = opts.functionRagEnabled ?? (row.function_rag_enabled === true || row.function_rag_enabled === 1);
-    let sleep = row.sleep_context == null ? null : (typeof row.sleep_context === "string" ? JSON.parse(row.sleep_context) : row.sleep_context);
-    if (!sleepEnabled && sleep) {
-        sleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: sleep });
-        if (sleep) sleep.mode = "full";
-    }
-    await ctx.fns.procs.db.run({
-        sql: "UPDATE agents SET reflection_enabled = ?, sleep_enabled = ?, function_rag_enabled = ?, sleep_context = ?::jsonb, updated_at = ? WHERE id = ?",
-        params: [reflectionEnabled, sleepEnabled, functionRagEnabled, sleep == null ? null : JSON.stringify(sleep), Date.now(), opts.id],
-    });
-    const agent = (ctx.state as any).agent?.[opts.id];
-    if (agent) {
-        agent.reflectionEnabled = reflectionEnabled;
-        agent.sleepEnabled = sleepEnabled;
-        agent.functionRagEnabled = functionRagEnabled;
-        agent.sleepContext = sleep;
-    }
-    ctx.fns.events.refreshAgentMeta({ agentId: opts.id, section: "automation", reason: "automation" });
-    return { reflectionEnabled, sleepEnabled, functionRagEnabled };
+    const enabled = (value: unknown) => value === true || value === 1 || value === 't';
+    const flags = {
+        functionRagEnabled: opts.functionRagEnabled ?? enabled(row.function_rag_enabled),
+        functionRagGateEnabled: opts.functionRagGateEnabled ?? enabled(row.function_rag_gate_enabled),
+        jevRerankEnabled: opts.jevRerankEnabled ?? enabled(row.jev_rerank_enabled),
+    };
+    await ctx.fns.procs.db.run({ sql: 'UPDATE agents SET function_rag_enabled = ?, function_rag_gate_enabled = ?, jev_rerank_enabled = ?, updated_at = ? WHERE id = ?', params: [flags.functionRagEnabled, flags.functionRagGateEnabled, flags.jevRerankEnabled, Date.now(), opts.id] });
+    const live = ctx.state.agent?.[opts.id];
+    if (live) Object.assign(live, flags);
+    ctx.fns.events.refreshAgentMeta({ agentId: opts.id, section: 'automation', reason: 'automation' });
+    return flags;
 }

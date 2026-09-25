@@ -130,8 +130,8 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     try {
         const managed = await ctx.fns.llm.anthropicOAuthStatus?.({});
         if (managed?.connected) {
-            const usable = (managed.accounts ?? []).filter((entry: any) => !entry.needsReconnect);
-            out["anthropic-oauth"] = usable.flatMap((entry: any) => {
+            const accounts = managed.accounts ?? [];
+            out["anthropic-oauth"] = accounts.flatMap((entry: any) => {
                 const account = String(entry.account ?? "default");
                 const prefix = account === "default" ? "anthropic-oauth" : `anthropic-oauth/${account}`;
                 return claudeModels.map(id => `${prefix}:${id}`);

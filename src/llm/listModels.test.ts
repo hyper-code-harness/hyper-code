@@ -47,6 +47,16 @@ describe("llm.listModels", () => {
         expect(groups["anthropic-oauth"]).toContain("anthropic-oauth/personal:claude-fable-5-1");
         expect(groups["anthropic-oauth"]!.some(model => model.startsWith("anthropic-oauth:"))).toBe(false);
     });
+    test("keeps expired managed Claude accounts visible for reconnect", async () => {
+        const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            refreshClaudeCode: async () => null,
+            anthropicOAuthStatus: async () => ({ connected: true, accounts: [{ account: "expired", needsReconnect: true }] }),
+        } } } as unknown as Context;
+        const groups = await listModels(ctx, null);
+        expect(groups["anthropic-oauth"]).toContain("anthropic-oauth/expired:claude-opus-5-5");
+    });
+
+
     test("connected xAI subscription exposes Grok Responses models", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
             xaiOAuthStatus: async () => ({ connected: true }),

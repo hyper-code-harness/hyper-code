@@ -1,6 +1,6 @@
 /**
  * Matches an HTTP method and pathname against the live route table.
- * Exact routes win; parameterized segments are decoded and returned by name.
+ * Exact routes win; parameterized segments are decoded and returned by name. Malformed percent encoding produces a 400 handler rather than throwing a server error.
  * @param opts.method HTTP method, such as `GET` or `POST`.
  * @param opts.pathname URL pathname beginning with `/`.
  */
@@ -26,7 +26,8 @@ export default function (
             const p = patSegs[i]!;
             const u = urlSegs[i]!;
             if (p.startsWith(":")) {
-                params[p.slice(1)] = decodeURIComponent(u);
+                try { params[p.slice(1)] = decodeURIComponent(u); }
+                catch { return {handler: () => new Response('Malformed path encoding', {status: 400}), params: {}, path: pattern}; }
             } else if (p !== u) {
                 ok = false;
                 break;

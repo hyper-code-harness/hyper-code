@@ -123,6 +123,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 
     ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-base-content/45 hover:text-indigo-600"' })}
 
+    <a href="/shared-agents?from=${encodeURIComponent(id)}" title="Publish or use Shared Agents" aria-label="Shared Agents" class="px-1 text-base-content/45 hover:text-indigo-600"><i class="ph ph-users-three" aria-hidden="true"></i></a>
+
     <form method="POST" action="/agent/${encodeURIComponent(id)}/fork" hx-boost="false" class="inline">
       ${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>', type: 'submit', appearance: 'plain', title: 'fork and open', ariaLabel: 'Fork and open agent', class: 'px-1 text-base-content/45 transition hover:text-indigo-600' })}
     </form>

@@ -32,13 +32,14 @@ test("buildLlmRequest injects candidates only into the outgoing copy", async () 
     expect(agent.messages[0].content).toBe("send a telegram message");
 });
 
-test("function RAG rejects low-confidence conversational prompts", async () => {
+test("function RAG reports empty retrieval without injecting candidates", async () => {
     setHits([]);
     const rag = await ctx.fns.agent.functionRag({
         agent: { functionRagEnabled: true } as any,
         messages: [{ role: "user", content: "thanks, continue", idx: 2 }],
     });
-    expect(rag).toBeNull();
+    expect(rag?.functions).toEqual([]);
+    expect(rag?.retrieved).toBe(0);
 });
 
 
@@ -47,9 +48,9 @@ test("function RAG indicator renders at the end of a user bubble", async () => {
     const html = await ctx.fns.agent.renderEventHtml({
         agentId: "a", event: { type: "user", text: "hello", messageIdx: 1, functionRag: { functions: ["telegram.send", "agent.wakeAt"] } },
     });
-    expect(html).toContain("ph-function");
+    expect(html).toContain("Function RAG: retrieved");
     expect(html).toContain("role=\"tooltip\"");
     expect(html).toContain("telegram.send");
     expect(html).toContain("agent.wakeAt");
-    expect(html.indexOf("hello")).toBeLessThan(html.indexOf("ph-function"));
+    expect(html.indexOf("hello")).toBeLessThan(html.indexOf("Function RAG: retrieved"));
 });

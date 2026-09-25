@@ -4,7 +4,7 @@ import { testCtx } from "../../$test";
 const ctx = await testCtx();
 
 test("runtime docs validator accepts a well documented function", async () => {
-    const report = await ctx.fns.runtime.docs.validate({ name: "agent.reflect" });
+    const report = await ctx.fns.runtime.docs.validate({ name: "agent.compact" });
     expect(report.ok).toBe(true);
     expect(report.checks.metadata).toBe(true);
     expect(report.checks.parameters).toBeGreaterThan(0);

@@ -368,6 +368,8 @@ declare global {
             get: Injected<typeof import("../plugins/google/src/gmail/get").default>;
             labelCreate: Injected<typeof import("../plugins/google/src/gmail/labelCreate").default>;
             labels: Injected<typeof import("../plugins/google/src/gmail/labels").default>;
+            markRead: Injected<typeof import("../plugins/google/src/gmail/markRead").default>;
+            markUnread: Injected<typeof import("../plugins/google/src/gmail/markUnread").default>;
             list: Injected<typeof import("../plugins/google/src/gmail/list").default>;
             modify: Injected<typeof import("../plugins/google/src/gmail/modify").default>;
             reply: Injected<typeof import("../plugins/google/src/gmail/reply").default>;

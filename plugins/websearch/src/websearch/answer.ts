@@ -36,7 +36,6 @@ const normalize = (value: string): string => value.toLowerCase().replace(/[^\p{L
  * @param opts.model Provider-qualified model override; when omitted, uses `websearch.fetchModel`, then the global default model.
  * @param opts.maxCharsPerPage Maximum readable Markdown characters kept per page. @default 12000 @minimum 1000 @maximum 50000
  * @param opts.requireVerified Drop citations whose quote was not found in its source page. @default false
- * @param opts.rankMode How an over-long page is reduced before it reaches the model: deterministic keywords, embeddings, or both fused. Instead of cutting at `maxCharsPerPage`, the best-matching passages are kept. @default keyword
  */
 export default async function (
     ctx: Context,
@@ -54,8 +53,6 @@ export default async function (
         maxCharsPerPage?: number;
         /** Drop citations whose quote was not found in its source page. @default false */
         requireVerified?: boolean;
-        /** How an over-long page is reduced before it reaches the model: deterministic keywords, embeddings, or both fused. @default keyword */
-        rankMode?: 'keyword' | 'vector' | 'hybrid';
     },
 ): Promise<{
     question: string;
@@ -88,14 +85,22 @@ export default async function (
             const page = await ctx.fns.websearch.read({ url: candidate.url, maxChars: maxCharsPerPage * 3 });
             let text = page.markdown;
             if (text.length > maxCharsPerPage) {
-                const ranked = await ctx.fns.websearch.rank({
-                    text,
-                    query: question,
-                    mode: opts.rankMode ?? 'keyword',
-                    limit: 20,
-                    maxChars: 1_200,
-                }).catch(() => null);
-                const kept = (ranked?.passages ?? []).map((passage) => passage.text).join('\n\n');
+                const passages = text
+                    .split(/\n\s*\n/)
+                    .map((chunk) => chunk.replace(/\s+/g, ' ').trim())
+                    .filter((chunk) => chunk.length >= 40)
+                    .slice(0, 60);
+                const ranked = passages.length > 1
+                    ? await ctx.fns.jev.rank({
+                        query: question,
+                        candidates: passages.map((body, index) => ({ id: String(index), text: body.slice(0, 2_000) })),
+                        minScore: 0.2,
+                    }).catch(() => null)
+                    : null;
+                const kept = (ranked?.ranked ?? [])
+                    .map((entry) => passages[Number(entry.id)] ?? '')
+                    .filter((body) => body.length > 0)
+                    .join('\n\n');
                 text = kept.length > 200 ? kept.slice(0, maxCharsPerPage) : text.slice(0, maxCharsPerPage);
             }
             return {

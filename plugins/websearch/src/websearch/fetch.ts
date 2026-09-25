@@ -1,10 +1,10 @@
-type FetchHighlight = { text: string; score: number; offset: number };
+type FetchHighlight = { text: string; score: number; index: number };
 
 /**
  * Opens one public URL in the user's browser, applies an LLM prompt to its readable page content, and returns the page Markdown alongside the answer.
  *
  * Use after websearch.search when an agent needs a focused extraction, summary, or question answered from one selected page. This mirrors Claude Code's WebFetch separation from WebSearch.
- * Unlike a summary-only fetch, the readable Markdown is retained in `markdown` and the passages matching the prompt in `highlights`, so an agent can quote the source verbatim instead of trusting the generated `result`.
+ * Unlike a summary-only fetch, the readable Markdown is retained in `markdown` and the passages Jev judged relevant to the prompt in `highlights`, so an agent can quote the source verbatim instead of trusting the generated `result`.
  * Page reading goes through websearch.read, which re-snapshots until client-rendered content stops growing.
  *
  * @param opts.url Public HTTP or HTTPS page to open and read.
@@ -12,8 +12,8 @@ type FetchHighlight = { text: string; score: number; offset: number };
  * @param opts.model Provider-qualified model override; when omitted, uses `websearch.fetchModel`, then the global default model.
  * @param opts.maxChars Maximum readable page characters passed to the LLM. @default 30000 @minimum 1000 @maximum 50000
  * @param opts.includeMarkdown Return the readable page Markdown in `markdown`; set false when only the generated answer is wanted. @default true
- * @param opts.highlights Number of prompt-matching verbatim passages returned in `highlights`; 0 disables extraction. @default 3 @minimum 0 @maximum 20
- * @param opts.rankMode Passage scoring used for `highlights`: deterministic keywords, embeddings, or both fused. @default keyword
+ * @param opts.highlights Number of prompt-relevant verbatim passages returned in `highlights`, scored by Jev; 0 disables extraction. @default 0 @minimum 0 @maximum 20
+ * @param opts.minScore Jev relevance score a passage must reach to be returned as a highlight. @default 0.2 @minimum 0 @maximum 1
  */
 export default async function (
     ctx: Context,
@@ -29,10 +29,10 @@ export default async function (
         maxChars?: number;
         /** Return the readable page Markdown in `markdown`; set false when only the generated answer is wanted. @default true */
         includeMarkdown?: boolean;
-        /** Number of prompt-matching verbatim passages returned in `highlights`; 0 disables extraction. @default 3 @minimum 0 @maximum 20 */
+        /** Number of prompt-relevant verbatim passages returned in `highlights`, scored by Jev; 0 disables extraction. @default 0 @minimum 0 @maximum 20 */
         highlights?: number;
-        /** Passage scoring used for `highlights`: deterministic keywords, embeddings, or both fused. @default keyword */
-        rankMode?: 'keyword' | 'vector' | 'hybrid';
+        /** Jev relevance score a passage must reach to be returned as a highlight. @default 0.2 @minimum 0 @maximum 1 */
+        minScore?: number;
     },
 ): Promise<{
     url: string;
@@ -50,7 +50,8 @@ export default async function (
     if (!prompt) throw new Error('websearch.fetch: prompt is required');
     const maxChars = Math.max(1_000, Math.min(50_000, Math.trunc(Number(opts.maxChars ?? 30_000))));
     const includeMarkdown = opts.includeMarkdown !== false;
-    const highlightLimit = Math.max(0, Math.min(20, Math.trunc(Number(opts.highlights ?? 3))));
+    const highlightLimit = Math.max(0, Math.min(20, Math.trunc(Number(opts.highlights ?? 0))));
+    const minScore = Math.max(0, Math.min(1, Number(opts.minScore ?? 0.2)));
     const configuredModel = await ctx.fns.settings.getString({
         module: 'websearch',
         scopeType: 'global',
@@ -72,17 +73,25 @@ export default async function (
 
     let highlights: FetchHighlight[] = [];
     if (highlightLimit > 0) {
-        const ranked = await ctx.fns.websearch.rank({
-            text: content,
-            query: prompt,
-            mode: opts.rankMode ?? 'keyword',
-            limit: highlightLimit,
-        }).catch(() => null);
-        highlights = (ranked?.passages ?? []).map((passage) => ({
-            text: passage.text,
-            score: passage.score,
-            offset: passage.offset,
-        }));
+        const passages = content
+            .split(/\n\s*\n/)
+            .map((chunk) => chunk.replace(/\s+/g, ' ').trim())
+            .filter((chunk) => chunk.length >= 40)
+            .slice(0, 60);
+        if (passages.length > 0) {
+            const ranked = await ctx.fns.jev.rank({
+                query: prompt,
+                candidates: passages.map((text, index) => ({ id: String(index), text: text.slice(0, 2_000) })),
+                minScore,
+            }).catch(() => null);
+            highlights = (ranked?.ranked ?? [])
+                .slice(0, highlightLimit)
+                .map((entry) => {
+                    const index = Number(entry.id);
+                    return { text: passages[index] ?? '', score: entry.score, index };
+                })
+                .filter((highlight) => highlight.text.length > 0);
+        }
     }
 
     return {

@@ -10,8 +10,8 @@ declare global {
             acceptMessage: Injected<typeof import("./agent/acceptMessage").default>;
             archiveCompleted: Injected<typeof import("./agent/archiveCompleted").default>;
             archiveMember: Injected<typeof import("./agent/archiveMember").default>;
-            autoCompactIfNeeded: Injected<typeof import("./agent/autoCompactIfNeeded").default>;
             ask: Injected<typeof import("./agent/ask").default>;
+            autoCompactIfNeeded: Injected<typeof import("./agent/autoCompactIfNeeded").default>;
             buildDelegatedTaskPrompt: Injected<typeof import("./agent/buildDelegatedTaskPrompt").default>;
             buildLlmRequest: Injected<typeof import("./agent/buildLlmRequest").default>;
             cacheRoot: Injected<typeof import("./agent/cacheRoot").default>;
@@ -21,11 +21,11 @@ declare global {
             cancelWatch: Injected<typeof import("./agent/cancelWatch").default>;
             checkGoal: Injected<typeof import("./agent/checkGoal").default>;
             clear: Injected<typeof import("./agent/clear").default>;
-            clearReflectionNudge: Injected<typeof import("./agent/clearReflectionNudge").default>;
             compact: Injected<typeof import("./agent/compact").default>;
             compactContext: Injected<typeof import("./agent/compactContext").default>;
             createFromPopup: Injected<typeof import("./agent/createFromPopup").default>;
             createFromValues: Injected<typeof import("./agent/createFromValues").default>;
+            cron: Injected<typeof import("./agent/cron").default>;
             current: Injected<typeof import("./agent/current").default>;
             delegate: Injected<typeof import("./agent/delegate").default>;
             delegateTask: Injected<typeof import("./agent/delegateTask").default>;
@@ -37,12 +37,13 @@ declare global {
             finishTask: Injected<typeof import("./agent/finishTask").default>;
             fullSystemPrompt: Injected<typeof import("./agent/fullSystemPrompt").default>;
             functionRag: Injected<typeof import("./agent/functionRag").default>;
+            functionRagGate: Injected<typeof import("./agent/functionRagGate").default>;
             getBasePromptParts: Injected<typeof import("./agent/getBasePromptParts").default>;
             getSleepGeneration: Injected<typeof import("./agent/getSleepGeneration").default>;
             highlightResult: Injected<typeof import("./agent/highlightResult").default>;
             imageContent: Injected<typeof import("./agent/imageContent").default>;
-            injectScheduledPrompt: Injected<typeof import("./agent/injectScheduledPrompt").default>;
             initialPromptPopup: Injected<typeof import("./agent/initialPromptPopup").default>;
+            injectScheduledPrompt: Injected<typeof import("./agent/injectScheduledPrompt").default>;
             listPromptPresets: Injected<typeof import("./agent/listPromptPresets").default>;
             listSchedules: Injected<typeof import("./agent/listSchedules").default>;
             listWatches: Injected<typeof import("./agent/listWatches").default>;
@@ -58,7 +59,7 @@ declare global {
             processTrigger: Injected<typeof import("./agent/processTrigger").default>;
             readAndSummarize: Injected<typeof import("./agent/readAndSummarize").default>;
             recordGoalCheck: Injected<typeof import("./agent/recordGoalCheck").default>;
-            reflect: Injected<typeof import("./agent/reflect").default>;
+            recoverOrphanedCompactions: Injected<typeof import("./agent/recoverOrphanedCompactions").default>;
             renderEditArgs: Injected<typeof import("./agent/renderEditArgs").default>;
             renderEventHtml: Injected<typeof import("./agent/renderEventHtml").default>;
             renderEventsHtml: Injected<typeof import("./agent/renderEventsHtml").default>;
@@ -74,10 +75,7 @@ declare global {
             setModel: Injected<typeof import("./agent/setModel").default>;
             setObservedGoals: Injected<typeof import("./agent/setObservedGoals").default>;
             setReasoningEffort: Injected<typeof import("./agent/setReasoningEffort").default>;
-            setSleepActive: Injected<typeof import("./agent/setSleepActive").default>;
             setStatusLine: Injected<typeof import("./agent/setStatusLine").default>;
-            sleep: Injected<typeof import("./agent/sleep").default>;
-            sleepIdle: Injected<typeof import("./agent/sleepIdle").default>;
             sourceMessagePage: Injected<typeof import("./agent/sourceMessagePage").default>;
             start: Injected<typeof import("./agent/start").default>;
             stashResult: Injected<typeof import("./agent/stashResult").default>;
@@ -104,6 +102,12 @@ declare global {
             watchPredicate: Injected<typeof import("./agent/watchPredicate").default>;
             wireTools: Injected<typeof import("./agent/wireTools").default>;
             workerLoop: Injected<typeof import("./agent/workerLoop").default>;
+        };
+        applehealth: {
+            ingest: Injected<typeof import("../../.hyper/user/applehealth/src/applehealth/ingest").default>;
+            promoteSleep: Injected<typeof import("../../.hyper/user/applehealth/src/applehealth/promoteSleep").default>;
+            recordManualVitals: Injected<typeof import("./applehealth/recordManualVitals").default>;
+            status: Injected<typeof import("../../.hyper/user/applehealth/src/applehealth/status").default>;
         };
         arxiv: {
             api: Injected<typeof import("../plugins/arxiv/src/arxiv/api").default>;
@@ -144,6 +148,7 @@ declare global {
             screenshot: Injected<typeof import("../plugins/browser/src/browser/screenshot").default>;
             scroll: Injected<typeof import("../plugins/browser/src/browser/scroll").default>;
             select: Injected<typeof import("../plugins/browser/src/browser/select").default>;
+            sessionForget: Injected<typeof import("../plugins/browser/src/browser/sessionForget").default>;
             snapshot: Injected<typeof import("../plugins/browser/src/browser/snapshot").default>;
             tabClose: Injected<typeof import("../plugins/browser/src/browser/tabClose").default>;
             tabs: Injected<typeof import("../plugins/browser/src/browser/tabs").default>;
@@ -162,6 +167,7 @@ declare global {
             ensure: Injected<typeof import("../plugins/browser/src/chrome/ensure").default>;
             path: Injected<typeof import("../plugins/browser/src/chrome/path").default>;
             profileDir: Injected<typeof import("../plugins/browser/src/chrome/profileDir").default>;
+            reloadExtension: Injected<typeof import("../.hyper/chrome/reloadExtension").default>;
             start: Injected<typeof import("../plugins/browser/src/chrome/start").default>;
         };
         circleback: {
@@ -210,6 +216,92 @@ declare global {
             test: Injected<typeof import("./dev/test").default>;
             testSummary: Injected<typeof import("./dev/testSummary").default>;
             typecheck: Injected<typeof import("./dev/typecheck").default>;
+        };
+        docs: {
+            find: Injected<typeof import("../../.hyper/user/docs/src/docs/find").default>;
+            get: Injected<typeof import("../../.hyper/user/docs/src/docs/get").default>;
+            gist: Injected<typeof import("../../.hyper/user/docs/src/docs/gist").default>;
+            gistSync: Injected<typeof import("../../.hyper/user/docs/src/docs/gistSync").default>;
+            list: Injected<typeof import("../../.hyper/user/docs/src/docs/list").default>;
+            page: Injected<typeof import("../../.hyper/user/docs/src/docs/page").default>;
+            root: Injected<typeof import("../../.hyper/user/docs/src/docs/root").default>;
+            save: Injected<typeof import("../../.hyper/user/docs/src/docs/save").default>;
+            shell: Injected<typeof import("../../.hyper/user/docs/src/docs/shell").default>;
+            sync: Injected<typeof import("../../.hyper/user/docs/src/docs/sync").default>;
+        };
+        doonto: {
+            addSource: Injected<typeof import("../../.hyper/user/doonto/src/doonto/addSource").default>;
+            applyDedupDecision: Injected<typeof import("../../.hyper/user/doonto/src/doonto/applyDedupDecision").default>;
+            browseConcepts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/browseConcepts").default>;
+            browsePages: Injected<typeof import("../../.hyper/user/doonto/src/doonto/browsePages").default>;
+            buildDedupCandidates: Injected<typeof import("../../.hyper/user/doonto/src/doonto/buildDedupCandidates").default>;
+            buildHybridCandidates: Injected<typeof import("../../.hyper/user/doonto/src/doonto/buildHybridCandidates").default>;
+            catalogueBases: Injected<typeof import("../../.hyper/user/doonto/src/doonto/catalogueBases").default>;
+            compactEmbeddingCandidates: Injected<typeof import("../../.hyper/user/doonto/src/doonto/compactEmbeddingCandidates").default>;
+            compactProjection: Injected<typeof import("../../.hyper/user/doonto/src/doonto/compactProjection").default>;
+            conceptCard: Injected<typeof import("../../.hyper/user/doonto/src/doonto/conceptCard").default>;
+            conceptDetail: Injected<typeof import("../../.hyper/user/doonto/src/doonto/conceptDetail").default>;
+            createBase: Injected<typeof import("../../.hyper/user/doonto/src/doonto/createBase").default>;
+            dedupBatch: Injected<typeof import("../../.hyper/user/doonto/src/doonto/dedupBatch").default>;
+            dedupQueue: Injected<typeof import("../../.hyper/user/doonto/src/doonto/dedupQueue").default>;
+            dictionaryConcepts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/dictionaryConcepts").default>;
+            drainCompactEmbeddings: Injected<typeof import("../../.hyper/user/doonto/src/doonto/drainCompactEmbeddings").default>;
+            embedCompactBatch: Injected<typeof import("../../.hyper/user/doonto/src/doonto/embedCompactBatch").default>;
+            embedGraphBatch: Injected<typeof import("../../.hyper/user/doonto/src/doonto/embedGraphBatch").default>;
+            embeddingCardProjection: Injected<typeof import("../../.hyper/user/doonto/src/doonto/embeddingCardProjection").default>;
+            embeddingEvidence: Injected<typeof import("../../.hyper/user/doonto/src/doonto/embeddingEvidence").default>;
+            extractGraphBatch: Injected<typeof import("../../.hyper/user/doonto/src/doonto/extractGraphBatch").default>;
+            fetchEurLexHtml: Injected<typeof import("../../.hyper/user/doonto/src/doonto/fetchEurLexHtml").default>;
+            finalizeGraphParts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/finalizeGraphParts").default>;
+            getPage: Injected<typeof import("../../.hyper/user/doonto/src/doonto/getPage").default>;
+            getSection: Injected<typeof import("../../.hyper/user/doonto/src/doonto/getSection").default>;
+            graphCandidates: Injected<typeof import("../../.hyper/user/doonto/src/doonto/graphCandidates").default>;
+            graphMerge: Injected<typeof import("../../.hyper/user/doonto/src/doonto/graphMerge").default>;
+            graphProgress: Injected<typeof import("../../.hyper/user/doonto/src/doonto/graphProgress").default>;
+            hybridCandidateQueue: Injected<typeof import("../../.hyper/user/doonto/src/doonto/hybridCandidateQueue").default>;
+            hybridSearchConcepts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/hybridSearchConcepts").default>;
+            importSourceSections: Injected<typeof import("../../.hyper/user/doonto/src/doonto/importSourceSections").default>;
+            ingestEurLexArtifact: Injected<typeof import("../../.hyper/user/doonto/src/doonto/ingestEurLexArtifact").default>;
+            listBases: Injected<typeof import("../../.hyper/user/doonto/src/doonto/listBases").default>;
+            listConceptSectionLinks: Injected<typeof import("../../.hyper/user/doonto/src/doonto/listConceptSectionLinks").default>;
+            listSections: Injected<typeof import("../../.hyper/user/doonto/src/doonto/listSections").default>;
+            listSources: Injected<typeof import("../../.hyper/user/doonto/src/doonto/listSources").default>;
+            parseEurLexHtml: Injected<typeof import("../../.hyper/user/doonto/src/doonto/parseEurLexHtml").default>;
+            planGraphParts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/planGraphParts").default>;
+            prepareCompactEmbeddings: Injected<typeof import("../../.hyper/user/doonto/src/doonto/prepareCompactEmbeddings").default>;
+            publishGraphAgentPage: Injected<typeof import("../../.hyper/user/doonto/src/doonto/publishGraphAgentPage").default>;
+            putConceptSectionLink: Injected<typeof import("../../.hyper/user/doonto/src/doonto/putConceptSectionLink").default>;
+            putPage: Injected<typeof import("../../.hyper/user/doonto/src/doonto/putPage").default>;
+            putSection: Injected<typeof import("../../.hyper/user/doonto/src/doonto/putSection").default>;
+            putSectionTitle: Injected<typeof import("../../.hyper/user/doonto/src/doonto/putSectionTitle").default>;
+            readGraphAgentPage: Injected<typeof import("../../.hyper/user/doonto/src/doonto/readGraphAgentPage").default>;
+            readGraphParts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/readGraphParts").default>;
+            renderHybridConcepts: Injected<typeof import("../../.hyper/user/doonto/src/doonto/renderHybridConcepts").default>;
+            renderHybridQueue: Injected<typeof import("../../.hyper/user/doonto/src/doonto/renderHybridQueue").default>;
+            renderSectionLinks: Injected<typeof import("../../.hyper/user/doonto/src/doonto/renderSectionLinks").default>;
+            renderSourceSections: Injected<typeof import("../../.hyper/user/doonto/src/doonto/renderSourceSections").default>;
+            renderWikiConcept: Injected<typeof import("../../.hyper/user/doonto/src/doonto/renderWikiConcept").default>;
+            renderWikiWorkspace: Injected<typeof import("../../.hyper/user/doonto/src/doonto/renderWikiWorkspace").default>;
+            resolveGraphAlias: Injected<typeof import("../../.hyper/user/doonto/src/doonto/resolveGraphAlias").default>;
+            resolveWikiIdentity: Injected<typeof import("../../.hyper/user/doonto/src/doonto/resolveWikiIdentity").default>;
+            reviewConceptEvidence: Injected<typeof import("../../.hyper/user/doonto/src/doonto/reviewConceptEvidence").default>;
+            reviewDedupDecision: Injected<typeof import("../../.hyper/user/doonto/src/doonto/reviewDedupDecision").default>;
+            reviewGraphPage: Injected<typeof import("../../.hyper/user/doonto/src/doonto/reviewGraphPage").default>;
+            runGraphIndex: Injected<typeof import("../../.hyper/user/doonto/src/doonto/runGraphIndex").default>;
+            search: Injected<typeof import("../../.hyper/user/doonto/src/doonto/search").default>;
+            sourceOutline: Injected<typeof import("../../.hyper/user/doonto/src/doonto/sourceOutline").default>;
+            stageGraphPart: Injected<typeof import("../../.hyper/user/doonto/src/doonto/stageGraphPart").default>;
+            startDedupRun: Injected<typeof import("../../.hyper/user/doonto/src/doonto/startDedupRun").default>;
+            startGraphAgentRun: Injected<typeof import("../../.hyper/user/doonto/src/doonto/startGraphAgentRun").default>;
+            startGraphRun: Injected<typeof import("../../.hyper/user/doonto/src/doonto/startGraphRun").default>;
+            syncGraphAliases: Injected<typeof import("../../.hyper/user/doonto/src/doonto/syncGraphAliases").default>;
+            testSections: Injected<typeof import("../../.hyper/user/doonto/src/doonto/testSections").default>;
+            validateCompactEmbeddingResponse: Injected<typeof import("../../.hyper/user/doonto/src/doonto/validateCompactEmbeddingResponse").default>;
+            validateConceptFields: Injected<typeof import("../../.hyper/user/doonto/src/doonto/validateConceptFields").default>;
+            validateDedupDecision: Injected<typeof import("../../.hyper/user/doonto/src/doonto/validateDedupDecision").default>;
+            validateGraphOutput: Injected<typeof import("../../.hyper/user/doonto/src/doonto/validateGraphOutput").default>;
+            wikiRoute: Injected<typeof import("../../.hyper/user/doonto/src/doonto/wikiRoute").default>;
+            wikiUrl: Injected<typeof import("../../.hyper/user/doonto/src/doonto/wikiUrl").default>;
         };
         duckdb: {
             inspect: Injected<typeof import("../plugins/duckdb/src/duckdb/inspect").default>;
@@ -283,10 +375,16 @@ declare global {
             write: Injected<typeof import("./files/write").default>;
         };
         flow: {
+            card: Injected<typeof import("../plugins/flow/src/flow/card").default>;
             discover: Injected<typeof import("../plugins/flow/src/flow/discover").default>;
+            formField: Injected<typeof import("../plugins/flow/src/flow/formField").default>;
             list: Injected<typeof import("../plugins/flow/src/flow/list").default>;
+            localInstant: Injected<typeof import("../plugins/flow/src/flow/localInstant").default>;
             page: Injected<typeof import("../plugins/flow/src/flow/page").default>;
             reconcile: Injected<typeof import("../plugins/flow/src/flow/reconcile").default>;
+            refresh: Injected<typeof import("../plugins/flow/src/flow/refresh").default>;
+            refreshCount: Injected<typeof import("../plugins/flow/src/flow/refreshCount").default>;
+            submit: Injected<typeof import("../plugins/flow/src/flow/submit").default>;
         };
         focus: {
             add: Injected<typeof import("../../.hyper/user/focus/src/focus/add").default>;
@@ -357,6 +455,12 @@ declare global {
                 update: Injected<typeof import("../.hyper/gh/gist/update").default>;
             };
         };
+        ghpulse: {
+            publish: Injected<typeof import("../../.hyper/user/ghpulse/src/ghpulse/publish").default>;
+            report: Injected<typeof import("../../.hyper/user/ghpulse/src/ghpulse/report").default>;
+            sync: Injected<typeof import("../../.hyper/user/ghpulse/src/ghpulse/sync").default>;
+            syncAndPublish: Injected<typeof import("../../.hyper/user/ghpulse/src/ghpulse/syncAndPublish").default>;
+        };
         git: {
             commit: Injected<typeof import("./git/commit").default>;
             push: Injected<typeof import("./git/push").default>;
@@ -377,9 +481,9 @@ declare global {
             get: Injected<typeof import("../plugins/google/src/gmail/get").default>;
             labelCreate: Injected<typeof import("../plugins/google/src/gmail/labelCreate").default>;
             labels: Injected<typeof import("../plugins/google/src/gmail/labels").default>;
+            list: Injected<typeof import("../plugins/google/src/gmail/list").default>;
             markRead: Injected<typeof import("../plugins/google/src/gmail/markRead").default>;
             markUnread: Injected<typeof import("../plugins/google/src/gmail/markUnread").default>;
-            list: Injected<typeof import("../plugins/google/src/gmail/list").default>;
             modify: Injected<typeof import("../plugins/google/src/gmail/modify").default>;
             reply: Injected<typeof import("../plugins/google/src/gmail/reply").default>;
             send: Injected<typeof import("../plugins/google/src/gmail/send").default>;
@@ -441,37 +545,80 @@ declare global {
             syncAll: Injected<typeof import("../plugins/hackernews/src/hackernews/syncAll").default>;
         };
         healthrepo: {
+            addCondition: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/addCondition").default>;
+            addHypothesis: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/addHypothesis").default>;
+            addMedication: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/addMedication").default>;
+            addObservation: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/addObservation").default>;
+            appleHealthLastSync: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/appleHealthLastSync").default>;
+            appleHealthVitals: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/appleHealthVitals").default>;
+            conditions: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/conditions").default>;
+            createDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/createDiary").default>;
+            deleteDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/deleteDiary").default>;
             diary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/diary").default>;
+            diaryCompat: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/diaryCompat").default>;
+            doc: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/doc").default>;
+            documents: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/documents").default>;
+            exportAppleHealth: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/exportAppleHealth").default>;
+            exportClinical: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/exportClinical").default>;
             exportDocuments: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/exportDocuments").default>;
             extractMedication: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/extractMedication").default>;
             generateForm: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/generateForm").default>;
+            getDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/getDiary").default>;
+            hypotheses: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/hypotheses").default>;
             importDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/importDiary").default>;
             importMedicationIntakes: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/importMedicationIntakes").default>;
             importMedications: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/importMedications").default>;
             importNotes: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/importNotes").default>;
             ingestDocument: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/ingestDocument").default>;
+            lastSync: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/lastSync").default>;
+            listDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/listDiary").default>;
             medications: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/medications").default>;
+            mutateDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/mutateDiary").default>;
+            observations: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/observations").default>;
             pane: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/pane").default>;
             parseForm: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/parseForm").default>;
             parseResource: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/parseResource").default>;
             populateMedication: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/populateMedication").default>;
             queryTimeline: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/queryTimeline").default>;
+            recordMedicationIntake: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/recordMedicationIntake").default>;
             reindex: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/reindex").default>;
             resolveDocument: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/resolveDocument").default>;
+            runAppleHealthSync: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/runAppleHealthSync").default>;
+            runSync: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/runSync").default>;
+            setHypothesis: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/setHypothesis").default>;
             sleep: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/sleep").default>;
+            stats: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/stats").default>;
+            sync: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/sync").default>;
+            syncRepository: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/syncRepository").default>;
+            updateDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/updateDiary").default>;
             validateForm: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/validateForm").default>;
+            vitals: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/vitals").default>;
+            writeResource: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/writeResource").default>;
         };
         home: {
             render: Injected<typeof import("./home/render").default>;
         };
+        jev: {
+            decide: Injected<typeof import("./jev/decide").default>;
+            gate: Injected<typeof import("./jev/gate").default>;
+            health: Injected<typeof import("./jev/health").default>;
+            pick: Injected<typeof import("./jev/pick").default>;
+            rank: Injected<typeof import("./jev/rank").default>;
+            selectFunctions: Injected<typeof import("./jev/selectFunctions").default>;
+        };
         knowledge: {
             agentMetaSection: Injected<typeof import("../plugins/knowledge/src/knowledge/agentMetaSection").default>;
+            dedupCandidates: Injected<typeof import("../plugins/knowledge/src/knowledge/dedupCandidates").default>;
+            dedupDecide: Injected<typeof import("../plugins/knowledge/src/knowledge/dedupDecide").default>;
+            dedupMerge: Injected<typeof import("../plugins/knowledge/src/knowledge/dedupMerge").default>;
             ensure: Injected<typeof import("../plugins/knowledge/src/knowledge/ensure").default>;
             extractionSchema: Injected<typeof import("../plugins/knowledge/src/knowledge/extractionSchema").default>;
             find: Injected<typeof import("../plugins/knowledge/src/knowledge/find").default>;
             get: Injected<typeof import("../plugins/knowledge/src/knowledge/get").default>;
+            identityKeys: Injected<typeof import("../plugins/knowledge/src/knowledge/identityKeys").default>;
             importFiles: Injected<typeof import("../plugins/knowledge/src/knowledge/importFiles").default>;
             link: Injected<typeof import("../plugins/knowledge/src/knowledge/link").default>;
+            lookup: Injected<typeof import("../plugins/knowledge/src/knowledge/lookup").default>;
             matchAnonymous: Injected<typeof import("../plugins/knowledge/src/knowledge/matchAnonymous").default>;
             matchPerson: Injected<typeof import("../plugins/knowledge/src/knowledge/matchPerson").default>;
             observe: Injected<typeof import("../plugins/knowledge/src/knowledge/observe").default>;
@@ -479,6 +626,7 @@ declare global {
             renderBacklinks: Injected<typeof import("../plugins/knowledge/src/knowledge/renderBacklinks").default>;
             renderHistory: Injected<typeof import("../plugins/knowledge/src/knowledge/renderHistory").default>;
             resolve: Injected<typeof import("../plugins/knowledge/src/knowledge/resolve").default>;
+            resolveIdentity: Injected<typeof import("../plugins/knowledge/src/knowledge/resolveIdentity").default>;
             resolveMentions: Injected<typeof import("../plugins/knowledge/src/knowledge/resolveMentions").default>;
             setObservedMentions: Injected<typeof import("../plugins/knowledge/src/knowledge/setObservedMentions").default>;
             setTracking: Injected<typeof import("../plugins/knowledge/src/knowledge/setTracking").default>;
@@ -490,6 +638,7 @@ declare global {
         };
         linkedin: {
             company: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/company").default>;
+            companyPosts: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/companyPosts").default>;
             feed: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/feed").default>;
             hash: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/hash").default>;
             importNewsState: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/importNewsState").default>;
@@ -499,6 +648,7 @@ declare global {
             seedTrackedPeople: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/seedTrackedPeople").default>;
             stats: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/stats").default>;
             syncFeed: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/syncFeed").default>;
+            syncTrackedCompanies: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/syncTrackedCompanies").default>;
             syncTrackedPeople: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/syncTrackedPeople").default>;
             trackedPeople: Injected<typeof import("../../.hyper/user/linkedin/src/linkedin/trackedPeople").default>;
         };
@@ -526,6 +676,7 @@ declare global {
             getXaiOAuthToken: Injected<typeof import("./llm/getXaiOAuthToken").default>;
             listAccounts: Injected<typeof import("./llm/listAccounts").default>;
             listModels: Injected<typeof import("./llm/listModels").default>;
+            localizationModel: Injected<typeof import("./llm/localizationModel").default>;
             localize: Injected<typeof import("./llm/localize").default>;
             logoutAnthropicOAuth: Injected<typeof import("./llm/logoutAnthropicOAuth").default>;
             logoutXaiOAuth: Injected<typeof import("./llm/logoutXaiOAuth").default>;
@@ -608,36 +759,17 @@ declare global {
             install: Injected<typeof import("../../.hyper/user/mobiledev/src/mobiledev/install").default>;
             testflight: Injected<typeof import("../../.hyper/user/mobiledev/src/mobiledev/testflight").default>;
         };
-        myhealth: {
-            addCondition: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/addCondition").default>;
-            addDocument: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/addDocument").default>;
-            addHypothesis: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/addHypothesis").default>;
-            addMedication: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/addMedication").default>;
-            addObservation: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/addObservation").default>;
-            conditions: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/conditions").default>;
-            createDiary: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/createDiary").default>;
-            deleteDiary: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/deleteDiary").default>;
-            diary: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/diary").default>;
-            doc: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/doc").default>;
-            documents: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/documents").default>;
-            getDiary: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/getDiary").default>;
-            hypotheses: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/hypotheses").default>;
-            lastSync: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/lastSync").default>;
-            listDiary: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/listDiary").default>;
-            medications: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/medications").default>;
-            observations: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/observations").default>;
-            runSync: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/runSync").default>;
-            setHypothesis: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/setHypothesis").default>;
-            sql: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/sql").default>;
-            stats: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/stats").default>;
-            sync: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/sync").default>;
-            updateDiary: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/updateDiary").default>;
-            vitals: Injected<typeof import("../../.hyper/user/myhealth/src/myhealth/vitals").default>;
+        myhealthGaps: {
+            medicationContext: Injected<typeof import("../.hyper/myhealthGaps/medicationContext").default>;
+            medicationRecordGaps: Injected<typeof import("../.hyper/myhealthGaps/medicationRecordGaps").default>;
+            submitMedication: Injected<typeof import("../.hyper/myhealthGaps/submitMedication").default>;
         };
         nav: {
             items: Injected<typeof import("./nav/items").default>;
         };
         news: {
+            canonicalUrl: Injected<typeof import("../plugins/news/src/news/canonicalUrl").default>;
+            deduplicateUrls: Injected<typeof import("../plugins/news/src/news/deduplicateUrls").default>;
             ensure: Injected<typeof import("../plugins/news/src/news/ensure").default>;
             get: Injected<typeof import("../plugins/news/src/news/get").default>;
             list: Injected<typeof import("../plugins/news/src/news/list").default>;
@@ -690,6 +822,7 @@ declare global {
             auth: {
                 authenticate: Injected<typeof import("./procs/auth/authenticate").default>;
                 cookie: Injected<typeof import("./procs/auth/cookie").default>;
+                cookieName: Injected<typeof import("./procs/auth/cookieName").default>;
                 keys: Injected<typeof import("./procs/auth/keys").default>;
                 sign: Injected<typeof import("./procs/auth/sign").default>;
                 verify: Injected<typeof import("./procs/auth/verify").default>;
@@ -817,6 +950,7 @@ declare global {
                 load: Injected<typeof import("./procs/repl/load").default>;
                 token: Injected<typeof import("./procs/repl/token").default>;
                 typecheck: Injected<typeof import("./procs/repl/typecheck").default>;
+                unload: Injected<typeof import("./procs/repl/unload").default>;
             };
             styles: {
                 build: Injected<typeof import("./procs/styles/build").default>;
@@ -904,6 +1038,7 @@ declare global {
             api: Injected<typeof import("../plugins/research/src/research/api").default>;
             ask: Injected<typeof import("../plugins/research/src/research/ask").default>;
             call: Injected<typeof import("../plugins/research/src/research/call").default>;
+            figures: Injected<typeof import("../plugins/research/src/research/figures").default>;
             papers: Injected<typeof import("../plugins/research/src/research/papers").default>;
             search: Injected<typeof import("../plugins/research/src/research/search").default>;
             start: Injected<typeof import("../plugins/research/src/research/start").default>;
@@ -926,7 +1061,9 @@ declare global {
                 get: Injected<typeof import("./runtime/docs/get").default>;
                 index: Injected<typeof import("./runtime/docs/index").default>;
                 list: Injected<typeof import("./runtime/docs/list").default>;
+                localizeNightly: Injected<typeof import("./runtime/docs/localizeNightly").default>;
                 ragBenchmark: Injected<typeof import("./runtime/docs/ragBenchmark").default>;
+                ragCases: Injected<typeof import("./runtime/docs/ragCases").default>;
                 search: Injected<typeof import("./runtime/docs/search").default>;
                 validate: Injected<typeof import("./runtime/docs/validate").default>;
             };
@@ -1026,6 +1163,14 @@ declare global {
             startKimiLogin: Injected<typeof import("./settings/startKimiLogin").default>;
             status: Injected<typeof import("./settings/status").default>;
         };
+        sharedAgent: {
+            delegate: Injected<typeof import("./sharedAgent/delegate").default>;
+            list: Injected<typeof import("./sharedAgent/list").default>;
+            page: Injected<typeof import("./sharedAgent/page").default>;
+            publish: Injected<typeof import("./sharedAgent/publish").default>;
+            result: Injected<typeof import("./sharedAgent/result").default>;
+            unpublish: Injected<typeof import("./sharedAgent/unpublish").default>;
+        };
         sidebar: {
             approval: Injected<typeof import("./sidebar/approval").default>;
             bindingForAgent: Injected<typeof import("./sidebar/bindingForAgent").default>;
@@ -1036,9 +1181,11 @@ declare global {
             targetSnapshot: Injected<typeof import("./sidebar/targetSnapshot").default>;
         };
         skill: {
+            circlebackMeetingReady: Injected<typeof import("../.hyper/skill/circlebackMeetingReady").default>;
             greet: Injected<typeof import("../.hyper/skill/greet").default>;
             hello: Injected<typeof import("./skill/hello").default>;
             inspect: Injected<typeof import("./skill/inspect").default>;
+            issueFileReady: Injected<typeof import("../.hyper/skill/issueFileReady").default>;
             uptime: Injected<typeof import("../.hyper/skill/uptime").default>;
             wordCount: Injected<typeof import("./skill/wordCount").default>;
         };
@@ -1083,6 +1230,7 @@ declare global {
             photo: Injected<typeof import("../plugins/telegram/src/telegram/photo").default>;
             photoPublic: Injected<typeof import("../plugins/telegram/src/telegram/photoPublic").default>;
             reauth: Injected<typeof import("../plugins/telegram/src/telegram/reauth").default>;
+            replyAfter: Injected<typeof import("../.hyper/telegram/replyAfter").default>;
             search: Injected<typeof import("../plugins/telegram/src/telegram/search").default>;
             searchChat: Injected<typeof import("../plugins/telegram/src/telegram/searchChat").default>;
             send: Injected<typeof import("../plugins/telegram/src/telegram/send").default>;
@@ -1142,6 +1290,7 @@ declare global {
             controlScript: Injected<typeof import("./ui/controlScript").default>;
             createAgent: Injected<typeof import("./ui/createAgent").default>;
             eval: Injected<typeof import("./ui/eval").default>;
+            gapBadge: Injected<typeof import("./ui/gapBadge").default>;
             inplacePopup: Injected<typeof import("./ui/inplacePopup").default>;
             inspectorSection: Injected<typeof import("./ui/inspectorSection").default>;
             layout: Injected<typeof import("./ui/layout").default>;
@@ -1159,7 +1308,6 @@ declare global {
             popupContent: Injected<typeof import("./ui/popupContent").default>;
             previewFile: Injected<typeof import("../.hyper/ui/previewFile").default>;
             progressBar: Injected<typeof import("./ui/progressBar").default>;
-            reflectionDropdown: Injected<typeof import("./ui/reflectionDropdown").default>;
             script: Injected<typeof import("./ui/script").default>;
             sendToAgent: Injected<typeof import("./ui/sendToAgent").default>;
             state: Injected<typeof import("./ui/state").default>;
@@ -1171,6 +1319,8 @@ declare global {
         uptodate: {
             ask: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/ask").default>;
             cookies: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/cookies").default>;
+            featurePage: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/featurePage").default>;
+            features: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/features").default>;
             follow: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/follow").default>;
             http: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/http").default>;
             login: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/login").default>;
@@ -1183,7 +1333,9 @@ declare global {
             topic: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/topic").default>;
         };
         websearch: {
+            answer: Injected<typeof import("../plugins/websearch/src/websearch/answer").default>;
             fetch: Injected<typeof import("../plugins/websearch/src/websearch/fetch").default>;
+            read: Injected<typeof import("../plugins/websearch/src/websearch/read").default>;
             search: Injected<typeof import("../plugins/websearch/src/websearch/search").default>;
         };
         workspace: {
@@ -1238,14 +1390,25 @@ declare global {
             type ReadHashlineResult = import("./files/ReadHashlineResult").ReadHashlineResult;
         }
         namespace flow {
+            type CountSnapshot = import("../plugins/flow/src/flow/CountSnapshot").CountSnapshot;
             type FlowOutput = import("../plugins/flow/src/flow/FlowOutput").FlowOutput;
             type FlowRequest = import("../plugins/flow/src/flow/FlowRequest").FlowRequest;
             type Gap = import("../plugins/flow/src/flow/Gap").Gap;
+            type GapForm = import("../plugins/flow/src/flow/GapForm").GapForm;
             type ReconcileResult = import("../plugins/flow/src/flow/ReconcileResult").ReconcileResult;
             type State = import("../plugins/flow/src/flow/State").State;
         }
         namespace git {
             type Result = import("./git/Result").Result;
+        }
+        namespace jev {
+            type Answer = import("./jev/Answer").Answer;
+            type Band = import("./jev/Band").Band;
+            type ChoiceAnswer = import("./jev/ChoiceAnswer").ChoiceAnswer;
+            type Entry = import("./jev/Entry").Entry;
+            type NoulAnswer = import("./jev/NoulAnswer").NoulAnswer;
+            type Question = import("./jev/Question").Question;
+            type ScoreAnswer = import("./jev/ScoreAnswer").ScoreAnswer;
         }
         namespace knowledge {
             type ExtractionSpec = import("../plugins/knowledge/src/knowledge/ExtractionSpec").ExtractionSpec;
@@ -1324,6 +1487,11 @@ declare global {
             type Paper = import("../plugins/research/src/research/Paper").Paper;
             type SearchResult = import("../plugins/research/src/research/SearchResult").SearchResult;
             type StartResult = import("../plugins/research/src/research/StartResult").StartResult;
+        }
+        namespace runtime {
+            namespace docs {
+                type RagCase = import("./runtime/docs/RagCase").RagCase;
+            }
         }
         namespace screen {
             type Catalogue = import("./screen/Catalogue").Catalogue;

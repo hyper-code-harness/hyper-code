@@ -16,21 +16,25 @@ Every field the engine supplied is preserved. `description` has highlight markup
 
 ## Ranking and filtering results
 
-Engines rank by their own signals, so a result that merely shares keywords can outrank the one that answers the question — and finding out costs a page load. `websearch.rankResults` embeds each result (title + snippet + extra snippets), scores it against the query by cosine similarity, reorders, and drops everything under `minSimilarity`. The score is calibrated and comparable within one query: on-topic results land around 0.6–0.8, off-topic ones under 0.2, so `minSimilarity: 0.3` removes noise without touching good hits. Needs an embeddings provider and throws without one instead of pretending to rank.
+Engines rank by their own signals, so a result that merely shares keywords can outrank the one that answers the question — and finding out costs a page load. Rerank with `jev.rank`: pass the results as candidates (title + description + extraSnippets), set `minScore` around 0.2, and keep what survives. Jev returns a calibrated relevance score per candidate, so the threshold means the same thing across queries; a result that is merely on-topic scores far below one that answers the question. `jev.rank` scores candidates concurrently and keeps a failed candidate in place rather than dropping it.
+
+```ts
+const found = await ctx.fns.websearch.search({ query, limit: 10 });
+const ranked = await ctx.fns.jev.rank({
+  query,
+  candidates: found.results.map((r, i) => ({ id: String(i), text: [r.title, r.description, ...r.extraSnippets].join('\n') })),
+  minScore: 0.2,
+});
+const best = ranked.ranked.map((entry) => found.results[Number(entry.id)]);
+```
 
 Use `websearch.fetch` on a selected result URL with a focused prompt. It opens the URL through Browser, captures readable Markdown, and asks an LLM to apply the prompt. The model can be overridden per call; otherwise `websearch.fetchModel` is used, falling back to Hyper's global default model. Authenticated/private pages are not guaranteed; use a specialized plugin for those.
 
-Fetch keeps the evidence, not only the summary: `markdown` holds the readable page as captured and `highlights` the verbatim passages matching the prompt, so a claim can be quoted instead of trusted. Pass `includeMarkdown: false` or `highlights: 0` when only the generated answer is wanted.
+Fetch keeps the evidence, not only the summary: `markdown` holds the readable page as captured. Ask for `highlights: N` to also get the passages Jev scored as relevant to the prompt (`minScore`, default 0.2), so a claim can be quoted instead of trusted. Pass `includeMarkdown: false` when only the generated answer is wanted.
 
 ## Grounded answers
 
 Use `websearch.answer` when the question matters more than the links. One call searches, reads the top `pages` results as Markdown, and returns `{ answer, citations, sources }`. Each citation carries a `quote` and a `verified` flag: the quote is matched back against the page text it was attributed to, so an invented quote arrives as `verified: false` instead of silently passing. Pass `requireVerified: true` to drop unverifiable citations, and read `sources` to see which pages failed to load.
-
-## Quoting text you already have
-
-`websearch.highlights` scores passages of any text against a query without an LLM — deterministic, no tokens. Use it on page content an agent already fetched, on stored article Markdown, or on a document, instead of asking a model to "find the relevant part".
-
-`websearch.rank` is the same idea with a choice of scoring: `keyword` (default, free), `vector` (embeddings, catches paraphrases that share no words with the query), and `hybrid` (both orderings fused by reciprocal rank — the safe choice when the wording is unpredictable). Vector and hybrid need an embeddings provider; without one they degrade to keyword and report the effective `mode`. `fetch` and `answer` accept the same choice as `rankMode`.
 
 ## Reading one page as data
 
@@ -38,4 +42,4 @@ Use `websearch.answer` when the question matters more than the links. One call s
 
 ## Long pages
 
-`answer` no longer truncates an over-long page at a character limit: it keeps the passages that rank highest for the question, so the relevant section reaches the model even when it sits at the bottom of the page.
+`answer` does not truncate an over-long page at a character limit: passages are scored with `jev.rank` and only the relevant ones reach the model, so the answer survives even when the useful section sits at the bottom of the page.

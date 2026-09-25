@@ -30,7 +30,7 @@ const best = ranked.ranked.map((entry) => found.results[Number(entry.id)]);
 
 Use `websearch.fetch` on a selected result URL with a focused prompt. It opens the URL through Browser, captures readable Markdown, and asks an LLM to apply the prompt. The model can be overridden per call; otherwise `websearch.fetchModel` is used, falling back to Hyper's global default model. Authenticated/private pages are not guaranteed; use a specialized plugin for those.
 
-Fetch keeps the evidence, not only the summary: `markdown` holds the readable page as captured. Ask for `highlights: N` to also get the passages Jev scored as relevant to the prompt (`minScore`, default 0.2), so a claim can be quoted instead of trusted. Pass `includeMarkdown: false` when only the generated answer is wanted.
+Fetch keeps the evidence, not only the summary: `markdown` holds the readable page as captured, so a claim can be quoted instead of trusted. Pass `includeMarkdown: false` when only the generated answer is wanted.
 
 ## Grounded answers
 

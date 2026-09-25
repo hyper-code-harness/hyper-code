@@ -10,7 +10,8 @@
   "action": {"default_title": "Open Hyper sidebar"},
   "commands": {
     "previous-tab": {"suggested_key": {"default": "Ctrl+K", "mac": "MacCtrl+K"}, "description": "Go to previous tab"},
-    "next-tab": {"suggested_key": {"default": "Ctrl+J", "mac": "MacCtrl+J"}, "description": "Go to next tab"}
+    "next-tab": {"suggested_key": {"default": "Ctrl+J", "mac": "MacCtrl+J"}, "description": "Go to next tab"},
+    "open-hyper-tab": {"suggested_key": {"default": "Ctrl+N", "mac": "MacCtrl+N"}, "description": "Open or focus the pinned Hyper tab"}
   },
   "side_panel": {"default_path": "panel.html"},
   "options_ui": {"page": "options.html", "open_in_tab": true},

@@ -130,6 +130,19 @@ chrome.action.onClicked.addListener(tab => {
   }).catch(error => console.error('Sidebar action state:', error));
 });
 chrome.commands.onCommand.addListener(event(async command => {
+  if (command === 'open-hyper-tab') {
+    const {base} = await config();
+    const url = normalizeBase(base);
+    const matches = await chrome.tabs.query({url: `${url}/*`});
+    let target = matches.find(tab => tab.pinned) || matches[0];
+    if (!target) target = await chrome.tabs.create({url, pinned: true, active: true});
+    else {
+      if (!target.pinned) await chrome.tabs.update(target.id, {pinned: true});
+      await chrome.windows.update(target.windowId, {focused: true});
+      await chrome.tabs.update(target.id, {active: true});
+    }
+    return;
+  }
   if (command !== 'previous-tab' && command !== 'next-tab') return;
   const tabs = (await chrome.tabs.query({currentWindow: true})).filter(tab => Number.isInteger(tab.index));
   if (tabs.length < 2) return;

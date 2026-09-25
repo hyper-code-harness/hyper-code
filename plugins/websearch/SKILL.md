@@ -23,3 +23,13 @@ Use `websearch.answer` when the question matters more than the links. One call s
 ## Quoting text you already have
 
 `websearch.highlights` scores passages of any text against a query without an LLM — deterministic, no tokens. Use it on page content an agent already fetched, on stored article Markdown, or on a document, instead of asking a model to "find the relevant part".
+
+`websearch.rank` is the same idea with a choice of scoring: `keyword` (default, free), `vector` (embeddings, catches paraphrases that share no words with the query), and `hybrid` (both orderings fused by reciprocal rank — the safe choice when the wording is unpredictable). Vector and hybrid need an embeddings provider; without one they degrade to keyword and report the effective `mode`. `fetch` and `answer` accept the same choice as `rankMode`.
+
+## Reading one page as data
+
+`websearch.read` opens a URL and returns readable Markdown with no LLM involved. It re-snapshots until the extracted length stops growing, so client-rendered pages are not captured half-empty, and it always closes the tab. `fetch` and `answer` both read through it.
+
+## Long pages
+
+`answer` no longer truncates an over-long page at a character limit: it keeps the passages that rank highest for the question, so the relevant section reaches the model even when it sits at the bottom of the page.

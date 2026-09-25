@@ -36,6 +36,7 @@ const normalize = (value: string): string => value.toLowerCase().replace(/[^\p{L
  * @param opts.model Provider-qualified model override; when omitted, uses `websearch.fetchModel`, then the global default model.
  * @param opts.maxCharsPerPage Maximum readable Markdown characters kept per page. @default 12000 @minimum 1000 @maximum 50000
  * @param opts.requireVerified Drop citations whose quote was not found in its source page. @default false
+ * @param opts.rankMode How an over-long page is reduced before it reaches the model: deterministic keywords, embeddings, or both fused. Instead of cutting at `maxCharsPerPage`, the best-matching passages are kept. @default keyword
  */
 export default async function (
     ctx: Context,
@@ -53,6 +54,8 @@ export default async function (
         maxCharsPerPage?: number;
         /** Drop citations whose quote was not found in its source page. @default false */
         requireVerified?: boolean;
+        /** How an over-long page is reduced before it reaches the model: deterministic keywords, embeddings, or both fused. @default keyword */
+        rankMode?: 'keyword' | 'vector' | 'hybrid';
     },
 ): Promise<{
     question: string;
@@ -79,34 +82,37 @@ export default async function (
     const candidates = found.results.slice(0, pages);
     if (candidates.length === 0) throw new Error('websearch.answer: search returned no results');
 
-    const documents: Array<{ url: string; title: string; text: string; error: string | null }> = [];
-    for (const candidate of candidates) {
-        const browserSession = `webanswer-${Bun.randomUUIDv7()}`;
+    // Pages are independent: read them in parallel, then squeeze each one to the passages that answer the question.
+    const documents = await Promise.all(candidates.map(async (candidate) => {
         try {
-            await ctx.fns.browser.navigate({ session: browserSession, url: candidate.url, settleMs: 600 });
-            const page = await ctx.fns.browser.snapshot({
-                session: browserSession,
-                mode: 'markdown',
-                readable: true,
-                maxChars: maxCharsPerPage,
-            });
-            documents.push({
+            const page = await ctx.fns.websearch.read({ url: candidate.url, maxChars: maxCharsPerPage * 3 });
+            let text = page.markdown;
+            if (text.length > maxCharsPerPage) {
+                const ranked = await ctx.fns.websearch.rank({
+                    text,
+                    query: question,
+                    mode: opts.rankMode ?? 'keyword',
+                    limit: 20,
+                    maxChars: 1_200,
+                }).catch(() => null);
+                const kept = (ranked?.passages ?? []).map((passage) => passage.text).join('\n\n');
+                text = kept.length > 200 ? kept.slice(0, maxCharsPerPage) : text.slice(0, maxCharsPerPage);
+            }
+            return {
                 url: page.url || candidate.url,
                 title: page.title || candidate.title,
-                text: String(page.content ?? '').trim(),
-                error: null,
-            });
+                text,
+                error: null as string | null,
+            };
         } catch (error) {
-            documents.push({
+            return {
                 url: candidate.url,
                 title: candidate.title,
                 text: '',
                 error: error instanceof Error ? error.message : String(error),
-            });
-        } finally {
-            await ctx.fns.browser.tabClose({ session: browserSession }).catch(() => undefined);
+            };
         }
-    }
+    }));
 
     const usable = documents.filter((doc) => doc.text.length > 0);
     if (usable.length === 0) throw new Error('websearch.answer: no result page produced readable content');

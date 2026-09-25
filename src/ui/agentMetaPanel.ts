@@ -32,13 +32,13 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Archived delegated children displayed by the Team filter. */ archivedTeam?: Array<{ id: string; title: string; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
     /** Models grouped by provider, used by the parked-agent switcher. */ models?: Record<string, string[]>;
     /** Credential accounts with their quota, used by the parked-agent switcher. */ accounts?: Array<{ provider: string; account: string; label: string; model: string; available: boolean; usedPercent: number | null; resetsAt: number | null; parkedAgents: number }>;
-    /** Durable recurring prompt schedules for this agent. */ schedules?: any[];
+    /** Active durable wake, cron and condition triggers for this agent. */ triggers?: any[];
     /** Render the inspector as its collapsed rail. */ collapsed?: boolean }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     const agent = opts.agent;
-    const slot = (section: "goal" | "knowledge" | "automation" | "schedules" | "wake" | "team" | "plan") =>
+    const slot = (section: "goal" | "knowledge" | "automation" | "settings" | "team" | "plan") =>
         `<div id="agent-meta-${section}-${esc(agent.id)}" data-meta-section="${section}">`
-        + ctx.fns.ui.agentMetaSection({ agent, section, team: opts.team, archivedTeam: opts.archivedTeam, models: opts.models, accounts: opts.accounts, schedules: opts.schedules })
+        + ctx.fns.ui.agentMetaSection({ agent, section, team: opts.team, archivedTeam: opts.archivedTeam, models: opts.models, accounts: opts.accounts, triggers: opts.triggers })
         + `</div>`;
     const collapsed = opts.collapsed === true;
     return `<aside id="agent-meta-${esc(agent.id)}" data-agent-meta-panel class="glass-panel agent-meta-panel${collapsed ? ' agent-meta-collapsed' : ''} my-2 mr-2 ml-1 flex h-[calc(100%-1rem)] w-80 shrink-0 flex-col overflow-hidden rounded-2xl border border-ui-border text-base-content shadow-sm">
@@ -47,10 +47,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
       </header>
       <div data-agent-meta-content class="flex-1 overflow-y-auto bg-transparent">
         ${slot("automation")}
-        ${slot("schedules")}
+        ${slot("settings")}
         ${slot("goal")}
         ${slot("knowledge")}
-        ${slot("wake")}
         ${slot("team")}
         ${slot("plan")}
       </div>

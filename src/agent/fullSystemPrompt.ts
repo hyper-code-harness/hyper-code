@@ -35,6 +35,8 @@ agent: types.agent.Agent }): Promise<string> {
         ? `\n\n## Mounted plugins\n\nPlugin layers: core runtime is built into Hyper; official plugins ship in the Hyper repository; user plugins live as direct children of the external \`USER_PLUGINS\` directory and are writable by the user/agent. Create substantial private integrations in \`USER_PLUGINS\`, not in the official \`plugins/\` tree; use \`.hyper/\` only for small project-local procedures.\n\n${plugins.map((p: any) => `- ${p.name} [${p.source}]: ${p.description || p.namespaces.join(", ")}`).join("\n")}\n\nPlugin workflow (ordinary functions, call through eval):\n1. Translate the user's capability intent into a concise English search query, regardless of the user's language.\n2. await ctx.fns.plugins.search({ query }) — search both plugin workflows (SKILL.md) and live function documentation. Do this before guessing a plugin or function name.\n3. await ctx.fns.plugins.read({ name }) — read the selected plugin's human-written workflow overview plus generated function docs, schemas and return types.\n4. Call the selected function through ctx.fns.<namespace>.<function>({ ... }).\nUse ctx.fns.plugins.functions({ name }) only for a compact generated catalogue. Manage plugins with plugins.load/add/remove/reload. Do not assume every plugin function is a native tool.`
         : "";
 
+    const sharedAgentBlock = `\n\n## Shared context agents\n\nFor a task that may benefit from another session's accumulated context, search the registry first with await ctx.fns.sharedAgent.list({ query }). If a clearly relevant agent exists, delegate with await ctx.fns.sharedAgent.delegate({ agentId, task, requesterId: agent.id }) and poll sharedAgent.result({ childId }) only when the result is needed. Do not delegate trivial work, do not assume registry access exposes the source transcript, and never publish or unpublish a session unless the user explicitly asks.`;
+
     const perAgent = (agent.systemPrompt ?? "").trim();
     const perAgentBlock = perAgent ? `\n\n## Per-agent instructions\n\n${perAgent}` : "";
 
@@ -52,8 +54,8 @@ agent: types.agent.Agent }): Promise<string> {
         "- your agent id: `agent.id` inside eval, or `await ctx.fns.agent.current({})` from any runtime function (never hard-code it)",
         "- storage: Postgres — ctx.fns.procs.db.* (never bare Bun.sql)",
         "",
-        "- durable wake-ups: await ctx.fns.agent.wakeIn({ id: agent.id, delayMs, reason }) or wakeAt({ id: agent.id, at, reason }); cancelWake({ id: agent.id })",
-        "- conditional wake: wakeUpWhen({ id: agent.id, predicate: 'file.exists'|'db.rows'|'http.ok'|'runtime.fn', opts, reason, everyMs?, timeoutMs? }); runtime.fn opts: { name: 'module.function', args, callTimeoutMs? }; default polling is 5m",
+        "- durable agent triggers: wake({ id: agent.id, at|inMs, prompt }) once; cron({ id: agent.id, expression, timezone, prompt }) repeatedly; watch({ id: agent.id, predicate: 'file.exists'|'db.rows'|'http.ok'|'runtime.fn', opts, prompt, everyMs?, timeoutMs?, mode?: 'once'|'edge', onTimeoutPrompt? }) on a condition",
+        "- inspect/cancel triggers with agent.triggers({ id: agent.id, status? }), cancelTrigger({ id: agent.id, triggerId }), or cancelAllTriggers({ id: agent.id }); runtime.fn watch opts: { name: 'module.function', args, callTimeoutMs? }",
         "- for reusable project-local procedures, prefer .hyper/<module>/<fn>.ts runtime functions; do not pass arbitrary code to durable watches",
     ].join("\n");
 
@@ -81,5 +83,5 @@ agent: types.agent.Agent }): Promise<string> {
             }
         }
     }
-    return core + "\n\n" + tools + pluginBlock + perAgentBlock + runtime + browserContext;
+    return core + "\n\n" + tools + pluginBlock + sharedAgentBlock + perAgentBlock + runtime + browserContext;
 }

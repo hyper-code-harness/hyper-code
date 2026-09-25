@@ -1,23 +1,19 @@
-/** Handles the id wake post HTTP route.  * @param opts.req Incoming HTTP request.
- * @param opts.params Route path parameters.
-*/
-export default async function (ctx: Context, _session: Session | null, opts: {
-        /** Incoming HTTP request. */
-req: Request;
-        /** Values bound to the operation. */
-params: Record<string, string> }) {
-    const form = await opts.req.formData();
-    const action = String(form.get('action') ?? 'set');
-    try {
-        if (action === 'cancel') await ctx.fns.agent.cancelWake({ id: opts.params.id! });
-        else {
-            const preset = form.get('preset');
-            const rawMinutes = preset != null ? preset : form.get('minutes');
-            const minutes = Math.max(1, Math.min(7 * 24 * 60, Number(rawMinutes ?? 5)));
-            await ctx.fns.agent.wakeIn({ id: opts.params.id!, delayMs: minutes * 60_000, reason: String(form.get('reason') ?? 'Continue scheduled work') });
-        }
-    } catch (error: any) {
-        return new Response(error?.message ?? 'Invalid wake-up', { status: 400 });
+/** Legacy wake-up form adapter backed by unified agent triggers. */
+export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
+  const id = String(opts.params.id ?? "");
+  const form = await opts.req.formData();
+  try {
+    if (String(form.get("action") ?? "set") === "cancel") {
+      const active = await ctx.fns.agent.triggers({ id, status: "active" });
+      for (const trigger of active.filter((item: any) => item.kind === "at")) await ctx.fns.agent.cancelTrigger({ id, triggerId: String(trigger.id) });
+    } else {
+      const raw = form.get("preset") ?? form.get("minutes") ?? 5;
+      const minutes = Math.max(1, Math.min(10080, Number(raw)));
+      await ctx.fns.agent.wake({ id, inMs: minutes * 60_000, prompt: String(form.get("reason") ?? "Continue scheduled work") });
     }
-    return new Response(null, { status: 204 });
+    ctx.fns.events.refreshAgentMeta({ agentId: id, section: "automation", reason: "wake-changed" });
+    return new Response(null, { status: 204, headers: { "HX-Trigger": "agent-meta-refresh" } });
+  } catch (error: any) {
+    return new Response(String(error?.message ?? error), { status: 400 });
+  }
 }

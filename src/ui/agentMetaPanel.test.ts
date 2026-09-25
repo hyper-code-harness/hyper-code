@@ -31,13 +31,17 @@ const mkCtx = (extra: any = {}): any => {
 test("agent meta panel is a static shell with per-section slots", () => {
     const html = render(mkCtx(), null, { agent: { id: "eh", goal: null } as any });
     expect(html).toContain('id="agent-meta-eh"');
-    for (const section of ["goal", "automation", "wake", "team", "plan"]) {
+    for (const section of ["goal", "automation", "settings", "team", "plan"]) {
         expect(html).toContain(`id="agent-meta-${section}-eh"`);
         expect(html).toContain(`data-meta-section="${section}"`);
     }
     // No live region: sections are redrawn through the RPC push, not polling.
     expect(html).not.toContain("data-live-topic");
     expect(html).not.toContain("hx-get");
+    // Automation is pinned first: every other section can render empty, so a
+    // section above it would open the panel with a blank gap.
+    const order = [...html.matchAll(/data-meta-section="([a-z]+)"/g)].map((match) => match[1]);
+    expect(order[0]).toBe("automation");
 });
 
 test("renders the display-only observed goals preview", () => {
@@ -101,11 +105,15 @@ test("renders team members as semantic nested accordions", () => {
     expect(html).toContain('<progress value="0" max="1">');
 });
 
-test("automation controls live in a collapsed compact accordion", () => {
-    const html = render(mkCtx(), null, { agent: { id: "eh", goal: null } as any });
-    expect(html).toContain('>Automation</summary>');
-    const slot = html.slice(html.indexOf('id="agent-meta-automation-eh"'), html.indexOf('id="agent-meta-wake-eh"'));
-    expect(slot).not.toContain("<details open");
+test("automation unifies wake, schedule and watch controls at the top", () => {
+    const html = render(mkCtx(), null, { agent: { id: "eh", goal: null } as any, triggers: [{ id: "tr_1", kind: "at", prompt: "Continue", status: "active", nextAt: Date.now() + 1000 }] });
+    expect(html).toContain('>Automation');
+    const slot = html.slice(html.indexOf('id="agent-meta-automation-eh"'), html.indexOf('id="agent-meta-settings-eh"'));
+    expect(slot).toContain("Wake-up");
+    expect(slot).toContain("Add schedule");
+    expect(slot).toContain("Add watch");
+    expect(slot).not.toContain("Function RAG");
+    expect(html).toContain(">Agent settings");
 });
 
 test("a section renders standalone and an unknown section throws", () => {

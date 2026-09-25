@@ -15,7 +15,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
         return {
             status: 404,
             title: path || "files",
-            main: page(`<div class="p-6 text-red-700">not found: <code>${esc(path)}</code></div>`),
+            main: page(`<div class="p-6 text-error">not found: <code>${esc(path)}</code></div>`),
         };
     }
 
@@ -36,7 +36,7 @@ async function renderDir(ctx: Context, path: string, wide = false, embedded = fa
         const icon = e.isDir ? "ph-folder text-subtle" : fileIcon(e.name);
         const href = await browserHref(ctx, full, embedded);
         return `<a href="${href}" class="group grid min-h-9 grid-cols-[minmax(0,1fr)_7rem] items-center border-t border-ui-border px-4 text-sm hover:bg-base-200 ${index === 0 ? "border-t-0" : ""}">
-<span class="flex min-w-0 items-center gap-3"><i class="ph ${icon} text-base"></i><span class="truncate text-base-content group-hover:text-blue-600 group-hover:underline">${esc(e.name)}</span></span>
+<span class="flex min-w-0 items-center gap-3"><i class="ph ${icon} text-base"></i><span class="truncate text-base-content group-hover:text-primary group-hover:underline">${esc(e.name)}</span></span>
 <span class="text-right text-xs text-faint">${e.isDir ? "Directory" : fileKind(e.name)}</span>
 </a>`;
     }))).join("");
@@ -72,7 +72,7 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
     const content = isMedia ? "" : await ctx.fns.files.read({ path });
 
     const tabCls = (id: string) => id === tab
-        ? "border-b-2 border-orange-500 px-3 py-2 text-sm font-semibold text-base-content"
+        ? "border-b-2 border-warning px-3 py-2 text-sm font-semibold text-base-content"
         : "border-b-2 border-transparent px-3 py-2 text-sm text-muted hover:border-ui-border hover:text-base-content";
     const fileUrl = await browserHref(ctx, path, embedded);
     const tabLink = (id: string, label: string) =>
@@ -92,7 +92,7 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
     } else if (tab === "preview" && isVideo) {
         contentEl = `<div class="flex flex-1 items-center justify-center overflow-auto bg-black p-6"><video src="${rawUrl}" class="max-h-full max-w-full" controls preload="metadata"></video></div>`;
     } else if (tab === "preview" && isAudio) {
-        contentEl = `<div class="flex flex-1 flex-col items-center justify-center gap-5 bg-base-200 p-8"><i class="ph ph-waveform text-6xl text-indigo-400"></i><div class="text-sm font-medium text-muted">${esc(name)}</div><audio src="${rawUrl}" class="w-full max-w-xl" controls preload="metadata"></audio></div>`;
+        contentEl = `<div class="flex flex-1 flex-col items-center justify-center gap-5 bg-base-200 p-8"><i class="ph ph-waveform text-6xl text-faint"></i><div class="text-sm font-medium text-muted">${esc(name)}</div><audio src="${rawUrl}" class="w-full max-w-xl" controls preload="metadata"></audio></div>`;
     } else if (tab === "preview" && isPdf) {
         contentEl = `<iframe src="${rawUrl}" title="${esc(name)}" class="flex-1 w-full border-0 bg-base-200"></iframe>`;
     } else if (tab === "preview" && isMd) {
@@ -160,10 +160,10 @@ async function breadcrumbs(ctx: Context, path: string, embedded = false): Promis
     const parts = path.split("/").filter(Boolean);
     const rootPath = absolute ? "/" : "";
     const rootLabel = absolute ? "/" : "workspace";
-    const links = [`<a href="${await browserHref(ctx, rootPath, embedded)}" class="font-semibold text-blue-600 hover:underline">${rootLabel}</a>`];
+    const links = [`<a href="${await browserHref(ctx, rootPath, embedded)}" class="font-semibold text-primary hover:underline">${rootLabel}</a>`];
     for (let i = 0; i < parts.length; i++) {
         const sub = (absolute ? "/" : "") + parts.slice(0, i + 1).join("/");
-        links.push(`<a href="${await browserHref(ctx, sub, embedded)}" class="font-semibold text-blue-600 hover:underline">${esc(parts[i]!)}</a>`);
+        links.push(`<a href="${await browserHref(ctx, sub, embedded)}" class="font-semibold text-primary hover:underline">${esc(parts[i]!)}</a>`);
     }
     return links.join(` <i class="ph ph-caret-right text-3xs text-faint"></i> `);
 }

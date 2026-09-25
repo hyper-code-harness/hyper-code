@@ -460,6 +460,15 @@ details > summary::-webkit-details-marker { display: none; }
 /* modal dialog (ui.dialog) — HTML popover, dimmed backdrop */
 .ui-dialog { margin: auto; padding: 0; width: min(32rem, calc(100vw - 2rem)); border: 1px solid var(--color-base-300); border-radius: 10px; background: var(--color-base-100); box-shadow: 0 14px 24px -14px rgba(28,25,23,.16); }
 .ui-dialog::backdrop { background: rgba(0,0,0,.3); }
+.ui-dialog--lg { width: min(40rem, calc(100vw - 2rem)); }
+.ui-dialog__head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; border-bottom:1px solid var(--ui-border); padding:.85rem 1.25rem; }
+.ui-dialog__body { padding:1.25rem; }
+.ui-dialog__foot { display:flex; justify-content:flex-end; gap:.5rem; border-top:1px solid var(--ui-border); background:var(--color-base-200); padding:.75rem 1.25rem; }
+/* procs.ui.tabs — underline tabs in a list header. */
+.ui-tabs { display:flex; align-items:center; gap:1.25rem; }
+.ui-tabs__item { display:inline-flex; align-items:center; gap:.4rem; color:var(--color-subtle); }
+.ui-tabs__item:hover, .ui-tabs__item[aria-current="page"] { color:var(--color-base-content); }
+.ui-tabs__item[aria-current="page"] { font-weight:600; }
 
 /* the map of everything (workspace/src/ui/map.ts) — a sheet over the APP, with
  * the app dimmed behind it. Not over the window: what surrounds the app is the
@@ -531,6 +540,12 @@ summary::-webkit-details-marker { display: none; }
 .badge { display:inline-flex; min-height:1.25rem; align-items:center; justify-content:center; gap:.25rem; border:1px solid var(--ui-border); border-radius:9999px; background:var(--color-base-200); padding:.1rem .45rem; color:color-mix(in oklab,var(--color-base-content) 70%,transparent); font-size:.6875rem; line-height:1; }
 .badge-sm { min-height:1.125rem; padding:.08rem .38rem; font-size:.625rem; }
 .badge-soft { background:var(--color-base-200); }
+/* Semantic tones for procs.ui.badge / tags / notice — one state palette. */
+.badge-info { border-color:var(--color-state-info-border); background:var(--color-state-info-bg); color:var(--color-state-info-fg); }
+.badge-success { border-color:var(--color-state-success-border); background:var(--color-state-success-bg); color:var(--color-state-success-fg); }
+.badge-warning { border-color:var(--color-state-warning-border); background:var(--color-state-warning-bg); color:var(--color-state-warning-fg); }
+.badge-error { border-color:var(--color-state-danger-border); background:var(--color-state-danger-bg); color:var(--color-state-danger-fg); }
+.badge-neutral { border-color:var(--ui-border); background:var(--color-base-200); color:var(--color-muted); }
 .input,.textarea,.select { width:100%; border:1px solid var(--ui-input-border); border-radius:.45rem; background:var(--color-base-100); color:var(--color-base-content); padding:.5rem .65rem; outline:none; }
 .input:focus,.textarea:focus,.select:focus { border-color:var(--color-primary); box-shadow:0 0 0 2px color-mix(in oklab,var(--color-primary) 12%,transparent); }
 .input-bordered,.textarea-bordered,.select-bordered { border-color:var(--ui-input-border); }
@@ -556,6 +571,10 @@ summary::-webkit-details-marker { display: none; }
 .card-actions { display:flex; align-items:center; gap:.5rem; }
 .alert { display:flex; align-items:flex-start; gap:.6rem; border:1px solid var(--ui-border); border-radius:.6rem; background:var(--color-base-200); padding:.75rem; color:var(--color-base-content); }
 .alert-soft { background:color-mix(in oklab,var(--color-base-200) 70%,transparent); }
+.alert-info { border-color:var(--color-state-info-border); background:var(--color-state-info-bg); color:var(--color-state-info-fg); }
+.alert-success { border-color:var(--color-state-success-border); background:var(--color-state-success-bg); color:var(--color-state-success-fg); }
+.alert-warning { border-color:var(--color-state-warning-border); background:var(--color-state-warning-bg); color:var(--color-state-warning-fg); }
+.alert-error { border-color:var(--color-state-danger-border); background:var(--color-state-danger-bg); color:var(--color-state-danger-fg); }
 .table { width:100%; border-collapse:collapse; color:var(--color-base-content); }
 .table th,.table td { border-bottom:1px solid var(--ui-border); padding:.55rem .7rem; text-align:left; }
 .table-sm th,.table-sm td { padding:.35rem .5rem; font-size:.75rem; }

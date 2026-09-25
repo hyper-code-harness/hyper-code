@@ -49,7 +49,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
   <form method="POST" action="/llms/anthropic-oauth/complete" class="mt-3 space-y-2">
     <label for="anthropic-authorization" class="block font-medium">Paste the final redirect URL or authorization code</label>
     <div class="flex flex-col gap-2 sm:flex-row"><input id="anthropic-authorization" name="authorization" required autocomplete="off" spellcheck="false" placeholder="http://localhost:53692/callback?code=…&state=…" class="min-w-0 flex-1 rounded-md border border-info/30 bg-base-100 px-3 py-2 font-mono text-xs">${ctx.fns.procs.ui.button({ action: 'complete-oauth', label: 'Complete connection', type: 'submit', tone: 'primary' })}</div>
-    <p class="text-2xs text-blue-700">Use this when the callback opened on another machine or localhost could not be reached.</p>
+    <p class="text-2xs text-primary">Use this when the callback opened on another machine or localhost could not be reached.</p>
   </form>
 </div>` : "";
     // Adding a SECOND Claude login needs a name for the slot — without it the
@@ -67,8 +67,8 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
 ${addAccountForm}` : `
 <form method="POST" action="/llms/anthropic-oauth/connect"><input type="hidden" name="account" value="default">${ctx.fns.procs.ui.button({ action: 'connect-claude', label: pending ? "Restart connection" : "Connect Claude Pro / Max", type: 'submit', tone: 'primary' })}</form>`;
 
-    const oauthCard = `<article class="rounded-xl border ${oauth.connected ? "border-emerald-200" : "border-base-300"} bg-base-100 p-4 shadow-sm md:col-span-2">
-  <div class="flex items-start gap-3"><div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-lg text-violet-700"><i class="ph ph-sparkle"></i></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold text-base-content">Anthropic subscription</h2>${badge(oauth.connected && !oauth.needsReconnect, oauthLabel)}</div><p class="mt-1 text-xs leading-5 text-subtle">Claude Pro or Max through managed OAuth. Agents use the <code>anthropic-oauth:</code> model prefix.</p></div></div>
+    const oauthCard = `<article class="rounded-xl border ${oauth.connected ? "border-success/30" : "border-base-300"} bg-base-100 p-4 shadow-sm md:col-span-2">
+  <div class="flex items-start gap-3"><div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg text-primary"><i class="ph ph-sparkle"></i></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold text-base-content">Anthropic subscription</h2>${badge(oauth.connected && !oauth.needsReconnect, oauthLabel)}</div><p class="mt-1 text-xs leading-5 text-subtle">Claude Pro or Max through managed OAuth. Agents use the <code>anthropic-oauth:</code> model prefix.</p></div></div>
   ${oauthError}${pendingPanel}
   <div class="mt-4 flex flex-wrap gap-2">${oauthActions}</div>
   ${oauth.connected ? `<p class="mt-3 text-2xs text-faint">Каждый аккаунт — своя квота и свой префикс модели: <code>anthropic-oauth:</code> для основного, <code>anthropic-oauth/имя:</code> для остальных. Disconnect удаляет только один аккаунт и не трогает сессии в Claude.</p>` : ""}

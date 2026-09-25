@@ -9,6 +9,7 @@ const banned: Array<[RegExp, string]> = [
     [/(?<![\w-])text-\[\d+(?:\.\d+)?px\]/, "use text-micro / text-3xs / text-2xs / text-xs"],
     [/(?<![\w-])(?:text|bg|border|divide|ring)-(?:gray|slate|zinc|neutral|stone)-\d+/, "use base-* / ui-border / muted tokens"],
     [/(?<![\w-])(?:bg|border)-white(?![\w\/-])/, "use bg-base-100 / border-ui-border"],
+    [/(?<![\w-])(?:text|bg|border|ring|divide|fill|stroke)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d+/, "use primary / info / success / warning / error"],
 ];
 
 test("markup uses semantic design tokens only", async () => {

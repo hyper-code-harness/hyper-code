@@ -60,6 +60,7 @@ declare global {
             readAndSummarize: Injected<typeof import("./agent/readAndSummarize").default>;
             recordGoalCheck: Injected<typeof import("./agent/recordGoalCheck").default>;
             recoverOrphanedCompactions: Injected<typeof import("./agent/recoverOrphanedCompactions").default>;
+            reflect: Injected<typeof import("./agent/reflect").default>;
             renderEditArgs: Injected<typeof import("./agent/renderEditArgs").default>;
             renderEventHtml: Injected<typeof import("./agent/renderEventHtml").default>;
             renderEventsHtml: Injected<typeof import("./agent/renderEventsHtml").default>;
@@ -981,15 +982,21 @@ declare global {
                 comboboxResults: Injected<typeof import("./procs/ui/comboboxResults").default>;
                 control: Injected<typeof import("./procs/ui/control").default>;
                 descriptionList: Injected<typeof import("./procs/ui/descriptionList").default>;
+                detailPage: Injected<typeof import("./procs/ui/detailPage").default>;
+                dialog: Injected<typeof import("./procs/ui/dialog").default>;
+                dialogButton: Injected<typeof import("./procs/ui/dialogButton").default>;
                 diff: Injected<typeof import("./procs/ui/diff").default>;
                 empty: Injected<typeof import("./procs/ui/empty").default>;
                 escape: Injected<typeof import("./procs/ui/escape").default>;
                 field: Injected<typeof import("./procs/ui/field").default>;
+                filterBar: Injected<typeof import("./procs/ui/filterBar").default>;
                 form: Injected<typeof import("./procs/ui/form").default>;
                 frame: Injected<typeof import("./procs/ui/frame").default>;
                 heading: Injected<typeof import("./procs/ui/heading").default>;
                 inputGroup: Injected<typeof import("./procs/ui/inputGroup").default>;
                 layout: Injected<typeof import("./procs/ui/layout").default>;
+                listItem: Injected<typeof import("./procs/ui/listItem").default>;
+                listPage: Injected<typeof import("./procs/ui/listPage").default>;
                 log: Injected<typeof import("./procs/ui/log").default>;
                 menu: Injected<typeof import("./procs/ui/menu").default>;
                 notFound: Injected<typeof import("./procs/ui/notFound").default>;
@@ -999,6 +1006,8 @@ declare global {
                 progress: Injected<typeof import("./procs/ui/progress").default>;
                 radioGroup: Injected<typeof import("./procs/ui/radioGroup").default>;
                 range: Injected<typeof import("./procs/ui/range").default>;
+                region: Injected<typeof import("./procs/ui/region").default>;
+                respond: Injected<typeof import("./procs/ui/respond").default>;
                 row: Injected<typeof import("./procs/ui/row").default>;
                 segmented: Injected<typeof import("./procs/ui/segmented").default>;
                 select: Injected<typeof import("./procs/ui/select").default>;
@@ -1011,6 +1020,7 @@ declare global {
                 steps: Injected<typeof import("./procs/ui/steps").default>;
                 subnav: Injected<typeof import("./procs/ui/subnav").default>;
                 table: Injected<typeof import("./procs/ui/table").default>;
+                tabs: Injected<typeof import("./procs/ui/tabs").default>;
                 tags: Injected<typeof import("./procs/ui/tags").default>;
                 textarea: Injected<typeof import("./procs/ui/textarea").default>;
                 timeline: Injected<typeof import("./procs/ui/timeline").default>;

@@ -57,12 +57,12 @@
     const saveExt = EditorView.updateListener.of((u) => {
         if (!u.docChanged) return;
         if (timer) clearTimeout(timer);
-        status("modified", "text-amber-600");
+        status("modified", "text-warning");
         timer = setTimeout(() => {
             const body = u.state.doc.toString();
             fetch(cfg.saveUrl, { method: "PUT", headers: { "content-type": "text/plain" }, body })
-                .then(r => status(r.ok ? "saved" : "save failed", r.ok ? "text-green-600" : "text-red-600"))
-                .catch(() => status("save failed", "text-red-600"));
+                .then(r => status(r.ok ? "saved" : "save failed", r.ok ? "text-success" : "text-error"))
+                .catch(() => status("save failed", "text-error"));
         }, 800);
     });
 

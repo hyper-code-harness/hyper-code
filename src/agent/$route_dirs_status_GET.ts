@@ -21,9 +21,9 @@ req: Request }) {
         .sort().slice(0, 20)
         .map(name => `<option value="${esc(`${listDir === "/" ? "" : listDir}/${name}`)}"></option>`).join("");
     const html = info?.isDirectory()
-        ? `<span class="inline-flex items-center gap-1 text-emerald-600"><i class="ph ph-check-circle"></i> directory exists</span>`
+        ? `<span class="inline-flex items-center gap-1 text-success"><i class="ph ph-check-circle"></i> directory exists</span>`
         : info
-            ? `<span class="inline-flex items-center gap-1 text-red-600"><i class="ph ph-warning-circle"></i> path exists but is not a directory</span>`
-            : `<label class="inline-flex cursor-pointer items-center gap-2 text-amber-700"><input type="checkbox" name="createWorkspaceDir" value="1" required class="rounded border-amber-300 text-amber-600 focus:ring-amber-300"><span>Create <code class="rounded bg-amber-50 px-1">${esc(dir)}</code></span></label>`;
+            ? `<span class="inline-flex items-center gap-1 text-error"><i class="ph ph-warning-circle"></i> path exists but is not a directory</span>`
+            : `<label class="inline-flex cursor-pointer items-center gap-2 text-warning"><input type="checkbox" name="createWorkspaceDir" value="1" required class="rounded border-warning/30 text-warning focus:ring-warning/30"><span>Create <code class="rounded bg-warning/10 px-1">${esc(dir)}</code></span></label>`;
     return new Response(html + `<datalist id="workspace-dirs" hx-swap-oob="innerHTML">${options}</datalist>`, { headers: { "content-type": "text/html; charset=utf-8" } });
 }

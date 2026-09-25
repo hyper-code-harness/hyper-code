@@ -67,7 +67,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const compactPopup = await ctx.fns.ui.inplacePopup({
         id: `compact-popover-${id}`,
         triggerHtml: '<i class="ph ph-arrows-in-line-vertical"></i>',
-        triggerAttrs: 'class="px-1 text-faint hover:text-indigo-600" title="Compact context" aria-label="Compact context"',
+        triggerAttrs: 'class="px-1 text-faint hover:text-primary" title="Compact context" aria-label="Compact context"',
         panelAttrs: 'aria-label="Compact context"',
         contentHtml: `<form hx-post="/agent/${encodeURIComponent(id)}/compact" hx-swap="none"><div class="text-sm font-medium">Compact context</div><textarea name="instructions" rows="3" placeholder="Optional focus instructions" class="mt-2 w-full rounded border border-ui-border bg-base-100 p-2 text-xs"></textarea>${ctx.fns.procs.ui.button({ action: 'compact-context', label: 'Compact', type: 'submit', tone: 'primary', class: 'mt-2' })}</form>`,
     });
@@ -115,27 +115,27 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     <span class="truncate font-mono font-medium leading-4 text-muted">${esc(String(agent.title ?? id).slice(0, 40) || id)} <span class="text-faint">(${esc(id)})</span></span>
     ${workspaceControl}
   </span>
-   ${agent.parentId ? `<a href="/agent/${encodeURIComponent(String(agent.parentId))}" class="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-amber-700 hover:bg-amber-100 hover:text-amber-900" title="forked from ${esc(parent?.title || agent.parentId)} · inherited ${inheritedCount} msgs" aria-label="Back to parent agent ${esc(parent?.title || agent.parentId)}"><i class="ph ph-arrow-bend-up-left mr-0.5"></i>${esc(String(parent?.title || agent.parentId).slice(0, 24))}</a>` : ""}
+   ${agent.parentId ? `<a href="/agent/${encodeURIComponent(String(agent.parentId))}" class="rounded border border-warning/30 bg-warning/10 px-1 py-0.5 text-warning hover:bg-warning/10 hover:text-warning" title="forked from ${esc(parent?.title || agent.parentId)} · inherited ${inheritedCount} msgs" aria-label="Back to parent agent ${esc(parent?.title || agent.parentId)}"><i class="ph ph-arrow-bend-up-left mr-0.5"></i>${esc(String(parent?.title || agent.parentId).slice(0, 24))}</a>` : ""}
   ${statusBarHtml}
   <span class="ml-auto flex items-center gap-1">
     ${effortControl}
     ${compactPopup}
 
-    ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-faint hover:text-indigo-600"' })}
+    ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-faint hover:text-primary"' })}
 
-    <a href="/shared-agents?from=${encodeURIComponent(id)}" title="Publish or use Shared Agents" aria-label="Shared Agents" class="px-1 text-faint hover:text-indigo-600"><i class="ph ph-users-three" aria-hidden="true"></i></a>
+    <a href="/shared-agents?from=${encodeURIComponent(id)}" title="Publish or use Shared Agents" aria-label="Shared Agents" class="px-1 text-faint hover:text-primary"><i class="ph ph-users-three" aria-hidden="true"></i></a>
 
     <form method="POST" action="/agent/${encodeURIComponent(id)}/fork" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>', type: 'submit', appearance: 'plain', title: 'fork and open', ariaLabel: 'Fork and open agent', class: 'px-1 text-faint transition hover:text-indigo-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>', type: 'submit', appearance: 'plain', title: 'fork and open', ariaLabel: 'Fork and open agent', class: 'px-1 text-faint transition hover:text-primary' })}
     </form>
 
     <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" title="agent page" class="px-1 text-faint hover:text-muted">ⓘ</a>
     <span class="mx-1 h-5 w-px bg-ui-border" aria-hidden="true"></span>
     <form method="POST" action="/agent/${encodeURIComponent(id)}/archive" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'rounded px-1 text-faint hover:bg-red-50 hover:text-red-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'rounded px-1 text-faint hover:bg-error/10 hover:text-error' })}
     </form>
     <form method="POST" action="/agent/${encodeURIComponent(id)}/delete" hx-boost="false" class="inline" onsubmit="return confirm('delete ${esc(id)}? The transcript goes with it.')">
-      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'rounded px-1 text-faint hover:bg-red-50 hover:text-red-600' })}
+      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'rounded px-1 text-faint hover:bg-error/10 hover:text-error' })}
     </form>
   </span>
 </header>

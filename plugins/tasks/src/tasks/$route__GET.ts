@@ -1,76 +1,67 @@
 /**
  * Renders the task-list page.
  *
- * @param ctx - Runtime context used to query tasks and escape HTML.
+ * @param ctx - Runtime context used to query tasks and render shared UI components.
  * @param _session - Unused request session.
  * @param opts - HTTP route options.
- * @param opts.req - Incoming request whose query selects open or closed tasks.
+ * @param opts.req - Incoming request whose query selects open or closed tasks and a search text.
  * @param opts.params - Route parameters (unused by this collection route).
- * @returns The rendered task-list HTML response.
+ * @returns The rendered task-list page.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
-    const tasks = await ctx.fns.tasks.list({});
-    const esc = (value: unknown) => ctx.fns.procs.ui.escape({ text: String(value ?? '') });
+    const ui = ctx.fns.procs.ui;
     const url = new URL(opts.req.url);
     const view = url.searchParams.get('view') === 'closed' ? 'closed' : 'open';
-    const open = tasks.filter((task) => task.status !== 'done');
-    const closed = tasks.filter((task) => task.status === 'done');
+    const q = (url.searchParams.get('q') ?? '').trim();
+    const tasks = await ctx.fns.tasks.list({});
+    const matches = (task: types.tasks.Task) => !q || task.description.toLowerCase().includes(q.toLowerCase());
+    const open = tasks.filter((task) => task.status !== 'done' && matches(task));
+    const closed = tasks.filter((task) => task.status === 'done' && matches(task));
     const visible = view === 'closed' ? closed : open;
-    const issue = (task: types.tasks.Task) => {
+
+    const row = (task: types.tasks.Task) => {
         const lines = task.description.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-        const title = lines[0] || 'Untitled task';
-        const preview = lines.slice(1).join(' ').slice(0, 180);
         const running = task.status === 'running';
         const done = task.status === 'done';
-        const icon = done ? 'ph-check-circle' : 'ph-dot-outline';
-        const iconColor = done ? 'text-violet-600' : running ? 'text-amber-600' : 'text-emerald-600';
-        const badge = running
-            ? '<span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">agent running</span>'
-            : task.agentId
-                ? '<span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">chat attached</span>'
-                : '';
-        return `<div class="group flex gap-3 border-t border-ui-border px-4 py-3 hover:bg-base-200">
-          <i class="ph ${icon} mt-0.5 text-xl ${iconColor}"></i>
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <a href="/tasks/${encodeURIComponent(task.id)}" class="font-semibold text-base-content hover:text-blue-600">${esc(title)}</a>${badge}
-            </div>
-            ${preview ? `<p class="mt-1 truncate text-sm text-subtle">${esc(preview)}</p>` : ''}
-            <p class="mt-1 text-xs text-subtle">#${esc(task.id.slice(0, 8))} · ${esc(task.workspaceMode === 'isolated' ? 'isolated workspace' : '~/.hyper/tasks')} · updated ${esc(relativeTime(Number(task.updatedAt)))}</p>
-          </div>
-          ${task.agentId ? `<a href="/agent/${encodeURIComponent(task.agentId)}" title="Open attached chat" class="mt-1 text-faint hover:text-blue-600"><i class="ph ph-chat-circle text-lg"></i></a>` : ''}
-        </div>`;
+        const badge = running ? ui.badge({ text: 'agent running', tone: 'warning' })
+            : task.agentId ? ui.badge({ text: 'chat attached', tone: 'info' }) : '';
+        return ui.listItem({
+            entity: 'task', id: task.id, status: task.status,
+            href: `/tasks/${encodeURIComponent(task.id)}`,
+            icon: done ? 'ph-check-circle' : 'ph-dot-outline',
+            tone: done ? 'info' : running ? 'warning' : 'success',
+            title: lines[0] || 'Untitled task',
+            badges: badge,
+            text: lines.slice(1).join(' ').slice(0, 180),
+            meta: [`#${task.id.slice(0, 8)}`, task.workspaceMode === 'isolated' ? 'isolated workspace' : '~/.hyper/tasks', `updated ${relativeTime(Number(task.updatedAt))}`],
+            right: task.agentId ? ui.button({ action: 'open-chat', id: task.id, href: `/agent/${encodeURIComponent(task.agentId)}`, html: '<i class="ph ph-chat-circle text-lg" aria-hidden="true"></i>', tone: 'ghost', size: 'xs', title: 'Open attached chat', ariaLabel: 'Open attached chat' }) : '',
+        });
     };
+
+    const newTask = ui.dialog({
+        id: 'new-task', title: 'Create a new task', post: '/tasks', submitLabel: 'Create task', size: 'lg',
+        body: `<label class="block"><span class="mb-1.5 block text-sm font-semibold">Description</span>${ui.textarea({ name: 'description', rows: 7, required: true, placeholder: 'What should the agent do?', ariaLabel: 'Description' })}</label>
+          <label class="block"><span class="mb-1.5 block text-sm font-semibold">Workspace</span>${ui.select({ name: 'workspaceMode', value: 'default', placeholder: 'Workspace', options: [{ value: 'default', label: 'Shared · ~/.hyper/tasks' }, { value: 'isolated', label: 'Isolated · ~/.hyper/tasks/<task-id>' }] })}<span class="mt-1.5 block text-xs text-subtle">The directory is created when the attached agent starts.</span></label>`,
+    });
+
     return {
         title: 'Tasks',
-        main: `<main class="mx-auto w-full max-w-5xl px-5 py-7">
-          <div class="mb-5 flex items-center justify-between gap-4">
-            <div><h1 class="text-2xl font-semibold tracking-tight text-base-content">Tasks</h1><p class="mt-1 text-sm text-subtle">One focused agent chat for every task.</p></div>
-            ${ctx.fns.procs.ui.button({ action: 'new-task', html: '<i class="ph ph-plus mr-1"></i>New task', tone: 'success', attrs: { onclick: "document.getElementById('new-task').showModal()" } })}
-          </div>
-
-          <div class="overflow-hidden rounded-md border border-ui-border bg-base-100 shadow-sm">
-            <div class="flex items-center justify-between border-b border-ui-border bg-base-200 px-4 py-3">
-              <nav class="flex items-center gap-5 text-sm">
-                <a href="/tasks?view=open" class="flex items-center gap-1.5 ${view === 'open' ? 'font-semibold text-base-content' : 'text-subtle hover:text-base-content'}"><i class="ph ph-dot-outline text-lg"></i>${open.length} Open</a>
-                <a href="/tasks?view=closed" class="flex items-center gap-1.5 ${view === 'closed' ? 'font-semibold text-base-content' : 'text-subtle hover:text-base-content'}"><i class="ph ph-check text-base"></i>${closed.length} Closed</a>
-              </nav>
-              <span class="text-xs text-subtle">${visible.length} task${visible.length === 1 ? '' : 's'}</span>
-            </div>
-            ${visible.length ? visible.map(issue).join('') : `<div class="px-6 py-16 text-center"><i class="ph ph-check-circle text-4xl text-faint"></i><h2 class="mt-3 font-semibold text-base-content">No ${view} tasks</h2><p class="mt-1 text-sm text-subtle">${view === 'open' ? 'Create a task to start an agent.' : 'Completed tasks will appear here.'}</p></div>`}
-          </div>
-
-          <dialog id="new-task" class="m-auto w-[min(94vw,640px)] rounded-lg border border-ui-border p-0 shadow-2xl backdrop:bg-black/40">
-            <form method="POST" action="/tasks">
-              <div class="flex items-center justify-between border-b border-ui-border px-5 py-4"><h2 class="font-semibold text-base-content">Create a new task</h2>${ctx.fns.procs.ui.button({ action: 'close-new-task', html: '<i class="ph ph-x text-lg"></i>', tone: 'ghost', ariaLabel: 'Close', attrs: { onclick: "document.getElementById('new-task').close()" } })}</div>
-              <div class="space-y-4 p-5">
-                <label class="block"><span class="mb-2 block text-sm font-semibold text-base-content">Description</span><textarea name="description" required autofocus rows="7" placeholder="What should the agent do?" class="w-full rounded-md border border-ui-border px-3 py-2 text-sm shadow-inner outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"></textarea></label>
-                <label class="block"><span class="mb-2 block text-sm font-semibold text-base-content">Workspace</span><select name="workspaceMode" class="w-full rounded-md border border-ui-border bg-base-100 px-3 py-2 text-sm"><option value="default">Shared · ~/.hyper/tasks</option><option value="isolated">Isolated · ~/.hyper/tasks/&lt;task-id&gt;</option></select><span class="mt-1.5 block text-xs text-subtle">The directory is created when the attached agent starts.</span></label>
-              </div>
-              <div class="flex justify-end gap-2 border-t border-ui-border bg-base-200 px-5 py-3">${ctx.fns.procs.ui.button({ action: 'cancel-new-task', label: 'Cancel', attrs: { onclick: "document.getElementById('new-task').close()" } })}${ctx.fns.procs.ui.button({ action: 'create-task', label: 'Create task', type: 'submit', tone: 'success' })}</div>
-            </form>
-          </dialog>
-        </main>`,
+        main: ui.listPage({
+            page: 'tasks',
+            title: 'Tasks',
+            lead: 'One focused agent chat for every task.',
+            actions: ui.dialogButton({ dialog: 'new-task', label: 'New task', icon: 'ph-plus', tone: 'success', action: 'new-task' }),
+            tabs: ui.tabs({ current: view, items: [
+                { value: 'open', label: 'Open', icon: 'ph-dot-outline', count: open.length, href: `/tasks?view=open${q ? `&q=${encodeURIComponent(q)}` : ''}` },
+                { value: 'closed', label: 'Closed', icon: 'ph-check', count: closed.length, href: `/tasks?view=closed${q ? `&q=${encodeURIComponent(q)}` : ''}` },
+            ] }),
+            filters: ui.filterBar({ href: '/tasks', q, placeholder: 'Search tasks', hidden: { view } }),
+            rows: visible.map(row).join(''),
+            empty: q
+                ? { title: 'No matching tasks', text: `Nothing matches “${q}”.`, icon: 'ph-magnifying-glass' }
+                : { title: view === 'closed' ? 'No closed tasks' : 'No open tasks', text: 'Create a task to start an agent.', icon: 'ph-check-square' },
+            extra: newTask,
+        }),
     };
 }
 

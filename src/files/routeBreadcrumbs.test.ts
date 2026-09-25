@@ -12,7 +12,7 @@ describe("GET /files — breadcrumbs", () => {
         const res = await ctx.fns.procs.http.dispatch({ url: "/files?path=src" });
         expect(res.status).toBe(200);
         const html = await res.text();
-        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "" })}" class="font-semibold text-blue-600 hover:underline">workspace</a>`);
+        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "" })}" class="font-semibold text-primary hover:underline">workspace</a>`);
         expect(html).toContain(`href="${await ctx.fns.files.browserUrl({ path: "src" })}"`);
     });
 
@@ -24,7 +24,7 @@ describe("GET /files — breadcrumbs", () => {
         const html = await res.text();
 
         // Root crumb is "/", not an unlabelled link.
-        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "/" })}" class="font-semibold text-blue-600 hover:underline">/</a>`);
+        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "/" })}" class="font-semibold text-primary hover:underline">/</a>`);
         expect(html).not.toContain(`hover:underline"></a>`);
         // Every intermediate crumb is absolute too.
         for (const part of dir.split("/").filter(Boolean).map((_, i, all) => "/" + all.slice(0, i + 1).join("/"))) {

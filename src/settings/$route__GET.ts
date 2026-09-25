@@ -14,7 +14,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
   <span class="w-32 text-sm font-mono text-muted">${esc(label)}</span>
   <input type="password" name="value" placeholder="${set ? "(set — paste to replace)" : "paste key"}"
     class="flex-1 px-2 py-1 text-xs font-mono border border-base-300 rounded bg-base-100">
-  <span class="text-xs ${set ? "text-green-600" : "text-faint"}">${set ? "✓ set" : "—"}</span>
+  <span class="text-xs ${set ? "text-success" : "text-faint"}">${set ? "✓ set" : "—"}</span>
   ${ctx.fns.procs.ui.button({ action: 'save-env', label: 'save', size: 'xs' })}
   ${hint ? `<span class="text-xs text-faint">${esc(hint)}</span>` : ""}
 </form>`;

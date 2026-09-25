@@ -32,8 +32,8 @@ function renderInput(item: any): string {
 
 function renderRow(ctx: Context, item: any): string {
     const d = item.descriptor;
-    const sourceBadge = item.source === 'db' ? '<span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">db</span>'
-        : item.source === 'env' ? `<span class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">env: ${esc(d.env)}</span>`
+    const sourceBadge = item.source === 'db' ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">db</span>'
+        : item.source === 'env' ? `<span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">env: ${esc(d.env)}</span>`
         : '<span class="text-xs px-1.5 py-0.5 rounded bg-base-200 text-subtle border border-ui-border">default</span>';
     const resetBtn = item.source === 'db'
         ? ctx.fns.procs.ui.button({ action: 'reset-setting', label: 'reset', name: 'reset', value: item.module + '.' + item.key, size: 'xs' })

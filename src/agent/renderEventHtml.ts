@@ -27,7 +27,7 @@ function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true
     const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.procs.ui.button({
         action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`,
         post: url, swap: 'none', vals: { idx: String(idx), mode }, title, ariaLabel: title,
-        class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-200',
+        class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-error/30 hover:bg-error/10 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/30',
         attrs: { 'hx-confirm': confirm, 'hx-on::after-request': 'if (event.detail.successful) location.reload();' },
     });
     return '<div class="' + (placement === 'side' ? 'flex gap-1' : 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100') + '">'
@@ -107,7 +107,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const gateBadge = !ev.functionRag ? '' : badge(
             ragGate === "closed"
                 ? '<span class="h-1.5 w-1.5 rounded-full border border-white/50" aria-hidden="true"></span>'
-                : ragGate === 'error' ? '<span class="text-red-300 text-3xs" aria-hidden="true">!</span>'
+                : ragGate === 'error' ? '<span class="text-error text-3xs" aria-hidden="true">!</span>'
                 : ragGate === 'off' ? '<span class="text-white/40 text-3xs" aria-hidden="true">−</span>'
                 : '<span class="h-1.5 w-1.5 rounded-full" style="background:rgb(251 191 36)" aria-hidden="true"></span>',
             `Gate: ${ragGate}`,

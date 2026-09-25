@@ -10,5 +10,6 @@
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const task = await ctx.fns.tasks.start({ id: opts.params.id! });
+    if (opts.req.headers.get('hx-request') === 'true') return ctx.fns.procs.ui.respond({ location: `/tasks/${encodeURIComponent(task.id)}`, toast: { message: 'Agent started' } });
     return new Response(null, { status: 303, headers: { location: `/tasks/${encodeURIComponent(task.id)}` } });
 }

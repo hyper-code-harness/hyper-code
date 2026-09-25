@@ -32,7 +32,7 @@ export default async function (
 ): Promise<string> {
     const e=(v:string)=>Bun.escapeHTML(v), g=opts.gap;
     const dom='gap-'+Bun.hash(opts.flow+':'+g.id).toString(16), form=g.form, d=g.display;
-    let content='<div class="flex items-center justify-between gap-3"><span class="text-xs font-medium text-faint">'+e(opts.flow)+'</span><span class="flex items-center gap-1.5 text-xs '+(opts.closed?'text-success':'text-subtle')+'"><span class="h-1.5 w-1.5 rounded-full '+(opts.closed?'bg-success':'bg-amber-400')+'"></span>'+e(opts.closed?'Записано':d?.status??'Требует внимания')+'</span></div>';
+    let content='<div class="flex items-center justify-between gap-3"><span class="text-xs font-medium text-faint">'+e(opts.flow)+'</span><span class="flex items-center gap-1.5 text-xs '+(opts.closed?'text-success':'text-subtle')+'"><span class="h-1.5 w-1.5 rounded-full '+(opts.closed?'bg-success':'bg-warning')+'"></span>'+e(opts.closed?'Записано':d?.status??'Требует внимания')+'</span></div>';
     content+='<header class="mt-4"><h2 class="text-lg font-semibold leading-snug tracking-tight">'+e(d?.title??g.summary)+'</h2>'+(d?.subtitle?'<p class="mt-1 text-sm text-subtle">'+e(d.subtitle)+'</p>':'')+'</header>';
     if(d?.detail)content+='<p class="mt-3 text-xs leading-relaxed text-subtle">'+e(d.detail)+'</p>';
     if(opts.message)content+='<p class="mt-4 rounded-lg '+(opts.closed?'bg-success/10 text-success':'bg-base-200 text-muted')+' px-3 py-2.5 text-sm" role="status">'+e(opts.message)+'</p>';

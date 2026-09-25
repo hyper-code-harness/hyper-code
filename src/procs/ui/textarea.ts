@@ -11,11 +11,12 @@
  * @param opts.class CSS classes to apply.
  * @param opts.ariaLabel The aria label value used by the operation.
  * @param opts.maxlength The maxlength value used by the operation.
+ * @param opts.required Mark the field as required so the browser blocks empty submits. @default false
  */
-export default function (ctx: Context, _session: Session | null, opts: {name?: string; field?: string; value?: string; placeholder?: string; rows?: number; class?: string; ariaLabel?: string; maxlength?: number }): string {
+export default function (ctx: Context, _session: Session | null, opts: {name?: string; field?: string; value?: string; placeholder?: string; rows?: number; class?: string; ariaLabel?: string; maxlength?: number; required?: boolean }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     const field = opts.field ?? opts.name;
-    return `<textarea ${opts.name ? `name="${esc(opts.name)}" ` : ""}${ctx.fns.procs.ui.attr({ field })}${opts.ariaLabel ? ` aria-label="${esc(opts.ariaLabel)}"` : ""} rows="${opts.rows ?? 3}"${opts.maxlength != null ? ` maxlength="${opts.maxlength}"` : ""}
+    return `<textarea ${opts.name ? `name="${esc(opts.name)}" ` : ""}${ctx.fns.procs.ui.attr({ field })}${opts.ariaLabel ? ` aria-label="${esc(opts.ariaLabel)}"` : ""} rows="${opts.rows ?? 3}"${opts.required ? " required" : ""}${opts.maxlength != null ? ` maxlength="${opts.maxlength}"` : ""}
   placeholder="${esc(opts.placeholder ?? "")}"
   class="textarea textarea-sm w-full resize-y ${opts.class ?? ""}">${esc(opts.value ?? "")}</textarea>`;
 }

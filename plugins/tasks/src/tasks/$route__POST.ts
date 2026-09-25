@@ -14,5 +14,6 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const workspaceMode = form.get('workspaceMode') === 'isolated' ? 'isolated' : 'default';
     if (!description) return Response.json({ error: 'description is required' }, { status: 400 });
     const task = await ctx.fns.tasks.create({ description, workspaceMode });
+    if (opts.req.headers.get('hx-request') === 'true') return ctx.fns.procs.ui.respond({ location: `/tasks/${encodeURIComponent(task.id)}`, toast: { message: 'Task created' } });
     return new Response(null, { status: 303, headers: { location: `/tasks/${encodeURIComponent(task.id)}` } });
 }

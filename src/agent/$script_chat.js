@@ -116,7 +116,7 @@
                     const img = document.createElement('img'); img.className = 'size-9 rounded object-cover'; img.src = URL.createObjectURL(file); img.onload = () => URL.revokeObjectURL(img.src); chip.append(img);
                 } else { const icon = document.createElement('i'); icon.className = 'ph ph-file text-faint'; chip.append(icon); }
                 const name = document.createElement('span'); name.className = 'min-w-0 flex-1 truncate'; name.textContent = file.name; chip.append(name);
-                const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-faint hover:text-red-600'; remove.innerHTML = '<i class="ph ph-x"></i>'; remove.addEventListener('click', () => this.removeFile(index), { signal: this.abort.signal }); chip.append(remove);
+                const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-faint hover:text-error'; remove.innerHTML = '<i class="ph ph-x"></i>'; remove.addEventListener('click', () => this.removeFile(index), { signal: this.abort.signal }); chip.append(remove);
                 this.attachmentTray.append(chip);
             });
         }

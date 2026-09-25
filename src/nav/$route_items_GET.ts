@@ -36,13 +36,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         if (agent) {
             const active = agent.runState !== "idle";
             const badge = Number(agent.unread ?? 0) > 0
-                ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-emerald-500 px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
+                ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-success px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
                 : "";
             const pinned = pinnedIds.has(String(agent.id));
-            const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-amber-600"><i class="ph ${pinned ? "ph-push-pin-slash text-red-500" : "ph-push-pin"}"></i></button></form>`;
+            const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-warning"><i class="ph ${pinned ? "ph-push-pin-slash text-error" : "ph-push-pin"}"></i></button></form>`;
             return `<div class="group flex items-center gap-0.5"><a href="${esc(item.href)}" class="nav-row flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">
   ${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}
-  <span class="min-w-0 flex-1 truncate text-xs text-muted">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-amber-500" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>
+  <span class="min-w-0 flex-1 truncate text-xs text-muted">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-warning" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>
   ${badge}
 </a>${pinControl}</div>`;
         }
@@ -66,13 +66,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const quickAgentRow = (agent: any) => {
         const active = agent.runState !== "idle";
         const badge = Number(agent.unread ?? 0) > 0
-            ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-emerald-500 px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
+            ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-success px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
             : "";
         return `<a href="/agent/${encodeURIComponent(agent.id)}" class="nav-row flex min-h-7 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}<span class="min-w-0 flex-1 truncate text-xs text-muted">${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>${badge}</a>`;
     };
     const pinnedAgents = visibleAgents.filter((agent: any) => pinnedIds.has(String(agent.id)));
     const unreadAgents = visibleAgents.filter((agent: any) => !pinnedIds.has(String(agent.id)) && Number(agent.unread ?? 0) > 0);
-    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-amber-600">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${unreadAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-emerald-600">Unread</h4>${unreadAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${[...agentGroups.entries()].map(([dir, list]) => `<section class="mb-2">
+    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-warning">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${unreadAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-success">Unread</h4>${unreadAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${[...agentGroups.entries()].map(([dir, list]) => `<section class="mb-2">
   ${dir === "(no workdir)"
       ? `<h4 class="mb-0.5 px-1.5 text-3xs font-semibold text-faint">${dir}</h4>`
       : `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row mb-0.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-semibold text-subtle hover:bg-base-200"><i class="ph ph-folder-open"></i><span class="truncate">${esc(workspaceLabel(dir))}</span></a>`}

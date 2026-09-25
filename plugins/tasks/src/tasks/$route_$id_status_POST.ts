@@ -13,5 +13,6 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const status = String(form.get('status') ?? '');
     if (!['todo', 'running', 'done'].includes(status)) return Response.json({ error: 'invalid status' }, { status: 400 });
     const task = await ctx.fns.tasks.setStatus({ id: opts.params.id!, status: status as any });
+    if (opts.req.headers.get('hx-request') === 'true') return ctx.fns.procs.ui.respond({ location: `/tasks/${encodeURIComponent(task.id)}`, toast: { message: 'Status updated' } });
     return new Response(null, { status: 303, headers: { location: `/tasks/${encodeURIComponent(task.id)}` } });
 }

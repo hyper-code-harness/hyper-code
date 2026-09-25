@@ -18,7 +18,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Agent whose section is rendered. */
     agentId: string;
     /** Section to render. */
-    section: "goal" | "knowledge" | "automation" | "wake" | "team" | "plan";
+    section: "goal" | "knowledge" | "automation" | "schedules" | "wake" | "team" | "plan";
 }): Promise<string> {
     const agentId = String(opts.agentId ?? "");
     const section = String(opts.section ?? "");
@@ -30,11 +30,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     let archivedTeam: any[] = [];
     let models: Record<string, string[]> = {};
     let accounts: any[] = [];
+    let schedules: any[] = [];
     if (section === "team") {
         [team, archivedTeam] = await Promise.all([
             ctx.fns.agent.team({ agent }),
             ctx.fns.agent.team({ agent, includeArchived: true }),
         ]);
+    } else if (section === "schedules") {
+        schedules = await ctx.fns.agent.listSchedules({ agentId });
     } else if (section === "wake") {
         // Models and accounts only matter for a parked agent's switcher;
         // skipping them for everyone else keeps this redraw cheap.
@@ -45,5 +48,5 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             ]);
         }
     }
-    return ctx.fns.ui.agentMetaSection({ agent, section: section as any, team, archivedTeam, models, accounts });
+    return ctx.fns.ui.agentMetaSection({ agent, section: section as any, team, archivedTeam, models, accounts, schedules });
 }

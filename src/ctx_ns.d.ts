@@ -38,8 +38,10 @@ declare global {
             getSleepGeneration: Injected<typeof import("./agent/getSleepGeneration").default>;
             highlightResult: Injected<typeof import("./agent/highlightResult").default>;
             imageContent: Injected<typeof import("./agent/imageContent").default>;
+            injectScheduledPrompt: Injected<typeof import("./agent/injectScheduledPrompt").default>;
             initialPromptPopup: Injected<typeof import("./agent/initialPromptPopup").default>;
             listPromptPresets: Injected<typeof import("./agent/listPromptPresets").default>;
+            listSchedules: Injected<typeof import("./agent/listSchedules").default>;
             listWatches: Injected<typeof import("./agent/listWatches").default>;
             markFunctionRag: Injected<typeof import("./agent/markFunctionRag").default>;
             modelPicker: Injected<typeof import("./agent/modelPicker").default>;

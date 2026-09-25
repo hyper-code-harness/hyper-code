@@ -25,7 +25,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Agent whose panel is rendered. */
     agent: types.agent.Agent;
     /** Section to render. */
-    section: "goal" | "knowledge" | "automation" | "wake" | "team" | "plan";
+    section: "goal" | "knowledge" | "automation" | "schedules" | "wake" | "team" | "plan";
+    /** Durable recurring prompt schedules for this agent. */
+    schedules?: any[];
     /** Direct delegated children with their existing plans. */
     team?: Array<{ id: string; title: string; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
     /** Archived delegated children displayed by the Team filter. */
@@ -72,9 +74,27 @@ export default function (ctx: Context, _session: Session | null, opts: {
         return typeof render === "function" ? String(render({ agent }) ?? "") : "";
     }
     if (opts.section === "automation") {
-        const body = `<form hx-post="/agent/${id}/automation" hx-swap="none" hx-trigger="change delay:200ms" class="space-y-1">${ctx.fns.ui.toggle({ label: 'Reflection', name: 'reflectionEnabled', enabled: agent.reflectionEnabled === true, hint: 'Periodic conversation analysis and nudges' })}${ctx.fns.ui.toggle({ label: 'Sleep', name: 'sleepEnabled', enabled: agent.sleepEnabled === true, hint: 'Idle context consolidation after 15 minutes' })}${ctx.fns.ui.toggle({ label: 'Function RAG', name: 'functionRagEnabled', enabled: agent.functionRagEnabled === true, hint: 'Retrieve relevant runtime functions for each user prompt' })}</form>`;
+        // Reflection and Sleep were removed with their worker passes; what is
+        // left is the retrieval path, where the gate decides whether a turn
+        // needs a runtime function at all and the reranker orders what survives.
+        const body = `<form hx-post="/agent/${id}/automation" hx-swap="none" hx-trigger="change delay:200ms" class="space-y-1">${ctx.fns.ui.toggle({ label: 'Function RAG', name: 'functionRagEnabled', enabled: agent.functionRagEnabled === true, hint: 'Retrieve relevant runtime functions for each user prompt' })}${ctx.fns.ui.toggle({ label: 'Pre-retrieval Gate', name: 'functionRagGateEnabled', enabled: agent.functionRagGateEnabled === true, hint: 'Heuristically skip retrieval for conversational turns; errors allow retrieval', title: agent.functionRagEnabled === true ? '' : 'Requires Function RAG' })}${ctx.fns.ui.toggle({ label: 'Jev rerank', name: 'jevRerankEnabled', enabled: agent.jevRerankEnabled === true, hint: 'Score and filter retrieved candidates independently of Gate', title: agent.functionRagEnabled === true ? '' : 'Requires Function RAG' })}</form>`;
         return inspectorSection({ title: 'Automation', icon: 'sliders-horizontal', html: body, collapsible: true });
     }
+
+    if (opts.section === "schedules") {
+        const schedules = opts.schedules ?? [];
+        const delay = (ms: number) => ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))}s` : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m` : ms < 86_400_000 ? `${Math.round(ms / 3_600_000)}h` : `${Math.round(ms / 86_400_000)}d`;
+        const rows = schedules.map((task: any) => {
+            const args = typeof task.args === "string" ? JSON.parse(task.args) : task.args ?? {};
+            const status = task.state === "running" ? "Running" : task.enabled ? "Active" : "Paused";
+            const next = task.enabled && task.nextRunAt ? `next ${new Date(Number(task.nextRunAt)).toLocaleString()}` : "not scheduled";
+            const controls = `<div class="mt-2 flex flex-wrap gap-1"><form hx-post="/agent/${id}/schedules" hx-swap="none"><input type="hidden" name="name" value="${esc(task.name)}"><button class="btn btn-xs" name="action" value="run">Run now</button></form><form hx-post="/agent/${id}/schedules" hx-swap="none"><input type="hidden" name="name" value="${esc(task.name)}"><button class="btn btn-xs" name="action" value="${task.enabled ? "pause" : "resume"}">${task.enabled ? "Pause" : "Resume"}</button></form><form hx-post="/agent/${id}/schedules" hx-swap="none" hx-confirm="Delete this schedule?"><input type="hidden" name="name" value="${esc(task.name)}"><button class="btn btn-xs text-error" name="action" value="delete">Delete</button></form></div>`;
+            return `<li class="rounded-lg border border-ui-border bg-base-100/35 px-2.5 py-2"><div class="flex items-center gap-2"><span class="badge badge-sm">${status}</span><span class="text-[10px] text-base-content/45">Every ${delay(Number(task.everyMs ?? 0))}</span></div><div class="mt-1 line-clamp-3 text-xs leading-5 text-base-content/75">${esc(args.text ?? "")}</div><div class="mt-1 text-[9px] text-base-content/35">${esc(next)}${task.lastStatus ? ` · last ${esc(task.lastStatus)}` : ""}</div>${controls}</li>`;
+        }).join("");
+        const form = `<form hx-post="/agent/${id}/schedules" hx-swap="none" class="mt-3 space-y-2"><input type="hidden" name="action" value="add"><textarea name="text" required maxlength="20000" rows="3" placeholder="Prompt to inject" class="w-full rounded border border-ui-border bg-base-100 p-2 text-xs"></textarea><div class="flex gap-2"><input name="every" required value="24h" placeholder="24h, 30m…" class="min-w-0 flex-1 rounded border border-ui-border bg-base-100 px-2 py-1 text-xs"><label class="flex items-center gap-1 text-[10px]"><input type="checkbox" name="now" value="1"> run now</label><button class="btn btn-xs btn-primary" type="submit">+ Schedule</button></div></form>`;
+        return inspectorSection({ title: 'Schedules', icon: 'calendar-clock', badge: schedules.length || undefined, html: `${rows ? `<ul class="space-y-2">${rows}</ul>` : `<div class="text-[11px] text-base-content/40">No recurring prompts.</div>`}${form}`, collapsible: true });
+    }
+
 
     if (opts.section === "wake") {
         const body = agent.wakeAt ? `<div class="truncate text-[11px] leading-5 text-base-content/55" title="${esc(agent.wakeReason ?? '')}">${esc(agent.wakeReason ?? '')}</div><form hx-post="/agent/${id}/wake" hx-swap="none" class="mt-2"><input type="hidden" name="action" value="cancel">${ctx.fns.procs.ui.button({ action: 'cancel-wake', label: 'Cancel', tone: 'danger', size: 'xs' })}</form>` : `<form hx-post="/agent/${id}/wake" hx-swap="none" class="space-y-2"><input type="hidden" name="action" value="set"><input name="reason" value="Continue scheduled work" maxlength="1000" aria-label="Wake reason" class="input input-bordered input-sm w-full text-xs"><div class="flex items-center gap-1"><input name="minutes" type="number" min="1" max="10080" value="5" aria-label="Wake in minutes" class="input input-bordered input-sm w-16 text-xs"><span class="text-[10px] text-base-content/40">min</span>${ctx.fns.procs.ui.button({ action: 'wake-preset', label: '5m', name: 'preset', value: '5', tone: 'ghost', size: 'xs' })}${ctx.fns.procs.ui.button({ action: 'wake-preset', label: '1h', name: 'preset', value: '60', tone: 'ghost', size: 'xs' })}${ctx.fns.procs.ui.button({ action: 'set-wake', label: 'Set', type: 'submit', tone: 'primary', size: 'xs', class: 'ml-auto' })}</div></form>`;

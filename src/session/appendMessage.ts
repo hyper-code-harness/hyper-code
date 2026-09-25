@@ -1,7 +1,7 @@
 /** Append message for the runtime. */
 export default async function (
     ctx: Context,
-    _session: Session | null,
+    session: Session | null,
     opts: {
         /** Agent identifier. */
     id: string;
@@ -17,6 +17,8 @@ export default async function (
         message.content = message.content.replaceAll('\u0000', '\uFFFD');
     }
     const ts = opts.ts ?? Date.now();
+    // Only human turns carry an author; assistant and tool rows are the agent's own.
+    if (message.role === "user" && message.author === undefined) message.author = await ctx.fns.auth.actorId({ agentId: id });
     // Native tool calls carry identity the text cannot: `tool_calls` is the
     // canonical [{ id, name, args }] an assistant emitted, `tool_call_id` says
     // which of them a role:"tool" message answers. Marker transcripts leave
@@ -27,8 +29,8 @@ export default async function (
     for (let attempt = 0; ; attempt++) {
         try {
             const res = await ctx.fns.procs.db.run({
-        sql: `INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor)
-              SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ? FROM messages WHERE agent_id = ?
+        sql: `INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author)
+              SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM messages WHERE agent_id = ?
               RETURNING idx`,
         params: [
             id,
@@ -43,6 +45,7 @@ export default async function (
             ts,
             message.excluded_from_llm ? 1 : 0,
             message.excluded_from_cursor ? 1 : 0,
+            message.author ?? null,
             id,
         ],
             });

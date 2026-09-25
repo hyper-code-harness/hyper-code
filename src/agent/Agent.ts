@@ -28,6 +28,8 @@ export type Agent = {
     statusLineMode?: "global" | "custom" | "off";
     /** Controls where the agent is listed; it is not an access-control boundary. */
     visibility?: "nav" | "team" | "hidden";
+    /** Id of the user who created the agent; background runs act on their behalf. Recording only, not access control. */
+    createdBy?: string | null;
     statusLineEvery?: number;
     forkOffset?: number | null;
     sleepContext?: Record<string, any> | null;

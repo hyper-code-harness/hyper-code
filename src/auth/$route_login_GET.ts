@@ -1,8 +1,20 @@
-/** Renders the password login page. */
+/**
+ * Renders sign-in: password only while there is a single user, email and password with more.
+ * Redirects to setup when no user can sign in yet.
+ */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
-    const configured = await ctx.fns.auth.password({});
-    if (!configured) return new Response("Authentication is not configured", { status: 503 });
-    const next = new URL(opts.req.url).searchParams.get("next") || "/";
+    const url = new URL(opts.req.url);
+    const next = url.searchParams.get("next") || "/";
+    const users = await ctx.fns.auth.listUsers({});
+    if (users.length === 0 || (users.length === 1 && !users[0]!.hasPassword)) {
+        return new Response(null, { status: 303, headers: { location: "/auth/setup", "cache-control": "no-store" } });
+    }
     const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
-    return new Response(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Sign in · Hyper</title><style>html{color-scheme:light dark}body{margin:0;min-height:100dvh;display:grid;place-items:center;font:16px -apple-system,system-ui;background:#16181d;color:#f5f5f5;background-image:radial-gradient(circle,#ffffff20 1px,transparent 1.3px);background-size:16px 16px}form{width:min(22rem,calc(100vw - 2rem));box-sizing:border-box;padding:1.5rem;border:1px solid #ffffff22;border-radius:1.25rem;background:#24272dcc;backdrop-filter:blur(18px);box-shadow:0 18px 60px #0006}h1{margin:0 0 .4rem;font-size:1.3rem}p{margin:.2rem 0 1.2rem;color:#ffffff99}input,button{box-sizing:border-box;width:100%;min-height:48px;border-radius:.8rem;font:inherit}input{border:1px solid #ffffff2a;background:#101217;padding:0 .9rem;color:white}button{margin-top:.8rem;border:0;background:#6366f1;color:white;font-weight:650}</style></head><body><form method="post" action="/auth/login"><h1>Hyper</h1><p>Enter the access password.</p><input type="hidden" name="next" value="${esc(next)}"><input name="password" type="password" autocomplete="current-password" autofocus required aria-label="Password"><button type="submit">Sign in</button></form></body></html>`, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+    const single = users.length === 1;
+    const message = url.searchParams.get("error")
+        ? `<p class="err">Invalid ${single ? "password" : "email or password"}.</p>`
+        : `<p>${single ? `Signed in as ${esc(users[0]!.name)}.` : "Sign in to continue."}</p>`;
+    const email = single ? "" : `<input name="email" type="email" autocomplete="username" autofocus required aria-label="Email" placeholder="Email">`;
+    const body = `<form method="post" action="/auth/login"><h1>Hyper</h1>${message}<input type="hidden" name="next" value="${esc(next)}">${email}<input name="password" type="password" autocomplete="current-password" ${single ? "autofocus" : ""} required aria-label="Password" placeholder="Password"><button type="submit">Sign in</button></form>`;
+    return ctx.fns.auth.page({ title: "Sign in", body });
 }

@@ -1,13 +1,15 @@
 /** Save for the runtime. */
-export default async function (ctx: Context, _session: Session | null, opts: {
+export default async function (ctx: Context, session: Session | null, opts: {
         /** Live agent instance to operate on. */
 agent: types.agent.Agent }): Promise<void> {
     const { agent } = opts;
     const now = Date.now();
+    // Author is set once, on the first save; never changed by later saves (not in ON CONFLICT).
+    agent.createdBy ??= await ctx.fns.auth.actorId({ agentId: agent.parentId ?? undefined });
     await ctx.fns.procs.db.run({
         sql: `
-        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
+        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
         ON CONFLICT(id) DO UPDATE SET
             model = excluded.model,
             title = excluded.title,
@@ -51,6 +53,7 @@ agent: types.agent.Agent }): Promise<void> {
             agent.parentId ?? null,
             agent.visibility ?? "nav",
             agent.forkOffset ?? null,
+            agent.createdBy ?? null,
             agent.id,
             now,
             now,
@@ -62,7 +65,7 @@ agent: types.agent.Agent }): Promise<void> {
     for (let idx = 0; idx < messages.length; idx++) {
         const message: any = messages[idx];
         await ctx.fns.procs.db.run({
-            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             params: [
                 agent.id,
                 idx,
@@ -74,6 +77,7 @@ agent: types.agent.Agent }): Promise<void> {
                 now + idx,
                 message.excluded_from_llm ? 1 : 0,
                 message.excluded_from_cursor ? 1 : 0,
+                message.author ?? null,
             ],
         });
     }
@@ -82,6 +86,6 @@ agent: types.agent.Agent }): Promise<void> {
     const events: any[] = agent.events ?? [];
     for (let idx = 0; idx < events.length; idx++) {
         const event: any = events[idx];
-        await ctx.fns.procs.db.run({ sql: 'INSERT INTO events (agent_id, idx, type, payload, ts) VALUES (?, ?, ?, ?, ?)', params: [agent.id, idx, event.type, JSON.stringify(event), now + idx] });
+        await ctx.fns.procs.db.run({ sql: 'INSERT INTO events (agent_id, idx, type, payload, ts, actor) VALUES (?, ?, ?, ?, ?, ?)', params: [agent.id, idx, event.type, JSON.stringify(event), now + idx, event.actor ?? null] });
     }
 }

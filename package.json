@@ -54,6 +54,7 @@
         "url": "postgres://hyper:hyper@localhost:54393/hyper"
       },
       "procs/migrate": {},
+      "auth": {},
       "procs/repl": {},
       "external": {},
       "agent": {},

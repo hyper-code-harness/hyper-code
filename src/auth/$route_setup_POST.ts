@@ -8,6 +8,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const users = await ctx.fns.auth.listUsers({});
     const lone = users.length === 1 ? users[0]! : null;
     if (users.length > 1 || (lone && lone.configuredAt != null)) return new Response("Setup already completed", { status: 409 });
+    if (!lone && (await ctx.fns.auth.password({}))) return new Response("Switch this install with: bun script/multiuser.ts up", { status: 409 });
     const form = await opts.req.formData();
     const back = (error: string) => new Response(null, { status: 303, headers: { location: `/auth/setup?error=${encodeURIComponent(error)}`, "cache-control": "no-store" } });
     const name = String(form.get("name") ?? "").trim();

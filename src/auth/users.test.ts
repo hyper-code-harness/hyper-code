@@ -76,11 +76,36 @@ test("seed: once from env/legacy password, never overwrites", async () => {
     expect(await ctx.fns.auth.verifyUser({ password: "changed-in-env" })).toBeNull();
 });
 
-test("seed from legacy password only leaves the name pending setup", async () => {
+test("seed from legacy password only does nothing: switching is explicit", async () => {
     const ctx = await mkTestCtx({ env: { HYPER_PASSWORD: "legacy-password" } });
-    const seeded = await ctx.fns.auth.seed({});
-    expect(seeded?.configuredAt).toBeNull();
-    expect(seeded?.hasPassword).toBe(true);
+    expect(await ctx.fns.auth.seed({})).toBeNull();
+    expect((await ctx.fns.auth.listUsers({})).length).toBe(0);
+});
+
+test("code deployed before the switch keeps legacy shared-password sign-in", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_PASSWORD: "legacy-password" } });
+    const anon = await ctx.fns.auth.currentUser({ req: req() });
+    expect(anon).toEqual({ user: null, required: true, legacy: false });
+    const token = await ctx.fns.procs.auth.sign({ sub: "password-user", name: "Hyper user", role: "owner", days: 1 });
+    const legacy = await ctx.fns.auth.currentUser({ req: req(`${ctx.fns.procs.auth.cookieName({})}=${token}`) });
+    expect(legacy.legacy).toBe(true);
+    const res = await ctx.fns.procs.http.dispatch({ method: "POST", url: "/auth/login", body: { password: "legacy-password" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toContain(ctx.fns.procs.auth.cookieName({}));
+    // A stranger cannot claim the install through the web setup.
+    const setup = await ctx.fns.procs.http.dispatch({ method: "POST", url: "/auth/setup", body: new URLSearchParams({ name: "Mallory" }) });
+    expect(setup.status).toBe(409);
+    expect((await ctx.fns.auth.listUsers({})).length).toBe(0);
+});
+
+test("after the switch the legacy cookie stops working and the password still signs in", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_PASSWORD: "legacy-password" } });
+    const token = await ctx.fns.procs.auth.sign({ sub: "password-user", name: "Hyper user", role: "owner", days: 1 });
+    await ctx.fns.auth.createUser({ name: "Nikolai Ryzhikov", email: "niquola@health-samurai.io", password: await ctx.fns.auth.password({}), role: "owner" });
+    const stale = await ctx.fns.auth.currentUser({ req: req(`${ctx.fns.procs.auth.cookieName({})}=${token}`) });
+    expect(stale.user).toBeNull();
+    expect(stale.required).toBe(true);
+    expect((await ctx.fns.auth.verifyUser({ password: "legacy-password" }))?.id).toBe("niquola");
 });
 
 test("authorship: agent creator, user message author, event actor", async () => {

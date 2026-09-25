@@ -21,6 +21,16 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (!next.startsWith("/") || next.startsWith("//")) next = "/";
 
     const user = await ctx.fns.auth.verifyUser({ email: email || null, password });
+    if (!user && (await ctx.fns.auth.listUsers({})).length === 0 && (await ctx.fns.auth.checkPassword({ password }))) {
+        // Install not switched to users yet: keep the legacy shared-password session.
+        const token = await ctx.fns.procs.auth.sign({ sub: "password-user", name: "Hyper user", role: "owner", days: 30 });
+        const forwardedProto = opts.req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+        const cookie = ctx.fns.procs.auth.cookie({ token, url: forwardedProto === "https" ? "https://hyper.invalid/" : opts.req.url, days: 30 });
+        const headers = { "set-cookie": cookie, "cache-control": "no-store" };
+        return isJson
+            ? Response.json({ ok: true, user: { name: "Hyper user", role: "owner" } }, { headers })
+            : new Response(null, { status: 303, headers: { ...headers, location: next } });
+    }
     if (!user) {
         await Bun.sleep(250);
         return isJson

@@ -60,7 +60,8 @@
       "cron": {},
       "procs/http": {
         "port": 3010
-      }
+      },
+      "h2": {}
     },
     "modules": {
       "browser": {},

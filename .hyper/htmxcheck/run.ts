@@ -40,6 +40,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             await cdp("Page.enable");
             await cdp("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(Document.prototype,'visibilityState',{get:()=>'visible'});Object.defineProperty(Document.prototype,'hidden',{get:()=>false});Document.prototype.hasFocus=()=>true;" });
             await cdp("Emulation.setFocusEmulationEnabled", { enabled: true });
+            // The experimental HTTPS/HTTP2 port uses a self-signed certificate.
+            if (base.startsWith("https:")) await cdp("Security.setIgnoreCertificateErrors", { ignore: true });
             emulated = true;
         }
         await B.navigate({ session: S, url: base + path });

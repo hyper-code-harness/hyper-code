@@ -32,6 +32,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         const parsed = splitModel(String(row.model));
         return parsed.provider === provider && parsed.account === account;
     });
+    // Live objects can lag the table (a row edited behind the process); an
+    // agent that still runs on this credential in memory counts as a user.
+    for (const [id, live] of Object.entries(((ctx.state as any).agent ?? {}) as Record<string, any>)) {
+        const parsed = splitModel(String(live?.model ?? ""));
+        if (parsed.provider === provider && parsed.account === account && !users.some((u) => String(u.id) === id)) users.push({ id, model: live.model });
+    }
     if (users.length) throw new Error(`account is used by agent(s): ${users.map((x) => x.id).join(", ")} — switch their model first`);
 
     if (provider === "anthropic-oauth") {

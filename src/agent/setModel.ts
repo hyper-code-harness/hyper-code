@@ -72,14 +72,20 @@ export default async function (
     for (const id of targets) {
         const before = ((await ctx.fns.procs.db.select({ sql: "SELECT model FROM agents WHERE id = ?", params: [id] })) as any[])[0];
         const previous = before?.model ? String(before.model) : null;
-        if (previous === model) continue;
+        const live = (ctx.state as any).agent?.[id];
+        // The live object is what the next turn reads. A row edited behind the
+        // process (SQL, migration) can already say the new model while the agent
+        // in memory still runs the old one — that drift is exactly a switch.
+        if (previous === model && (!live || live.model === model)) continue;
+        // The last error belonged to the old model; leaving it makes the status
+        // bar keep shouting about a credential the agent no longer uses.
         await ctx.fns.procs.db.run({
-            sql: "UPDATE agents SET model = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL",
+            sql: "UPDATE agents SET model = ?, last_error = NULL, updated_at = ? WHERE id = ? AND archived_at IS NULL",
             params: [model, now, id],
         });
-        const live = (ctx.state as any).agent?.[id];
+        const liveBefore = live?.model ?? previous;
         if (live) live.model = model;
-        await ctx.fns.session.appendEvent({ id, event: { type: "model_changed", from: previous, to: model } }).catch(() => undefined);
+        await ctx.fns.session.appendEvent({ id, event: { type: "model_changed", from: liveBefore, to: model } }).catch(() => undefined);
         // A new model means a new quota. If lifting the parking fails, roll the
         // model back and fail the operation — returning success with a new
         // model but an old wake/park mark strands the unanswered work.

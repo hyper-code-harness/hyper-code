@@ -536,6 +536,9 @@ declare global {
             user: Injected<typeof import("../plugins/google/src/gworkspace/user").default>;
             users: Injected<typeof import("../plugins/google/src/gworkspace/users").default>;
         };
+        h2: {
+            redirect: Injected<typeof import("./h2/redirect").default>;
+        };
         hackernews: {
             addFeed: Injected<typeof import("../plugins/hackernews/src/hackernews/addFeed").default>;
             listFeeds: Injected<typeof import("../plugins/hackernews/src/hackernews/listFeeds").default>;
@@ -591,6 +594,7 @@ declare global {
             stats: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/stats").default>;
             sync: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/sync").default>;
             syncRepository: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/syncRepository").default>;
+            translateDocument: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/translateDocument").default>;
             updateDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/updateDiary").default>;
             validateForm: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/validateForm").default>;
             vitals: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/vitals").default>;
@@ -598,6 +602,9 @@ declare global {
         };
         home: {
             render: Injected<typeof import("./home/render").default>;
+        };
+        htmxcheck: {
+            run: Injected<typeof import("../.hyper/htmxcheck/run").default>;
         };
         jev: {
             decide: Injected<typeof import("./jev/decide").default>;
@@ -1353,6 +1360,12 @@ declare global {
             suggest: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/suggest").default>;
             topic: Injected<typeof import("../../.hyper/user/uptodate/src/uptodate/topic").default>;
         };
+        vision: {
+            appleOcr: Injected<typeof import("../plugins/vision/src/vision/appleOcr").default>;
+            ensureModel: Injected<typeof import("../plugins/vision/src/vision/ensureModel").default>;
+            ocr: Injected<typeof import("../plugins/vision/src/vision/ocr").default>;
+            qwenOcr: Injected<typeof import("../plugins/vision/src/vision/qwenOcr").default>;
+        };
         websearch: {
             answer: Injected<typeof import("../plugins/websearch/src/websearch/answer").default>;
             fetch: Injected<typeof import("../plugins/websearch/src/websearch/fetch").default>;
@@ -1542,6 +1555,10 @@ declare global {
         }
         namespace ui {
             type AgentLaunch = import("./ui/AgentLaunch").AgentLaunch;
+        }
+        namespace vision {
+            type OcrLine = import("../plugins/vision/src/vision/OcrLine").OcrLine;
+            type OcrRow = import("../plugins/vision/src/vision/OcrRow").OcrRow;
         }
     }
 

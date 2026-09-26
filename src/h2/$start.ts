@@ -16,8 +16,13 @@ import { mkdir } from "node:fs/promises";
 
 /** Start the HTTPS/HTTP2 listener that proxies into the main Bun server in-process. */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}) {
-    const port = Number((ctx.fns.procs.config.resolve({ module: "h2" }) as { port: number }).port);
-    if (!port) return {};
+    const cfg = ctx.fns.procs.config.resolve({ module: "h2" }) as { enabled: string; redirect: string; port: number };
+    const on = (v: unknown) => !/^(0|false|off|no)$/i.test(String(v ?? "").trim());
+    const port = Number(cfg.port);
+    if (!on(cfg.enabled) || !port) {
+        ctx.fns.procs.log.info({ event: "h2.disabled", msg: "HTTPS off (HYPER_HTTPS) — plain HTTP only" });
+        return {};
+    }
     const dir = `${ctx.fns.procs.project.runtimeDir({})}/tls`;
     const keyPath = `${dir}/localhost-key.pem`, certPath = `${dir}/localhost.pem`;
     if (!(await Bun.file(certPath).exists())) {
@@ -63,6 +68,11 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             if (Array.isArray(v)) v.forEach(x => headers.append(k, x)); else headers.set(k, String(v));
         }
         headers.set("host", authority);
+        // Mark the request as proxied. Loopback-only endpoints (/procs/repl,
+        // /external/*, the sidebar bridge) reject forwarded traffic, so the REPL is
+        // never reachable over the tailnet even though this listener is.
+        headers.set("x-forwarded-for", req.socket?.remoteAddress ?? "unknown");
+        headers.set("x-forwarded-proto", "https");
         const abort = new AbortController();
         res.on("close", () => abort.abort());
         const method = req.method ?? "GET";
@@ -95,7 +105,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     });
     await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, "0.0.0.0", () => ok()); });
     ctx.fns.procs.log.info({ event: "h2.started", msg: `https://${tsName && hasTsCert ? tsName : "localhost"}:${port} (HTTP/2, experimental)` });
-    return { server, port, tsName: hasTsCert ? tsName : null };
+    return { server, port, tsName: hasTsCert ? tsName : null, redirect: on(cfg.redirect) };
 }
 
 // This machine's MagicDNS name, or null without Tailscale.

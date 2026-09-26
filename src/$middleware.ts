@@ -1,6 +1,9 @@
 // Global application middleware: optional password gate plus current-screen tracking.
 export default async function (ctx: Context, session: Session | null, opts: { req: Request }): Promise<Response | void> {
     const url = new URL(opts.req.url);
+    // Browsers opening a page over plain HTTP go to the HTTPS/HTTP2 address.
+    const toHttps = ctx.fns.h2.redirect({ req: opts.req });
+    if (toHttps) return toHttps;
     const password = await ctx.fns.auth.password({});
     // Dedicated bridge owns its narrow authentication. Its bearer is never a UI/REPL credential.
     if (url.pathname.startsWith('/sidebar/api/')) return ctx.fns.sidebar.bridge({ req: opts.req });

@@ -256,6 +256,11 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 }
 .inplace-popup-panel::backdrop { background: transparent; }
+/* Phones: anchor math can push a right-aligned panel past the left edge; pin it
+ * to the viewport under the header instead. */
+@media (max-width: 700px) {
+  .inplace-popup-panel { position: fixed; top: calc(env(safe-area-inset-top) + 3.5rem) !important; left: .5rem !important; right: .5rem !important; bottom: auto; width: auto !important; max-height: calc(100dvh - 5rem); margin: 0; position-try-fallbacks: none; }
+}
 
 /* the tool pill's panel: a top-layer popover anchored under its own trigger */
 /* Anchored under its pill — but never off the screen. The pill is a message in a

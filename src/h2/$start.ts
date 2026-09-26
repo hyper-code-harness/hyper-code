@@ -12,7 +12,6 @@
 // exactly as on the old port. Starts after procs/http (lifecycle orders http last,
 // so this module is listed after it and waits for the server if needed).
 import http2 from "node:http2";
-import tls from "node:tls";
 import { mkdir } from "node:fs/promises";
 
 /** Start the HTTPS/HTTP2 listener that proxies into the main Bun server in-process. */
@@ -34,23 +33,25 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
 
     // Tailscale name: a real Let's Encrypt certificate from `tailscale cert`, so
     // devices on the tailnet (iPad, phone) trust https://<mac>.<tailnet>.ts.net:3443
-    // without installing anything. Chosen by SNI; localhost keeps the self-signed one.
+    // without installing anything. Without Tailscale the self-signed one is used.
     // `tailscale cert` renews only when needed, so running it on every start is cheap.
     const tsName = await tailscaleName();
-    let tsContext: tls.SecureContext | null = null;
+    let hasTsCert = false;
     if (tsName) {
         const tsCert = `${dir}/ts.pem`, tsKey = `${dir}/ts-key.pem`;
         const p = Bun.spawn(["tailscale", "cert", "--cert-file", tsCert, "--key-file", tsKey, tsName], { stdout: "ignore", stderr: "pipe" });
         const code = await Promise.race([p.exited, Bun.sleep(30_000).then(() => { p.kill(); return -1; })]);
         if (code !== 0) ctx.fns.procs.log.warn({ event: "h2.tailscale-cert", msg: `tailscale cert failed (${code}); using the existing file if any` });
-        if (await Bun.file(tsCert).exists()) {
-            tsContext = tls.createSecureContext({ key: await Bun.file(tsKey).text(), cert: await Bun.file(tsCert).text() });
-        }
+        if (await Bun.file(tsCert).exists()) hasTsCert = true;
     }
 
+    // With Tailscale the listener serves ONLY the tailnet certificate. Choosing
+    // a certificate per SNI name dropped ALPN in Bun, so the tailnet name silently
+    // fell back to HTTP/1.1. On this Mac use https://<mac>.<tailnet>.ts.net:3443
+    // too; https://localhost:3443 then shows a name mismatch (tests ignore it).
+    const primary = hasTsCert ? { key: await Bun.file(`${dir}/ts-key.pem`).text(), cert: await Bun.file(`${dir}/ts.pem`).text() } : { key, cert };
     const server = http2.createSecureServer({
-        key, cert, allowHTTP1: true,
-        SNICallback: (servername, cb) => cb(null, tsContext && servername === tsName ? tsContext : undefined as any),
+        ...primary, allowHTTP1: true, ALPNProtocols: ["h2", "http/1.1"],
     }, async (req, res) => {
         const inner = (ctx.state.procs.http.server as any)?.server;
         if (!inner?.fetch) { res.writeHead(503); res.end("http server not ready"); return; }
@@ -66,7 +67,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         res.on("close", () => abort.abort());
         const method = req.method ?? "GET";
         const body = method === "GET" || method === "HEAD" ? undefined
-            : new ReadableStream({ start(c) { req.on("data", d => c.enqueue(new Uint8Array(d))); req.on("end", () => c.close()); req.on("error", e => c.error(e)); } });
+            : new ReadableStream({ start(c) { req.on("data", (d: Buffer) => c.enqueue(new Uint8Array(d))); req.on("end", () => c.close()); req.on("error", e => c.error(e)); } });
         try {
             const out: Response = await inner.fetch(new Request(url, { method, headers, body, signal: abort.signal, duplex: "half" } as any));
             const h: Record<string, string | string[]> = {};
@@ -93,8 +94,8 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         }
     });
     await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, "0.0.0.0", () => ok()); });
-    ctx.fns.procs.log.info({ event: "h2.started", msg: `https://localhost:${port}${tsName && tsContext ? ` and https://${tsName}:${port}` : ""} (HTTP/2, experimental)` });
-    return { server, port, tsName: tsContext ? tsName : null };
+    ctx.fns.procs.log.info({ event: "h2.started", msg: `https://${tsName && hasTsCert ? tsName : "localhost"}:${port} (HTTP/2, experimental)` });
+    return { server, port, tsName: hasTsCert ? tsName : null };
 }
 
 // This machine's MagicDNS name, or null without Tailscale.

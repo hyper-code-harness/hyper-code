@@ -101,9 +101,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (opts.send) {
         let probe: string | null = null;
         await step("create-agent", async () => {
+            // After a dozen page loads the old pages' SSE sockets are still
+            // closing; give Chrome a moment so the POST→303 is not queued behind them.
+            await B.navigate({ session: S, url: "about:blank" }); await Bun.sleep(2500);
             await go("/agent/new");
-            await ev("document.querySelector('input[name=title]').value='htmx-probe';document.querySelector('select[name=model]').value='claude-code:claude-haiku-4-5';document.getElementById('workspace-dir-input').value='/Users/niquola/hyper-code2';document.querySelector('input[name=title]').form.requestSubmit()");
-            await Bun.sleep(3000); await ev(hook);
+            await ev("(()=>{document.querySelector('input[name=title]').value='htmx-probe';document.querySelector('select[name=model]').value='claude-code:claude-haiku-4-5';document.getElementById('workspace-dir-input').value='/Users/niquola/hyper-code2';const f=document.querySelector('input[name=title]').form;setTimeout(()=>f.requestSubmit(),50);return 1})()");
+            // The submit is deferred: a CDP evaluate that is still running when the
+            // page starts a POST→303 navigation can hang until its 20 s timeout.
+            await Bun.sleep(3500); await ev(hook);
             const r = await J("{url:location.href,agent:document.body.dataset.agentId}");
             probe = r.agent ?? null;
             // A background tab left by a POST→303 redirect stays in readyState
@@ -132,9 +137,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             // dbReply=true but no reply on screen = the live update path is broken.
             return { clearedAfterSend, gapAfterSend, dbReply, ...st, ms: Date.now() - t0 };
         });
-        // Probe chats are disposable: never leave them in the user's agent list.
-        if (probe) await ctx.fns.session.delete({ id: probe });
-        delete (ctx.state as any).agent?.[probe ?? ""];
+        // Probe chats are disposable: never leave them in the user's agent list,
+        // including ones whose id was never read back because a step failed.
+        const probes = await ctx.fns.procs.db.select({ sql: "select id from agents where title = 'htmx-probe'", params: [] }) as Array<{ id: string }>;
+        for (const { id } of probes) { await ctx.fns.session.delete({ id }); delete (ctx.state as any).agent?.[id]; }
     }
     // Close the tab: it fakes visibility, so it holds an SSE connection, and
     // Chrome allows only 6 HTTP/1.1 connections per origin. Leftover test tabs

@@ -520,6 +520,10 @@ summary::-webkit-details-marker { display: none; }
 .ui-combobox__results:not(:empty) { display: block; }
 
 
+/* Kit components live in the components layer so Tailwind utilities on the
+ * same element (pl-9, w-auto, rounded-full…) win, as they do everywhere else.
+ * Unlayered, `.input-sm { padding }` beat `pl-9` and put the search icon on the text. */
+@layer components {
 /* Project-owned action component. Feature code renders it through procs.ui.button. */
 .ui-button { display:inline-flex; min-height:2.25rem; align-items:center; justify-content:center; gap:.4rem; border:1px solid var(--ui-input-border); border-radius:.5rem; background:var(--theme-base-100); padding:.45rem .8rem; color:var(--theme-base-content); font-size:.8125rem; font-weight:600; line-height:1; cursor:pointer; transition:background-color .15s,border-color .15s,opacity .15s; }
 .ui-button:hover { background:var(--theme-base-200); }
@@ -606,3 +610,4 @@ summary::-webkit-details-marker { display: none; }
 .steps { display:flex; align-items:flex-start; gap:1rem; list-style:none; }
 .steps .step { flex:1; }
 .rounded-box { border-radius:.65rem; }
+}

@@ -12,6 +12,7 @@
 // exactly as on the old port. Starts after procs/http (lifecycle orders http last,
 // so this module is listed after it and waits for the server if needed).
 import http2 from "node:http2";
+import tls from "node:tls";
 import { mkdir } from "node:fs/promises";
 
 /** Start the HTTPS/HTTP2 listener that proxies into the main Bun server in-process. */
@@ -31,7 +32,26 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     }
     const [key, cert] = await Promise.all([Bun.file(keyPath).text(), Bun.file(certPath).text()]);
 
-    const server = http2.createSecureServer({ key, cert, allowHTTP1: true }, async (req, res) => {
+    // Tailscale name: a real Let's Encrypt certificate from `tailscale cert`, so
+    // devices on the tailnet (iPad, phone) trust https://<mac>.<tailnet>.ts.net:3443
+    // without installing anything. Chosen by SNI; localhost keeps the self-signed one.
+    // `tailscale cert` renews only when needed, so running it on every start is cheap.
+    const tsName = await tailscaleName();
+    let tsContext: tls.SecureContext | null = null;
+    if (tsName) {
+        const tsCert = `${dir}/ts.pem`, tsKey = `${dir}/ts-key.pem`;
+        const p = Bun.spawn(["tailscale", "cert", "--cert-file", tsCert, "--key-file", tsKey, tsName], { stdout: "ignore", stderr: "pipe" });
+        const code = await Promise.race([p.exited, Bun.sleep(30_000).then(() => { p.kill(); return -1; })]);
+        if (code !== 0) ctx.fns.procs.log.warn({ event: "h2.tailscale-cert", msg: `tailscale cert failed (${code}); using the existing file if any` });
+        if (await Bun.file(tsCert).exists()) {
+            tsContext = tls.createSecureContext({ key: await Bun.file(tsKey).text(), cert: await Bun.file(tsCert).text() });
+        }
+    }
+
+    const server = http2.createSecureServer({
+        key, cert, allowHTTP1: true,
+        SNICallback: (servername, cb) => cb(null, tsContext && servername === tsName ? tsContext : undefined as any),
+    }, async (req, res) => {
         const inner = (ctx.state.procs.http.server as any)?.server;
         if (!inner?.fetch) { res.writeHead(503); res.end("http server not ready"); return; }
         const authority = (req.headers[":authority"] as string) || (req.headers.host as string) || `localhost:${port}`;
@@ -73,6 +93,16 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         }
     });
     await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, "0.0.0.0", () => ok()); });
-    ctx.fns.procs.log.info({ event: "h2.started", msg: `https://localhost:${port} (HTTP/2, experimental)` });
-    return { server, port };
+    ctx.fns.procs.log.info({ event: "h2.started", msg: `https://localhost:${port}${tsName && tsContext ? ` and https://${tsName}:${port}` : ""} (HTTP/2, experimental)` });
+    return { server, port, tsName: tsContext ? tsName : null };
+}
+
+// This machine's MagicDNS name, or null without Tailscale.
+async function tailscaleName(): Promise<string | null> {
+    try {
+        const p = Bun.spawn(["tailscale", "status", "--json"], { stdout: "pipe", stderr: "ignore" });
+        const out = await Promise.race([new Response(p.stdout).text(), Bun.sleep(5_000).then(() => { p.kill(); return ""; })]);
+        const name = String(JSON.parse(out || "{}")?.Self?.DNSName ?? "").replace(/\.$/, "");
+        return name || null;
+    } catch { return null; }
 }

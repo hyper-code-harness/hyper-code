@@ -51,8 +51,12 @@ export default async function (
             // A failed telemetry request says nothing about inference quota.
             // Hide the stale snapshot so the UI cannot present an old 100% as
             // a current hard limit while normal Claude calls still succeed.
-            await ctx.fns.procs.db.run({ sql: "DELETE FROM kv WHERE key = ?", params: [`llm:usage:${provider}:${account}`] }).catch(() => undefined);
-            try { ctx.fns.procs.events.refresh({ topic: "llm-usage", reason: "usage refresh failed" }); } catch {}
+            const hidden = await ctx.fns.procs.db.run({ sql: "DELETE FROM kv WHERE key = ?", params: [`llm:usage:${provider}:${account}`] }).catch(() => ({ changes: 0 }));
+            // Signal only when the rendered rings actually changed. The usage
+            // route itself calls this function, so an unconditional signal made
+            // every failed read (e.g. a provider 429) re-fetch the route, fail
+            // again and signal again — a request loop about once a second.
+            if (hidden.changes > 0) { try { ctx.fns.procs.events.refresh({ topic: "llm-usage", reason: "usage refresh failed" }); } catch {} }
             return { provider, account, status: "failed" as const, error: message };
         }
     }));

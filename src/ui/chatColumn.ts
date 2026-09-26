@@ -58,7 +58,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         id: 'chat-stop-control',
         url: `/agent/${encodeURIComponent(id)}/statusbar?part=stop`,
         topic: `agent:${id}`,
-        every: 5,
+        // The agent topic signals start/stop; the interval is only a watchdog.
+        every: 30,
         swap: 'innerHTML',
         attrs: 'class="pointer-events-none absolute inset-y-0 right-1.5 z-50 flex items-center [&>button]:pointer-events-auto"',
         html: stopControlHtml,

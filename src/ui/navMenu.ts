@@ -57,8 +57,8 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     overlay().classList.add('hidden');
     setTimeout(() => document.getElementById('input')?.focus(), 0);
   };
-  document.body.addEventListener('htmx:afterSwap', event => {
-    if (event.detail?.target?.id === 'nav-results') { sel = 0; mark(); }
+  document.addEventListener('htmx:after:swap', event => {
+    if (event.detail?.ctx?.target?.id === 'nav-results') { sel = 0; mark(); }
   });
   window.addEventListener('keydown', event => {
     if (!window.__navIsOpen()) return;

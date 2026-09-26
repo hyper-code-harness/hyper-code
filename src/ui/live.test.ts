@@ -22,7 +22,7 @@ describe("ui.live", () => {
             swap: "innerHTML", trigger: "load", every: 60, attrs: 'class="rail"',
         });
         expect(html).toStartWith('<nav id="agents"');
-        expect(html).toContain('hx-trigger="load, hyper-live from:body, every 60s"');
+        expect(html).toContain('hx-trigger="load, hyper-live, every 60s"');
         expect(html).toContain('hx-swap="innerHTML"');
         expect(html).toContain('class="rail"');
         expect(html).toEndWith('</nav>');
@@ -33,7 +33,7 @@ describe("ui.live", () => {
         const ctx: any = await mkTestCtx();
         const html = ctx.fns.ui.live({ id: "x", url: "/x", topic: "t" });
 
-        expect(html).toContain("hyper-live from:body");
+        expect(html).toContain('hx-trigger="hyper-live, every');
         expect(html).toContain("every 30s");
         // Nobody may ask for a hot loop.
         expect(ctx.fns.ui.live({ id: "x", url: "/x", topic: "t", every: 1 })).toContain("every 5s");
@@ -43,7 +43,7 @@ describe("ui.live", () => {
         const ctx: any = await mkTestCtx();
         const html = ctx.fns.ui.live({ id: "meta", url: "/meta", topic: "agent-meta:a", every: 0 });
         expect(html).toContain('data-live-topic="agent-meta:a"');
-        expect(html).toContain('hx-trigger="hyper-live from:body"');
+        expect(html).toContain('hx-trigger="hyper-live"');
         expect(html).not.toContain("every 5s");
     });
 

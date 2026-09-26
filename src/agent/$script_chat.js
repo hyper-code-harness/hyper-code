@@ -263,15 +263,15 @@
         if (!next.mount()) { next.destroy(); current = null; }
     }
 
-    document.body.addEventListener('htmx:before:cleanup', event => {
+    document.addEventListener('htmx:before:cleanup', event => {
         const target = event.target;
         if (current && (target === current.panel || target?.contains?.(current.panel))) {
             current.destroy();
             current = null;
         }
     });
-    document.body.addEventListener('htmx:before:swap', event => current?.beforeSwap(event));
-    document.body.addEventListener('htmx:after:swap', event => {
+    document.addEventListener('htmx:before:swap', event => current?.beforeSwap(event));
+    document.addEventListener('htmx:after:swap', event => {
         current?.afterSwap(event);
         mount();
     });

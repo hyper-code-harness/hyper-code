@@ -106,6 +106,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             await Bun.sleep(3000); await ev(hook);
             const r = await J("{url:location.href,agent:document.body.dataset.agentId}");
             probe = r.agent ?? null;
+            // A background tab left by a POST→303 redirect stays in readyState
+            // "interactive" and never runs its deferred scripts (Chrome
+            // background-tab behaviour, also seen on htmx 2). Open it afresh.
+            if (probe) await go("/agent/" + encodeURIComponent(probe));
             return r;
         });
         await step("send-stream", async () => {

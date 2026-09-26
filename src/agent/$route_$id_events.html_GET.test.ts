@@ -60,7 +60,7 @@ describe('GET /agent/:id/events.html', () => {
         expect(body).toContain('id="msg-tail"');
         // A standard live region: the shared stream invalidates agent:a and
         // the interval only repairs a missed signal.
-        expect(body).toContain('hyper-live from:body');
+        expect(body).toContain('hx-trigger="hyper-live, every');
         expect(body).toContain('data-live-topic="agent:a"');
         expect(body).toContain('every 30s');
         expect(body).toContain('offset=0');

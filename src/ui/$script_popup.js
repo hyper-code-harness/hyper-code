@@ -60,9 +60,9 @@
 
     // Server fragments can ask to open the permanent host without shipping
     // scripts or creating/removing overlays.
-    document.body.addEventListener('htmx:afterSwap', event => {
-        if (event.detail?.target?.id !== 'app-popup-body') return;
-        const body = event.detail.target;
+    document.addEventListener('htmx:after:swap', event => {
+        const body = event.detail?.ctx?.target;
+        if (body?.id !== 'app-popup-body') return;
         const content = body.querySelector('[data-popup-content], [data-secure-input]');
         if (content) {
             window.hyperPopup.open(content.dataset.popupTitle || 'Details', content.dataset.popupKind || '');

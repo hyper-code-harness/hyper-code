@@ -55,7 +55,8 @@
     dirty.clear();
     if (!wanted.size) return;
     for (const el of regions()) {
-      if (wanted.has(el.dataset.liveTopic) && window.htmx) window.htmx.trigger(el, 'hyper-live');
+      // Non-bubbling: only regions of this topic refresh, not every listener on body.
+      if (wanted.has(el.dataset.liveTopic)) el.dispatchEvent(new CustomEvent('hyper-live', { bubbles: false }));
     }
   }
 
@@ -152,7 +153,7 @@
   // here made a request cause a swap, a swap cause a sweep, and a sweep cause a
   // request — two hundred fetches a second, on an idle page.
   let resubscribe = null;
-  document.body.addEventListener('htmx:afterSwap', () => {
+  document.addEventListener('htmx:after:swap', () => {
     clearTimeout(resubscribe);
     resubscribe = setTimeout(() => {
       const want = topics().join(',');

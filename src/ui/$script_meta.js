@@ -28,7 +28,7 @@
         root?.querySelectorAll?.('[data-agent-meta-panel]').forEach(applyPanelState);
     };
     applyAllPanelStates(document);
-    document.body.addEventListener('htmx:load', event => applyAllPanelStates(event.detail?.elt ?? event.target));
+    document.addEventListener('htmx:after:process', event => applyAllPanelStates(event.target));
 
     document.addEventListener('click', event => {
         const button = event.target.closest?.('[data-plan-remove], [data-plan-move]');
@@ -74,10 +74,7 @@
             target: slot,
             swap: 'innerHTML',
             values: { method: 'ui.agentMetaSectionHtml', params: JSON.stringify({ agentId, section: slot.dataset.metaSection }) },
-        }).then?.(() => restore(slot, wasOpen));
-        // htmx.ajax resolves after the swap; htmx:load is the fallback for
-        // versions where the promise settles earlier.
-        slot.addEventListener('htmx:load', () => restore(slot, wasOpen), { once: true });
+        }).then(() => restore(slot, wasOpen), () => {});   // htmx 4 resolves after the swap
     }
 
     function restore(slot, wasOpen) {

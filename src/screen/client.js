@@ -211,13 +211,13 @@
             const finish = () => {
                 if (done) return;
                 done = true;
-                window.removeEventListener("htmx:beforeRequest", onStart, true);
-                document.body.removeEventListener("htmx:afterSettle", finish);
+                window.removeEventListener("htmx:before:request", onStart, true);
+                document.removeEventListener("htmx:after:swap", finish);
                 resolve();
             };
             const onStart = () => { started = true; };
-            window.addEventListener("htmx:beforeRequest", onStart, true);
-            document.body.addEventListener("htmx:afterSettle", finish);
+            window.addEventListener("htmx:before:request", onStart, true);
+            document.addEventListener("htmx:after:swap", finish);
             act();
             setTimeout(() => { if (!started) finish(); }, 200);
             setTimeout(finish, 8000);         // a route slower than this is broken, not slow
@@ -781,7 +781,7 @@
     // …and say it: once on load, and after every swap, because navigation here
     // is partial and a swap is what a page change IS.
     window.page.here();
-    document.body?.addEventListener?.("htmx:afterSettle", () => {
+    document.addEventListener("htmx:after:swap", () => {
         window.page.here();
         // The page under the tour was swapped — by a step, or by the reader
         // wandering off. Either way the highlight belongs to whatever is there

@@ -47,7 +47,10 @@ export default function (
     const every = opts.every === 0 ? 0 : Math.max(5, opts.every ?? 30);
     const tag = /^[a-z][a-z0-9-]*$/i.test(opts.tag ?? '') ? opts.tag! : 'div';
     const swap = opts.swap ?? 'outerHTML';
-    const trigger = [opts.trigger, 'hyper-live from:body', every ? `every ${every}s` : ''].filter(Boolean).join(', ');
+    // `hyper-live` is dispatched on the region itself, without bubbling. With
+    // `from:body` every region on the page answered every topic: one usage
+    // signal re-fetched the status bar, the stop button and the transcript too.
+    const trigger = [opts.trigger, 'hyper-live', every ? `every ${every}s` : ''].filter(Boolean).join(', ');
     // A caller may aim its region somewhere else; only fill in the default when
     // it did not, because the first attribute of a name is the one that counts.
     const target = /\bhx-target\s*=/.test(opts.attrs ?? "") ? "" : ` hx-target="this"`;

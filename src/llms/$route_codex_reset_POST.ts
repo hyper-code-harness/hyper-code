@@ -6,7 +6,9 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     try {
         const result = await ctx.fns.llm.consumeResetCredit({ account, creditId, idempotencyKey: crypto.randomUUID() });
         const labels = { reset: "Limit reset successfully", nothingToReset: "Nothing eligible to reset", noCredit: "No reset credits available", alreadyRedeemed: "This reset was already applied" };
-        return new Response(`<span class="text-xs ${result.outcome === "reset" ? "text-success" : "text-warning"}">${labels[result.outcome]}</span>`, { headers: { "content-type": "text/html; charset=utf-8", "HX-Trigger": "hyper-live" } });
+        // Live regions refresh by topic; a bubbling HX-Trigger no longer reaches them.
+        for (const topic of ["llm-usage", "llm-accounts"]) { try { ctx.fns.procs.events.refresh({ topic, reason: "codex reset" }); } catch {} }
+        return new Response(`<span class="text-xs ${result.outcome === "reset" ? "text-success" : "text-warning"}">${labels[result.outcome]}</span>`, { headers: { "content-type": "text/html; charset=utf-8" } });
     } catch (error: any) {
         return new Response(String(error?.message ?? error), { status: 400 });
     }

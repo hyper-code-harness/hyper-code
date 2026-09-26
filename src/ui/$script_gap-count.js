@@ -8,7 +8,8 @@
   try{const response=await fetch('/ui/gap-count',{cache:'no-store'});if(response.ok){const html=await response.text();const badge=document.getElementById('gap-count-badge');if(badge)badge.outerHTML=html;}}catch{}finally{pending=false;}
  }
  document.addEventListener('hyper-events',event=>{if(event.detail?.type==='flow.count')refresh();});
- document.addEventListener('htmx:load',refresh);
+ // Page navigation only: live regions swap every few seconds and must not drag the badge along.
+ document.addEventListener('htmx:after:swap',event=>{if(event.detail?.ctx?.target?.id==='main')refresh();});
  setInterval(refresh,300000);
  refresh();
 })();

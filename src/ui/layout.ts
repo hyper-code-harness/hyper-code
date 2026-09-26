@@ -34,11 +34,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${esc(pageTitle)}</title>
 <link rel="icon" href="${favicon}" type="image/svg+xml">
-<!-- htmx 4 (framework bundle). Compat flags keep htmx 2 behaviour during the
-     migration: implicit inheritance, no swap of 4xx/5xx, no request timeout. -->
-<meta name="htmx-config" content='{"implicitInheritance":true,"noSwap":[204,304,"4xx","5xx"],"defaultTimeout":0}'>
+<!-- htmx 4 (framework bundle). Inheritance stays explicit (htmx 4 default):
+     implicit inheritance let hx-trigger="load" leak into child buttons and loop.
+     Still htmx 2 behaviour for now: no swap of 4xx/5xx, no request timeout. -->
+<meta name="htmx-config" content='{"noSwap":[204,304,"4xx","5xx"],"defaultTimeout":0}'>
 <script src="/procs/ui/htmx.js" defer></script>
-<script src="/ui/htmx-compat.js" defer></script>
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">
 <style>
 /* Compact lazy tool links. The tray is assembled client-side so consecutive
@@ -271,14 +271,14 @@ ${opts.headExtra ?? ""}
 <script src="/ui/control.js" defer></script>
 <script src="/procs/events/client.js" defer></script>
 <script src="/ui/hotkeys.js" defer></script>
-<script src="/ui/rpc.js?v=5" defer></script>
+<script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>
 <script src="/ui/meta.js" defer></script>
 <script src="/screen/client.js" defer></script>
 <script src="/ui/wake-timer.js" defer></script>
 </head>
-<body hx-ext="popup-rpc" class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>
+<body class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>
 <div id="frame" class="relative flex h-screen">
   ${hideNavigation ? "" : ctx.fns.procs.ui.button({ action: "open-global-menu-mobile", html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', appearance: "plain", title: "Agents and pages", ariaLabel: "Open agents and pages", class: "hidden", attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" } })}
   ${hideNavigation ? "" : `<nav id="quick-bar" aria-label="Quick access" class="my-2 ml-2 mr-1 flex h-[calc(100%-1rem)] w-10 shrink-0 flex-col items-center rounded-2xl border border-ui-border py-2 shadow-sm">

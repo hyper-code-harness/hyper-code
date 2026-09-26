@@ -9,7 +9,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
       <input id="nav-q" name="q" placeholder="Search chats, projects, plugins, people…" autocomplete="off"
              hx-get="/nav/items" hx-trigger="load, palette-open, nav-refresh from:body, input changed delay:100ms" hx-target="#nav-results"
              class="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-base-content outline-none placeholder:text-faint">
-      <kbd class="kbd kbd-xs border-ui-border bg-base-200 text-subtle">esc</kbd>
+      <kbd class="kbd kbd-xs">esc</kbd>
     </div>
     <div id="nav-results" class="min-h-0 flex-1 overflow-y-auto"></div>
     <div class="flex gap-4 border-t border-ui-border bg-base-200 px-4 py-1.5 text-3xs text-subtle">

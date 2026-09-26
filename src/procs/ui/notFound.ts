@@ -31,9 +31,9 @@ export default function (ctx: Context, _session: Session | null, opts: { what?: 
             main: ctx.fns.procs.ui.notice({
                 tone: "warning",
                 text: what ? `There is no ${what}.` : "There is nothing at this address.",
-            }) + (opts.url ? `<p class="mt-2 text-2xs text-text-tertiary"><span class="font-mono">${esc(opts.url)}</span></p>` : "")
+            }) + (opts.url ? `<p class="mt-2 text-2xs text-faint"><span class="font-mono">${esc(opts.url)}</span></p>` : "")
                 + (back
-                    ? `<p class="mt-4"><a class="ui-focusable text-2xs text-text-link hover:underline" href="${esc(back.href)}"
+                    ? `<p class="mt-4"><a class="ui-focusable text-2xs text-primary hover:underline" href="${esc(back.href)}"
                            hx-get="${esc(back.href)}" hx-target="#main" hx-swap="innerHTML" hx-push-url="true"
                            ${ctx.fns.procs.ui.attr({ action: "back", id: "not-found" })}>← ${esc(back.label)}</a></p>`
                     : ""),

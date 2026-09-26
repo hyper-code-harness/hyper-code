@@ -44,5 +44,5 @@ export default async function (
     } else if(!opts.closed && g.will){
         content+='<form class="mt-5" method="post" action="/gaps/apply" hx-post="/gaps/apply" hx-target="#gaps-page" hx-select="#gaps-page" hx-swap="outerHTML" hx-disabled-elt="find button"><input type="hidden" name="flow" value="'+e(opts.flow)+'"><input type="hidden" name="id" value="'+e(g.id)+'"><input type="hidden" name="revision" value="'+e(g.revision)+'">'+ctx.fns.procs.ui.button({type:'submit',label:g.will,tone:'primary',size:'sm'})+'</form>';
     } else if(!opts.closed)content+='<p class="mt-4 text-xs text-faint">Пока без действия</p>';
-    return '<article id="'+dom+'" class="rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-md transition-shadow hover:shadow-lg" style="min-width:0;border-radius:16px;box-shadow:0 2px 4px rgb(0 0 0 / 4%),0 8px 24px rgb(0 0 0 / 7%)">'+content+'</article>';
+    return '<article id="'+dom+'" class="min-w-0 rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-[0_2px_4px_rgb(0_0_0/4%),0_8px_24px_rgb(0_0_0/7%)] transition-shadow hover:shadow-lg">'+content+'</article>';
 }

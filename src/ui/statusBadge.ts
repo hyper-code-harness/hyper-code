@@ -22,7 +22,7 @@ export default function (
     },
 ): string {
     const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
-    const tones = { neutral: 'badge-ghost text-subtle', info: 'border-ui-border bg-base-200 text-muted', success: 'border-success/30 bg-success/10 text-success', warning: 'border-error/30 bg-error/10 text-error', error: 'border-error/30 bg-error/10 text-error' } as const;
+    const tones = { neutral: 'badge-neutral', info: 'border-ui-border bg-base-200 text-muted', success: 'border-success/30 bg-success/10 text-success', warning: 'border-error/30 bg-error/10 text-error', error: 'border-error/30 bg-error/10 text-error' } as const;
     const tone = opts.tone ?? 'neutral';
     return `<span class="badge badge-sm gap-1 whitespace-nowrap ${tones[tone]}"${opts.title ? ` title="${esc(opts.title)}"` : ''}>${opts.dot ? '<span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>' : ''}${esc(opts.label)}</span>`;
 }

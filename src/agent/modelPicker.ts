@@ -30,9 +30,15 @@ export default async function (
     ]);
 
     const groups: Record<string, string[]> = {};
-    for (const [provider, models] of Object.entries(listed ?? {})) {
-        const values = Array.from(new Set((models ?? []).map(String).filter(Boolean)));
-        if (values.length) groups[provider] = values;
+    // Per-node model lists: every Hyper node offers its own catalogue.
+    const nodeModels: Record<string, string[]> = {};
+    for (const [group, models] of Object.entries(listed ?? {})) {
+        if (group.startsWith("hyper/")) nodeModels[group.slice("hyper/".length)] = (models ?? []).map(String);
+        // "hyper/<node>" groups belong to provider "hyper" with the node as the
+        // account (docs/hyper-node.md); accountsFor lists each node from listAccounts.
+        const provider = group.split("/")[0]!;
+        const values = Array.from(new Set((models ?? []).map(String).filter(Boolean).map(m => provider === "hyper" ? stripAccount(m) : m)));
+        if (values.length) groups[provider] = Array.from(new Set([...(groups[provider] ?? []), ...values]));
     }
     if (current && !Object.values(groups).some(models => models.some(model => sameBaseModel(model, current)))) {
         (groups[currentRoute.provider] ??= []).unshift(stripAccount(current));
@@ -48,6 +54,7 @@ export default async function (
         "kimi-coding": "Kimi Coding",
         kimi: "Kimi API",
         groq: "Groq",
+        hyper: "Hyper nodes",
         lmstudio: "LM Studio",
         mock: "Mock",
     };
@@ -78,7 +85,8 @@ export default async function (
         }).join("");
         const modelPanels = entry.accounts.map((account, accountIndex) => {
             const accountSelected = account.account === currentRoute.account && entry.provider === currentRoute.provider || (entry.provider !== currentRoute.provider && accountIndex === 0);
-            const rows = entry.models.map(baseModel => {
+            const list = entry.provider === "hyper" ? (nodeModels[account.account] ?? []).map(stripAccount) : entry.models;
+            const rows = list.map(baseModel => {
                 const target = withAccount(baseModel, entry.provider, account.account);
                 const selected = target === current;
                 const modelId = parseRoute(target).modelId;

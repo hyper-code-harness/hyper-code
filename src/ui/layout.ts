@@ -37,8 +37,8 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <!-- htmx 4 (framework bundle). Inheritance stays explicit (htmx 4 default):
      implicit inheritance let hx-trigger="load" leak into child buttons and loop.
      Default 60 s timeout; long actions opt out with hx-config='{"timeout":0}'.
-     Still htmx 2 behaviour for now: no swap of 4xx/5xx. -->
-<meta name="htmx-config" content='{"noSwap":[204,304,"4xx","5xx"]}'>
+     4xx/5xx HTML is swapped like any answer; non-HTML errors become a toast
+     (ui/controlScript). -->
 <script src="/procs/ui/htmx.js" defer></script>
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">
 <style>

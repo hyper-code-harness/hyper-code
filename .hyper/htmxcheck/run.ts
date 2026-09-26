@@ -136,5 +136,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (probe) await ctx.fns.session.delete({ id: probe });
         delete (ctx.state as any).agent?.[probe ?? ""];
     }
+    // Close the tab: it fakes visibility, so it holds an SSE connection, and
+    // Chrome allows only 6 HTTP/1.1 connections per origin. Leftover test tabs
+    // starved the user's real tabs (scripts never loaded, chat dead).
+    await B.closeSessions({ prefix: S }).catch(() => {});
     return out;
 }

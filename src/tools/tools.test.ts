@@ -249,3 +249,14 @@ describe('bash options', () => {
         expect(r.output).toContain('/tmp');
     });
 });
+
+test("read returns an image path as model-visible image content", async () => {
+    const { testCtx } = await import("../$test");
+    const ctx = await testCtx();
+    const png = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="), c => c.charCodeAt(0));
+    const path = `/tmp/read-image-${Date.now()}.png`;
+    await Bun.write(path, png);
+    const r: any = await ctx.fns.tools.read({ path });
+    expect(r.output).toBe(`[image: ${path}]`);
+    expect(r.content[0]).toMatchObject({ type: "image", mimeType: "image/png" });
+});

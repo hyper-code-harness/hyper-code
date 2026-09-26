@@ -1,11 +1,13 @@
 ---
 description: >-
   Read a file, optionally a line range. With hashline the lines come back prefixed with stable
-  anchors — read that way when you intend to edit the file afterwards.
+  anchors — read that way when you intend to edit the file afterwards. An image path (.png, .jpg,
+  .jpeg, .gif, .webp) returns the picture itself, so you can look at screenshots.
 marker: read
 promptSnippet: "read files, whole or by line range"
 promptGuidelines:
   - "Read a file in hashline mode before editing it — an edit addresses anchors, not line numbers."
+  - "To look at a screenshot or any image, read its path: the image is attached to the result and you see it."
 parameters:
   type: object
   properties:

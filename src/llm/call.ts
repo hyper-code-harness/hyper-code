@@ -205,9 +205,10 @@ async function anthropic(ctx: Context, endpoint: any, opts: any) {
     } else if (endpoint.provider === "anthropic-oauth") {
         apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: endpoint.account });
     }
-    const subscription = endpoint.provider === "claude-code" || endpoint.provider === "anthropic-oauth" || endpoint.provider === "claude-proxy";
+    const upstream = endpoint.provider === "hyper" ? (endpoint.upstream ?? "") : endpoint.provider;
+    const subscription = upstream === "claude-code" || upstream === "anthropic-oauth";
     if (apiKey) {
-        if (subscription || endpoint.provider === "kimi-coding") headers.authorization = `Bearer ${apiKey}`;
+        if (subscription || upstream === "kimi-coding" || endpoint.provider === "hyper") headers.authorization = `Bearer ${apiKey}`;
         else headers["x-api-key"] = apiKey;
     }
     if (subscription) {

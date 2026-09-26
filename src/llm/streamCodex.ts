@@ -26,10 +26,13 @@ export default async function (
 }> {
     const { agent } = opts;
     const ep = await ctx.fns.llm.resolveEndpoint({ model: agent.model });
-    const apiKey = await ctx.fns.llm.refreshCodex({ account: ep.account }) ?? ep.apiKey;
+    // Through a Hyper node the bearer is our node token and the host adds the
+    // ChatGPT account headers itself (docs/hyper-node.md).
+    const viaNode = ep.provider === "hyper";
+    const apiKey = viaNode ? ep.apiKey : (await ctx.fns.llm.refreshCodex({ account: ep.account }) ?? ep.apiKey);
     const reasoning = await ctx.fns.llm.resolveReasoningEffort({ model: agent.model, effort: agent.reasoningEffort ?? "auto" });
     if (!apiKey) throw new Error("codex: no access_token (run /settings → login)");
-    const accountId = extractAccountId(apiKey);
+    const accountId = viaNode ? "" : extractAccountId(apiKey);
 
     const { system: instructions, messages: convo } = await ctx.fns.agent.buildLlmRequest({ agent });
     const { input } = ctx.fns.llm.toCodexInput({ messages: convo as any });
@@ -56,7 +59,7 @@ export default async function (
     // before any bytes ship. Retry pre-stream with exponential backoff.
     const headers = {
         "authorization": `Bearer ${apiKey}`,
-        "chatgpt-account-id": accountId,
+        ...(accountId ? { "chatgpt-account-id": accountId } : {}),
         "originator": "codex_cli_rs",
         "version": await ctx.fns.llm.codexCliVersion({}),
         "OpenAI-Beta": "responses=experimental",

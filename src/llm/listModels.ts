@@ -1,8 +1,11 @@
 // Return models grouped by provider-prefix.
 // LM Studio is queried live; remote providers return a small curated static list.
 // Missing/unreachable providers are omitted silently.
-/** Performs the llm.listModels runtime operation. */
-export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<Record<string, string[]>> {
+/**
+ * List models per provider, including hyper/<node> groups from configured nodes.
+ * @param opts.skipNodes Omit hyper/<node> groups and do not refresh node catalogues (host-side catalogue building). @default false
+ */
+export default async function (ctx: Context, _session: Session | null, opts?: { /** Omit node groups. @default false */ skipNodes?: boolean }): Promise<Record<string, string[]>> {
     const out: Record<string, string[]> = {};
 
     // Local: LM Studio /v1/models
@@ -127,21 +130,6 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         if (tok) out["claude-code"] = claudeModels.map(id => `claude-code:${id}`);
     } catch { /* no keychain access — omit */ }
 
-    // Another Hyper relaying its Claude subscription to us: ask it which ids it
-    // serves; fall back to the static list when it is up but the call fails.
-    try {
-        const proxyUrl = (await ctx.fns.settings.getString({ module: "llm", scopeType: "global", key: "claudeProxyUrl" }))?.trim();
-        const proxyToken = proxyUrl ? (await ctx.fns.settings.getString({ module: "llm", scopeType: "global", key: "claudeProxyToken" }))?.trim() : null;
-        if (proxyUrl && proxyToken) {
-            let ids = claudeModels;
-            try {
-                const res = await fetch(`${proxyUrl.replace(/\/$/, "")}/models`, { headers: { authorization: `Bearer ${proxyToken}` }, signal: AbortSignal.timeout(3000) });
-                if (res.ok) { const j: any = await res.json(); if (Array.isArray(j?.models) && j.models.length) ids = j.models.map(String); }
-            } catch { /* proxy host unreachable — static list */ }
-            out["claude-proxy"] = ids.map(id => `claude-proxy:${id}`);
-        }
-    } catch { /* not configured */ }
-
     try {
         const managed = await ctx.fns.llm.anthropicOAuthStatus?.({});
         if (managed?.connected) {
@@ -154,5 +142,15 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         }
     } catch { /* migration unavailable / not connected — omit */ }
 
+    // Other Hypers we relay through (docs/hyper-node.md): one group per node,
+    // from the cached catalogue (refreshed at most every 5 minutes).
+    if (!opts?.skipNodes) try {
+        for (const node of await ctx.fns.node.list({})) {
+            if (!node.enabled) continue;
+            const fresh = await ctx.fns.node.refresh({ name: node.name, maxAgeMs: 5 * 60_000 }).catch(() => node);
+            const catalog = fresh?.catalog ?? node.catalog ?? [];
+            if (catalog.length) out[`hyper/${node.name}`] = catalog.map((e) => `hyper/${node.name}:${e.id}`);
+        }
+    } catch { /* node tables absent (fresh db) — omit */ }
     return out;
 }

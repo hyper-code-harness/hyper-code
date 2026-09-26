@@ -29,7 +29,7 @@ export default async function (
     account: string;
     label: string;
     model: string;
-    source: "file" | "oauth" | "keychain";
+    source: "file" | "oauth" | "keychain" | "node";
     available: boolean;
     usedPercent: number | null;
     resetsAt: number | null;
@@ -102,10 +102,27 @@ export default async function (
         }
     }
 
+    // Hyper nodes (docs/hyper-node.md): one row per node; quota is the node's
+    // most-used provider we are allowed to use, from its cached usage snapshot.
+    if (!filter || filter === "hyper") {
+        let nodes: types.node.NodeEntry[] = [];
+        try { nodes = await ctx.fns.node.list({}); } catch { nodes = []; }
+        for (const node of nodes) {
+            const item = entry("hyper", node.name, "node", byKey, reconnectKeys);
+            item.label = `hyper/${node.name}`;
+            item.model = `hyper/${node.name}:`;
+            const worst = [...(node.usage ?? [])].sort((a, b) => (b.usedPercent ?? 0) - (a.usedPercent ?? 0))[0];
+            if (worst) { item.usedPercent = worst.usedPercent; item.resetsAt = worst.resetsAt; item.planType = worst.planType; }
+            if (!node.enabled || node.lastError) { item.available = false; item.needsReconnect = Boolean(node.lastError); }
+            (item as any).nodeUrl = node.url; (item as any).models = node.catalog?.length ?? 0; (item as any).error = node.lastError;
+            out.push(item);
+        }
+    }
+
     return out;
 }
 
-function entry(provider: string, account: string, source: "file" | "oauth" | "keychain", byKey: Map<string, any>, reconnectKeys: Set<string>) {
+function entry(provider: string, account: string, source: "file" | "oauth" | "keychain" | "node", byKey: Map<string, any>, reconnectKeys: Set<string>) {
     const known = byKey.get(`${provider}:${account}`);
     const usedPercent = known?.usedPercent ?? null;
     const needsReconnect = reconnectKeys.has(`${provider}:${account}`);

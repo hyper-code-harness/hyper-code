@@ -19,12 +19,25 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     account: string;
     kind: "subscription" | "api" | "local";
     api: "openai" | "anthropic" | "responses" | "mock";
+    /** For hyper/<node> models: the provider the node uses upstream (e.g. claude-code). */
+    upstream?: string;
 }> {
     const model = opts.model;
     const m = /^([a-z][\w\-]*)(?:\/([\w\-.]+))?:(.+)$/.exec(model);
     const provider = m ? m[1]! : "lmstudio";
     const account = (m?.[2] ?? "default");
     const modelId = m ? m[3]! : model;
+    // hyper/<node>:<model> — another Hyper relays the call through its own
+    // provider (docs/hyper-node.md). The wire api and billing kind come from the
+    // node's cached catalogue; the bearer is our client token for that node.
+    if (provider === "hyper") {
+        const node = await ctx.fns.node.get({ name: account });
+        if (!node || !node.enabled) throw new Error(`hyper node not configured: ${account}`);
+        const entry = node.catalog?.find((e) => e.id === modelId);
+        if (!entry) throw new Error(`hyper/${account} does not offer model ${modelId}`);
+        const path = entry.api === "openai" ? "chat" : entry.api;
+        return { url: `${node.url}/${path}`, apiKey: await ctx.fns.node.token({ name: account }), modelId, provider, account, kind: entry.kind, api: entry.api, upstream: entry.provider };
+    }
     const p = PROVIDERS[provider];
     if (!p) throw new Error(`unknown provider: ${provider}`);
 
@@ -133,20 +146,6 @@ const PROVIDERS: Record<string, ProviderConfig> = {
         kind: "subscription",
         resolveBaseUrl: () => "https://api.anthropic.com",
         resolveApiKey: () => null,
-    },
-    "claude-proxy": {
-        // Another Hyper instance relays our Anthropic calls through ITS Claude
-        // subscription (src/llm/$route_proxy_anthropic_v1_messages_POST.ts).
-        // Same wire format and Claude Code identity as claude-code; the bearer is
-        // the proxy token, refresh is the proxy host's business.
-        api: "anthropic",
-        kind: "subscription",
-        resolveBaseUrl: async (ctx) => {
-            const url = await declaredString("claudeProxyUrl")(ctx);
-            if (!url) throw new Error("claude-proxy: CLAUDE_PROXY_URL is not configured");
-            return url.replace(/\/$/, "");
-        },
-        resolveApiKey: declaredSecret("claudeProxyToken"),
     },
     xai: {
         // SuperGrok / X Premium subscription via xAI Device OAuth.

@@ -76,11 +76,12 @@ export default async function (
         apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: ep.account });
     }
 
-    const claudeSubscription = ep.provider === "claude-code" || ep.provider === "anthropic-oauth" || ep.provider === "claude-proxy";
+    const upstream = ep.provider === "hyper" ? (ep.upstream ?? "") : ep.provider;
+    const claudeSubscription = upstream === "claude-code" || upstream === "anthropic-oauth";
     if (apiKey) {
         // Authentication semantics come from the selected provider, not from a
         // token-prefix heuristic. This prevents accidental billing/auth changes.
-        if (claudeSubscription || ep.provider === "kimi-coding") {
+        if (claudeSubscription || upstream === "kimi-coding" || ep.provider === "hyper") {
             headers["authorization"] = `Bearer ${apiKey}`;
         } else {
             headers["x-api-key"] = apiKey;

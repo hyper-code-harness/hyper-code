@@ -120,7 +120,7 @@ export default async function (
 
 // Which providers own a quota at all. Pay-per-token keys have a balance, not a
 // remaining percentage, and local models have neither.
-const SUBSCRIPTION = new Set(["codex", "claude-code", "anthropic-oauth", "kimi-coding", "xai"]);
+const SUBSCRIPTION = new Set(["codex", "claude-code", "anthropic-oauth", "kimi-coding", "xai", "hyper"]);
 
 function splitModel(model: string): { provider: string; account: string } {
     const m = /^([a-z][\w\-]*)(?:\/([\w\-.]+))?:/.exec(model);

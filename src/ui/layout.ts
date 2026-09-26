@@ -40,6 +40,12 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* Compact lazy tool links. The tray is assembled client-side so consecutive
    calls occupy one visual row without wrapping each button in extra markup. */
 .tool-tray { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
+.inplace-popup-panel[id^="chat-more-"] { width: 13rem; padding: .35rem; }
+.inplace-popup-panel[id^="chat-more-"] :is(a, button) { justify-content: flex-start !important; width: 100%; min-height: 2.25rem; }
+.tool-tray-toggle { display: inline-flex; align-items: center; gap: .3rem; height: 1.5rem; padding: 0 .55rem; border: 1px solid var(--ui-border); border-radius: 9999px; background: rgb(from var(--color-base-100) r g b / .6); font-size: var(--text-2xs); color: var(--color-subtle); cursor: pointer; }
+.tool-tray-toggle:hover { color: var(--color-base-content); border-color: var(--ui-border-strong); }
+/* Folded: failures and the latest call stay on the row. */
+.tool-tray--folded > .tool:not(.text-error):not(:last-child) { display: none; }
 .tool.tool-tucked {
   width: 1.333rem; height: 1.333rem; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -98,11 +104,12 @@ export default async function (ctx: Context, session: Session | null, opts: {
  * token count go too, so the title keeps real room. */
 @container chat (max-width: 560px) {
   #chat-panel > header { gap: .4rem; padding-right: .75rem; }
-  #chat-panel > header > span.ml-auto > :not(:first-child):not(:nth-child(2)) { display: none !important; }
+  /* Only the model-adjacent effort pill and the ⋯ menu stay. */
+  #chat-panel > header > span.ml-auto > :not(:first-child):not([popovertarget^="chat-more-"]):not([id^="chat-more-"]) { display: none !important; }
   #chat-panel > header > span:nth-of-type(1) { flex: 1 1 auto; min-width: 3rem; }
 }
 @container chat (max-width: 420px) {
-  #chat-panel > header > span.ml-auto > :not(:first-child) { display: none !important; }
+  #chat-panel > header > span.ml-auto > :not([popovertarget^="chat-more-"]):not([id^="chat-more-"]) { display: none !important; }
   #chat-panel > header #status-bar > span[title="context tokens"] { display: none; }
 }
 .dot-grid-surface {
@@ -203,8 +210,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
   .chat-composer [data-attach-button] { left: 0; top: 0; }
 
   #chat-panel > header > span:nth-of-type(1) { flex: 1; }
-  #chat-panel > header > span.ml-auto { max-width: 3.25rem; overflow: hidden; }
-  #chat-panel > header > span.ml-auto > :not(:first-child) { display: none !important; }
+  #chat-panel > header > span.ml-auto > :not([popovertarget^="chat-more-"]):not([id^="chat-more-"]) { display: none !important; }
   #messages, #messages > *, #messages .assistant, #messages .user, #messages .tool { min-width: 0; max-width: 100%; }
   #messages { overflow-x: hidden !important; }
   #messages .tool { min-width: 2.25rem; min-height: 2.25rem; padding: .45rem; touch-action: manipulation; }

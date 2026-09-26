@@ -202,6 +202,32 @@
 
         arrangeTools(root) {
             root?.querySelectorAll('.tool[data-tool]').forEach(card => this.moveToTray(card));
+            root?.querySelectorAll('.tool-tray').forEach(tray => this.summarizeTray(tray));
+        }
+
+        // A long run of tool calls is one line — "12 tool calls ▸" — that opens
+        // in place. Failed and running calls stay visible while folded, so the
+        // row still says what went wrong or what is happening now.
+        summarizeTray(tray) {
+            const tools = [...tray.querySelectorAll(':scope > .tool[data-tool]')];
+            let toggle = tray.querySelector(':scope > .tool-tray-toggle');
+            if (tools.length <= 4) { toggle?.remove(); tray.classList.remove('tool-tray--folded'); return; }
+            if (!toggle) {
+                toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'tool-tray-toggle';
+                toggle.dataset.action = 'toggle-tools';
+                toggle.addEventListener('click', () => {
+                    tray.dataset.open = tray.dataset.open === '1' ? '0' : '1';
+                    this.summarizeTray(tray);
+                }, { signal: this.abort.signal });
+                tray.prepend(toggle);
+            } else if (toggle !== tray.firstElementChild) tray.prepend(toggle);
+            const open = tray.dataset.open === '1';
+            const failed = tools.filter(t => /\btext-error\b/.test(t.className)).length;
+            tray.classList.toggle('tool-tray--folded', !open);
+            toggle.setAttribute('aria-expanded', String(open));
+            toggle.innerHTML = `<i class="ph ph-caret-${open ? 'down' : 'right'}" aria-hidden="true"></i><span>${tools.length} tool calls</span>${failed ? `<span class="text-error">· ${failed} failed</span>` : ''}`;
         }
 
         moveToTray(card) {

@@ -107,6 +107,22 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         contentHtml: `<div class="min-w-0 space-y-3"><label class="block text-xs font-medium text-muted">Mode<select form="status-line-form-${esc(id)}" name="mode" class="mt-1 block w-full rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs"><option value="global"${statusMode === "global" ? " selected" : ""}>Global</option><option value="custom"${statusMode === "custom" ? " selected" : ""}>Custom</option><option value="off"${statusMode === "off" ? " selected" : ""}>Off</option></select></label><label class="block min-w-0 text-xs font-medium text-muted">Custom text<textarea form="status-line-form-${esc(id)}" name="text" maxlength="500" rows="4" placeholder="Overrides the global Status Line…" class="mt-1 block w-full min-w-0 max-w-full box-border resize-y rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content">${esc(agent.statusLine ?? '')}</textarea></label><label class="block min-w-0 text-xs font-medium text-muted">Custom cadence: every <input form="status-line-form-${esc(id)}" name="every" type="number" min="1" max="100" value="${Math.max(1, Number(agent.statusLineEvery ?? 1))}" class="mt-1 block w-full min-w-0 max-w-full box-border rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content"></label>${ctx.fns.procs.ui.button({ action: 'save-status-line', label: 'Save', type: 'submit', tone: 'primary', class: 'w-full', attrs: { form: `status-line-form-${id}` } })}</div>`,
     });
 
+    const moreMenu = await ctx.fns.ui.inplacePopup({
+        id: `chat-more-${id}`,
+        triggerHtml: '<i class="ph ph-dots-three text-base" aria-hidden="true"></i>',
+        triggerAttrs: 'class="flex size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content" title="More actions" aria-label="More actions"',
+        panelAttrs: 'aria-label="Agent actions"',
+        contentHtml: `<div class="flex flex-col">
+  ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>Initial prompt', attrs: 'class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content"' })}
+  <a href="/shared-agents?from=${encodeURIComponent(id)}" class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content"><i class="ph ph-users-three" aria-hidden="true"></i>Shared Agents</a>
+  <form method="POST" action="/agent/${encodeURIComponent(id)}/fork" hx-boost="false">${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>Fork and open', type: 'submit', appearance: 'plain', class: 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content' })}</form>
+  <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content"><i class="ph ph-info" aria-hidden="true"></i>Agent page</a>
+  <div class="my-1 h-px bg-ui-border" aria-hidden="true"></div>
+  <form method="POST" action="/agent/${encodeURIComponent(id)}/archive" hx-boost="false">${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive" aria-hidden="true"></i>Archive', type: 'submit', appearance: 'plain', title: 'Hides from the rail, keeps the transcript', class: 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content' })}</form>
+  <form method="POST" action="/agent/${encodeURIComponent(id)}/delete" hx-boost="false" onsubmit="return confirm('delete ${esc(id)}? The transcript goes with it.')">${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash" aria-hidden="true"></i>Delete', type: 'submit', appearance: 'plain', class: 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-error hover:bg-error/10' })}</form>
+</div>`,
+    });
+
     // header names THIS agent and holds its controls, nothing more.
     return `
 <header class="glass-bar absolute inset-x-0 top-0 z-40 mx-auto mt-2 flex h-11 w-[calc(100%-2rem)] max-w-3xl shrink-0 items-center gap-2.5 overflow-visible rounded-[22px] border border-ui-border pl-2 pr-5 text-xs text-muted">
@@ -121,22 +137,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     ${effortControl}
     ${compactPopup}
 
-    ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>', attrs: 'title="Initial prompt" aria-label="Initial prompt" class="px-1 text-faint hover:text-primary"' })}
-
-    <a href="/shared-agents?from=${encodeURIComponent(id)}" title="Publish or use Shared Agents" aria-label="Shared Agents" class="px-1 text-faint hover:text-primary"><i class="ph ph-users-three" aria-hidden="true"></i></a>
-
-    <form method="POST" action="/agent/${encodeURIComponent(id)}/fork" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>', type: 'submit', appearance: 'plain', title: 'fork and open', ariaLabel: 'Fork and open agent', class: 'px-1 text-faint transition hover:text-primary' })}
-    </form>
-
-    <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" title="agent page" class="px-1 text-faint hover:text-muted">ⓘ</a>
-    <span class="mx-1 h-5 w-px bg-ui-border" aria-hidden="true"></span>
-    <form method="POST" action="/agent/${encodeURIComponent(id)}/archive" hx-boost="false" class="inline">
-      ${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive"></i>', type: 'submit', appearance: 'plain', title: 'archive — hides from the rail, keeps the transcript', class: 'rounded px-1 text-faint hover:bg-error/10 hover:text-error' })}
-    </form>
-    <form method="POST" action="/agent/${encodeURIComponent(id)}/delete" hx-boost="false" class="inline" onsubmit="return confirm('delete ${esc(id)}? The transcript goes with it.')">
-      ${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash"></i>', type: 'submit', appearance: 'plain', title: 'delete', class: 'rounded px-1 text-faint hover:bg-error/10 hover:text-error' })}
-    </form>
+    ${moreMenu}
   </span>
 </header>
 <div id="messages" data-agent-id="${esc(id)}" data-inherited-count="${inheritedCount}" style="overflow-anchor:none" class="dot-grid-surface chat-dot-grid flex-1 overflow-y-auto px-3 py-3 space-y-2">${historyHead}${eventsHtml}

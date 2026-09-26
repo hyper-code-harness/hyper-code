@@ -12,7 +12,6 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const SOURCES: Record<string, { url: string; type: string }> = {
-    "htmx.js": { url: "https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js", type: "text/javascript" },
     "tailwind.js": { url: "https://cdn.tailwindcss.com/3.4.16?plugins=typography", type: "text/javascript" },
     "phosphor.css": { url: "https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css", type: "text/css" },
     "phosphor.woff2": { url: "https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/Phosphor.woff2", type: "font/woff2" },

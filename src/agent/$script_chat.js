@@ -62,8 +62,9 @@
                 if (!this.input.value.trim() && !this.fileInput?.files?.length) return event.preventDefault();
                 this.shouldStick = true;
             }, { signal });
-            this.form.addEventListener('htmx:afterRequest', event => {
-                if (event.detail?.elt !== this.form || !event.detail?.successful) return;
+            this.form.addEventListener('htmx:after:request', event => {
+                const ctx = event.detail?.ctx;
+                if (ctx?.sourceElement !== this.form || !(ctx?.response?.status < 400)) return;
                 this.shouldStick = true;
                 this.scrollBottom();
                 this.renderAttachments();
@@ -153,8 +154,8 @@
         }
 
         beforeSwap(event) {
-            const target = event.detail?.target;
-            const source = event.detail?.elt;
+            const target = event.detail?.ctx?.target;
+            const source = event.detail?.ctx?.sourceElement;
             // Ignore late HTMX responses from a chat that has already been
             // replaced by navigation to another agent.
             if (!(target && (target === this.messages || this.panel.contains(target)))
@@ -171,8 +172,8 @@
 
         afterSwap(event) {
             if (!this.alive()) return;
-            const target = event.detail?.target;
-            const source = event.detail?.elt;
+            const target = event.detail?.ctx?.target;
+            const source = event.detail?.ctx?.sourceElement;
             const belongsHere = (target && (this.ownSwaps.has(target) || target === this.messages || this.panel.contains(target)))
                 || (source && this.panel.contains(source));
             if (!belongsHere) return;
@@ -262,15 +263,15 @@
         if (!next.mount()) { next.destroy(); current = null; }
     }
 
-    document.body.addEventListener('htmx:beforeCleanupElement', event => {
-        const target = event.detail?.elt || event.target;
+    document.body.addEventListener('htmx:before:cleanup', event => {
+        const target = event.target;
         if (current && (target === current.panel || target?.contains?.(current.panel))) {
             current.destroy();
             current = null;
         }
     });
-    document.body.addEventListener('htmx:beforeSwap', event => current?.beforeSwap(event));
-    document.body.addEventListener('htmx:afterSwap', event => {
+    document.body.addEventListener('htmx:before:swap', event => current?.beforeSwap(event));
+    document.body.addEventListener('htmx:after:swap', event => {
         current?.afterSwap(event);
         mount();
     });

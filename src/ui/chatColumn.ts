@@ -147,7 +147,7 @@ ${agent.sleepContext?.active === true
 </div>
 ${await ctx.fns.ui.chatComposer({ action: `/agent/${encodeURIComponent(id)}?debounceSeconds=0.1`, controlsHtml: stopControlRegion, statusHtml: statusLinePopup })}
 
-<form id="status-line-form-${esc(id)}" hx-post="/agent/${encodeURIComponent(id)}/status-line" hx-target="#status-line-label-${esc(id)}" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) document.getElementById('status-line-popover-${esc(id)}')?.hidePopover()"></form>
+<form id="status-line-form-${esc(id)}" hx-post="/agent/${encodeURIComponent(id)}/status-line" hx-target="#status-line-label-${esc(id)}" hx-swap="innerHTML" hx-on::after:request="if(event.detail.ctx?.response?.status < 400) document.getElementById('status-line-popover-${esc(id)}')?.hidePopover()"></form>
 
 `;
 }

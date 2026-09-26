@@ -25,7 +25,7 @@ export default async function (
           hx-trigger="submit"
           hx-encoding="multipart/form-data"
           hx-swap="none"
-          hx-on::after-request="if (event.detail.elt === this && event.detail.successful) { this.elements.input.value=''; this.elements.files.value=''; this.querySelector('[data-attachments]')?.replaceChildren(); this.elements.input.focus(); }">
+          hx-on::after:request="if (event.detail.ctx?.sourceElement === this && (event.detail.ctx?.response?.status < 400)) { this.elements.input.value=''; this.elements.files.value=''; this.querySelector('[data-attachments]')?.replaceChildren(); this.elements.input.focus(); }">
       <div class="mb-1.5 text-center text-3xs leading-none text-faint"><kbd>⌘J/K</kbd> scroll · <kbd>Ctrl J</kbd> next unread · <kbd>Ctrl K</kbd> back · Enter to send</div>
       <div data-attachments class="mb-2 hidden flex-wrap gap-2 rounded-xl border border-ui-border bg-base-100/70 p-2"></div>
       <div class="relative min-h-11 w-full">

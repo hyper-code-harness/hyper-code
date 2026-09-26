@@ -22,7 +22,7 @@
         "@tailwindcss/cli": "^4.3.3",
         "@tailwindcss/typography": "^0.5.20",
         "beautiful-mermaid": "^1.1.3",
-        "htmx.org": "4.0.0-beta6",
+        "htmx.org": "4.0.0",
         "marked": "^18.0.7",
         "shiki": "^4.0.2",
         "tailwindcss": "^4.3.3",
@@ -268,7 +268,7 @@
 
     "htmlparser2": ["htmlparser2@6.1.0", "", { "dependencies": { "domelementtype": "^2.0.1", "domhandler": "^4.0.0", "domutils": "^2.5.2", "entities": "^2.0.0" } }, "sha512-gyyPk6rgonLFEDGoeRgQNaEUvdJ4ktTmmUh/h2t7s+M8oPpIPxgNACWa+6ESR57kXstwqPiCut0V8NRpcwgU7A=="],
 
-    "htmx.org": ["htmx.org@4.0.0-beta6", "", { "bin": { "upgrade-check": "dist/scripts/upgrade-check.js" } }, "sha512-se3PisNRdv7g988rKSOqsM6y/nB+7HOI8RrJYoRuK01nY1+uDBFLgdQEzLVXITLlXblvyOBZOu30hDu69keSfw=="],
+    "htmx.org": ["htmx.org@4.0.0", "", { "bin": { "upgrade-check": "dist/scripts/upgrade-check.js" } }, "sha512-T/171FUY93Kdfp8t+DnHdk45QvKRiBhVhhrwSzrXgUi4pHKvhp77dUA/qg8FAjsFWPIHNbmUuIdCrcVHuiZWng=="],
 
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
 

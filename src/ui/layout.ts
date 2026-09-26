@@ -34,7 +34,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${esc(pageTitle)}</title>
 <link rel="icon" href="${favicon}" type="image/svg+xml">
-<script src="/ui/vendor/htmx.js" defer></script>
+<!-- htmx 4 (framework bundle). Compat flags keep htmx 2 behaviour during the
+     migration: implicit inheritance, no swap of 4xx/5xx, no request timeout. -->
+<meta name="htmx-config" content='{"implicitInheritance":true,"noSwap":[204,304,"4xx","5xx"],"defaultTimeout":0}'>
+<script src="/procs/ui/htmx.js" defer></script>
+<script src="/ui/htmx-compat.js" defer></script>
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">
 <style>
 /* Compact lazy tool links. The tray is assembled client-side so consecutive

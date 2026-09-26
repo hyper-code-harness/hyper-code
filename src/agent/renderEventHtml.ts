@@ -28,7 +28,7 @@ function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true
         action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`,
         post: url, swap: 'none', vals: { idx: String(idx), mode }, title, ariaLabel: title,
         class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-error/30 hover:bg-error/10 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/30',
-        attrs: { 'hx-confirm': confirm, 'hx-on::after-request': 'if (event.detail.successful) location.reload();' },
+        attrs: { 'hx-confirm': confirm, 'hx-on::after:request': 'if (event.detail.ctx?.response?.status < 400) location.reload();' },
     });
     return '<div class="' + (placement === 'side' ? 'flex gap-1' : 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100') + '">'
         + (allowOne ? actionControl('one', 'Delete message', 'delete this message?', 'ph-trash') : '')

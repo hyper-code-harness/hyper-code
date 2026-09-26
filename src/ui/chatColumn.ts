@@ -70,7 +70,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         triggerHtml: '<i class="ph ph-arrows-in-line-vertical"></i>',
         triggerAttrs: 'class="px-1 text-faint hover:text-primary" title="Compact context" aria-label="Compact context"',
         panelAttrs: 'aria-label="Compact context"',
-        contentHtml: `<form hx-post="/agent/${encodeURIComponent(id)}/compact" hx-swap="none"><div class="text-sm font-medium">Compact context</div><textarea name="instructions" rows="3" placeholder="Optional focus instructions" class="mt-2 w-full rounded border border-ui-border bg-base-100 p-2 text-xs"></textarea>${ctx.fns.procs.ui.button({ action: 'compact-context', label: 'Compact', type: 'submit', tone: 'primary', class: 'mt-2' })}</form>`,
+        contentHtml: `<form hx-post="/agent/${encodeURIComponent(id)}/compact" hx-swap="none" hx-config='{"timeout":0}'><div class="text-sm font-medium">Compact context</div><textarea name="instructions" rows="3" placeholder="Optional focus instructions" class="mt-2 w-full rounded border border-ui-border bg-base-100 p-2 text-xs"></textarea>${ctx.fns.procs.ui.button({ action: 'compact-context', label: 'Compact', type: 'submit', tone: 'primary', class: 'mt-2' })}</form>`,
     });
 
     const modelControl = ctx.fns.ui.popup({

@@ -66,21 +66,15 @@
     const SECTIONS = ['goal', 'knowledge', 'automation', 'settings', 'team', 'plan'];
     const pending = new Map(); // element -> timer
 
+    // innerMorph keeps what the reader has in hand: open/closed sections
+    // (morphIgnore "open"), focus, caret and typed text in inputs.
     function redraw(slot) {
-        const details = slot.querySelector(':scope > details');
-        const wasOpen = details ? details.open : null;
         const agentId = slot.id.slice(slot.id.lastIndexOf('-') + 1);
         htmx.ajax('POST', '/rpc', {
             target: slot,
-            swap: 'innerHTML',
+            swap: 'innerMorph',
             values: { method: 'ui.agentMetaSectionHtml', params: JSON.stringify({ agentId, section: slot.dataset.metaSection }) },
-        }).then(() => restore(slot, wasOpen), () => {});   // htmx 4 resolves after the swap
-    }
-
-    function restore(slot, wasOpen) {
-        if (wasOpen === null) return;
-        const details = slot.querySelector(':scope > details');
-        if (details && details.open !== wasOpen) details.open = wasOpen;
+        }).catch(() => {});
     }
 
     document.addEventListener('hyper-events', event => {

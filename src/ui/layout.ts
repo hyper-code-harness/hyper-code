@@ -38,7 +38,10 @@ export default async function (ctx: Context, session: Session | null, opts: {
      implicit inheritance let hx-trigger="load" leak into child buttons and loop.
      Default 60 s timeout; long actions opt out with hx-config='{"timeout":0}'.
      4xx/5xx HTML is swapped like any answer; non-HTML errors become a toast
-     (ui/controlScript). -->
+     (ui/controlScript).
+     morphIgnore "open": a morph keeps the reader's open/closed <details>
+     instead of resetting it to whatever the server rendered. -->
+<meta name="htmx-config" content='{"morphIgnore":["data-htmx-powered","open"]}'>
 <script src="/procs/ui/htmx.js" defer></script>
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">
 <style>

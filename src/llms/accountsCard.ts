@@ -67,7 +67,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     ], right: ctx.fns.ui.popup({ method: "llms.loginProgressFor", params: { provider: f.provider, account: f.account }, tone: "default", size: "xs", html: "Continue login" }) })).join("");
 
     const html = `<div class="space-y-6">${providerSections}${flowRows ? `<section>${ctx.fns.procs.ui.heading({ title: "Logins in progress", meta: "Safe authorization status only." })}<div class="mt-2 overflow-hidden rounded-xl border border-ui-border bg-base-100">${flowRows}</div></section>` : ""}</div>`;
-    return ctx.fns.ui.live({ id: "llm-accounts", url: "/llms/accounts", topic: "llm-accounts", every: 10, attrs: 'class="block"', html });
+    // Morph, not replace: the 10 s refresh must not snap an open "details" shut.
+    return ctx.fns.ui.live({ id: "llm-accounts", url: "/llms/accounts", topic: "llm-accounts", swap: "outerMorph", every: 10, attrs: 'class="block"', html });
 }
 
 function addButton(ctx: Context, provider: "claude-code" | "codex" | "xai", title: string): string {

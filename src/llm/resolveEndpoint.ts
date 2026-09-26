@@ -134,6 +134,20 @@ const PROVIDERS: Record<string, ProviderConfig> = {
         resolveBaseUrl: () => "https://api.anthropic.com",
         resolveApiKey: () => null,
     },
+    "claude-proxy": {
+        // Another Hyper instance relays our Anthropic calls through ITS Claude
+        // subscription (src/llm/$route_proxy_anthropic_v1_messages_POST.ts).
+        // Same wire format and Claude Code identity as claude-code; the bearer is
+        // the proxy token, refresh is the proxy host's business.
+        api: "anthropic",
+        kind: "subscription",
+        resolveBaseUrl: async (ctx) => {
+            const url = await declaredString("claudeProxyUrl")(ctx);
+            if (!url) throw new Error("claude-proxy: CLAUDE_PROXY_URL is not configured");
+            return url.replace(/\/$/, "");
+        },
+        resolveApiKey: declaredSecret("claudeProxyToken"),
+    },
     xai: {
         // SuperGrok / X Premium subscription via xAI Device OAuth.
         // The access token is decrypted/refreshed lazily by streamXai.

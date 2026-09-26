@@ -127,6 +127,21 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         if (tok) out["claude-code"] = claudeModels.map(id => `claude-code:${id}`);
     } catch { /* no keychain access — omit */ }
 
+    // Another Hyper relaying its Claude subscription to us: ask it which ids it
+    // serves; fall back to the static list when it is up but the call fails.
+    try {
+        const proxyUrl = (await ctx.fns.settings.getString({ module: "llm", scopeType: "global", key: "claudeProxyUrl" }))?.trim();
+        const proxyToken = proxyUrl ? (await ctx.fns.settings.getString({ module: "llm", scopeType: "global", key: "claudeProxyToken" }))?.trim() : null;
+        if (proxyUrl && proxyToken) {
+            let ids = claudeModels;
+            try {
+                const res = await fetch(`${proxyUrl.replace(/\/$/, "")}/models`, { headers: { authorization: `Bearer ${proxyToken}` }, signal: AbortSignal.timeout(3000) });
+                if (res.ok) { const j: any = await res.json(); if (Array.isArray(j?.models) && j.models.length) ids = j.models.map(String); }
+            } catch { /* proxy host unreachable — static list */ }
+            out["claude-proxy"] = ids.map(id => `claude-proxy:${id}`);
+        }
+    } catch { /* not configured */ }
+
     try {
         const managed = await ctx.fns.llm.anthropicOAuthStatus?.({});
         if (managed?.connected) {

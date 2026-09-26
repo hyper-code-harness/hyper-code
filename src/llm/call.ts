@@ -205,7 +205,7 @@ async function anthropic(ctx: Context, endpoint: any, opts: any) {
     } else if (endpoint.provider === "anthropic-oauth") {
         apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: endpoint.account });
     }
-    const subscription = endpoint.provider === "claude-code" || endpoint.provider === "anthropic-oauth";
+    const subscription = endpoint.provider === "claude-code" || endpoint.provider === "anthropic-oauth" || endpoint.provider === "claude-proxy";
     if (apiKey) {
         if (subscription || endpoint.provider === "kimi-coding") headers.authorization = `Bearer ${apiKey}`;
         else headers["x-api-key"] = apiKey;

@@ -76,7 +76,7 @@ export default async function (
         apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: ep.account });
     }
 
-    const claudeSubscription = ep.provider === "claude-code" || ep.provider === "anthropic-oauth";
+    const claudeSubscription = ep.provider === "claude-code" || ep.provider === "anthropic-oauth" || ep.provider === "claude-proxy";
     if (apiKey) {
         // Authentication semantics come from the selected provider, not from a
         // token-prefix heuristic. This prevents accidental billing/auth changes.

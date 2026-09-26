@@ -11,7 +11,7 @@ export default async function (ctx: Context, session: Session | null, opts: { re
     if (password) {
     if (url.pathname.startsWith('/sidebar/draft/')) return ctx.fns.sidebar.draft({ req: opts.req });
         const publicPath = url.pathname === "/auth/login" || url.pathname === "/auth/logout" || url.pathname === "/favicon.ico";
-        const infrastructurePath = url.pathname === "/repl" || url.pathname.startsWith("/external/");
+        const infrastructurePath = url.pathname === "/repl" || url.pathname.startsWith("/external/") || url.pathname.startsWith("/llm/proxy/");
         if (!publicPath && !infrastructurePath) {
             const user = await ctx.fns.procs.auth.authenticate({ req: opts.req });
             if (!user) {

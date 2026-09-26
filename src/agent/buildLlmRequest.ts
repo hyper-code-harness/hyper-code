@@ -84,7 +84,7 @@ export default async function (
     // The status line is a persisted transcript row (see agent.run).
     let system = '';
     let bodyText = fullPrompt;
-    if (ep.provider === 'claude-code' || ep.provider === 'anthropic-oauth') {
+    if (ep.provider === 'claude-code' || ep.provider === 'anthropic-oauth' || ep.provider === 'claude-proxy') {
         system = claudeCodeHeader;
         if (bodyText.startsWith(claudeCodeHeader)) {
             bodyText = bodyText.slice(claudeCodeHeader.length).trimStart();

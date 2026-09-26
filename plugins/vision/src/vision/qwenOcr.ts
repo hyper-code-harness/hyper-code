@@ -1,12 +1,13 @@
 /**
  * Transcribes an image to Markdown with a local Qwen3-VL model served by LM Studio.
  *
- * Accurate local OCR engine: sends the image to an OpenAI-compatible LM Studio server (setting vision.lmstudioUrl, model vision.qwenModel, default qwen3-vl-8b-instruct 8-bit MLX) and returns Markdown with tables. Tradeoffs from a 7-image bench on M3 Ultra: best accuracy of the tested engines on Russian text, invoices, receipts, handwriting and tables (beat GLM-OCR, PaddleOCR-VL 1.6, MinerU 4 and matched Chandra 2), but ~5-30 s per image (≈55-60 tokens/s, time grows with the amount of text), no line boxes or confidence, needs LM Studio running with the model loaded (~10 GB RAM), and as a generative model it can silently hallucinate or loop on dense pages — check truncated and verify money amounts. HEIC/TIFF must be converted to JPEG/PNG first. Prefer vision.ocr with engine qwen.
+ * Accurate local OCR engine: sends the image to an OpenAI-compatible LM Studio server (setting vision.lmstudioUrl, model vision.qwenModel, default qwen3-vl-8b-instruct 8-bit MLX) and returns Markdown with tables. Tradeoffs from a 7-image bench on M3 Ultra: best accuracy of the tested engines on Russian text, invoices, receipts, handwriting and tables (beat GLM-OCR, PaddleOCR-VL 1.6, MinerU 4 and matched Chandra 2), but ~5-30 s per image (≈55-60 tokens/s, time grows with the amount of text), no line boxes or confidence, needs LM Studio with the model downloaded (auto-started and auto-loaded via vision.ensureModel, ~10 GB RAM, unloaded after 1 h idle), and as a generative model it can silently hallucinate or loop on dense pages — check truncated and verify money amounts. HEIC/TIFF must be converted to JPEG/PNG first. Prefer vision.ocr with engine qwen.
  * @param opts.path Absolute or server-relative path to a PNG, JPEG, WebP or GIF image.
  * @param opts.prompt Override the transcription instruction, e.g. to extract specific fields as JSON. Defaults to verbatim Markdown transcription.
  * @param opts.model LM Studio model identifier; overrides the vision.qwenModel setting.
  * @param opts.maxTokens Upper bound on generated tokens; dense spreadsheets need ~2000. @default 6000 @minimum 64 @maximum 32000
  * @param opts.timeoutSeconds Abort the LM Studio request after this many seconds. @default 300 @minimum 10 @maximum 3600
+ * @param opts.ensure Call vision.ensureModel first so LM Studio's server is started and the model loaded on demand (first call pays ~5-15 s load). @default true
  */
 export default async function (
     ctx: Context,
@@ -22,14 +23,17 @@ export default async function (
         maxTokens?: number;
         /** Abort the LM Studio request after this many seconds. @default 300 @minimum 10 @maximum 3600 */
         timeoutSeconds?: number;
+        /** Call vision.ensureModel first so LM Studio's server is started and the model loaded on demand (first call pays ~5-15 s load). @default true */
+        ensure?: boolean;
     },
-): Promise<{ engine: "qwen"; model: string; path: string; durationMs: number; text: string; outputTokens: number; truncated: boolean }> {
+): Promise<{ engine: "qwen"; model: string; path: string; durationMs: number; text: string; outputTokens: number; truncated: boolean; loadedModel: boolean }> {
     const path = await import("node:path");
     const input = path.resolve(opts.path);
     const file = Bun.file(input);
     if (!(await file.exists())) throw new Error(`vision.qwenOcr: image not found: ${input}`);
     const baseUrl = (await ctx.fns.settings.getString({ module: "vision", key: "lmstudioUrl", scopeType: "global", fallback: "http://localhost:1234/v1" })) ?? "http://localhost:1234/v1";
     const model = opts.model ?? (await ctx.fns.settings.getString({ module: "vision", key: "qwenModel", scopeType: "global", fallback: "qwen3-vl-8b-instruct" })) ?? "qwen3-vl-8b-instruct";
+    const ensured = opts.ensure === false ? null : await ctx.fns.vision.ensureModel({ model });
     const ext = path.extname(input).toLowerCase();
     const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".gif" ? "image/gif" : "image/jpeg";
     if (ext === ".heic" || ext === ".heif" || ext === ".tif" || ext === ".tiff") throw new Error("vision.qwenOcr: convert HEIC/TIFF to JPEG or PNG first (e.g. sips -s format jpeg)");
@@ -47,5 +51,5 @@ export default async function (
     let text = json.choices[0]?.message?.content ?? "";
     const fenced = text.trim().match(/^\`\`\`(?:markdown|md)?\n([\s\S]*?)\n?\`\`\`$/);
     if (fenced?.[1] !== undefined) text = fenced[1];
-    return { engine: "qwen" as const, model, path: input, durationMs: Math.round(performance.now() - started), text: text.trim(), outputTokens: json.usage?.completion_tokens ?? 0, truncated: json.choices[0]?.finish_reason === "length" };
+    return { engine: "qwen" as const, model, path: input, durationMs: Math.round(performance.now() - started), text: text.trim(), outputTokens: json.usage?.completion_tokens ?? 0, truncated: json.choices[0]?.finish_reason === "length", loadedModel: ensured?.state === "loaded" };
 }

@@ -11,7 +11,8 @@ One API, several local engines selected with `engine`.
   - `apple` returns `lines` (text, confidence, normalized top-left box and rotated quad), `rows` (lines merged into skew-corrected visual rows, cells joined with ` | `) and `text`.
   - `qwen` returns Markdown `text` (tables as Markdown tables), `model` and `truncated`; `lines`/`rows` are empty.
 - `vision.appleOcr({ path, langs, level })` — raw Apple Vision engine (`script/apple-ocr.js` via `osascript -l JavaScript`).
-- `vision.qwenOcr({ path, prompt?, model?, maxTokens?, timeoutSeconds? })` — raw LM Studio engine; `prompt` can ask for structured fields (JSON) instead of a transcription.
+- `vision.qwenOcr({ path, prompt?, model?, maxTokens?, timeoutSeconds?, ensure? })` — raw LM Studio engine; `prompt` can ask for structured fields (JSON) instead of a transcription.
+- `vision.ensureModel({ model?, contextLength?, ttlSeconds? })` — idempotent: starts the LM Studio server (localhost only) and loads the model if needed; called automatically by `qwenOcr` (cold start ≈ +4-15 s), call it directly to pre-warm before a batch. Loaded with a 1 h idle TTL so the ~10 GB is released automatically.
 
 ## Choosing an engine
 
@@ -20,7 +21,7 @@ One API, several local engines selected with `engine`.
 | Speed | 0.3-0.5 s/image | 5-30 s/image (≈55-60 tok/s, grows with text) |
 | Accuracy | good on print, weak on symbols/tiny text | best tested; exact tables, Cyrillic, handwriting |
 | Output | lines + boxes + confidence + rows | Markdown |
-| Requirements | macOS only | LM Studio running with the model loaded (~10 GB RAM) |
+| Requirements | macOS only | LM Studio with the model downloaded; server/model auto-started (~10 GB RAM while loaded) |
 | Failure mode | symbol swaps (№→Nº, ×→x, ₽→Р, S→5), comma→dot in heavy JPEG, <10 px text lost | may hallucinate or loop on dense pages; check `truncated` |
 
 Use `apple` for quick reads, indexing and screenshots; `qwen` when exact numbers, tables or Russian text matter. Always verify money amounts and identifiers.
@@ -38,6 +39,6 @@ Skewed synthetic RU invoice, PT card receipt photo, FI medical form, postal form
 
 ## Setup
 
-- LM Studio: `lms get https://huggingface.co/mlx-community/Qwen3-VL-8B-Instruct-8bit -y` then `lms load qwen3-vl-8b-instruct --context-length 16384`.
+- LM Studio: `lms get https://huggingface.co/mlx-community/Qwen3-VL-8B-Instruct-8bit -y` (loading is automatic via `vision.ensureModel`).
 - Settings: `vision.lmstudioUrl` (env `VISION_LMSTUDIO_URL`, default `http://localhost:1234/v1`), `vision.qwenModel` (env `VISION_QWEN_MODEL`, default `qwen3-vl-8b-instruct`). Any vision model loaded in LM Studio can be swapped in.
 - HEIC/TIFF: `apple` reads them directly; convert for `qwen` (`sips -s format jpeg in.heic --out out.jpg`).

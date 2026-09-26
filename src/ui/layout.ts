@@ -178,7 +178,15 @@ export default async function (ctx: Context, session: Session | null, opts: {
   html, body, #frame { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
   body { -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
   #quick-bar { display: none !important; }
-  #page-view, #main { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
+  #page-view { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
+  /* #main is the page scroller: with overflow hidden every ordinary page on a
+   * phone showed only its first screen. The chat page keeps its own inner
+   * scroller (#messages), so it opts out below. */
+  #main { width: 100%; height: 100dvh; min-height: 0; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #main:has(> [data-page="agent"]) { overflow: hidden; }
+  /* The floating menu button sits over the page's top-left corner; ordinary
+   * pages start below it so it never covers a title or a breadcrumb. */
+  #main:not(:has(> [data-page="agent"])) { padding-top: calc(env(safe-area-inset-top) + 3.25rem); }
   #mobile-nav-button { display: inline-flex !important; position: fixed; z-index: 49; top: max(.4rem, env(safe-area-inset-top)); left: .5rem; width: 2.75rem; height: 2.75rem; align-items: center; justify-content: center; border-radius: 9999px; border: 1px solid var(--color-ui-border); background: rgb(from var(--color-base-100) r g b / .82); color: color-mix(in oklab, var(--color-base-content) 72%, transparent); box-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 5px 18px rgb(0 0 0 / .14); backdrop-filter: blur(16px) saturate(120%); -webkit-backdrop-filter: blur(16px) saturate(120%); touch-action: manipulation; }
   #mobile-nav-button:active { transform: scale(.94); }
   #chat-panel > header { padding-left: 3.1rem !important; }

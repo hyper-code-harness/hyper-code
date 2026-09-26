@@ -14,6 +14,7 @@
  * @param opts.badges Trusted badge HTML rendered after the title.
  * @param opts.text Secondary preview line (plain text, truncated).
  * @param opts.meta Metadata parts joined with " · " (plain text).
+ * @param opts.detail Trusted HTML shown under the preview, such as a highlighted search snippet.
  * @param opts.right Trusted trailing HTML such as an icon link.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
@@ -37,6 +38,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     text?: string;
     /** Metadata parts joined with " · " (plain text). */
     meta?: string[];
+    /** Trusted HTML shown under the preview, such as a highlighted search snippet. */
+    detail?: string;
     /** Trusted trailing HTML such as an icon link. */
     right?: string;
 }): string {
@@ -50,6 +53,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
   <div class="min-w-0 flex-1">
     <div class="flex flex-wrap items-center gap-2">${title}${opts.badges ?? ""}</div>
     ${opts.text ? `<p class="mt-1 truncate text-sm text-subtle" ${ctx.fns.procs.ui.attr({ role: "text" })}>${esc(opts.text)}</p>` : ""}
+    ${opts.detail ? `<div class="mt-1.5 text-xs leading-5 text-muted">${opts.detail}</div>` : ""}
     ${opts.meta?.length ? `<p class="mt-1 text-xs text-faint" ${ctx.fns.procs.ui.attr({ role: "meta" })}>${opts.meta.map(esc).join(" · ")}</p>` : ""}
   </div>
   ${opts.right ?? ""}

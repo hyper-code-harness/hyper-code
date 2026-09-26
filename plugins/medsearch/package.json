@@ -1,0 +1,13 @@
+{
+  "name": "medsearch",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "MedSearch",
+    "icon": "ph-first-aid-kit",
+    "optional": true,
+    "description": "Open PubMed and Europe PMC search with Jev semantic reranking, relevance scores, article metadata, related papers and open full text.",
+    "domains": ["eutils.ncbi.nlm.nih.gov", "www.ebi.ac.uk"]
+  }
+}

@@ -1,0 +1,20 @@
+export type EuropePmcRecord = {
+    id?: string;
+    source?: string;
+    pmid?: string;
+    pmcid?: string;
+    doi?: string;
+    title?: string;
+    abstractText?: string;
+    authorString?: string;
+    authorList?: { author?: Array<{ fullName?: string; firstName?: string; lastName?: string }> };
+    journalTitle?: string;
+    journalInfo?: { journal?: { title?: string }; printPublicationDate?: string };
+    firstPublicationDate?: string;
+    electronicPublicationDate?: string;
+    pubYear?: string;
+    pubTypeList?: { pubType?: string[] };
+    meshHeadingList?: { meshHeading?: Array<{ descriptorName?: string; meshHeading?: string }> };
+    citedByCount?: number | string;
+    isOpenAccess?: "Y" | "N";
+};

@@ -749,6 +749,17 @@ declare global {
             probe: Injected<typeof import("../../.hyper/user/marker/src/marker/probe").default>;
             status: Injected<typeof import("../../.hyper/user/marker/src/marker/status").default>;
         };
+        medsearch: {
+            article: Injected<typeof import("../plugins/medsearch/src/medsearch/article").default>;
+            europepmc: Injected<typeof import("../plugins/medsearch/src/medsearch/europepmc").default>;
+            fullText: Injected<typeof import("../plugins/medsearch/src/medsearch/fullText").default>;
+            jevRank: Injected<typeof import("../plugins/medsearch/src/medsearch/jevRank").default>;
+            mapPaper: Injected<typeof import("../plugins/medsearch/src/medsearch/mapPaper").default>;
+            pubmed: Injected<typeof import("../plugins/medsearch/src/medsearch/pubmed").default>;
+            rank: Injected<typeof import("../plugins/medsearch/src/medsearch/rank").default>;
+            related: Injected<typeof import("../plugins/medsearch/src/medsearch/related").default>;
+            search: Injected<typeof import("../plugins/medsearch/src/medsearch/search").default>;
+        };
         mineru: {
             compare: Injected<typeof import("../../.hyper/user/mineru/src/mineru/compare").default>;
             convert: Injected<typeof import("../../.hyper/user/mineru/src/mineru/convert").default>;
@@ -1431,6 +1442,11 @@ declare global {
             type ReasoningProfile = import("./llm/ReasoningProfile").ReasoningProfile;
             type UsageSnapshot = import("./llm/UsageSnapshot").UsageSnapshot;
             type UsageWindow = import("./llm/UsageWindow").UsageWindow;
+        }
+        namespace medsearch {
+            type EuropePmcRecord = import("../plugins/medsearch/src/medsearch/EuropePmcRecord").EuropePmcRecord;
+            type Paper = import("../plugins/medsearch/src/medsearch/Paper").Paper;
+            type SearchResult = import("../plugins/medsearch/src/medsearch/SearchResult").SearchResult;
         }
         namespace nav {
             type Item = import("./nav/Item").Item;

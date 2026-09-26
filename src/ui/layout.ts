@@ -33,7 +33,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <script>(function(){try{var saved=localStorage.getItem('hyper-theme');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch(_){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light'}})()</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${esc(pageTitle)}</title>
-<script src="/ui/vendor/tailwind.js"></script>
 <link rel="icon" href="${favicon}" type="image/svg+xml">
 <script src="/ui/vendor/htmx.js" defer></script>
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">

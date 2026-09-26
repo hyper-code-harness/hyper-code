@@ -90,7 +90,22 @@ export default async function (ctx: Context, session: Session | null, opts: {
   backdrop-filter: blur(12px) saturate(115%);
   -webkit-backdrop-filter: blur(12px) saturate(115%);
 }
-#chat-panel { position: relative; }
+#chat-panel { position: relative; container: chat / inline-size; }
+/* The chat header adapts to the CHAT column, not the window: with the Meta
+ * panel open a 1000px window leaves the chat ~420px, and the full action row
+ * (effort, compact, prompt, share, fork, info, archive, delete) spilled out of
+ * the glass bar over the Meta panel's toggle. Below 560px the secondary actions
+ * fold away (they stay in the agent page / Meta), below 420px the workspace and
+ * token count go too, so the title keeps real room. */
+@container chat (max-width: 560px) {
+  #chat-panel > header { gap: .4rem; padding-right: .75rem; }
+  #chat-panel > header > span.ml-auto > :not(:first-child):not(:nth-child(2)) { display: none !important; }
+  #chat-panel > header > span:nth-of-type(1) { flex: 1 1 auto; min-width: 3rem; }
+}
+@container chat (max-width: 420px) {
+  #chat-panel > header > span.ml-auto > :not(:first-child) { display: none !important; }
+  #chat-panel > header #status-bar > span[title="context tokens"] { display: none; }
+}
 .dot-grid-surface {
   background-color: var(--color-base-200);
   background-image: radial-gradient(circle, color-mix(in oklab, var(--color-base-content) 9%, transparent) 0 1px, transparent 1.35px);
@@ -175,7 +190,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
   #chat-panel { width: 100%; min-width: 0; }
   #chat-panel > header { width: calc(100% - 1rem) !important; max-width: none !important; margin-top: .4rem !important; padding-right: .55rem !important; gap: .4rem !important; }
   button, a, select, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
-  #chat-panel > header button, #chat-panel > header a { min-width: 2.25rem; min-height: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
+  #chat-panel > header button:not(.hidden), #chat-panel > header a:not(.hidden) { min-width: 2.25rem; min-height: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
   #chat-panel > header select { min-height: 2.25rem; }
   .chat-composer button { min-width: 2.75rem; min-height: 2.75rem; }
   .chat-composer [data-attach-button] { left: 0; top: 0; }
@@ -206,6 +221,8 @@ export default async function (ctx: Context, session: Session | null, opts: {
   .chat-composer > div:first-child { display: none; }
   .chat-composer .glass-input { font-size: 16px !important; }
   #app-popup { width: calc(100vw - 1rem) !important; max-height: calc(100dvh - 1rem) !important; }
+  /* On a phone the composer owns the bottom; toasts drop from the top, under the header. */
+  #toasts { top: calc(env(safe-area-inset-top) + 3.5rem) !important; bottom: auto !important; right: .5rem !important; left: .5rem; align-items: stretch !important; flex-direction: column !important; }
   #app-popup > div { max-height: calc(100dvh - 1rem) !important; }
 }
 

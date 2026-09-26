@@ -9,14 +9,14 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
         e ? `${Math.max(0, e - Math.floor(Date.now() / 1000))}s left` : "—";
 
     const envRow = (label: string, key: string, set: boolean, hint = "") => `
-<form method="POST" action="/settings/env" class="flex items-center gap-2 py-2 border-b border-base-200">
+<form method="POST" action="/settings/env" class="flex flex-wrap items-center gap-2 py-2 border-b border-base-200">
   <input type="hidden" name="key" value="${key}">
-  <span class="w-32 text-sm font-mono text-muted">${esc(label)}</span>
+  <span class="w-32 shrink-0 text-sm font-mono text-muted">${esc(label)}</span>
   <input type="password" name="value" placeholder="${set ? "(set — paste to replace)" : "paste key"}"
-    class="flex-1 px-2 py-1 text-xs font-mono border border-base-300 rounded bg-base-100">
+    class="min-w-40 flex-1 px-2 py-1 text-xs font-mono border border-base-300 rounded bg-base-100">
   <span class="text-xs ${set ? "text-success" : "text-faint"}">${set ? "✓ set" : "—"}</span>
   ${ctx.fns.procs.ui.button({ action: 'save-env', label: 'save', size: 'xs' })}
-  ${hint ? `<span class="text-xs text-faint">${esc(hint)}</span>` : ""}
+  ${hint ? `<span class="basis-full text-xs text-faint sm:basis-auto">${esc(hint)}</span>` : ""}
 </form>`;
 
     const loginBox = (state: any, host: string): string => {

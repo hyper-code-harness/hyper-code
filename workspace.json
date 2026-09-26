@@ -47,6 +47,12 @@
     },
     "ghpulse": {
       "path": "/Users/niquola/.hyper/user/ghpulse"
+    },
+    "medsearch": {
+      "path": "plugins/medsearch"
+    },
+    "vision": {
+      "path": "plugins/vision"
     }
   }
 }

@@ -1,0 +1,1 @@
+{"name":"vision","private":true,"type":"module","procs":{"src":"src","label":"Vision","icon":"ph-eye","optional":true,"description":"Local image OCR with pluggable engines: fast Apple Vision lines with boxes, or accurate Qwen3-VL Markdown via LM Studio."}}

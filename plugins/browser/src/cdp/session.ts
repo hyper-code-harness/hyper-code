@@ -32,8 +32,16 @@ export default async function (
     const browserUrl = String(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222").replace(/\/$/, "");
     let targetId = existing?.targetId || opts.targetId;
     if (!targetId) {
-        const version = await fetch(`${browserUrl}/json/version`, { signal: AbortSignal.timeout(3000) });
-        if (!version.ok) throw new Error(`Chrome CDP unavailable at ${browserUrl} (${version.status})`);
+        const probe = () => fetch(`${browserUrl}/json/version`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
+        let version = await probe();
+        // Chrome not running (reboot, crash, user quit it): start the profile
+        // once and retry instead of failing every browser call until someone
+        // starts it by hand. CDP_AUTOSTART=0 opts out.
+        if (!version?.ok && ctx.env.CDP_AUTOSTART !== "0" && (ctx.fns as any).chrome?.ensure) {
+            await (ctx.fns as any).chrome.ensure({});
+            version = await probe();
+        }
+        if (!version?.ok) throw new Error(`Chrome CDP unavailable at ${browserUrl} (${version?.status ?? "no answer"})`);
         const info: any = await version.json();
         targetId = await new Promise<string>((resolve, reject) => {
             const ws = new WebSocket(info.webSocketDebuggerUrl);

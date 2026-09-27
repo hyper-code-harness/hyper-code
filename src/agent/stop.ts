@@ -11,6 +11,7 @@ clearQueue?: boolean }) {
     const now = Date.now();
 
     // Abort the in-flight LLM call if any.
+    try { agent.samplingAbortController?.abort('stopped_by_user'); } catch {}
     try { agent.abortController?.abort('stopped_by_user'); } catch {}
 
     // Reset run state on the agent row. clearQueue also drops the pending debounce window.
@@ -46,6 +47,7 @@ clearQueue?: boolean }) {
         params: [clearQueue ? 'stopped by user; queue cleared' : 'stopped by user', now, agent.id],
     });
 
+    agent.samplingAbortController = null;
     agent.abortController = null;
     agent.isStreaming = false;
     await ctx.fns.session?.appendErrorEvent?.({ id: agent.id, error: clearQueue ? 'stopped by user; queue cleared' : 'stopped by user' });

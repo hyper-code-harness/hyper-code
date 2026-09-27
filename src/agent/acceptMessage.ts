@@ -54,6 +54,13 @@ export default async function (
         await ctx.fns.session.appendEvent({ id, event, ts });
         await ctx.fns.session.syncAgentState({ agent });
 
+        // Instant steering cancels only the active provider request. The durable
+        // run and worker lease continue; agent.run refreshes history and samples
+        // again. Tool execution has no sampling controller, so tools finish at
+        // their safe boundary before the new input is consumed.
+        if (agent.isStreaming && agent.samplingAbortController && !agent.samplingAbortController.signal.aborted) {
+            try { agent.samplingAbortController.abort("new_user_input"); } catch {}
+        }
     
         // Display-only observer: it runs independently and never changes the
         // execution goal, queue cursor, or transcript of this agent.

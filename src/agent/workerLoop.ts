@@ -230,7 +230,8 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
         if (!finalized.changes) {
             if (agent.currentJobId === runToken) {
                 agent.currentJobId = null;
-                agent.abortController = null;
+                agent.samplingAbortController = null;
+            agent.abortController = null;
                 agent.isStreaming = false;
             }
             try { await ctx.fns.session.syncAgentState({ agent }); } catch {}
@@ -270,6 +271,7 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
 
         if (agent.currentJobId === runToken) {
             agent.currentJobId = null;
+            agent.samplingAbortController = null;
             agent.abortController = null;
             agent.isStreaming = false;
         }

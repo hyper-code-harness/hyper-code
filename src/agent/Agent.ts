@@ -17,6 +17,8 @@ export type Agent = {
     waiters: Array<() => void>;
     isStreaming: boolean;
     abortController: AbortController | null;
+    /** Cancels only the current provider sampling request when new user input arrives. */
+    samplingAbortController?: AbortController | null;
     scratchpad: Record<string, any>;
     parentId?: string | null;
     statusLine?: string;

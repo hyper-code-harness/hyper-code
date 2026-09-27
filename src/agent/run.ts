@@ -123,15 +123,37 @@ export default async function (
         // pollers replace one transient bubble without creating duplicates.
         const mobileStream = { text: "", revision: 0, startedAt: Date.now() };
         agent.scratchpad.mobileStream = mobileStream;
-        const { text, usage, finishReason, toolCalls = [] } = await ctx.fns.llm.stream({
-            agent,
-            signal: ac.signal,
-            onEvent: (event: any) => {
-                if (event?.type !== "text_delta" || typeof event.delta !== "string") return;
-                mobileStream.text += event.delta;
-                mobileStream.revision++;
-            },
-        });
+        const sampling = new AbortController();
+        agent.samplingAbortController = sampling;
+        const onRunAbort = () => sampling.abort(ac.signal.reason ?? "run_aborted");
+        ac.signal.addEventListener("abort", onRunAbort, { once: true });
+        let streamed: any;
+        try {
+            streamed = await ctx.fns.llm.stream({
+                agent,
+                signal: sampling.signal,
+                onEvent: (event: any) => {
+                    if (event?.type !== "text_delta" || typeof event.delta !== "string") return;
+                    mobileStream.text += event.delta;
+                    mobileStream.revision++;
+                },
+            });
+        } catch (error: any) {
+            if (sampling.signal.aborted && sampling.signal.reason === "new_user_input" && !ac.signal.aborted) {
+                delete agent.scratchpad.mobileStream;
+                agent.samplingAbortController = null;
+                ac.signal.removeEventListener("abort", onRunAbort);
+                // Nothing from the interrupted partial response is persisted.
+                // The next loop refreshes the durable transcript and includes
+                // every user message that arrived while sampling.
+                continue;
+            }
+            throw error;
+        } finally {
+            if (agent.samplingAbortController === sampling) agent.samplingAbortController = null;
+            ac.signal.removeEventListener("abort", onRunAbort);
+        }
+        const { text, usage, finishReason, toolCalls = [] } = streamed;
         delete agent.scratchpad.mobileStream;
         const prose = String(text ?? '');
         delete agent.scratchpad.activeGoalFeedback;

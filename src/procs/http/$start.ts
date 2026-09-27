@@ -4,7 +4,7 @@ import { makeRequestCtx } from "../boot/requestCtx";
  * Start the http subsystem.
  */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}) {
-    const port = (ctx.fns.procs.config.resolve({ module: "procs/http" }) as ConfigOf<typeof import("./$config").default>).port;
+    const { port, host } = ctx.fns.procs.config.resolve({ module: "procs/http" }) as ConfigOf<typeof import("./$config").default>;
     const runtimeDir = ctx.fns.procs.project.runtimeDir({});
     await Bun.write(`${runtimeDir}/.keep`, "");
     const logFile = Bun.file(`${runtimeDir}/http.log`).writer();
@@ -16,7 +16,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         // it, and dying at ten seconds looks like a hang with no line in the log.
         idleTimeout: 120,
         port,
-        hostname: "0.0.0.0",
+        hostname: host || "0.0.0.0",
         async fetch(req) {
             const t0 = performance.now();
             const url = new URL(req.url);
@@ -78,7 +78,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     const bound = server.port ?? port;
     ctx.state.procs.http.server = { server, port: bound };
     await Bun.write(`${runtimeDir}/port`, String(bound));
-    ctx.fns.procs.log.info({ event: "http.listening", msg: `http://localhost:${bound}`, port: bound, portFile: `${runtimeDir}/port` });
+    ctx.fns.procs.log.info({ event: "http.listening", msg: `http://${host && host !== "0.0.0.0" ? host : "localhost"}:${bound}`, port: bound, host, portFile: `${runtimeDir}/port` });
 }
 
 // Response wrapping lives in http/toResponse.ts (shared with http.dispatch).

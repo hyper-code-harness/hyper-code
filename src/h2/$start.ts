@@ -16,7 +16,7 @@ import { mkdir } from "node:fs/promises";
 
 /** Start the HTTPS/HTTP2 listener that proxies into the main Bun server in-process. */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}) {
-    const cfg = ctx.fns.procs.config.resolve({ module: "h2" }) as { enabled: string; redirect: string; port: number };
+    const cfg = ctx.fns.procs.config.resolve({ module: "h2" }) as { enabled: string; redirect: string; port: number; host: string; http1: string };
     const on = (v: unknown) => !/^(0|false|off|no)$/i.test(String(v ?? "").trim());
     const port = Number(cfg.port);
     if (!on(cfg.enabled) || !port) {
@@ -56,7 +56,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     // too; https://localhost:3443 then shows a name mismatch (tests ignore it).
     const primary = hasTsCert ? { key: await Bun.file(`${dir}/ts-key.pem`).text(), cert: await Bun.file(`${dir}/ts.pem`).text() } : { key, cert };
     const server = http2.createSecureServer({
-        ...primary, allowHTTP1: true, ALPNProtocols: ["h2", "http/1.1"],
+        ...primary, allowHTTP1: on(cfg.http1), ALPNProtocols: on(cfg.http1) ? ["h2", "http/1.1"] : ["h2"],
     }, async (req, res) => {
         const inner = (ctx.state.procs.http.server as any)?.server;
         if (!inner?.fetch) { res.writeHead(503); res.end("http server not ready"); return; }
@@ -103,8 +103,8 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             if (!res.headersSent) { res.writeHead(502); res.end(String(e?.message ?? e)); } else res.destroy();
         }
     });
-    await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, "0.0.0.0", () => ok()); });
-    ctx.fns.procs.log.info({ event: "h2.started", msg: `https://${tsName && hasTsCert ? tsName : "localhost"}:${port} (HTTP/2, experimental)` });
+    await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, cfg.host || "0.0.0.0", () => ok()); });
+    ctx.fns.procs.log.info({ event: "h2.started", msg: `https://${tsName && hasTsCert ? tsName : "localhost"}:${port} (HTTP/2${on(cfg.http1) ? " + HTTP/1.1" : " only"}, experimental)` });
     return { server, port, tsName: hasTsCert ? tsName : null, redirect: on(cfg.redirect) };
 }
 

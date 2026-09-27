@@ -43,11 +43,19 @@ agent: types.agent.Agent }): Promise<string> {
     const runtime = [
         "",
         "## Runtime context (auto-injected, fresh each turn)",
-        `- workspace directory: ${agent.workspaceDir || process.cwd()}`,
-        "- read/write/grep/edit, ctx.fns.files.* , bash and ctx.fns.git.* resolve here",
+        ...(agent.workspaceHost
+            ? [
+                `- workspace: ${agent.workspaceHost}:${agent.workspaceDir} — REMOTE, on SSH host ${agent.workspaceHost}`,
+                "- read/write/edit/grep/find/bash without host act on that host; relative paths resolve against the workspace dir",
+                "- host: \"local\" acts on this machine; eval, Bun.file, ctx.fns.files.* without host and ctx.fns.git.* stay local",
+            ]
+            : [
+                `- workspace directory: ${agent.workspaceDir || process.cwd()}`,
+                "- read/write/grep/edit, ctx.fns.files.* , bash and ctx.fns.git.* resolve here",
+            ]),
         "- CAVEAT: raw Bun.file()/Bun.write() inside eval resolve against the SERVER's cwd,",
         "  not the workspace — inside eval use ctx.fns.files.* or ctx.fns.workspace.resolve({ path })",
-        "- inspect/change: ctx.fns.workspace.get({}) / await ctx.fns.workspace.set({ dir })",
+        "- inspect/change: ctx.fns.workspace.get({}) / await ctx.fns.workspace.set({ dir, host? }) — host moves the workspace onto an SSH machine",
         "- workspace is a base directory, not a sandbox",
         // Deliberately no literal id: a transcript-sharing fork must send the
         // byte-identical prefix as its parent, or the provider prompt cache misses.

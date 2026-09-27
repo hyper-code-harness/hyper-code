@@ -3,7 +3,7 @@
 /**
  * Runs a shell command in the agent workspace, or on a remote SSH host over a persistent connection.
  *
- * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.host SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host).
  * @param opts.command Shell command to execute.
  * @param opts.cwd Working directory; relative to the workspace locally, remote path with host.
  * @param opts.env Additional environment variables.
@@ -14,7 +14,7 @@ export default async function (
     ctx: Context,
     _session: Session | null,
     opts: {
-        /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */
+        /** SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host). */
         host?: string;
         /** Shell command to execute. */
         command: string;
@@ -42,7 +42,8 @@ export default async function (
         sensitive.push(value);
     }
 
-    const result = opts.host ? await remote(ctx, opts.host, opts.command, opts.cwd, { ...opts.env, ...secretEnv }, opts.timeout) : await ctx.fns.agent.executeBash({
+    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.cwd });
+    const result = at.host ? await remote(ctx, at.host, opts.command, at.path, { ...opts.env, ...secretEnv }, opts.timeout) : await ctx.fns.agent.executeBash({
         code: opts.command,
         cwd: opts.cwd,
         env: { ...opts.env, ...secretEnv },

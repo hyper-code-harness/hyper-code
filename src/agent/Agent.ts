@@ -5,6 +5,8 @@ export type Agent = {
     /** Durable preference for model-side reasoning intensity. */
     reasoningEffort?: types.llm.ReasoningEffort;
     workspaceDir: string;
+    /** SSH host alias the workspace lives on (see remote.servers); empty/undefined = local. When set, workspaceDir is a path on that host. */
+    workspaceHost?: string;
     systemPrompt: string;
     /** Narrow this agent to a subset of the declared tools (wire names). Unset
      *  = every loaded tool. What is excluded here never reaches the prompt or

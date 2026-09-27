@@ -14,7 +14,7 @@ const MAX_LINE = 400;
 /**
  * Implements bounded content search in the local workspace or on a remote SSH host.
  *
- * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.host SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host).
  * @param opts.pattern Regular expression, or plain text when literal is true.
  * @param opts.path Directory or file to search; workspace-relative locally, relative to the remote home with host.
  * @param opts.glob File glob restricting searched files.
@@ -31,7 +31,7 @@ export default async function (
     ctx: Context,
     _session: Session | null,
     opts: {
-        /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */ host?: string; /** Glob or search pattern. */
+        /** SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host). */ host?: string; /** Glob or search pattern. */
         pattern: string; /** Workspace-relative path. */ path?: string; /** Glob restricting searched files. */ glob?: string; /** Whether matching is case-insensitive. */ ignoreCase?: boolean; /** Whether to treat the pattern as literal text. */ literal?: boolean;
         /** Number of context lines around each match. */
         context?: number; /** Maximum number of results. */ limit?: number; /** Whether to include ignored files. */ noIgnore?: boolean; /** Whether to include hidden paths. */ hidden?: boolean; /** Timeout in seconds. */ timeout?: number; /** Whether to emit stable line anchors. */ hashline?: boolean;
@@ -53,8 +53,10 @@ export default async function (
 
     let remoteEngine: string | null = null;
     let rows: any[];
-    if (opts.host) {
-        const r = await ctx.fns.remote.grep({ ...query, host: opts.host });
+    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path || undefined });
+    const host = at.host;
+    if (host) {
+        const r = await ctx.fns.remote.grep({ ...query, host, path: at.path });
         remoteEngine = r.engine;
         rows = opts.hashline
             ? r.matches.map(m => ({ ...m, anchor: `${m.line}${ctx.fns.files.lineHash({ line: m.line, text: m.text })}` }))
@@ -87,8 +89,8 @@ export default async function (
 
     const notes: string[] = [];
     if (remoteEngine === "grep") {
-        notes.push(`NOTE: ripgrep is not installed on ${opts.host}; searched with grep -r (no .gitignore support).`);
-    } else if (!opts.host && !ctx.fns.files.rgPath({})) {
+        notes.push(`NOTE: ripgrep is not installed on ${host}; searched with grep -r (no .gitignore support).`);
+    } else if (!host && !ctx.fns.files.rgPath({})) {
         notes.push("WARNING: ripgrep (rg) is not installed, so this ran on the slow in-process fallback: "
             + "no .gitignore support and no parallel search. Install it — `brew install ripgrep` — and tell the user.");
     }

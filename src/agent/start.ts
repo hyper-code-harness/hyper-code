@@ -1,6 +1,7 @@
 /** Start for the runtime.  * @param opts.model Model identifier to use.
  * @param opts.title Human-readable agent title.
- * @param opts.workspaceDir Workspace directory assigned to the agent.
+ * @param opts.workspaceDir Workspace directory assigned to the agent; a path on workspaceHost when that is set.
+ * @param opts.workspaceHost SSH host alias the workspace lives on; empty or omitted means local.
  * @param opts.systemPrompt Additional system instructions.
  * @param opts.parentId Optional parent agent identifier.
  * @param opts.forkOffset Optional inherited parent transcript offset.
@@ -14,8 +15,10 @@ export default async function (
     model: string;
         /** Human-readable title. */
     title?: string;
-        /** Workspace dir used by the operation. */
+        /** Workspace directory; a path on workspaceHost when that is set. */
     workspaceDir?: string;
+        /** SSH host alias the workspace lives on; empty or omitted means local. */
+    workspaceHost?: string;
         /** Additional system instructions. */
     systemPrompt?: string;
             /** Narrow the agent to these tool wire names; unset means every declared tool. */
@@ -28,15 +31,19 @@ export default async function (
     forkOffset?: number | null },
 ): Promise<types.agent.Agent> {
     const id = await ctx.fns.agent.nextId({});
-    const workspaceDir = opts.workspaceDir
-        ? await ctx.fns.workspace.normalize({ dir: opts.workspaceDir })
-        : process.cwd();
+    const workspaceHost = String(opts.workspaceHost ?? "").trim();
+    const workspaceDir = workspaceHost && opts.workspaceDir?.startsWith("/")
+        ? opts.workspaceDir
+        : opts.workspaceDir || workspaceHost
+            ? await ctx.fns.workspace.normalize({ dir: opts.workspaceDir, host: workspaceHost })
+            : process.cwd();
     const agent: types.agent.Agent = {
         id,
         model: opts.model,
         title: String(opts.title ?? "").trim().slice(0, 120),
         reasoningEffort: "auto",
         workspaceDir,
+        workspaceHost,
         systemPrompt: opts.systemPrompt ?? "",
         tools: opts.tools,
         messages: [],

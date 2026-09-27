@@ -73,9 +73,36 @@ the two env vars above — the developer's `~/.ssh` is never touched. No Docker 
 the suite is skipped. `HYPER_SSH_FIXTURE_DOWN=1` removes the containers after
 the run. Run it by path: `bun test ./src/remote/`.
 
-## Not yet
+## Remote workspace
 
-- default host per agent: `agent.workspaceHost` next to `workspaceDir` (when set,
-  `workspaceDir` is a path on that host) — designed, not built
+An agent's workspace can live on a host:
+
+```
+await ctx.fns.workspace.set({ host: "laptop", dir: "~/proj" })   // → "laptop:/Users/me/proj"
+ctx.fns.workspace.get({})                                        // → { dir: "/Users/me/proj", host: "laptop" }
+await ctx.fns.workspace.set({ dir: "/local/path" })              // back to local
+```
+
+`agents.workspace_host` stores the alias next to `workspace_dir`; when it is set,
+`workspace_dir` is the absolute path **on that host** (resolved once by
+`workspace.set`, so `~` never depends on a later shell). Forks, compaction
+children and delegated children inherit both.
+
+Every host-aware tool resolves its target through `workspace.target({ host, path })`:
+
+| call | acts on | relative paths against |
+|------|---------|------------------------|
+| no `host`, local workspace | this machine | workspace dir |
+| no `host`, remote workspace | workspace host | workspace dir (bash: cwd defaults to it) |
+| `host: "<workspace host>"` | workspace host | workspace dir |
+| `host: "<other alias>"` | that host | its remote home |
+| `host: "local"` | this machine | server cwd (when the workspace is remote) |
+
+Stays local regardless: eval, `Bun.file`, `ctx.fns.files.*` without `host`,
+`ctx.fns.git.*`, the file preview UI (the chat header shows `host:folder`
+instead). The system prompt names the remote workspace explicitly. The workspace
+form accepts `host:path` for a known ssh alias.
+
+## Not yet
 - binary `readFile`/`writeFile` (images go through rsync)
 - permission tiers (read-only / write / sudo)

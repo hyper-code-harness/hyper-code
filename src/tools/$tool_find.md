@@ -10,7 +10,7 @@ parameters:
   properties:
     host:
       type: string
-      description: "Remote SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})). Omit to act locally. With host, path is remote; relative paths resolve against the remote home."
+      description: "SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})), or \"local\". Omit to act in the agent workspace — local, or remote when the workspace has a host. On the workspace host relative paths resolve against the workspace dir; on other hosts against the remote home."
     pattern:
       type: string
       description: "Glob, e.g. *.test.ts or src/**/*.md. A pattern without a slash matches at any depth."

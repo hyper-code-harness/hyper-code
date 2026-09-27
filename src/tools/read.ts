@@ -17,7 +17,7 @@ export default async function (
     ctx: Context,
     _session: Session | null,
     opts: {
-        /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */
+        /** SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host). */
         host?: string;
         /** File path, relative to the workspace or absolute. */
         path: string;
@@ -33,7 +33,11 @@ export default async function (
 ): Promise<string | { output: string; content: types.tools.Content[] }> {
     // An image path returns the picture itself as model-visible content, so
     // "read the screenshot" works the same way for every agent and provider.
-    if (opts.host && !opts.hashline && /\.(png|jpe?g|gif|webp)$/i.test(opts.path)) {
+    // Where this call acts: explicit host, "local", or the agent's workspace host.
+    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path });
+    const host = at.host ?? undefined;
+    const path = host ? at.path : opts.path;
+    if (host && !opts.hashline && /\.(png|jpe?g|gif|webp)$/i.test(opts.path)) {
         const { tmpdir } = await import("node:os");
         const { join, extname } = await import("node:path");
         const { mkdtemp, rm } = await import("node:fs/promises");
@@ -42,12 +46,12 @@ export default async function (
         let image: types.tools.Content;
         try {
             const local = join(dir, "image" + extname(opts.path));
-            await ctx.fns.remote.rsync({ host: opts.host, direction: "pull", remote: opts.path, local });
+            await ctx.fns.remote.rsync({ host, direction: "pull", remote: path, local });
             image = await ctx.fns.agent.imageContent({ path: local });
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
-        return { output: `[image: ${opts.host}:${opts.path}]`, content: [image] };
+        return { output: `[image: ${host}:${path}]`, content: [image] };
     }
     if (!opts.hashline && /\.(png|jpe?g|gif|webp)$/i.test(opts.path)) {
         const path = ctx.fns.workspace.resolve({ path: opts.path });
@@ -56,11 +60,11 @@ export default async function (
     }
     if (opts.hashline) {
         const r = await ctx.fns.files.readHashline({
-            path: opts.path, host: opts.host, startLine: opts.startLine, endLine: opts.endLine, maxLines: opts.maxLines,
+            path, host, startLine: opts.startLine, endLine: opts.endLine, maxLines: opts.maxLines,
         });
         return r.text;
     }
-    const text = await ctx.fns.files.read({ path: opts.path, host: opts.host });
+    const text = await ctx.fns.files.read({ path, host });
     const start = Math.max(1, opts.startLine ?? 1);
     const lines = text.replaceAll("\r\n", "\n").split("\n");
     let end = Math.max(start, opts.endLine ?? lines.length);

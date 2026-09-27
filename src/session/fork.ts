@@ -18,6 +18,7 @@ visibility?: "nav" | "team" | "hidden" }): Promise<types.agent.Agent> {
         tools: parent.tools,
         title: opts.title ?? (parent.title ? `${parent.title} (fork)` : ""),
         workspaceDir: parent.workspaceDir,
+        workspaceHost: parent.workspaceHost,
         parentId: parent.id,
         visibility: opts.visibility ?? "nav",
         forkOffset: opts.offset ?? fullCount,

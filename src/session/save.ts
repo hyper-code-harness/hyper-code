@@ -6,13 +6,14 @@ agent: types.agent.Agent }): Promise<void> {
     const now = Date.now();
     await ctx.fns.procs.db.run({
         sql: `
-        INSERT INTO agents (id, title, workspace_dir, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
+        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
         ON CONFLICT(id) DO UPDATE SET
             model = excluded.model,
             title = excluded.title,
             reasoning_effort = excluded.reasoning_effort,
             workspace_dir = excluded.workspace_dir,
+            workspace_host = excluded.workspace_host,
             system_prompt = excluded.system_prompt,
             tools = excluded.tools,
             scratchpad = excluded.scratchpad,
@@ -33,6 +34,7 @@ agent: types.agent.Agent }): Promise<void> {
             agent.id,
             agent.title ?? "",
             agent.workspaceDir || process.cwd(),
+            agent.workspaceHost ?? "",
             agent.model,
             agent.reasoningEffort ?? "auto",
             agent.systemPrompt,

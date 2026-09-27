@@ -57,7 +57,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const agentGroups = new Map<string, any[]>();
     for (const agent of visibleAgents as any[]) {
         const dir = String(agent.workspaceDir || "");
-        const key = dir || "(no workdir)";
+        const host = String(agent.workspaceHost || "");
+        const key = dir ? (host ? `${host}:${dir}` : dir) : "(no workdir)";
         const list = agentGroups.get(key) ?? [];
         list.push(agent);
         agentGroups.set(key, list);

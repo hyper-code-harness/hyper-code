@@ -14,7 +14,7 @@ parameters:
   properties:
     host:
       type: string
-      description: "Remote SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})). Omit to act locally. With host, cwd is remote and the command runs via bash -lc over a persistent connection."
+      description: "SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})), or \"local\". Omit to run in the agent workspace — local, or remote when the workspace has a host (then cwd defaults to the workspace dir). Remote commands run via bash -lc over a persistent connection."
     command:
       type: string
       description: "Shell script to run."

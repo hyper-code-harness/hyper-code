@@ -11,7 +11,7 @@ export default async function (
         /** Path to the target resource. */
     path: string },
 ): Promise<types.tools.Content> {
-    const base = session?.agent?.workspaceDir || process.cwd();
+    const base = session?.agent?.workspaceHost ? process.cwd() : (session?.agent?.workspaceDir || process.cwd());
     const path = resolve(base, opts.path);
     const file = Bun.file(path);
     if (!await file.exists()) throw new Error(`image not found: ${path}`);

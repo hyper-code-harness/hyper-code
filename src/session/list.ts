@@ -12,6 +12,8 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     createdAt: number;
     updatedAt: number;
     workspaceDir: string;
+    /** SSH host alias of the workspace; empty = local. */
+    workspaceHost: string;
     runState: string;
     unread: number;
     archivedAt: number | null;
@@ -33,6 +35,7 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
             a.model,
             a.title AS "explicitTitle",
             a.workspace_dir AS "workspaceDir",
+            a.workspace_host AS "workspaceHost",
             a.run_state AS "runState",
             a.created_at AS "createdAt",
             a.archived_at AS "archivedAt",
@@ -64,6 +67,7 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
         createdAt: Number(r.createdAt),
         updatedAt: Number(r.updatedAt),
         workspaceDir: r.workspaceDir || '',
+        workspaceHost: r.workspaceHost || '',
         runState: r.runState || 'idle',
         unread: Number(r.unread),
         archivedAt: r.archivedAt == null ? null : Number(r.archivedAt),

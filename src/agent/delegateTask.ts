@@ -52,6 +52,9 @@ export default async function (
         : await ctx.fns.agent.start({
             model: parentAgent.model,
             systemPrompt: parentAgent.systemPrompt,
+            // A delegated child works where its parent works.
+            workspaceDir: parentAgent.workspaceDir,
+            workspaceHost: parentAgent.workspaceHost,
             visibility: "team",
         });
 

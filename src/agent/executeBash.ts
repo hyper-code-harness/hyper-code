@@ -36,7 +36,8 @@ export default async function (
 
     // A relative cwd is relative to the agent's workspace, not to wherever the
     // server happens to be running.
-    const base = session?.agent?.workspaceDir ?? process.cwd();
+    // A remote workspace (workspaceHost set) is not a local directory.
+    const base = session?.agent?.workspaceHost ? process.cwd() : (session?.agent?.workspaceDir ?? process.cwd());
     const cwd = opts.cwd
         ? (opts.cwd.startsWith("/") ? opts.cwd : `${base}/${opts.cwd}`)
         : base;

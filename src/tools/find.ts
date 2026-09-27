@@ -3,7 +3,7 @@
 /**
  * Implements glob file search in the local workspace or on a remote SSH host.
  *
- * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.host SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host).
  * @param opts.pattern Glob such as *.test.ts; without a slash it matches at any depth.
  * @param opts.path Directory to search; workspace-relative locally, relative to the remote home with host.
  * @param opts.limit Maximum number of paths. @default 200 @minimum 1
@@ -14,11 +14,12 @@
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */ host?: string; /** Glob or search pattern. */ pattern: string; /** Workspace-relative path. */ path?: string; /** Maximum number of results. */ limit?: number; /** Whether to include ignored files. */ noIgnore?: boolean; /** Whether to include hidden paths. */ hidden?: boolean; /** Timeout in seconds. */ timeout?: number },
+    opts: { /** SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host). */ host?: string; /** Glob or search pattern. */ pattern: string; /** Workspace-relative path. */ path?: string; /** Maximum number of results. */ limit?: number; /** Whether to include ignored files. */ noIgnore?: boolean; /** Whether to include hidden paths. */ hidden?: boolean; /** Timeout in seconds. */ timeout?: number },
 ): Promise<string> {
     const limit = Math.max(1, opts.limit ?? 200);
-    const rows = opts.host
-        ? (await ctx.fns.remote.find({ ...opts, host: opts.host, limit })).paths
+    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path || undefined });
+    const rows = at.host
+        ? (await ctx.fns.remote.find({ ...opts, host: at.host, path: at.path, limit })).paths
         : await ctx.fns.files.find({ ...opts, limit });
     const notes: string[] = [];
     if (!rows.length) notes.push("(no files matched)");

@@ -18,7 +18,14 @@ export default async function (
     try {
         const agentCtx: any = Object.create(ctx);
         agentCtx.session = ctx.fns.session.forAgent({ agent });
-        await agentCtx.fns.workspace.set({ dir: String(form.get("workspaceDir") ?? "") });
+        const raw = String(form.get("workspaceDir") ?? "").trim();
+        // "host:path" selects a remote workspace; the host must be a known ssh alias
+        // so a local path containing ":" is never mistaken for one.
+        const m = /^([A-Za-z0-9._@-]+):(.*)$/.exec(raw);
+        const hosts = m ? (await ctx.fns.remote.servers({})).map((s: any) => s.name) : [];
+        const remote = m && hosts.includes(m[1]!) ? { host: m[1]!, dir: m[2] || "~" } : null;
+        const explicitHost = String(form.get("workspaceHost") ?? "").trim();
+        await agentCtx.fns.workspace.set(remote ?? { dir: raw, host: explicitHost || undefined });
     } catch (error: any) {
         return new Response(error?.message ?? "Invalid workspace", { status: 400 });
     }

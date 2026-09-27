@@ -11,5 +11,7 @@ import { resolve } from "node:path";
 // de-sandboxes the agent's file tools; only run agents you trust on this build.
 /** Resolves a path while preventing workspace traversal. */
 export default function (_ctx: Context, session: Session | null, opts: { /** Workspace-relative path. */ path: string }): string {
-    return resolve(session?.agent?.workspaceDir ?? process.cwd(), opts.path || ".");
+    // A remote workspace (workspaceHost set) is not a local directory.
+    const base = session?.agent?.workspaceHost ? process.cwd() : (session?.agent?.workspaceDir ?? process.cwd());
+    return resolve(base, opts.path || ".");
 }

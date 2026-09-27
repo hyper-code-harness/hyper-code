@@ -89,8 +89,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         attrs: `class="inline-flex h-7 items-center gap-1 rounded-full border border-ui-border bg-base-100/35 px-2 text-3xs font-medium text-subtle transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary" title="Reasoning effort · ${esc(effortLabel)}" aria-label="Change reasoning effort: ${esc(effortLabel)}"`,
     });
     const workspaceDir = String(agent.workspaceDir ?? '').trim();
+    const workspaceHost = String(agent.workspaceHost ?? '').trim();
     const workspaceName = workspaceDir.split('/').filter(Boolean).pop() || workspaceDir;
-    const workspaceControl = workspaceDir ? ctx.fns.ui.popup({
+    // A remote workspace is not browsable through the local file preview yet.
+    const workspaceControl = workspaceHost
+        ? `<span class="hidden min-w-0 items-center gap-1 text-micro leading-none text-faint sm:inline-flex" title="Remote workspace · ${esc(workspaceHost)}:${esc(workspaceDir)}"><i class="ph ph-hard-drives shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceHost)}:${esc(workspaceName)}</span></span>`
+        : workspaceDir ? ctx.fns.ui.popup({
         method: 'ui.previewFile',
         params: { path: workspaceDir, mode: 'auto', title: workspaceName },
         html: `<i class="ph ph-folder-open shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceName)}</span>`,

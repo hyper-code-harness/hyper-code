@@ -11,19 +11,21 @@
 /**
  * Implements structured file edits in the local workspace or on a remote SSH host.
  *
- * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.host SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host).
  * @param opts.path Workspace-relative or absolute path; with host a remote path relative to the remote home.
  * @param opts.edits Structured edit operations: literal replace or anchored line ops.
  */
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */ host?: string; /** Workspace-relative path. */ path: string; /** Structured edit operations. */ edits: types.tools.EditOp[] },
+    opts: { /** SSH host alias from ~/.ssh/config (see remote.servers), or "local"; omitted means the agent workspace (remote when workspace.set gave it a host). */ host?: string; /** Workspace-relative path. */ path: string; /** Structured edit operations. */ edits: types.tools.EditOp[] },
 ): Promise<string> {
     const ops = opts.edits.map((e, i) => toOp(e, i));
-    const r = await ctx.fns.files.applyEdits({ path: opts.path, host: opts.host, ops });
+    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path });
+    const host = at.host ?? undefined;
+    const r = await ctx.fns.files.applyEdits({ path: host ? at.path : opts.path, host, ops });
     const n = opts.edits.length;
-    return `edited ${opts.host ? opts.host + ":" : ""}${r.path} (${r.bytes} bytes, ${n} edit${n === 1 ? "" : "s"})`;
+    return `edited ${host ? host + ":" : ""}${r.path} (${r.bytes} bytes, ${n} edit${n === 1 ? "" : "s"})`;
 }
 
 function toOp(edit: types.tools.EditOp, i: number): types.files.EditHashlineOp {

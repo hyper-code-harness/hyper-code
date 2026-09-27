@@ -43,7 +43,7 @@ ctx.fns namespaces:
   agent       run, compact, start, stop, clear, delegate, team, ask, steer, finishTask, archiveMember, archiveCompleted, readAndSummarize, fullSystemPrompt, buildLlmRequest, wireTools
   llm         call, stream, resolveEndpoint, listModels
   session     append*, replace*, truncate*, delete*, get*, save, load, fork, search, syncAgentState, updateScratchpad
-  workspace   get ({}) → { dir }, set ({ dir }) — the agent's working directory; files/bash/git follow it
+  workspace   get ({}) → { dir, host }, set ({ dir, host? }) — the agent's working directory, local or on an SSH host; files/bash follow it (git stays local)
   procs.db    select, run, insert, exec, conn (framework Postgres layer — async, ? placeholders)
   settings    get, set, list, getString, getNumber, modelDefault, declared
   files       read, write, list, open, close, stat, exists, mkdir, remove, rename

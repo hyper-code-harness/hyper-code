@@ -13,6 +13,7 @@ id: string }): Promise<types.agent.Agent | null> {
         title: row.title ?? "",
         reasoningEffort: row.reasoning_effort || "auto",
         workspaceDir: row.workspace_dir || process.cwd(),
+        workspaceHost: row.workspace_host || "",
         systemPrompt: row.system_prompt,
         tools: row.tools == null ? undefined : (typeof row.tools === 'string' ? JSON.parse(row.tools) : row.tools),
         scratchpad: JSON.parse(row.scratchpad),

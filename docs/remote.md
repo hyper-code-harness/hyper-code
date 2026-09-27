@@ -74,6 +74,11 @@ the two env vars above — the developer's `~/.ssh` is never touched. No Docker 
 the suite is skipped. `HYPER_SSH_FIXTURE_DOWN=1` removes the containers after
 the run. Run it by path: `bun test ./src/remote/`.
 
+- `remote.test.ts` — `remote.*` and the host-aware tools with an explicit host.
+- `workspace.test.ts` — a remote agent workspace: `workspace.set/target`, tools
+  and git without `host`, overrides (`host: "local"`, other aliases), fork/load
+  inheritance, the system prompt, the remote Files UI and `ui.previewFile`.
+
 ## Remote workspace
 
 An agent's workspace can live on a host:

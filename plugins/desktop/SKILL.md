@@ -1,28 +1,35 @@
 ---
 name: desktop
-description: "Control the local macOS desktop like a user: list apps and windows, read any native app's UI as an Accessibility tree, press buttons and menu items, fill fields, click, type, press shortcuts, scroll and take screenshots with OCR. Use when a task needs a native Mac app (Calculator, Notes, Finder, System Settings, Mail, Numbers, …) that has no API or plugin. For Chrome pages prefer the browser plugin."
+description: "Control macOS desktops like a user — this Mac or any Mac reachable over SSH: list apps and windows, look at a window (Accessibility outline with clickable indexes + screenshot + OCR), click, type, press keys, scroll and fill fields in the background without stealing the pointer. Built on Cua Driver (trycua/cua). Use when a task needs a native or Electron app (Calculator, Notes, Finder, System Settings, Discord, Slack, Figma…) that has no API or plugin. For Chrome pages prefer the browser plugin."
 ---
 
-# Desktop (macOS)
+# Desktop (macOS, local or over SSH)
 
-A small Swift helper (`script/desktop-helper.swift`, compiled automatically into `.build/` on first call) talks to the macOS Accessibility API and CGEvent. The server process needs **Accessibility** and **Screen Recording** permissions — check with `desktop.check({})`, `desktop.check({ prompt: true })` opens the system dialogs.
+Backend: [Cua Driver](https://github.com/trycua/cua) — `/Applications/CuaDriver.app` holds the Accessibility and Screen Recording grants; `~/.local/bin/cua-driver mcp` is spoken over one persistent connection per host (`ssh <host>` for remote Macs, nothing else to install there). Every function takes `host` (an alias from `remote.servers`, omit for this Mac).
 
-## Loop: look → act → look again
+## Loop: look → act → look
 
-1. `desktop.apps({})` / `desktop.activate({ app })` — find or launch the app (name, bundle id or pid).
-2. `desktop.snapshot({ app })` — outline of the focused window: `id Role "label" = value [actions]`. Roots: `f` focused window, `w0..` windows, `m` menu bar, `a` whole app, or any id for a subtree. `desktop.find({ app, query, role? })` jumps straight to matching elements.
-3. Act on ids:
-   - `desktop.press({ app, id, action? })` — AX action (Press, Pick, ShowMenu, Increment, Confirm…). No mouse movement, works on background windows. **Preferred.**
-   - `desktop.setValue({ app, id, value })` — replace text of a field directly.
-   - `desktop.click({ id | x,y, button?, count? })` — real mouse click; `desktop.type({ text })` (Unicode, any layout); `desktop.key({ keys: ["cmd+s", "return"] })`; `desktop.scroll({ dy, x?, y? })`. These go to the frontmost app, so `activate` first.
-4. Snapshot again: ids are child-index paths and go stale after the UI changes.
+1. `desktop.windows({ host })` / `desktop.apps({ host })` — what is open. `desktop.open({ host, app })` launches or un-hides a window (needed for minimized/hidden ones).
+2. `desktop.look({ host, app, ocr? , query? })` → `outline` (`[index] Role "label" [actions]`), `image` (read the path to see it), `ocr` lines with `x,y` in screenshot pixels.
+3. Act — each accepts **element** (index from the last look), **text** (label, resolved via Accessibility, then OCR) or **x/y** (screenshot pixels):
+   - `desktop.click({ host, app, text: "Send" })` (button right, count 2, foreground for stubborn apps)
+   - `desktop.type({ host, app, value, text?: "Message" })`, `desktop.key({ host, app, key: "return" | "cmd+k" })`
+   - `desktop.scroll({ host, app, direction: "down", amount? })`, `desktop.setValue({ host, app, element, value })`
+   Actions return a fresh screenshot by default (`after`: none | tree | screenshot | both).
+4. Look again; element indexes are replaced by each look of that window.
 
-`desktop.screenshot({ app?, region?, ocr: true })` saves a PNG (read the path to see it, downscaled to 1600 px) and with `ocr` returns text lines with centers in **screen points**, ready for `desktop.click({ x, y })`. Use it for web views, canvas and Electron apps whose tree is poor, and to verify results.
+Anything else (drag, zoom, invoke_menu, clipboard, window frames, recording): `desktop.tools({ name? })` then `desktop.call({ host, tool, args })`.
+
+## Setup per Mac
+
+- Install: `curl -fsSL https://cua.ai/driver/install.sh | bash -s -- --no-modify-path` then `~/.local/bin/cua-driver telemetry disable` (telemetry is on by default).
+- Grant: `cua-driver permissions grant`, approve CuaDriver in Privacy & Security → Accessibility and Screen Recording (someone at the Mac or via Screen Sharing).
+- `desktop.check({ host })` verifies; on `permissions_pending` or stale grants use `desktop.check({ host, fix: true })` (restarts the daemon via `permissions grant`).
+- `desktop.check({ host, fast: true })` restarts the daemon with a 250 ms post-action window watch (default 1 s): clicks and keys drop from ~1.2 s to ~0.4 s.
 
 ## Notes
 
-- Coordinates everywhere are screen points, top-left origin (Retina pixels / scale).
-- Menus: `snapshot({ root: "m", maxDepth: 1 })`, then `press({ id: "m.2", action: "Press" })` to open and snapshot `m.2` for its items — or just use `key` shortcuts.
-- Mouse/keyboard actions use the user's real pointer and focus; element actions (`press`, `setValue`) do not.
-- `key` uses US key positions; single characters without a key code (`*`, `+`, `ё`) are typed as Unicode.
-- Tested (macOS 27): Calculator via press and key, TextEdit via type/setValue/cmd shortcuts, menu bar, window screenshot + OCR.
+- Background delivery: no pointer movement, no focus steal; covered windows work, minimized/hidden ones need `open` first.
+- Electron apps (Discord, Slack) expose some labelled elements; otherwise `look({ ocr: true })` + `click({ x, y })` or `click({ text })`.
+- Labels differ by state/version (Calculator shows "All Clear" or "Clear"); look before guessing.
+- Measured (M-series, Tailscale SSH): look tree ~0.2 s, screenshot ~0.4 s, OCR +2 s, fast-mode click ~0.4-1.5 s.

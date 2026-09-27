@@ -1,0 +1,12 @@
+{
+  "name": "marker",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Marker PDF",
+    "icon": "ph-file-pdf",
+    "optional": true,
+    "description": "Local Apple-Silicon-aware PDF to Markdown conversion with Marker, artifact discovery, and output quality analysis."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "pdf",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "PDF Parser",
+    "icon": "ph-file-pdf",
+    "optional": true,
+    "description": "Unified local PDF-to-Markdown routing across Marker and MinerU with inspection, quality analysis, provenance, and direct comparison."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "mineru",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "MinerU PDF",
+    "icon": "ph-file-text",
+    "optional": true,
+    "description": "Local PDF-to-Markdown conversion with MinerU on Apple Silicon MLX, reproducible artifacts, and comparison with Marker."
+  }
+}

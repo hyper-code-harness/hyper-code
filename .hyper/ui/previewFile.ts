@@ -8,6 +8,7 @@
  * @param opts.mode Initial file tab. Auto uses the Files UI default. @default auto
  * @param opts.title Optional popup title; defaults to the file path.
  * @param opts.maxChars Deprecated compatibility option; Files UI loads the complete file. @default 200000 @minimum 1 @maximum 1000000
+ * @param opts.host SSH host alias the path lives on; omitted means the agent workspace (remote when it has a host).
  */
 export default async function (
     ctx: Context,
@@ -21,19 +22,23 @@ export default async function (
         title?: string;
         /** Deprecated compatibility option; Files UI loads the complete file. @default 200000 @minimum 1 @maximum 1000000 */
         maxChars?: number;
+        /** SSH host alias the path lives on; omitted means the agent workspace (remote when it has a host). */
+        host?: string;
     },
 ): Promise<string | { path: string; mode: "auto" | "preview" | "source"; url: string }> {
-    const path = ctx.fns.files.resolveSafe({ path: opts.path });
-    const info = await ctx.fns.files.stat({ path });
-    if (!info) throw new Error(`file not found: ${opts.path}`);
+    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path });
+    const host = at.host ?? undefined;
+    const path = host ? at.path : ctx.fns.files.resolveSafe({ path: opts.path });
+    const info = await ctx.fns.files.stat({ path, host });
+    if (!info) throw new Error(`file not found: ${host ? host + ":" : ""}${opts.path}`);
 
     const mode = opts.mode ?? "auto";
-    const baseUrl = (await ctx.fns.files.browserUrl({ path })).replace("/files/absolute/", "/files/embed/");
+    const baseUrl = (await ctx.fns.files.browserUrl({ path, host })).replace("/files/absolute/", "/files/embed/").replace("/files/remote/", "/files/remote/embed/");
     const params = new URLSearchParams();
     if (mode === "preview") params.set("tab", "preview");
     if (mode === "source") params.set("tab", "code");
     const url = params.size ? `${baseUrl}?${params}` : baseUrl;
-    const title = opts.title ?? path;
+    const title = opts.title ?? (host ? `${host}:${path}` : path);
     const html = ctx.fns.ui.popupContent({
         title,
         kind: "file-preview",

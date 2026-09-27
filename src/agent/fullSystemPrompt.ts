@@ -47,7 +47,7 @@ agent: types.agent.Agent }): Promise<string> {
             ? [
                 `- workspace: ${agent.workspaceHost}:${agent.workspaceDir} — REMOTE, on SSH host ${agent.workspaceHost}`,
                 "- read/write/edit/grep/find/bash without host act on that host; relative paths resolve against the workspace dir",
-                "- host: \"local\" acts on this machine; eval, Bun.file, ctx.fns.files.* without host and ctx.fns.git.* stay local",
+                "- ctx.fns.git.* follows the workspace too; host: \"local\" acts on this machine; eval, Bun.file and ctx.fns.files.* without host stay local",
             ]
             : [
                 `- workspace directory: ${agent.workspaceDir || process.cwd()}`,

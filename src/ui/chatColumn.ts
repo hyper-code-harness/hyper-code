@@ -91,9 +91,13 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const workspaceDir = String(agent.workspaceDir ?? '').trim();
     const workspaceHost = String(agent.workspaceHost ?? '').trim();
     const workspaceName = workspaceDir.split('/').filter(Boolean).pop() || workspaceDir;
-    // A remote workspace is not browsable through the local file preview yet.
     const workspaceControl = workspaceHost
-        ? `<span class="hidden min-w-0 items-center gap-1 text-micro leading-none text-faint sm:inline-flex" title="Remote workspace · ${esc(workspaceHost)}:${esc(workspaceDir)}"><i class="ph ph-hard-drives shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceHost)}:${esc(workspaceName)}</span></span>`
+        ? ctx.fns.ui.popup({
+            method: 'ui.previewFile',
+            params: { path: workspaceDir, host: workspaceHost, mode: 'auto', title: `${workspaceHost}:${workspaceName}` },
+            html: `<i class="ph ph-hard-drives shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceHost)}:${esc(workspaceName)}</span>`,
+            attrs: `class="hidden min-w-0 items-center gap-1 text-micro leading-none text-faint transition hover:text-primary sm:inline-flex" title="Remote files · ${esc(workspaceHost)}:${esc(workspaceDir)}" aria-label="Open remote files in ${esc(workspaceHost)}:${esc(workspaceDir)}"`,
+        })
         : workspaceDir ? ctx.fns.ui.popup({
         method: 'ui.previewFile',
         params: { path: workspaceDir, mode: 'auto', title: workspaceName },

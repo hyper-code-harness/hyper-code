@@ -46,6 +46,7 @@ call (tools, `remote.*`, rsync) rides it: ~60 ms instead of ~250 ms+.
 | `readFile` / `writeFile` | whole text file; writeFile is atomic (temp + mv), optional `expectedContent` |
 | `grep` / `find` | ripgrep on the host if present, else `grep -r` / `find`; vendored dirs skipped |
 | `rsync({ host, direction: "push" \| "pull", local, remote, exclude?, delete?, dryRun? })` | incremental copy; works with GNU rsync and macOS openrsync |
+| `list` / `stat` / `readBytes` | directory entries, metadata, raw bytes (Files UI) |
 | `status({ host })` | reachable?, OS, uptime, load, CPUs, memory, disk, listening ports |
 | `start({ host, name, command, cwd?, env?, restart? })` | long-running job in tmux `hyper-<name>`, log in `~/.hyper-jobs/<name>.log` |
 | `logs` / `stop` / `jobs` | tail (optional grep), Ctrl-C then kill, list |
@@ -98,10 +99,19 @@ Every host-aware tool resolves its target through `workspace.target({ host, path
 | `host: "<other alias>"` | that host | its remote home |
 | `host: "local"` | this machine | server cwd (when the workspace is remote) |
 
-Stays local regardless: eval, `Bun.file`, `ctx.fns.files.*` without `host`,
-`ctx.fns.git.*`, the file preview UI (the chat header shows `host:folder`
-instead). The system prompt names the remote workspace explicitly. The workspace
-form accepts `host:path` for a known ssh alias.
+`ctx.fns.git.*` follows the same rule (`git.run` → `remote.exec` with quoted
+arguments and `GIT_TERMINAL_PROMPT=0`); status/stage/commit/push/stageCommitPush
+take `host` too.
+
+Files UI: `files.list/stat/rawResponse/browserUrl` take `host`; remote pages live
+at `/files/remote/<host>/<abs path>` (`/files/remote/embed/<host>/…` in popups),
+edits save back over SSH, media streams via `remote.readBytes`. Only aliases
+from the ssh config are accepted. The chat header shows `host:folder` and opens
+that view.
+
+Stays local regardless: eval, `Bun.file`, `ctx.fns.files.*` without `host`.
+The system prompt names the remote workspace explicitly. The workspace form
+accepts `host:path` for a known ssh alias.
 
 ## Not yet
 - binary `readFile`/`writeFile` (images go through rsync)

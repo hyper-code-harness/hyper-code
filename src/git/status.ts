@@ -1,6 +1,13 @@
-/** Returns a structured Git working-tree status. */
-export default async function (ctx: Context, _session: Session | null, opts: { /** Git working directory. */ dir?: string; /** Whether to inspect staged changes only. */ staged?: boolean; /** Whether to return summary output. */ summary?: boolean } = {}) {
-    const raw = await ctx.fns.git.run({ args: ["status", "--porcelain=v1", "-z", ...(opts.staged ? ["--untracked-files=no"] : [])], dir: opts.dir });
+/**
+ * Returns a structured git working-tree status, locally or on the workspace SSH host.
+ *
+ * @param opts.host SSH host alias, or "local"; omitted means the agent workspace (remote when it has a host).
+ * @param opts.dir Repository working directory; defaults to the workspace directory.
+ * @param opts.staged Inspect staged changes only (untracked files omitted). @default false
+ * @param opts.summary Return a compact summary shape. @default false
+ */
+export default async function (ctx: Context, _session: Session | null, opts: { /** SSH host alias, or "local"; omitted means the agent workspace. */ host?: string; /** Git working directory. */ dir?: string; /** Whether to inspect staged changes only. */ staged?: boolean; /** Whether to return summary output. */ summary?: boolean } = {}) {
+    const raw = await ctx.fns.git.run({ args: ["status", "--porcelain=v1", "-z", ...(opts.staged ? ["--untracked-files=no"] : [])], dir: opts.dir, host: opts.host });
     const modified = new Set<string>();
     const staged = new Set<string>();
     const untracked = new Set<string>();

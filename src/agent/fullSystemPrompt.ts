@@ -1,6 +1,6 @@
 // Build the system prompt sent to the LLM each turn. Kept intentionally small —
 // long prompts hit the "lost in the middle" attention failure on every frontier
-// model. Detail docs (CLAUDE.md, docs/architecture.md, the source itself) are
+// model. Detail docs (AGENTS.md, docs/architecture.md, the source itself) are
 // referenced from CORE and read on demand via the read tool.
 //
 // Layers:

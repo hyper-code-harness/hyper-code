@@ -128,7 +128,7 @@ flowchart LR
 - **`src/<mod>/$route_<path>_<METHOD>.ts`** → HTTP handler `(ctx, session, { req, params })`. `_` = `/`, `$param` = `:param`.
 - **`src/<mod>/$migration_<id>.ts`** → Postgres migration (`{ up, down? }`), applied at startup in id order.
 - **`src/<mod>/$script_<name>.js`** → browser asset, bundled, served as `/<mod>/<name>.js`.
-- Plus the rest of the procs grammar: `$middleware`, `$config.ts`, `$start/$stop`, `$cli_*`, `$loader_*`, `$point_/$hook_` — see `CLAUDE.md`.
+- Plus the rest of the procs grammar: `$middleware`, `$config.ts`, `$start/$stop`, `$cli_*`, `$loader_*`, `$point_/$hook_` — see `AGENTS.md`.
 
 No cross-imports between project files — call other procedures via `ctx.fns`. `import` only from `bun`, `node:*`, npm. `.hyper/` mirrors `src/` and loads after it; gitignored, runtime-writable. The framework itself is `ctx.fns.procs.*` and can't be shadowed.
 
@@ -174,7 +174,7 @@ script/
   repl.ts                         external REPL client → POST /procs/repl (port+token from .runtime/)
   cli.ts                          $cli_* commands runner
 
-CLAUDE.md                         project conventions consumed by tooling and any agent that asks
+AGENTS.md                         project conventions consumed by tooling and any agent that asks
 ```
 
 ## Markers protocol

@@ -28,7 +28,13 @@ async function accessToken(ctx: Context) {
 }
 
 /**
- * Synthesizes text to an audio file with Google Cloud text-to-speech.
+ * Synthesizes text to an audio file, routed to the configured speech engine.
+ *
+ * By default this calls the Gemini TTS models, which give expressive delivery, accept a
+ * plain-prose style instruction and render long text in one pass. Set engine: "google"
+ * (or change the tts.engine setting) to use classic Google Cloud Chirp voices instead,
+ * where long text is chunked by sentence and concatenated with ffmpeg. Use tts.gemini
+ * directly for multi-speaker dialogue.
  */
 export default async function (ctx: Context, session: Session | null, opts: {
         /** Text to synthesize. */
@@ -36,24 +42,62 @@ export default async function (ctx: Context, session: Session | null, opts: {
         /** Destination audio file path. */
         out?: string;                 // default /tmp/tts-<ts>.ogg
 
-        /** Google Cloud voice name. */
+        /** Speech backend. Defaults to the tts.engine setting, normally gemini. */
+        engine?: "gemini" | "google";
+
+        /** Delivery instruction for the gemini engine, such as "Say warmly". */
+        style?: string;
+
+        /** Gemini TTS model id used when engine is gemini. */
+        model?: "gemini-3.8-flash-tts" | "gemini-3.8-flash-lite-tts";
+
+        /** Voice name. Gemini prebuilt voice such as Kore, or a Google Cloud voice name. */
         voice?: string;               // default Chirp3-HD-Puck of the lang
 
-        /** BCP 47 language code. */
+        /** BCP 47 language code. Applies to the google engine. */
         lang?: string;                // default ru-RU
 
-        /** Speaking-rate multiplier from 0.25 to 4.0. */
+        /** Speaking-rate multiplier from 0.25 to 4.0. Applies to the google engine. */
         speed?: number;               // 0.25–4.0
 
-        /** Voice pitch in semitones from -20 to 20. */
+        /** Voice pitch in semitones from -20 to 20. Applies to the google engine. */
         pitch?: number;               // -20…20 semitones
 
-        /** Audio encoding format. */
+        /** Audio encoding format. Applies to the google engine. */
         format?: "OGG_OPUS" | "MP3" | "LINEAR16";
         /** Whether to strip Markdown before synthesis. */
         strip?: boolean;              // strip markdown (default true)
-}) {
+}): Promise<{
+    /** Path of the written audio file. */
+    saved: string;
+    /** Number of synthesis requests concatenated into the file. */
+    chunks: number;
+    /** Backend that produced the audio. */
+    engine: "gemini" | "google";
+    /** Audio duration in seconds when the engine reports it. */
+    seconds: number | null;
+    /** Estimated cost in US cents when the engine reports token usage. */
+    cents: number | null;
+    /** Model or voice identifier that produced the audio. */
+    model: string;
+}> {
     if (!opts?.text?.trim()) throw new Error("tts.speak: text is required");
+
+    const engine = opts.engine
+        ?? await ctx.fns.settings.getString({ module: "tts", scopeType: "global", key: "engine", fallback: "gemini" });
+
+    if (engine === "gemini") {
+        const res = await ctx.fns.tts.gemini({
+            text: opts.text,
+            ...(opts.out ? { out: opts.out } : {}),
+            ...(opts.voice ? { voice: opts.voice } : {}),
+            ...(opts.style ? { style: opts.style } : {}),
+            ...(opts.model ? { model: opts.model } : {}),
+            ...(opts.strip === undefined ? {} : { strip: opts.strip }),
+        });
+        return { saved: res.saved, chunks: 1, engine: "gemini", seconds: res.seconds, cents: res.cents, model: res.model };
+    }
+
     const access_token = await accessToken(ctx);
     const lang = opts.lang ?? "ru-RU";
     const voice = opts.voice ?? (lang.startsWith("en") ? "en-US-Chirp3-HD-Puck" : "ru-RU-Chirp3-HD-Puck");
@@ -109,7 +153,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 
     if (chunks.length === 1) {
         await Bun.write(out, await synth(chunks[0]!));
-        return { saved: out, chunks: 1 };
+        return { saved: out, chunks: 1, engine: "google" as const, seconds: null, cents: null, model: voice };
     }
 
     // multi-chunk: synth in parallel, concat with ffmpeg
@@ -128,5 +172,5 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const stderr = await new Response(proc.stderr).text();
     for (const f of [...files, listFile]) await Bun.file(f).unlink().catch(() => {});
     if (code !== 0) throw new Error(`ffmpeg concat failed (${code}): ${stderr.slice(-500)}`);
-    return { saved: out, chunks: chunks.length };
+    return { saved: out, chunks: chunks.length, engine: "google" as const, seconds: null, cents: null, model: voice };
 }

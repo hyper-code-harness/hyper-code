@@ -26,10 +26,21 @@ async function accessToken(ctx: Context) {
 
 /**
  * Lists available Google Cloud text-to-speech voices.
+ *
+ * Use to discover valid voice names for the google engine of tts.speak, optionally
+ * narrowed to one language. Gemini prebuilt voices such as Kore or Puck are not listed
+ * here — they are documented in the tts plugin overview.
  */
 export default async function (ctx: Context, _session: Session | null, opts?: {
   /** Optional language-code prefix used to filter voices. */
-  lang?: string }) {
+  lang?: string }): Promise<Array<{
+    /** Google Cloud voice name passed to tts.speak as `voice`. */
+    name: string;
+    /** SSML gender reported by the API, such as MALE or FEMALE. */
+    gender: string;
+    /** BCP 47 language codes the voice supports. */
+    languages: string[];
+}>> {
     const access_token = await accessToken(ctx);
     const url = `https://texttospeech.googleapis.com/v1/voices${opts?.lang ? `?languageCode=${encodeURIComponent(opts.lang)}` : ""}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${access_token}` } });

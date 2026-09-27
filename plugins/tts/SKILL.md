@@ -1,21 +1,49 @@
 ---
 name: tts
-description: "Google Cloud Text-to-Speech — synthesize text or markdown into OGG, MP3 or WAV with multilingual voices, and list available voices. Use when the user asks to narrate text, read something aloud or generate an audio file."
+description: "Text-to-speech: narrate text or markdown into an audio file, voice a multi-speaker dialogue, and list available voices. Defaults to Gemini TTS for expressive delivery; classic Google Cloud Chirp voices remain available."
 ---
 
-# Google Cloud TTS
+# tts
 
-OAuth client and refresh token remain in 1Password. Access tokens are refreshed and cached only in memory. Long text is split into chunks and joined with the installed `ffmpeg` binary.
+Two backends behind one entry point.
+
+- **gemini** (default) — Gemini TTS models. Expressive, takes a plain-prose style
+  instruction, renders long text in a single pass, reports duration and cost.
+  Needs a Gemini API key in `secret://tts/gemini_api_key`.
+- **google** — classic Google Cloud Chirp voices. OAuth client and refresh token stay
+  in 1Password, access tokens cached in memory only. Long text is chunked by sentence
+  and joined with the installed `ffmpeg`.
+
+The default is the `tts.engine` setting (`gemini` | `google`, env `TTS_ENGINE`).
+Pass `engine` explicitly to override per call.
 
 ## Functions
 
-- `tts.voices({ lang? })`
-- `tts.speak({ text, out?, voice?, lang?, speed?, pitch?, format?, strip? })`
-  - defaults: `ru-RU`, `Chirp3-HD-Puck`, `OGG_OPUS`;
-  - `format`: `OGG_OPUS | MP3 | LINEAR16`;
-  - returns `{ saved, chunks }`.
+- `tts.speak({ text, out?, engine?, style?, model?, voice?, lang?, speed?, pitch?, format?, strip? })`
+  - routes to the configured engine; returns `{ saved, chunks, engine, seconds, cents, model }`;
+  - `style`, `model` apply to gemini; `lang`, `speed`, `pitch`, `format` apply to google.
+- `tts.gemini({ text | lines + cast, out?, voice?, model?, style?, temperature?, strip? })`
+  - the full Gemini surface, including multi-speaker dialogue;
+  - returns `{ saved, bytes, mimeType, model, speakers, seconds, audioTokens, cents, usage }`.
+- `tts.voices({ lang? })` — Google Cloud voice catalogue.
 
 ```ts
-await ctx.fns.tts.voices({ lang: "ru-RU" });
-await ctx.fns.tts.speak({ text: "Привет!", out: "/tmp/hello.ogg" });
+await ctx.fns.tts.speak({ text: "Привет!", out: "/tmp/hello.wav" });
+await ctx.fns.tts.speak({ text: "Привет!", engine: "google", out: "/tmp/hello.ogg" });
+
+await ctx.fns.tts.gemini({
+  cast: [{ speaker: "Анна", voice: "Kore" }, { speaker: "Максим", voice: "Puck" }],
+  lines: [
+    { speaker: "Анна",   style: "warm news anchor", text: "…" },
+    { speaker: "Максим", style: "wry",              text: "…" },
+  ],
+  out: "/tmp/digest.wav",
+});
 ```
+
+## Gemini notes
+
+Multi-speaker requests need one content part per line tagged with
+`speechMetadata.speaker`; a single script blob returns 400. At most two speakers per
+request. Output is 24 kHz mono; raw PCM is wrapped in a WAV header automatically.
+Flash costs roughly 2.3 ¢ per minute of audio, Flash-Lite about half that.

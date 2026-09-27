@@ -1,7 +1,6 @@
-# Disposable SSH targets for src/remote/*.test.ts. Started and torn down by the
-# test itself (test/ssh/fixture.ts); run by hand with
-#   HYPER_SSH_KEYS=$PWD/.keys docker compose -p hyper-ssh-test up -d --build
-name: hyper-ssh-test
+# SSH targets for src/remote/*.test.ts. Started on demand by test/ssh/fixture.ts
+# and left running between test runs; the project name (hyper-ssh-<hash>) is
+# derived from the checkout path and printed when the containers come up.
 services:
   plain:
     build: { context: ., args: { RG: "0" } }

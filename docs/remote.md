@@ -63,11 +63,15 @@ Watch a job live: `ssh <host> -t tmux attach -t hyper-<name>`.
 
 ## Tests
 
-`src/remote/remote.test.ts` runs against two disposable sshd containers from
-`test/ssh/` (`plain`: no ripgrep → fallbacks; `rg`: with ripgrep). The fixture
-generates a throwaway key, writes a private ssh_config and points the ctx at it
-via the two env vars above — the developer's `~/.ssh` is never touched. No
-Docker → the suite is skipped. Run it by path: `bun test ./src/remote/`.
+`src/remote/remote.test.ts` runs against two sshd containers from `test/ssh/`
+(`plain`: no ripgrep → fallbacks; `rg`: with ripgrep). They are started on
+first use and **stay running** (compose project `hyper-ssh-<hash of checkout>`),
+so later runs connect in under a second; a change to the Dockerfile rebuilds
+them. Each run resets the remote home. The throwaway key and a private
+ssh_config live in `.test-tmp/ssh-fixture/`, and the ctx is pointed at them via
+the two env vars above — the developer's `~/.ssh` is never touched. No Docker →
+the suite is skipped. `HYPER_SSH_FIXTURE_DOWN=1` removes the containers after
+the run. Run it by path: `bun test ./src/remote/`.
 
 ## Not yet
 

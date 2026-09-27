@@ -30,17 +30,23 @@ export default async function (
     }
 
     const browserUrl = String(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222").replace(/\/$/, "");
+    const probe = () => fetch(`${browserUrl}/json/version`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
+    // Chrome not running (reboot, crash, user quit it): start the profile once
+    // instead of failing every browser call until someone starts it by hand.
+    // Tabs of a dead browser are gone, so remembered bindings are dropped.
+    // CDP_AUTOSTART=0 opts out. Only consulted after a failure: a live
+    // reconnect costs nothing extra.
+    const restartChrome = async (): Promise<boolean> => {
+        if (ctx.env.CDP_AUTOSTART === "0" || !(ctx.fns as any).chrome?.ensure) return false;
+        if ((await probe())?.ok) return false;
+        await (ctx.fns as any).chrome.ensure({});
+        for (const [key, handle] of sessions) { try { handle.ws?.close(); } catch {} sessions.delete(key); }
+        return !!(await probe())?.ok;
+    };
     let targetId = existing?.targetId || opts.targetId;
     if (!targetId) {
-        const probe = () => fetch(`${browserUrl}/json/version`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
         let version = await probe();
-        // Chrome not running (reboot, crash, user quit it): start the profile
-        // once and retry instead of failing every browser call until someone
-        // starts it by hand. CDP_AUTOSTART=0 opts out.
-        if (!version?.ok && ctx.env.CDP_AUTOSTART !== "0" && (ctx.fns as any).chrome?.ensure) {
-            await (ctx.fns as any).chrome.ensure({});
-            version = await probe();
-        }
+        if (!version?.ok && await restartChrome()) version = await probe();
         if (!version?.ok) throw new Error(`Chrome CDP unavailable at ${browserUrl} (${version?.status ?? "no answer"})`);
         const info: any = await version.json();
         targetId = await new Promise<string>((resolve, reject) => {
@@ -62,7 +68,18 @@ export default async function (
     // Retain target identity even if the first connection attempt fails.
     if (!existing) sessions.set(name, { name, targetId, ws: null, pending: new Map() });
     const wsUrl = `${browserUrl.replace(/^http/, "ws")}/devtools/page/${targetId}`;
-    return await new Promise<any>((resolve, reject) => {
+    try {
+        return await connect(wsUrl, targetId);
+    } catch (error) {
+        // The remembered tab belonged to a browser that is gone: start Chrome
+        // and open a fresh tab once. A live browser with a dead tab keeps the
+        // original error (the caller decides what a lost tab means).
+        if (opts.targetId || !(await restartChrome())) throw error;
+        return await ctx.fns.cdp.session({ name });
+    }
+
+    function connect(wsUrl: string, targetId: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
         const ws = new WebSocket(wsUrl);
         const handle: any = { name, targetId, ws, msgId: 0, pending: new Map(), lastUsed: Date.now() };
         const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error("CDP page websocket timed out")); }, 5000);
@@ -88,4 +105,5 @@ export default async function (
             // Keep the handle as a target-identity tombstone for reconnect.
         };
     });
+    }
 }

@@ -13,6 +13,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             console.warn(`[settings] skip (no default-export descriptor): ${e.rel}`);
             continue;
         }
-        registry.set(`${e.module}.${e.name}`, descriptor);
+        // Boot entries carry `module`; hot-synced ones (dev.sync) only `moduleDir`.
+        const module = e.module ?? String(e.moduleDir ?? "").replaceAll("/", ".");
+        registry.set(`${module}.${e.name}`, descriptor);
     }
 }

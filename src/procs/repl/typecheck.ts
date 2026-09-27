@@ -1,18 +1,51 @@
 // Typecheck one eval body against the live project's declarations before it runs.
-// This is an in-process TypeScript Language Service (not an LSP process): the
-// first call builds the project graph, subsequent virtual-file revisions reuse it.
+//
+// hyper-code2: tsgo first. The in-process TypeScript Language Service below runs
+// on the event loop and stalls every agent and request for 100–800 ms per eval;
+// the tsgo language server (src/tsgo) checks out of process in a few ms. The
+// in-process service stays as the fallback when tsgo is off, not installed,
+// crashed or timed out — a missing tsgo must never make eval unusable.
 import { join } from "node:path";
 
 /**
- * Type-check typecheck for the repl subsystem.
- * @param opts.code The code to process.
- * @param opts.bindings The bindings value used by the operation.
+ * Typechecks an eval body against the project's types before it runs.
+ *
+ * Uses the out-of-process tsgo language server when enabled and available
+ * (non-blocking, a few ms warm); otherwise the in-process TypeScript Language
+ * Service. Returns only error-severity diagnostics with lines relative to the
+ * eval body.
+ * @param opts.code Eval source: the body of an async function.
+ * @param opts.bindings Extra named values the eval code receives; only their names matter.
  */
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { code: string; bindings?: Record<string, any> },
-): Promise<{ ok: boolean; errors: string[] }> {
+    opts: {
+        /** Eval source: the body of an async function. */
+        code: string;
+        /** Extra named values the eval code receives; only their names matter. */
+        bindings?: Record<string, any>;
+    },
+): Promise<{ ok: boolean; errors: string[]; engine?: "tsgo" | "tsserver" }> {
+    const tsgo = (ctx.fns as any).tsgo;
+    if (tsgo?.check) {
+        let enabled = true;
+        try { enabled = (await ctx.fns.settings.get({ module: "tsgo", scopeType: "global", key: "enabled" })) !== false; } catch { /* settings unavailable: keep default */ }
+        if (enabled) {
+            try {
+                const r = await tsgo.check({ code: opts.code, bindings: opts.bindings });
+                return { ok: r.ok, errors: r.errors, engine: "tsgo" };
+            } catch (e: any) {
+                const st = ((ctx.state as any).tsgo ??= {});
+                (st.stats ??= { checks: 0, totalMs: 0, maxMs: 0, timeouts: 0, fallbacks: 0 }).fallbacks++;
+                ctx.fns.procs.log.warn({ event: "repl.typecheck.fallback", msg: String(e?.message ?? e) });
+            }
+        }
+    }
+    return { ...(await inProcess(ctx, opts)), engine: "tsserver" };
+}
+
+async function inProcess(ctx: Context, opts: { code: string; bindings?: Record<string, any> }): Promise<{ ok: boolean; errors: string[] }> {
     const root = ctx.fns.procs.project.projectRoot({});
     const procs = ctx.state.procs as any;
     const state = (procs.repl ??= {});

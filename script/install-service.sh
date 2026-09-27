@@ -87,12 +87,13 @@ cat > "$PLIST" <<PLIST_EOF
     <key>WorkingDirectory</key><string>$ROOT</string>
 
     <!-- launchd hands over an empty environment. Everything Hyper needs to find
-         has to be named here: bun and op live in Homebrew, the hyper CLI in
-         ~/.local/bin, and HOME is what makes ~/.hyper and 1Password work. -->
+         has to be named here: bun (Homebrew or ~/.bun/bin, whichever the
+         installer found first), op in Homebrew, the hyper CLI in ~/.local/bin,
+         and HOME is what makes ~/.hyper and 1Password work. -->
     <key>EnvironmentVariables</key>
     <dict>
         <key>HOME</key><string>$HOME</string>
-        <key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PATH</key><string>$(dirname "$BUN"):$HOME/.bun/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>PORT</key><string>$PORT</string>
         <key>LANG</key><string>en_US.UTF-8</string>
     </dict>

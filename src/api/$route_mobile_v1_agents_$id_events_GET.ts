@@ -48,6 +48,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
             ts: Number(event.ts),
             type: String(event.type),
             text: typeof event.text === "string" ? event.text : (typeof event.error === "string" ? event.error : null),
+            html: typeof event.html === "string" ? event.html : null,
             name: typeof event.name === "string" ? event.name : null,
             preview: event.type === "tool_call"
                 ? toolPreview(String(event.name || "Tool"), event.args)

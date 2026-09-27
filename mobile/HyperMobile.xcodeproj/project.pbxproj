@@ -34,6 +34,8 @@
 		100000000000000000000019 /* ChatTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* ChatTimelineView.swift */; };
 		10000000000000000000001A /* HealthSyncScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* HealthSyncScheduler.swift */; };
 		10000000000000000000001B /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* FileBrowserView.swift */; };
+		10000000000000000000001C /* MarkdownImageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* MarkdownImageProvider.swift */; };
+		10000000000000000000001D /* InlineHTMLView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* InlineHTMLView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +67,8 @@
 		20000000000000000000001A /* ChatTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTimelineView.swift; sourceTree = "<group>"; };
 		20000000000000000000001B /* HealthSyncScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncScheduler.swift; sourceTree = "<group>"; };
 		20000000000000000000001C /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
+		20000000000000000000001D /* MarkdownImageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownImageProvider.swift; sourceTree = "<group>"; };
+		20000000000000000000001E /* InlineHTMLView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineHTMLView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +121,8 @@
 				20000000000000000000001A /* ChatTimelineView.swift */,
 				20000000000000000000001B /* HealthSyncScheduler.swift */,
 				20000000000000000000001C /* FileBrowserView.swift */,
+				20000000000000000000001D /* MarkdownImageProvider.swift */,
+				20000000000000000000001E /* InlineHTMLView.swift */,
 				200000000000000000000004 /* Info.plist */,
 			);
 			path = HyperMobile;
@@ -231,6 +237,8 @@
 				100000000000000000000019 /* ChatTimelineView.swift in Sources */,
 				10000000000000000000001A /* HealthSyncScheduler.swift in Sources */,
 				10000000000000000000001B /* FileBrowserView.swift in Sources */,
+				10000000000000000000001C /* MarkdownImageProvider.swift in Sources */,
+				10000000000000000000001D /* InlineHTMLView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -81,9 +81,9 @@ struct NativeChatView: View {
             ) { row in
                 Group {
                     switch row.kind {
-                    case .event(let event), .pending(let event): EventBubble(event: event, agentID: agent.id, baseURL: baseURL)
+                    case .event(let event), .pending(let event): EventBubble(event: event, agentID: agent.id, baseURL: baseURL, workspacePath: agent.workspaceDir)
                     case .tools(let tools): ToolTray(events: tools) { selectedToolGroup = ToolGroupSelection(events: tools) }
-                    case .partial(let partial): LiveAssistantBubble(partial: partial)
+                    case .partial(let partial): LiveAssistantBubble(partial: partial, agentID: agent.id, baseURL: baseURL, workspacePath: agent.workspaceDir)
                     }
                 }
                 .frame(maxWidth: 860)
@@ -333,10 +333,13 @@ private struct ToolDetailSheet: View {
 
 private struct LiveAssistantBubble: View {
     let partial: PartialAssistant
+    let agentID: String
+    let baseURL: URL
+    let workspacePath: String
     var body: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
-                NativeMessageText(text: partial.text)
+                NativeMessageText(text: partial.text, baseURL: baseURL, workspacePath: workspacePath)
                 HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Responding…").font(.caption2).foregroundStyle(.secondary) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -351,7 +354,9 @@ private struct EventBubble: View {
     let event: MobileEvent
     let agentID: String
     let baseURL: URL
+    let workspacePath: String
     @State private var preview: ImagePreview?
+    @State private var htmlHeight: CGFloat = 1
     @Environment(\.colorScheme) private var colorScheme
     private var isUser: Bool { event.type == "user" }
     private var imageAttachments: [EventAttachment] { event.attachments.filter { $0.contentType?.hasPrefix("image/") == true && $0.id != nil } }
@@ -361,7 +366,11 @@ private struct EventBubble: View {
         HStack(alignment: .bottom) {
             if isUser { Spacer(minLength: 54) }
             VStack(alignment: .leading, spacing: 7) {
-                if let text = event.text, !text.isEmpty { NativeMessageText(text: text, foreground: isUser ? userTextColor : nil) }
+                if !isUser, let html = event.html, html.contains("<svg") || html.contains("<img") {
+                    InlineHTMLView(html: html, height: $htmlHeight).frame(height: htmlHeight)
+                } else if let text = event.text, !text.isEmpty {
+                    NativeMessageText(text: text, foreground: isUser ? userTextColor : nil, baseURL: baseURL, workspacePath: workspacePath)
+                }
                 if !imageAttachments.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 7) {
@@ -434,9 +443,12 @@ private struct ZoomableRemoteImage: View {
 private struct NativeMessageText: View {
     let text: String
     var foreground: Color? = nil
+    var baseURL: URL? = nil
+    var workspacePath: String = ""
     var body: some View {
-        Markdown(text)
+        Markdown(text, imageBaseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true))
             .markdownTheme(.hyperChat)
+            .markdownImageProvider(HyperMarkdownImageProvider(baseURL: baseURL ?? URL(string: "https://invalid.local")!, workspacePath: workspacePath))
             .markdownTextStyle { ForegroundColor(foreground ?? .primary) }
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -139,3 +139,33 @@ test("authorship: agent creator, user message author, event actor", async () => 
     const [creator] = await ctx.fns.procs.db.select({ sql: "SELECT created_by FROM agents WHERE id = ?", params: [agent.id] });
     expect(creator.created_by).toBe("nik");
 });
+
+test("legacy session counts as signed in on /auth/session before the switch", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_PASSWORD: "legacy-password" } });
+    const token = await ctx.fns.procs.auth.sign({ sub: "password-user", name: "Hyper user", role: "owner", days: 1 });
+    const cookie = `${ctx.fns.procs.auth.cookieName({})}=${token}`;
+    const ok = await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/session", headers: { cookie } });
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).authenticated).toBe(true);
+    const anon = await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/session" });
+    expect(anon.status).toBe(401);
+});
+
+test("migration converges an older, stricter users table and is idempotent", async () => {
+    const ctx = await mkTestCtx();
+    const m = (ctx.state.procs.migrate.list as any[]).find((x) => x.id === "20320401000000_users");
+    await m.down(ctx);
+    // The shape an early draft left in a live database.
+    await ctx.fns.procs.db.exec({ sql: `CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL,
+        password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member', created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+        disabled_at BIGINT); CREATE UNIQUE INDEX users_email_lower_idx ON users (lower(email)); ALTER TABLE agents ADD COLUMN created_by TEXT;` });
+    await m.up(ctx);
+    await m.up(ctx);
+    const cols = await ctx.fns.procs.db.select({ sql: "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='users' AND table_schema = current_schema()" });
+    const nullable = Object.fromEntries(cols.map((c: any) => [c.column_name, c.is_nullable]));
+    expect(nullable.email).toBe("YES");
+    expect(nullable.password_hash).toBe("YES");
+    expect(nullable.configured_at).toBe("YES");
+    // A lone user without email/password is accepted after convergence.
+    expect((await ctx.fns.auth.createUser({ name: "Solo" })).id).toBe("solo");
+});

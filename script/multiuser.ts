@@ -36,6 +36,30 @@ if (["up", "down"].includes(cmd)) {
     if (flag("db") !== dbName) fail(`refusing to write: pass --db ${dbName} to confirm the target database`);
 }
 
+// The exact shape the code expects. A pre-existing table of another shape must be converged by the
+// migration, never silently accepted (an early draft left NOT NULL email/password behind once).
+async function schemaProblems(): Promise<string[]> {
+    const expected: Record<string, "YES" | "NO"> = {
+        id: "NO", email: "YES", name: "NO", password_hash: "YES", role: "NO",
+        created_at: "NO", updated_at: "NO", configured_at: "YES", disabled_at: "YES",
+    };
+    const rows = await db.select({ sql: "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='users'" }) as any[];
+    const have = new Map(rows.map((r) => [r.column_name, r.is_nullable]));
+    const problems: string[] = [];
+    for (const [col, nullable] of Object.entries(expected)) {
+        if (!have.has(col)) problems.push(`users.${col} missing`);
+        else if (have.get(col) !== nullable) problems.push(`users.${col} nullable=${have.get(col)}, expected ${nullable}`);
+    }
+    for (const [table, col] of [["agents", "created_by"], ["messages", "author"], ["events", "actor"]]) {
+        const r = await one("SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name=? AND column_name=?", [table, col]);
+        if (!r) problems.push(`${table}.${col} missing`);
+        else if (r.is_nullable !== "YES") problems.push(`${table}.${col} must be nullable`);
+    }
+    const idx = await one("SELECT pg_get_indexdef(i.indexrelid) AS def FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE c.relname='users_email_lower_idx'");
+    if (!idx || !/WHERE \(?email IS NOT NULL/i.test(String(idx.def))) problems.push("users_email_lower_idx missing or not partial");
+    return problems;
+}
+
 async function state() {
     const cols = await db.select({ sql: `SELECT table_name, column_name FROM information_schema.columns
         WHERE table_schema='public' AND ((table_name='agents' AND column_name='created_by') OR (table_name='messages' AND column_name='author') OR (table_name='events' AND column_name='actor'))` }) as any[];
@@ -101,6 +125,10 @@ if (cmd === "up") {
         console.log(`✓ applied ${MIGRATION}`);
     } else console.log(`• ${MIGRATION} already applied`);
 
+    const shape = await schemaProblems();
+    if (shape.length) fail("schema does not match the code — not creating users:\n  " + shape.join("\n  "));
+    console.log("✓ schema shape verified");
+
     const users = await ctx.fns.auth.listUsers({ includeDisabled: true });
     let first = users[0];
     if (!first) {
@@ -132,7 +160,7 @@ if (cmd === "verify") {
     const problems: string[] = [];
     if (!s.migrated) problems.push("migration not recorded");
     if (!s.usersTable) problems.push("users table missing");
-    for (const c of ["agents.created_by", "messages.author", "events.actor"]) if (!s.columns.includes(c)) problems.push(`column missing: ${c}`);
+    else problems.push(...await schemaProblems());
     const active = (s.users as any[]).filter((u) => !u.disabled_at);
     if (!active.length) problems.push("no active user");
     if (active.length === 1 && active[0].has_password !== (!!(await ctx.fns.auth.password({})) || active[0].has_password)) problems.push("password state unexpected");
@@ -149,18 +177,24 @@ if (cmd === "verify") {
 }
 
 if (cmd === "down") {
+    // Optional cleanup ONLY. The rollback is: stop Hyper, run the previous code, start (switch.md).
+    // The previous code ignores this schema. Running `down` while the new code serves requests
+    // breaks it (it reads `users` on every request) and the next boot re-applies the migration.
     const s = await state();
     if (!s.usersTable && !s.migrated) { console.log("• nothing to roll back"); process.exit(0); }
+    const serving = (await Bun.$`lsof -nP -iTCP:3010 -sTCP:LISTEN`.quiet().nothrow()).stdout.toString().trim();
     if (!has("yes")) {
-        out({ willRemove: ["table users", "agents.created_by", "messages.author", "events.actor"], users: s.users });
-        console.log("\nRe-run with --yes. Authorship recorded since the switch will be lost; nothing else changes.");
+        out({ willRemove: ["table users", "agents.created_by", "messages.author", "events.actor"], users: s.users, somethingListeningOn3010: !!serving });
+        console.log("\nOptional cleanup. Only after the PREVIOUS code is running (or Hyper is stopped).");
+        console.log("Re-run with --yes --old-code-running to confirm. Recorded authorship will be lost.");
         process.exit(0);
     }
+    if (!has("old-code-running")) fail("confirm with --old-code-running that the previous code is live (or Hyper is stopped)");
     const m = (ctx.state.procs?.migrate?.list ?? []).find((x: any) => x.id === MIGRATION);
-    if (m?.down) await m.down(ctx);
-    else await db.exec({ sql: "SET lock_timeout='3s'; ALTER TABLE events DROP COLUMN IF EXISTS actor; ALTER TABLE messages DROP COLUMN IF EXISTS author; ALTER TABLE agents DROP COLUMN IF EXISTS created_by; DROP TABLE IF EXISTS users; RESET lock_timeout;" });
+    if (!m?.down) fail("migration down() not found in this code");
+    await m!.down(ctx);
     await db.run({ sql: "DELETE FROM _migrations WHERE id = ?", params: [MIGRATION] });
-    console.log("✓ rolled back: users removed, author columns dropped. Shared-password sign-in works again with the old code.");
+    console.log("✓ cleaned up: users removed, author columns dropped.");
     process.exit(0);
 }
 

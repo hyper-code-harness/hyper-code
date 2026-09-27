@@ -1,0 +1,1 @@
+{"name":"whisper","private":true,"type":"module","procs":{"src":"src","label":"Whisper","icon":"ph-microphone","optional":true,"description":"Local speech-to-text with whisper.cpp on Apple Silicon: model catalogue, audio transcription and a browser test page."}}

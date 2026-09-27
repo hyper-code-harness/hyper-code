@@ -2,21 +2,25 @@ import path from "node:path";
 import os from "node:os";
 
 type Pending = { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
-type Conn = { proc: ReturnType<typeof Bun.spawn>; pending: Map<number, Pending>; nextId: number; ready: Promise<void>; dead: boolean };
+type Conn = { proc: ReturnType<typeof Bun.spawn>; pending: Map<number, Pending>; nextId: number; ready: Promise<void>; dead: boolean; idleMs: number; idleTimer?: ReturnType<typeof setTimeout> };
 
 // Connections survive hot reloads: one long-lived `cua-driver mcp` per host keeps snapshot and screenshot
 // context (element indexes, pixel clicks) valid across calls.
 const pool: Map<string, Conn> = ((globalThis as any).__desktopCuaPool ??= new Map());
 
-function connect(host: string): Conn {
+function connect(host: string, keepAwake: boolean, idleMs: number): Conn {
     const bin = "~/.local/bin/cua-driver";
+    // On remote Macs, `caffeinate -w $$` lives exactly as long as this `cua-driver mcp` (exec keeps the pid),
+    // so the display does not sleep or auto-lock while we are connected, and nothing lingers after disconnect.
+    const remote = keepAwake ? `caffeinate -dims -w $$ >/dev/null 2>&1 & exec ${bin} mcp` : `exec ${bin} mcp`;
     const cmd = host === "local"
         ? [path.join(os.homedir(), ".local/bin/cua-driver"), "mcp"]
-        : ["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=15", host, `${bin} mcp`];
+        : ["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=15", host, remote];
     const proc = Bun.spawn(cmd, { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
-    const conn: Conn = { proc, pending: new Map(), nextId: 0, ready: Promise.resolve(), dead: false };
+    const conn: Conn = { proc, pending: new Map(), nextId: 0, ready: Promise.resolve(), dead: false, idleMs };
     const fail = (why: string) => {
         conn.dead = true;
+        if (conn.idleTimer) clearTimeout(conn.idleTimer);
         pool.delete(host);
         for (const p of conn.pending.values()) { clearTimeout(p.timer); p.reject(new Error(why)); }
         conn.pending.clear();
@@ -60,7 +64,7 @@ function connect(host: string): Conn {
 /**
  * Calls one Cua Driver tool on this Mac or on a remote host over a persistent MCP connection and returns its structured result.
  *
- * Low-level bridge behind every desktop.* function. Cua Driver (https://github.com/trycua/cua, installed as /Applications/CuaDriver.app with the ~/.local/bin/cua-driver CLI) performs Accessibility and screenshot work inside its own permission-holding app; this function keeps one `cua-driver mcp` process per host (locally, or `ssh <host>` for remote Macs) so snapshots and screenshot context stay valid between calls. Screenshot images in the reply are written to PNG files in the temp directory. Use for tools without a typed wrapper (list them with desktop.tools), e.g. drag, zoom, invoke_menu, clipboard_read.
+ * Low-level bridge behind every desktop.* function. On remote hosts the connection also runs `caffeinate` so the Mac does not sleep or auto-lock while connected (setting desktop.keepAwake); idle connections close after desktop.idleDisconnectMinutes. Cua Driver (https://github.com/trycua/cua, installed as /Applications/CuaDriver.app with the ~/.local/bin/cua-driver CLI) performs Accessibility and screenshot work inside its own permission-holding app; this function keeps one `cua-driver mcp` process per host (locally, or `ssh <host>` for remote Macs) so snapshots and screenshot context stay valid between calls. Screenshot images in the reply are written to PNG files in the temp directory. Use for tools without a typed wrapper (list them with desktop.tools), e.g. drag, zoom, invoke_menu, clipboard_read.
  * @param opts.tool Cua Driver tool name, e.g. get_window_state, click, type_text, hotkey.
  * @param opts.args Tool arguments exactly as documented by `cua-driver describe <tool>`.
  * @param opts.host SSH host alias of a remote Mac with Cua Driver installed; omit or pass local for this machine. @default local
@@ -91,11 +95,23 @@ export default async function (
         if (!ensured.has(host)) ensured.set(host, ctx.fns.desktop.ensureDaemon({ host }).catch(e => { ensured.delete(host); console.warn(String(e)); }));
         await ensured.get(host);
         conn = pool.get(host);
-        if (!conn || conn.dead) conn = connect(host);
+        if (!conn || conn.dead) {
+            const keepAwake = (await ctx.fns.settings.get({ module: "desktop", key: "keepAwake", scopeType: "global" }) as boolean | undefined) ?? true;
+            const idleMin = (await ctx.fns.settings.getNumber({ module: "desktop", key: "idleDisconnectMinutes", scopeType: "global", fallback: 10 })) ?? 10;
+            conn = connect(host, keepAwake, Math.max(0, idleMin) * 60_000);
+        }
     }
     await conn.ready;
+    const c = conn;
+    const arm = () => {
+        if (c.idleTimer) clearTimeout(c.idleTimer);
+        if (c.idleMs > 0) c.idleTimer = setTimeout(() => { if (c.pending.size === 0) { try { c.proc.kill(); } catch {} } else arm(); }, c.idleMs);
+    };
+    arm();
     const started = performance.now();
-    const result = await (conn as any).send("tools/call", { name: opts.tool, arguments: opts.args ?? {} }, opts.timeoutMs ?? 60000);
+    let result: any;
+    try { result = await (conn as any).send("tools/call", { name: opts.tool, arguments: opts.args ?? {} }, opts.timeoutMs ?? 60000); }
+    finally { arm(); }
     const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = result?.content ?? [];
     const images: string[] = [];
     for (const c of content) {

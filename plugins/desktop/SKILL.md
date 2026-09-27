@@ -29,6 +29,7 @@ Anything else (drag, zoom, invoke_menu, clipboard, window frames, recording): `d
 
 ## Notes
 
+- **Keep awake**: while connected to a remote Mac, the connection runs `caffeinate -dims` tied to the `cua-driver mcp` process, so the display does not sleep or auto-lock mid-task; it ends with the connection, which closes after `desktop.idleDisconnectMinutes` (default 10) without calls. Setting `desktop.keepAwake` (env `DESKTOP_KEEP_AWAKE`) turns it off. It cannot unlock an already locked screen.
 - **Locked screen**: when the target Mac locks, windows disappear from Accessibility (`ax_unresolved`, empty outline, background input refused) and screenshots show only the wallpaper. Unlock it, and disable auto-lock or keep `caffeinate -d` running while an agent works there.
 
 - Background delivery: no pointer movement, no focus steal; covered windows work, minimized/hidden ones need `open` first.

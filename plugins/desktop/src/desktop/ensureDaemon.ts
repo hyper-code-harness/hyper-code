@@ -31,5 +31,7 @@ export default async function (
     const env = timeoutMs > 0 ? `--env CUA_DRIVER_WINDOW_CHANGE_TIMEOUT_MS=${Math.round(timeoutMs)}` : "";
     const r = await sh(`C=~/.local/bin/cua-driver; $C stop >/dev/null 2>&1; for i in 1 2 3 4 5 6 7 8 9 10; do pgrep -f 'CuaDriver.app/Contents/MacOS/cua-driver serve' >/dev/null || break; sleep 0.3; done; open -n -g ${env} -a CuaDriver --args serve; for i in $(seq 1 30); do [ -S ~/Library/Caches/cua-driver/cua-driver.sock ] && $C status >/dev/null 2>&1 && break; sleep 0.3; done; $C status >/dev/null 2>&1 && echo up`, 45);
     if (!r.stdout.includes("up")) throw new Error(`desktop.ensureDaemon: Cua Driver did not come back on ${host}: ${(r.stderr || r.stdout).slice(-300)}`);
+    // A freshly started daemon needs a moment before Accessibility resolves windows (early calls see ax_unresolved).
+    await Bun.sleep(1500);
     return { host, timeoutMs, before, restarted: true };
 }

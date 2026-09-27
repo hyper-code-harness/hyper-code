@@ -19,7 +19,8 @@ export default async function (ctx: Context, _session: Session | null, _opts: { 
  <button id="l-btn" type="button" class="btn btn-primary px-6 py-3 text-base">🎙 Start</button>
  <button id="l-clear" type="button" class="btn">Clear</button>
  <div class="h-2 w-40 overflow-hidden rounded bg-black/10"><div id="l-lvl" class="h-full w-0 bg-green-500 transition-[width] duration-75"></div></div>
- <label class="text-xs text-faint">Clap sensitivity <input id="l-clap" type="range" min="0.1" max="0.8" step="0.05" value="0.35" class="align-middle"></label>
+ <label class="text-xs text-faint">Clap sensitivity <input id="l-clap" type="range" min="0.1" max="0.8" step="0.05" value="0.2" class="align-middle"></label>
+ <span id="l-clapdbg" class="font-mono text-xs text-faint"></span>
  <span id="l-clapflash" class="rounded-full px-2 py-1 text-xs opacity-0 transition-opacity duration-300 bg-yellow-400 text-black">👏 new block</span>
  <span id="l-st" class="text-sm text-faint">off</span>
 </div>
@@ -54,7 +55,8 @@ async function finalize(){ const chunks=buf, cnt=len; reset(); const my=gen, blk
   try{ const j=await ask(chunks,cnt); if(!junk(j.text)) f.textContent+=((f.textContent?' ':'')+j.text); }
   catch(e){ st.textContent=String(e) } if(my===gen||blk!==cur) p.textContent=''; }
 // clap: sudden loud peak (≥ threshold, far above recent level) that decays within ~150 ms
-let env=0.01, clapCand=null, clapCooldown=0, frames=[];
+let env=0.01, envPk=0.02, clapCand=null, clapCooldown=0, maxPk=0, maxT=0;
+let decT=0; function dbg(t,d){ if(d) decT=performance.now(); else if(performance.now()-decT<2500) return; $('l-clapdbg').textContent=t; }
 function clap(){ const fl=$('l-clapflash'); fl.style.opacity='1'; setTimeout(()=>fl.style.opacity='0',900);
   // drop audio around the clap, finalize what came before it, then open a new block
   const pre=clapCand.preChunks, preLen=clapCand.preLen; buf=pre; len=preLen;
@@ -65,12 +67,16 @@ function onAudio(e){ const x=e.inputBuffer.getChannelData(0); const L=x.length;
   const th=+$('l-clap').value;
   for(let o=0;o<L;o+=256){ let pk=0,s=0; for(let i=o;i<o+256&&i<L;i++){const a=Math.abs(x[i]); if(a>pk)pk=a; s+=a*a;} const r=Math.sqrt(s/256);
     if(clapCooldown>0){ clapCooldown-=256; continue; }
-    if(clapCand){ clapCand.after+=256; if(clapCand.after>=SR*0.12){ // ~120 ms after peak
-        const decayed=clapCand.tail/clapCand.tailN < clapCand.peakRms*0.25; const c=clapCand; clapCand=null;
-        if(decayed){ clapCand=c; clap(); clapCand=null; return; } }
-      else if(clapCand.after>SR*0.04){ clapCand.tail+=r; clapCand.tailN++; } }
-    else if(pk>th && r>env*4){ clapCand={peakRms:r,after:0,tail:0,tailN:0,preChunks:buf.slice(),preLen:len}; }
-    env=env*0.95+r*0.05; }
+    if(pk>maxPk||performance.now()-maxT>1500){ maxPk=pk; maxT=performance.now(); }
+    if(clapCand){ clapCand.after+=256;
+      if(clapCand.after<=SR*0.03){ clapCand.peakRms=Math.max(clapCand.peakRms,r); }
+      else if(clapCand.after<SR*0.16){ clapCand.tail+=r; clapCand.tailN++; }
+      else { const ratio=Math.max(0,clapCand.tail/clapCand.tailN-clapCand.bg)/Math.max(1e-6,clapCand.peakRms-clapCand.bg); const c=clapCand; clapCand=null;
+        dbg('peak '+c.pk.toFixed(2)+' · decay '+ratio.toFixed(2)+(ratio<0.4?' → 👏':' → speech'),1);
+        if(ratio<0.4){ clapCand=c; clap(); clapCand=null; return; } } }
+    else if(pk>th && pk>envPk*5){ clapCand={pk,bg:env,peakRms:r,after:0,tail:0,tailN:0,preChunks:buf.slice(),preLen:len}; }
+    if(!clapCand){ env=env*0.95+r*0.05; envPk=envPk*0.9+pk*0.1; } }
+  if(!clapCand) dbg('max peak '+maxPk.toFixed(2)+' / threshold '+th);
   let s=0; for(let i=0;i<L;i++) s+=x[i]*x[i]; const rms=Math.sqrt(s/L);
   $('l-lvl').style.width=Math.min(100,rms*800)+'%'; const ms=L/SR*1000;
   if(rms>SIL_RMS){ speech=true; silentMs=0; speechMs+=ms } else silentMs+=ms;
@@ -79,7 +85,7 @@ function onAudio(e){ const x=e.inputBuffer.getChannelData(0); const L=x.length;
   if(clapCand) return; // wait until clap decision before finalizing/partials
   if((silentMs>END_SIL&&speechMs>200) || len>SR*MAX_SEC) { finalize(); return; }
   const now=performance.now(); if(now-lastSend>PARTIAL_EVERY){ lastSend=now; partial(); } }
-async function start(){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:false,autoGainControl:false,channelCount:1}}); }
+async function start(){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}}); }
   catch(e){ st.textContent='mic error: '+e.message; return; }
   ac=new AudioContext({sampleRate:SR}); const src=ac.createMediaStreamSource(stream); node=ac.createScriptProcessor(2048,1,1);
   node.onaudioprocess=onAudio; src.connect(node); node.connect(ac.destination); on=true; btn.textContent='■ Stop'; st.textContent='warming up model…';

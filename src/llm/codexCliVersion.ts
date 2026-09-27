@@ -19,5 +19,5 @@ export default async function (
             const version = proc.exitCode === 0 ? proc.stdout.toString().match(/\b(\d+\.\d+\.\d+)\b/)?.[1] : undefined;
             if (version) return state.codexCliVersion = version;
         } catch {}
-        return state.codexCliVersion = "0.153.4";
+        return state.codexCliVersion = "0.157.1";
 }

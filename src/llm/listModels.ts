@@ -99,7 +99,7 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
             if (r.ok) {
                 const j: any = await r.json();
                 const ids = (j.models ?? [])
-                    .filter((m: any) => m.visibility !== "hidden" && m.supported_in_api !== false)
+                    .filter((m: any) => m.visibility !== "hidden" && m.visibility !== "hide" && m.supported_in_api !== false)
                     .map((m: any) => `codex:${m.slug}`);
                 if (ids.length) out.codex = ids;
             }

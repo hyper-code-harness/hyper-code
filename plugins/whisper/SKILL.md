@@ -1,6 +1,6 @@
 ---
 name: whisper
-description: "Local speech-to-text with whisper.cpp (Metal) — list downloaded ggml models, transcribe audio files or uploaded bytes with language and vocabulary prompt, and test from the /whisper page with the microphone."
+description: "Local speech-to-text with whisper.cpp (Metal) — list downloaded ggml models, transcribe audio files or uploaded bytes with language and vocabulary prompt, and live-test from the /whisper page with the microphone."
 ---
 # Whisper
 
@@ -12,4 +12,4 @@ await ctx.fns.whisper.transcribe({ path: "/tmp/a.wav", model: "large-v3-turbo", 
 ```
 
 Any ffmpeg-readable format is accepted; it is converted to 16 kHz mono WAV first.
-Test page: `/whisper` — record with the mic, compare models, see latency.
+Test page: `/whisper` — live mic transcription (partial text while speaking, final after a pause); clap to start a new block. `ensureServer` keeps a model resident for fast requests.

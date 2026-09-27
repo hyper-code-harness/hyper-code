@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 /**
  * Ensures a resident whisper.cpp HTTP server (whisper-server, Metal) is running for a model and returns its URL.
  * Keeping the model loaded removes the ~1 s load cost per request, which is required for live streaming transcription.
- * Use before sending many short requests, e.g. from the /whisper/live page.
+ * Use before sending many short requests, e.g. from the live /whisper page.
  */
 export default async function (_ctx: Context, _session: Session | null, opts: {
     /** Model name from whisper.models. @default "large-v3-turbo" */

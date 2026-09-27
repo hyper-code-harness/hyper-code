@@ -165,7 +165,8 @@ if (cmd === "verify") {
     if (!active.length) problems.push("no active user");
     if (active.length === 1 && active[0].has_password !== (!!(await ctx.fns.auth.password({})) || active[0].has_password)) problems.push("password state unexpected");
     // Sign-in behaviour the middleware will apply.
-    const mode = active.length === 0 ? "open (no users)" : active.length === 1 ? (active[0].has_password ? "password only (as today with a shared password)" : "open (as today without a password)") : "email + password";
+    const legacyPw = !!(await ctx.fns.auth.password({}));
+    const mode = active.length === 0 ? (legacyPw ? "legacy shared password (not switched yet)" : "open (no users, no password)") : active.length === 1 ? (active[0].has_password ? "password only (as today with a shared password)" : "open (as today without a password)") : "email + password";
     // Plugin schemas must be untouched: a quick check on the one we damaged before.
     let doonto: unknown = "n/a";
     if ((await one("SELECT to_regclass('doonto.graph_mentions') AS t")).t) {

@@ -20,13 +20,13 @@ export default async function (
     const closed: string[] = [];
     for (const h of hosts) {
       if (!/^[A-Za-z0-9._@-]+$/.test(h)) throw new Error("invalid host: " + h);
-      const p = Bun.spawn({ cmd: ["ssh", "-O", "exit", ...ssh.args, h], stdout: "ignore", stderr: "ignore" });
+      const p = Bun.spawn({ cmd: [ssh.bin, "-O", "exit", ...ssh.args, h], stdout: "ignore", stderr: "ignore" });
       if ((await p.exited) === 0) closed.push(h);
     }
     if (!opts.host) {
       // Sockets of hosts no longer in ~/.ssh/config: nothing to talk to, remove the files.
       for (const f of await readdir(dir).catch(() => [] as string[])) {
-        const p = Bun.spawn({ cmd: ["ssh", "-O", "check", "-o", "ControlPath=" + join(dir, f), "_"], stdout: "ignore", stderr: "ignore" });
+        const p = Bun.spawn({ cmd: [ssh.bin, "-O", "check", "-o", "ControlPath=" + join(dir, f), "_"], stdout: "ignore", stderr: "ignore" });
         if ((await p.exited) !== 0) await Bun.file(join(dir, f)).delete().catch(() => {});
       }
     }

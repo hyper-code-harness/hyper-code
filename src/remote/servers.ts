@@ -8,7 +8,7 @@ export default async function (
     session: Session | null,
     opts: {},
 ): Promise<Array<{ name: string; hostname: string; user: string; port: number }>> {
-    const { configFile } = await ctx.fns.remote.sshOptions({ persist: false });
+    const { configFile, bin } = await ctx.fns.remote.sshOptions({ persist: false });
     const custom = String(ctx.env.HYPER_SSH_CONFIG ?? "").trim();
     const file = Bun.file(configFile);
     if (!(await file.exists())) return [];
@@ -22,7 +22,7 @@ export default async function (
         }
     }
     return await Promise.all(names.map(async (name) => {
-        const p = Bun.spawn({ cmd: ["ssh", ...(custom ? ["-F", custom] : []), "-G", name], stdout: "pipe", stderr: "ignore" });
+        const p = Bun.spawn({ cmd: [bin, ...(custom ? ["-F", custom] : []), "-G", name], stdout: "pipe", stderr: "ignore" });
         const cfg = await new Response(p.stdout).text();
         const get = (k: string) => cfg.split("\n").find((l) => l.startsWith(k + " "))?.slice(k.length + 1).trim();
         return { name, hostname: get("hostname") ?? name, user: get("user") ?? "", port: Number(get("port") ?? 22) };

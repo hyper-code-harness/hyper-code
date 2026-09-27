@@ -16,6 +16,9 @@ export default async function (
     },
 ): Promise<string> {
     if (opts.host) {
+        // Remote paths are never resolved here (that needs the host): a relative
+        // or ~ path would silently become a path from "/".
+        if (!opts.path.startsWith("/")) throw new Error(`files.browserUrl: a remote path must be absolute (${opts.host}:${opts.path}); resolve it first (workspace.normalize / workspace.target)`);
         const encoded = opts.path.split("/").filter(Boolean).map(encodeURIComponent).join("/");
         return `/files/remote/${encodeURIComponent(opts.host)}/` + encoded;
     }

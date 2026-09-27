@@ -33,7 +33,8 @@ export default async function (
     if (!/^[A-Za-z0-9._@-]+$/.test(opts.host)) throw new Error("invalid host: " + opts.host);
     const local = ctx.fns.workspace.resolve({ path: opts.local }) + (opts.local.endsWith("/") ? "/" : "");
     const shq0 = (s: string) => /^[A-Za-z0-9_./=%:@-]+$/.test(s) ? s : ctx.fns.remote.quote({ value: s });
-    const ssh = ["ssh", "-T", ...(await ctx.fns.remote.sshOptions({})).args].map(shq0).join(" ");
+    const so = await ctx.fns.remote.sshOptions({});
+    const ssh = [so.bin, "-T", ...so.args].map(shq0).join(" ");
     const args = ["rsync", "-az", "--stats", "-e", ssh];
     if (opts.delete) args.push("--delete");
     if (opts.dryRun) args.push("--dry-run");

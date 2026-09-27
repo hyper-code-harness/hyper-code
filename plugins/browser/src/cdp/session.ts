@@ -36,12 +36,20 @@ export default async function (
     // Tabs of a dead browser are gone, so remembered bindings are dropped.
     // CDP_AUTOSTART=0 opts out. Only consulted after a failure: a live
     // reconnect costs nothing extra.
+    // One recovery at a time per server: concurrent callers share it, and the
+    // stale bindings are dropped exactly once, before anyone opens a new tab —
+    // a second caller finishing late can no longer close a freshly opened one.
     const restartChrome = async (): Promise<boolean> => {
         if (ctx.env.CDP_AUTOSTART === "0" || !(ctx.fns as any).chrome?.ensure) return false;
+        if (state.recovering) return await state.recovering;
         if ((await probe())?.ok) return false;
-        await (ctx.fns as any).chrome.ensure({});
-        for (const [key, handle] of sessions) { try { handle.ws?.close(); } catch {} sessions.delete(key); }
-        return !!(await probe())?.ok;
+        if (state.recovering) return await state.recovering;
+        state.recovering = (async () => {
+            for (const [key, handle] of sessions) { try { handle.ws?.close(); } catch {} sessions.delete(key); }
+            await (ctx.fns as any).chrome.ensure({});
+            return !!(await probe())?.ok;
+        })().finally(() => { state.recovering = undefined; });
+        return await state.recovering;
     };
     let targetId = existing?.targetId || opts.targetId;
     if (!targetId) {

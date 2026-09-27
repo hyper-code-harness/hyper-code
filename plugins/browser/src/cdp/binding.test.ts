@@ -125,3 +125,16 @@ test("CDP_AUTOSTART=0 keeps the old behaviour: no start, a clear error", async (
     await expect(session(ctx, caller, { name: "main" })).rejects.toThrow("Chrome CDP unavailable");
     expect(chrome.ensured).toBe(0);
 });
+
+test("concurrent callers share one Chrome recovery and keep each other's new tabs", async () => {
+    const chrome = fakeChrome();
+    const { ctx, caller } = context(null);
+    ctx.fns.chrome = { ensure: async () => { chrome.ensured++; await Bun.sleep(20); chrome.up = true; chrome.generation++; } };
+    const [a, b] = await Promise.all([session(ctx, caller, { name: "a" }), session(ctx, caller, { name: "b" })]);
+    expect(chrome.ensured).toBe(1);
+    const sessions = ctx.state.cdp.sessions;
+    expect(sessions.get("a")).toBe(a);
+    expect(sessions.get("b")).toBe(b);
+    expect(a.ws.readyState).toBe(1);
+    expect(b.ws.readyState).toBe(1);
+});

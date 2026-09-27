@@ -158,11 +158,39 @@ describe.skipIf(!enabled)("remote workspace (agent.workspaceHost)", () => {
 
     test("remote.list / stat / readBytes", async () => {
         const R = ctx.fns.remote;
-        expect((await R.list({ host: "plain", path: "proj" })).map((e: any) => e.name)).toEqual(["docs sp", "src", "dot.png", "saved.txt"]);
+        expect((await R.list({ host: "plain", path: "proj" })).map((e: any) => e.name)).toEqual(expect.arrayContaining(["docs sp", "src", "dot.png", "saved.txt"]));
         expect(await R.stat({ host: "plain", path: "proj/saved.txt" })).toMatchObject({ isDir: false, size: 15 });
         expect(await R.stat({ host: "plain", path: "proj/none" })).toBeNull();
         expect((await R.readBytes({ host: "plain", path: "proj/dot.png" })).length).toBe(8);
         await expect(R.readBytes({ host: "plain", path: "proj/saved.txt", maxBytes: 4 })).rejects.toThrow("too large");
+    });
+
+    test("review: relative remote paths in the Files UI resolve to absolute links", async () => {
+        const dir = await ctx.fns.procs.http.dispatch({ url: `/files?host=plain&path=proj`, headers: { accept: "text/html" } });
+        expect(dir.status).toBe(303);
+        expect(dir.headers.get("location")).toBe(`/files/remote/plain${home}/proj`);
+        const file = await ctx.fns.procs.http.dispatch({ url: `/files?host=plain&path=${encodeURIComponent("~/proj/saved.txt")}&tab=code&embed=1`, headers: { accept: "text/html" } });
+        expect(file.headers.get("location")).toBe(`/files/remote/embed/plain${home}/proj/saved.txt?tab=code`);
+        const rpc = Object.create(actx);
+        rpc.session = { ...actx.session, url: new URL("http://localhost/rpc") };
+        const html = String(await rpc.fns.ui.previewFile({ host: "rg", path: "~" }));
+        expect(html).toContain(`src="/files/remote/embed/rg/home/tester"`);
+    });
+
+    test("review: remote HTML preview assets come back raw, not as UI pages", async () => {
+        await ctx.fns.remote.exec({ host: "plain", command: "printf 'console.log(1)\\n' > proj/app.js && printf 'body{}\\n' > proj/style.css" });
+        const js = await ctx.fns.procs.http.dispatch({ url: `/files/remote/plain${home}/proj/app.js`, headers: { accept: "*/*", "sec-fetch-dest": "script" } });
+        expect(js.headers.get("content-type")).toContain("javascript");
+        expect(await js.text()).toBe("console.log(1)\n");
+        const css = await ctx.fns.procs.http.dispatch({ url: `/files/remote/plain${home}/proj/style.css`, headers: { accept: "text/css,*/*;q=0.1" } });
+        expect(css.headers.get("content-type")).toContain("text/css");
+    });
+
+    test("review: readBytes refuses files over the limit", async () => {
+        const R = ctx.fns.remote;
+        await R.writeFile({ host: "plain", path: "proj/big.bin", content: "y".repeat(300_000) });
+        await expect(R.readBytes({ host: "plain", path: "proj/big.bin", maxBytes: 100_000 })).rejects.toThrow("too large");
+        expect((await R.readBytes({ host: "plain", path: "proj/big.bin", maxBytes: 400_000 })).length).toBe(300_000);
     });
 
     test("workspace.set without host makes the workspace local again", async () => {

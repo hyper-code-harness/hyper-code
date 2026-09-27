@@ -23,7 +23,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const info = await stat(absolute).catch(() => null);
     if (!info) return new Response("not found", { status: 404 });
 
-    if (info.isDirectory() || url.searchParams.has("tab") || isPageRequest(opts.req, absolute)) {
+    if (info.isDirectory() || url.searchParams.has("tab") || ctx.fns.files.isPageRequest({ req: opts.req, path: absolute })) {
         const target = new URL("/files", url.origin);
         target.searchParams.set("path", absolute);
         target.searchParams.set("embed", "1");
@@ -40,11 +40,4 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     }
 
     return ctx.fns.files.rawResponse({ path: absolute, method: opts.req.method });
-}
-
-function isPageRequest(req: Request, path: string): boolean {
-    const accept = req.headers.get("accept") ?? "";
-    if (accept.includes("text/html") || accept === "" || accept === "*/*") return true;
-    return /\.(?:md|markdown|txt|ts|tsx|js|jsx|mjs|cjs|json|ya?ml|toml|css|html?|xml|sql|py|rs|go|java|sh|bash|zsh|diff)$/i.test(path)
-        && !accept.startsWith("image/") && !accept.startsWith("audio/") && !accept.startsWith("video/");
 }

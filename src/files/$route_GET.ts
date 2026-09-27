@@ -14,6 +14,17 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
     if (host && !(await ctx.fns.remote.servers({})).some(s => s.name === host)) {
         return { status: 400, title: "files", main: page(`<div class="p-6 text-error">unknown host: <code>${esc(host)}</code></div>`) };
     }
+    // Remote links must be absolute: a relative or ~ path is resolved on the host
+    // once and the page is served for that absolute path.
+    if (host && !path.startsWith("/")) {
+        const abs = await ctx.fns.workspace.normalize({ dir: path || "~", host }).catch(() => null)
+            ?? await resolveRemoteFile(ctx, host, path);
+        if (abs) {
+            const target = (await ctx.fns.files.browserUrl({ path: abs, host })).replace("/files/remote/", embedded ? "/files/remote/embed/" : "/files/remote/");
+            const tab = url.searchParams.get("tab");
+            return new Response(null, { status: 303, headers: { location: target + (tab ? `?tab=${encodeURIComponent(tab)}` : "") } });
+        }
+    }
     const st = host
         ? await ctx.fns.files.stat({ path, host }).then(s => s && { isDirectory: () => s.isDir }).catch(() => null)
         : await stat(ctx.fns.files.resolveSafe({ path })).catch(() => null);
@@ -115,7 +126,7 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
         // their order, so the config and the loader run here exactly as they
         // did from the head on a cold page load.
         contentEl = `<div id="cm-editor" class="flex-1 overflow-hidden"></div>
-<script>window.__editor = ${JSON.stringify({
+<script>window.__editor = ${scriptJson({
             saveUrl: `/files?path=${encodeURIComponent(path)}${host ? `&host=${encodeURIComponent(host)}` : ""}`,
             content,
             lang: cmLang,
@@ -218,3 +229,18 @@ const CM_EXT: Record<string, string> = {
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp", "ico"]);
 const VIDEO_EXT = new Set(["mp4", "webm", "mov", "m4v", "ogv"]);
 const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "oga", "m4a", "aac", "flac", "opus"]);
+
+// JSON embedded in an inline <script>: file contents are untrusted, and
+// JSON.stringify leaves "</script>" and "<!--" intact, which lets a file close
+// the element and run its own markup. Escaping "<" (and the two line
+// separators JavaScript treats as newlines) keeps the value inert.
+function scriptJson(value: unknown): string {
+    return JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+}
+
+// Absolute path of a (non-directory) file on an SSH host, or null.
+async function resolveRemoteFile(ctx: Context, host: string, path: string): Promise<string | null> {
+    const q = ctx.fns.remote.quote({ value: path, path: true });
+    const r = await ctx.fns.remote.exec({ host, command: 'f=' + q + '; [ -e "$f" ] || exit 2; d=$(cd -- "$(dirname -- "$f")" && pwd -P) || exit 2; printf "%s/%s" "$d" "$(basename -- "$f")"', timeout: 30 });
+    return r.exitCode === 0 && r.stdout.startsWith("/") ? r.stdout : null;
+}

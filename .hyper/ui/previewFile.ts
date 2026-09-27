@@ -28,7 +28,13 @@ export default async function (
 ): Promise<string | { path: string; mode: "auto" | "preview" | "source"; url: string }> {
     const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path });
     const host = at.host ?? undefined;
-    const path = host ? at.path : ctx.fns.files.resolveSafe({ path: opts.path });
+    let path = host ? at.path : ctx.fns.files.resolveSafe({ path: opts.path });
+    if (host && !path.startsWith("/")) {
+        const q = ctx.fns.remote.quote({ value: path, path: true });
+        const r = await ctx.fns.remote.exec({ host, command: 'f=' + q + '; [ -e "$f" ] || exit 2; if [ -d "$f" ]; then cd -- "$f" && pwd -P; else printf "%s/%s" "$(cd -- "$(dirname -- "$f")" && pwd -P)" "$(basename -- "$f")"; fi', timeout: 30 });
+        if (r.exitCode !== 0) throw new Error(`file not found: ${host}:${opts.path}`);
+        path = r.stdout.trim();
+    }
     const info = await ctx.fns.files.stat({ path, host });
     if (!info) throw new Error(`file not found: ${host ? host + ":" : ""}${opts.path}`);
 

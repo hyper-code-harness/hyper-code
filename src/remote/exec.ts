@@ -41,7 +41,7 @@ export default async function (
     // (sshd starts it with setsid), so a timeout can kill the whole group —
     // including children that were orphaned or backgrounded.
     const wrapper = 'IFS= read -r n; echo "__HYPER_PID=$$ __HYPER_PGID=$(ps -o pgid= -p $$ | tr -d " ")" >&2; s=$(dd bs=1 count="$n" 2>/dev/null); eval "$s"';
-    const cmd = ["ssh", "-T", ...ssh.args, opts.host, "exec bash -lc " + shq(wrapper)];
+    const cmd = [ssh.bin, "-T", ...ssh.args, opts.host, "exec bash -lc " + shq(wrapper)];
     function shq(s: string) { return ctx.fns.remote.quote({ value: s }); }
     const started = Date.now();
     const script = Buffer.from(remote);
@@ -105,7 +105,7 @@ export default async function (
         const kill = remotePgid && remotePgid === remotePid
             ? "kill -TERM -- -" + remotePgid + " 2>/dev/null; sleep 1; kill -KILL -- -" + remotePgid + " 2>/dev/null; true"
             : "kt(){ for c in $(pgrep -P $1); do kt $c $2; done; kill -$2 $1 2>/dev/null; }; kt " + remotePid + " TERM; sleep 1; kt " + remotePid + " KILL; true";
-        const k = Bun.spawn({ cmd: ["ssh", "-T", ...(await ctx.fns.remote.sshOptions({ persist: false })).args, opts.host, kill], stdout: "ignore", stderr: "ignore" });
+        const k = Bun.spawn({ cmd: [ssh.bin, "-T", ...(await ctx.fns.remote.sshOptions({ persist: false })).args, opts.host, kill], stdout: "ignore", stderr: "ignore" });
         await Promise.race([k.exited, Bun.sleep(5000).then(() => k.kill())]);
     }
     if (truncated) err = keep(err, `\n[output truncated at ${MAX} bytes]`);

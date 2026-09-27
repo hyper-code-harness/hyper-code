@@ -30,7 +30,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: { 
 <div class="mt-6 grid gap-5 lg:grid-cols-[3fr_2fr]">
  <div id="l-blocks" class="space-y-3"></div>
  <div class="rounded-2xl border border-line p-4">
-  <div class="mb-2 flex items-center justify-between gap-2"><div class="text-sm font-semibold">Dispatcher log</div><span class="text-xs text-faint">dry run · nothing is executed</span></div>
+  <div class="mb-2 flex items-center justify-between gap-2"><div class="text-sm font-semibold">Dispatcher log</div><span class="text-xs text-faint">dry run · commands run early, dictation waits 2.5 s</span></div>
   <label class="block text-xs text-faint">Focused agent<select id="d-focus" class="${input} mt-1 w-full"><option value="">— none —</option>${agentOpt}</select></label>
   <input id="d-text" class="${input} mt-2 w-full" placeholder="type a phrase + Enter to test without mic">
   <div id="d-log" class="mt-3 max-h-[60vh] space-y-2 overflow-auto font-mono text-xs"></div>
@@ -56,31 +56,48 @@ async function ask(chunks,n){ const q=new URLSearchParams({model:$('l-model').va
   const r=await fetch('/whisper/live?'+q,{method:'POST',headers:{'content-type':'audio/wav'},body:wav(chunks,n)}); return r.json(); }
 const junk=t=>!t||/^[\\s.,!?…-]*$/.test(t)||/^\\[.*\\]$|^\\(.*\\)$|^\\*.*\\*$/.test(t)||/Продолжение следует|Субтитры|Thank you for watching|аплодисмент|applause/i.test(t);
 async function partial(){ if(inflight||!len) return; inflight=true; const my=gen, t=performance.now();
-  try{ const j=await ask(buf.slice(),len); if(my===gen&&!j.error){ P().textContent=junk(j.text)?'':j.text; st.textContent='listening · '+Math.round(performance.now()-t)+' ms'; } if(j.error) st.textContent=j.error; }
+  try{ const j=await ask(buf.slice(),len); if(my===gen&&!j.error){ const txt=junk(j.text)?'':j.text; P().textContent=txt; st.textContent='listening · '+Math.round(performance.now()-t)+' ms';
+      if(txt && txt.length<80) await early(txt, my); }
+    if(j.error) st.textContent=j.error; }
   catch(e){ st.textContent=String(e) } finally{ inflight=false } }
+// a partial transcript that is already a complete, unambiguous command is executed right away and the input is cleared
+async function early(text, my){ const j=await route(text,true); if(my!==gen||!j||!j.confident) return;
+  reset(); P().textContent=''; F().textContent=''; handle(text,j,'early'); }
+async function route(text,partial){ try{ const r=await fetch('/whisper/dispatch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,partial,focusAgentId:$('d-focus').value})}); return await r.json(); }catch(e){ return {error:String(e)} } }
 function reset(){ buf=[];len=0;speech=false;silentMs=0;speechMs=0; gen++; }
 async function finalize(){ const chunks=buf, cnt=len; reset(); const my=gen, blk=cur;
   const f=blk.querySelector('[data-f]'), p=blk.querySelector('[data-p]');
   if(cnt<SR*0.3){ p.textContent=''; return; }
   p.textContent=(p.textContent||'')+' …';
-  try{ const j=await ask(chunks,cnt); if(!junk(j.text)){ f.textContent+=((f.textContent?' ':'')+j.text); dispatch(j.text); } }
+  try{ const j=await ask(chunks,cnt); if(!junk(j.text)){ const d=await route(j.text,false); if(d.kind==='dictation'){ f.textContent+=((f.textContent?' ':'')+j.text); } handle(j.text,d,'final'); } }
   catch(e){ st.textContent=String(e) } if(my===gen||blk!==cur) p.textContent=''; }
-async function dispatch(text){ const t0=performance.now(); let j;
-  try{ const r=await fetch('/whisper/dispatch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,focusAgentId:$('d-focus').value})}); j=await r.json(); }
-  catch(e){ j={error:String(e)} }
-  const d=document.createElement('div'); d.className='rounded-lg border border-line p-2';
-  const say=document.createElement('div'); say.className='text-faint'; say.textContent='🗣 '+text+'  ·  '+Math.round(performance.now()-t0)+' ms';
+const HOLD_MS=2500; let pending=null;
+function entry(text,j,tag){ const d=document.createElement('div'); d.className='rounded-lg border border-line p-2';
+  const say=document.createElement('div'); say.className='text-faint'; say.textContent='🗣 '+text+(tag?'  ·  '+tag:'');
   const cmd=document.createElement('div'); cmd.className=j.command?'text-primary':'text-faint';
   cmd.textContent=j.error?('error: '+j.error):('command: '+(j.command||'—')+'  opts: '+JSON.stringify(j.opts));
   const why=document.createElement('div'); why.className='text-faint'; why.textContent=(j.reason||'')+(j.match?'  ['+j.match.map(m=>m.title+' '+m.score).join(', ')+']':'');
-  d.append(say,cmd,why); $('d-log').prepend(d);
-  console.log('command:',j.command,'opts:',j.opts);
+  d.append(say,cmd,why);
+  if(j.preview&&j.preview.agents){ const ul=document.createElement('div'); ul.className='mt-1 text-subtle';
+    ul.textContent=j.preview.agents.length? j.preview.agents.map(a=>(a.unread?'● '+a.unread+' ':'⟳ ')+a.title).join('   ') : 'nobody is waiting'; d.append(ul); }
+  $('d-log').prepend(d); console.log('command:',j.command,'opts:',j.opts); return d; }
+function cancelPending(why){ if(!pending) return false; clearTimeout(pending.timer); clearInterval(pending.tick);
+  pending.el.classList.add('opacity-40','line-through'); pending.bar.textContent='✕ cancelled ('+why+')'; pending=null; return true; }
+function handle(text,j,tag){
+  if(j.kind==='cancel'){ const ok=cancelPending('voice'); entry(text,j,ok?'cancelled pending':'nothing to cancel'); return; }
+  if(j.kind==='dictation'&&j.command){ cancelPending('replaced'); const el=entry(text,j,'pending');
+    const bar=document.createElement('div'); bar.className='mt-1 text-warning'; el.append(bar);
+    const until=Date.now()+HOLD_MS; const tick=()=>{ bar.textContent='⏳ sending in '+Math.max(0,(until-Date.now())/1000).toFixed(1)+' s — say "отмена" or clap to cancel'; };
+    tick(); pending={el,bar,tick:setInterval(tick,100),timer:setTimeout(()=>{ clearInterval(pending.tick); bar.textContent='✓ sent (dry run)'; bar.className='mt-1 text-success'; pending=null; },HOLD_MS)};
+    return; }
+  entry(text,j,tag);
   if(j.command==='ui.openAgent'&&j.opts&&j.opts.agentId) $('d-focus').value=j.opts.agentId; }
+async function dispatch(text){ const j=await route(text,false); handle(text,j,'final'); }
 $('d-text').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.value.trim()){ dispatch(e.target.value.trim()); e.target.value=''; } });
 // clap: sudden loud peak (≥ threshold, far above recent level) that decays within ~150 ms
 let env=0.01, envPk=0.02, clapCand=null, clapCooldown=0, maxPk=0, maxT=0;
 let decT=0; function dbg(t,d){ if(d) decT=performance.now(); else if(performance.now()-decT<2500) return; $('l-clapdbg').textContent=t; }
-function clap(){ const fl=$('l-clapflash'); fl.style.opacity='1'; setTimeout(()=>fl.style.opacity='0',900);
+function clap(){ cancelPending('clap'); const fl=$('l-clapflash'); fl.style.opacity='1'; setTimeout(()=>fl.style.opacity='0',900);
   // drop audio around the clap, finalize what came before it, then open a new block
   const pre=clapCand.preChunks, preLen=clapCand.preLen; buf=pre; len=preLen;
   if(speech&&preLen>SR*0.3) finalize(); else { reset(); if(cur) cur.querySelector('[data-p]').textContent=''; }

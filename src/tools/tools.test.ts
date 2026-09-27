@@ -65,12 +65,14 @@ describe('tools registry', () => {
 
     test('schemas render the three provider dialects', async () => {
         const ctx = await setup();
+        // write carries an optional `host` (remote SSH target), so it ships non-strict like read.
         const openai = ctx.fns.tools.schemas({ api: 'openai' }).find((t: any) => t.function.name === 'write');
         expect(openai.function.parameters.additionalProperties).toBe(false);
-        expect(openai.function.strict).toBe(true);
+        expect(openai.function.strict).toBe(false);
 
         const responses = ctx.fns.tools.schemas({ api: 'responses' }).find((t: any) => t.name === 'write');
-        expect(responses).toMatchObject({ type: 'function', name: 'write', strict: true });
+        expect(responses).toMatchObject({ type: 'function', name: 'write', strict: false });
+        expect(responses.parameters.properties.host.type).toBe('string');
 
         const anthropic = ctx.fns.tools.schemas({ api: 'anthropic' }).find((t: any) => t.name === 'write');
         expect(anthropic.input_schema.required).toEqual(['path', 'content']);

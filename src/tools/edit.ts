@@ -8,16 +8,22 @@
 // Two families, deliberately not mixed in one call: literal replacement
 // (oldText/newText — no anchors to fetch, must match exactly once) and anchored
 // line ops (anchor/endAnchor/text — refused outright if the anchor moved).
-/** Implements structured workspace file edits. */
+/**
+ * Implements structured file edits in the local workspace or on a remote SSH host.
+ *
+ * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.path Workspace-relative or absolute path; with host a remote path relative to the remote home.
+ * @param opts.edits Structured edit operations: literal replace or anchored line ops.
+ */
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Workspace-relative path. */ path: string; /** Structured edit operations. */ edits: types.tools.EditOp[] },
+    opts: { /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */ host?: string; /** Workspace-relative path. */ path: string; /** Structured edit operations. */ edits: types.tools.EditOp[] },
 ): Promise<string> {
     const ops = opts.edits.map((e, i) => toOp(e, i));
-    const r = await ctx.fns.files.applyEdits({ path: opts.path, ops });
+    const r = await ctx.fns.files.applyEdits({ path: opts.path, host: opts.host, ops });
     const n = opts.edits.length;
-    return `edited ${r.path} (${r.bytes} bytes, ${n} edit${n === 1 ? "" : "s"})`;
+    return `edited ${opts.host ? opts.host + ":" : ""}${r.path} (${r.bytes} bytes, ${n} edit${n === 1 ? "" : "s"})`;
 }
 
 function toOp(edit: types.tools.EditOp, i: number): types.files.EditHashlineOp {

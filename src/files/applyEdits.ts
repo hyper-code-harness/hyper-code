@@ -32,14 +32,20 @@ function overlaps(a: { start: number; end: number }, b: { start: number; end: nu
     return a.start <= b.end && b.start <= a.end;
 }
 
-/** Applies structured literal or hashline-anchored edits to a workspace file. */
+/**
+ * Applies structured literal or hashline-anchored edits to a workspace file or a remote SSH file.
+ *
+ * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.path Workspace-relative or absolute path; with host a remote path relative to the remote home.
+ * @param opts.ops Ordered edit operations to apply.
+ */
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Workspace-relative path. */ path: string; /** Ordered edit operations to apply. */ ops: types.files.EditHashlineOp[] },
+    opts: { /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */ host?: string; /** Workspace-relative path. */ path: string; /** Ordered edit operations to apply. */ ops: types.files.EditHashlineOp[] },
 ): Promise<{ path: string; bytes: number; diff: string; content: string }> {
     const { path, ops } = opts;
-    const before = await ctx.fns.files.read({ path: path });
+    const before = await ctx.fns.files.read({ path, host: opts.host });
     const hadTrailingNl = before.endsWith("\n");
     const literalOps = ops.filter((op): op is Extract<types.files.EditHashlineOp, { kind: "literal_replace" }> => op.kind === "literal_replace");
     const literalEdits: Array<{ start: number; end: number; replacement: string }> = [];
@@ -77,7 +83,7 @@ export default async function (
             code: `--- ${path}\n+++ ${path}\n${before}\n---\n${literalContent}`,
             lang: "diff",
         }).catch(() => "");
-        const res = await ctx.fns.files.write({ path: path, content: literalContent });
+        const res = await ctx.fns.files.write({ path, host: opts.host, content: literalContent, expectedContent: opts.host ? before : undefined });
         return { path: path, bytes: res.bytes, diff, content: literalContent };
     }
     // An empty file has no lines at all (not one empty line), so EOF/BOF inserts yield just the new text.
@@ -170,6 +176,6 @@ export default async function (
         code: `--- ${path}\n+++ ${path}\n${before}\n---\n${content}`,
         lang: "diff",
     }).catch(() => "");
-    const res = await ctx.fns.files.write({ path: path, content });
+    const res = await ctx.fns.files.write({ path, host: opts.host, content, expectedContent: opts.host ? before : undefined });
     return { path: path, bytes: res.bytes, diff, content };
 }

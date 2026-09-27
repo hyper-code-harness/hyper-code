@@ -8,6 +8,9 @@ promptGuidelines:
 parameters:
   type: object
   properties:
+    host:
+      type: string
+      description: "Remote SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})). Omit to act locally. With host, path is remote; relative paths resolve against the remote home."
     pattern:
       type: string
       description: "Glob, e.g. *.test.ts or src/**/*.md. A pattern without a slash matches at any depth."

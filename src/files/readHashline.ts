@@ -1,11 +1,19 @@
-/** Reads a workspace file with stable line anchors. */
+/**
+ * Reads a workspace or remote SSH file with stable hashline anchors for edits.
+ *
+ * @param opts.host Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means the local workspace.
+ * @param opts.path Workspace-relative or absolute path; with host a remote path relative to the remote home.
+ * @param opts.startLine First line to include, one-based. @minimum 1
+ * @param opts.endLine Last line to include, inclusive. @minimum 1
+ * @param opts.maxLines Maximum number of lines to return. @minimum 1
+ */
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Workspace-relative path. */ path: string; /** First line to include, one-based. */ startLine?: number; /** Last line to include, inclusive. */ endLine?: number; /** Maximum number of lines to return. */ maxLines?: number },
+    opts: { /** Remote SSH host alias from ~/.ssh/config (see remote.servers); omitted means local. */ host?: string; /** Workspace-relative path. */ path: string; /** First line to include, one-based. */ startLine?: number; /** Last line to include, inclusive. */ endLine?: number; /** Maximum number of lines to return. */ maxLines?: number },
 ): Promise<types.files.ReadHashlineResult> {
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-    const content = await ctx.fns.files.read({ path: opts.path });
+    const content = await ctx.fns.files.read({ path: opts.path, host: opts.host });
     const normalized = content.replaceAll("\r\n", "\n");
     const all = normalized.split("\n");
     const totalLines = all.length;

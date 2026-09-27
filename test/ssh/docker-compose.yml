@@ -1,0 +1,13 @@
+# Disposable SSH targets for src/remote/*.test.ts. Started and torn down by the
+# test itself (test/ssh/fixture.ts); run by hand with
+#   HYPER_SSH_KEYS=$PWD/.keys docker compose -p hyper-ssh-test up -d --build
+name: hyper-ssh-test
+services:
+  plain:
+    build: { context: ., args: { RG: "0" } }
+    ports: ["127.0.0.1::22"]
+    volumes: ["${HYPER_SSH_KEYS:?set HYPER_SSH_KEYS}:/keys:ro"]
+  rg:
+    build: { context: ., args: { RG: "1" } }
+    ports: ["127.0.0.1::22"]
+    volumes: ["${HYPER_SSH_KEYS:?set HYPER_SSH_KEYS}:/keys:ro"]

@@ -53,6 +53,8 @@ agent: types.agent.Agent }): Promise<string> {
         // byte-identical prefix as its parent, or the provider prompt cache misses.
         "- your agent id: `agent.id` inside eval, or `await ctx.fns.agent.current({})` from any runtime function (never hard-code it)",
         "- storage: Postgres — ctx.fns.procs.db.* (never bare Bun.sql)",
+        "- remote machines: pass host (alias from ~/.ssh/config; list with ctx.fns.remote.servers({})) to read/write/edit/grep/find/bash to work there over one persistent SSH connection;",
+        "  ctx.fns.remote.* adds status, rsync (push/pull), start/logs/stop/jobs for background processes in tmux, and close",
         "",
         "- durable agent triggers: wake({ id: agent.id, at|inMs, prompt }) once; cron({ id: agent.id, expression, timezone, prompt }) repeatedly; watch({ id: agent.id, predicate: 'file.exists'|'db.rows'|'http.ok'|'runtime.fn', opts, prompt, everyMs?, timeoutMs?, mode?: 'once'|'edge', onTimeoutPrompt? }) on a condition",
         "- inspect/cancel triggers with agent.triggers({ id: agent.id, status? }), cancelTrigger({ id: agent.id, triggerId }), or cancelAllTriggers({ id: agent.id }); runtime.fn watch opts: { name: 'module.function', args, callTimeoutMs? }",

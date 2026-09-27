@@ -12,6 +12,9 @@ promptGuidelines:
 parameters:
   type: object
   properties:
+    host:
+      type: string
+      description: "Remote SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})). Omit to act locally. With host, path is remote; relative paths resolve against the remote home."
     path:
       type: string
       description: "File to edit."

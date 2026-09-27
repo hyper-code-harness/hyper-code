@@ -6,11 +6,15 @@ description: >-
 marker: bash
 promptSnippet: "run shell commands (ls, git, tests)"
 promptGuidelines:
+  - "To work on another machine pass host (an alias from ~/.ssh/config, list with ctx.fns.remote.servers({})) to bash, read, write or edit — no ssh quoting needed; the connection is kept open between calls."
   - "Give bash a timeout when a command could hang (a server, a watcher, a prompt) — and make it generous: a slow search needs minutes, and a timeout that is too tight kills work that was about to succeed."
   - "To locate files use the find tool and to search contents use grep; `bash find ~` walks every node_modules on the machine and dies on the clock."
 parameters:
   type: object
   properties:
+    host:
+      type: string
+      description: "Remote SSH server alias from ~/.ssh/config (list: ctx.fns.remote.servers({})). Omit to act locally. With host, cwd is remote and the command runs via bash -lc over a persistent connection."
     command:
       type: string
       description: "Shell script to run."

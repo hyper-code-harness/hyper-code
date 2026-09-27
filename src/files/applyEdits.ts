@@ -80,15 +80,28 @@ export default async function (
         const res = await ctx.fns.files.write({ path: path, content: literalContent });
         return { path: path, bytes: res.bytes, diff, content: literalContent };
     }
-    const base = splitLinesKeepEmpty(before);
+    // An empty file has no lines at all (not one empty line), so EOF/BOF inserts yield just the new text.
+    const base = before === "" ? [] : splitLinesKeepEmpty(before);
 
     const planned: PlannedOp[] = ops.map((op, order) => {
         if (op.kind === "insert_after") {
-            const index = op.anchor === "BOF" ? 0 : op.anchor === "EOF" ? base.length : validateAnchor(ctx, base, op.anchor);
+            // The emit loop below attaches `after` groups to the 0-based line
+            // index, so "after line N" (1-based) is index N-1. BOF means before
+            // the first line; EOF means after the last one.
+            if (op.anchor === "BOF") return { kind: "insert_before", index: 0, lines: op.lines, order };
+            // A trailing newline leaves an empty last element in `base`; EOF
+            // means after the last real line, i.e. before that empty tail.
+            const lastReal = hadTrailingNl ? base.length - 2 : base.length - 1;
+            const index = op.anchor === "EOF" ? Math.max(0, lastReal) : validateAnchor(ctx, base, op.anchor) - 1;
             return { kind: "insert_after", index, lines: op.lines, order };
         }
         if (op.kind === "insert_before") {
-            const index = op.anchor === "BOF" ? 0 : op.anchor === "EOF" ? base.length : validateAnchor(ctx, base, op.anchor) - 1;
+            // Before EOF is the same place as after the last real line.
+            if (op.anchor === "EOF") {
+                const lastReal = hadTrailingNl ? base.length - 2 : base.length - 1;
+                return { kind: "insert_after", index: Math.max(0, lastReal), lines: op.lines, order };
+            }
+            const index = op.anchor === "BOF" ? 0 : validateAnchor(ctx, base, op.anchor) - 1;
             return { kind: "insert_before", index, lines: op.lines, order };
         }
         if (op.kind === "delete") {

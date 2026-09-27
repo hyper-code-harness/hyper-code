@@ -1,0 +1,12 @@
+{
+  "name": "desktop",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Desktop",
+    "icon": "ph-desktop",
+    "optional": true,
+    "description": "Local macOS desktop control for agents: apps, windows, Accessibility UI tree, element actions, mouse, keyboard and screenshots."
+  }
+}

@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
  */
 export default async function (ctx: Context, _session: Session | null, opts: { entries: any[] }): Promise<void> {
     const ts = await import("typescript");
+    const loaded: any[] = [];
     for (const entry of opts.entries) {
         // Imported once by the bootstrap; on a hot reload there is no entry.fn
         // and the file is read again, cache-busted.
@@ -34,8 +35,12 @@ export default async function (ctx: Context, _session: Session | null, opts: { e
             continue;
         }
         setPath(ctx.state.registry, [...entry.moduleDir.split("/"), entry.runtimeName], bindSelf(fn, entry.namespace));
-        (ctx.fns as any).procs?.log?.debug?.({ event: "load.fn", msg: dottedName(entry), from: source(entry) });
+        loaded.push(entry);
     }
+    // Logged after the loop: `log.debug` calls `log.emit`, and readdir order is
+    // filesystem-specific (APFS alphabetical, ext4 hash) — debug may be
+    // registered before emit exists.
+    for (const entry of loaded) (ctx.fns as any).procs?.log?.debug?.({ event: "load.fn", msg: dottedName(entry), from: source(entry) });
 }
 
 function reflectSource(ts: any, entry: any): any {

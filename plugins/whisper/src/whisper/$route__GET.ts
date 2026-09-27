@@ -1,6 +1,9 @@
 /** GET /whisper — live microphone transcription page: partial text updates while speaking, finalized per pause. */
 export default async function (ctx: Context, _session: Session | null, _opts: { req: Request; params: Record<string, string> }) {
     const { models } = await ctx.fns.whisper.models({});
+    const sessions: any = await ctx.fns.session.list({});
+    const agents = (Array.isArray(sessions) ? sessions : []).filter((a: any) => !a.archivedAt && !a.parentId && a.visibility !== "hidden").slice(0, 60);
+    const agentOpt = agents.map((a: any) => `<option value="${Bun.escapeHTML(a.id)}">${Bun.escapeHTML(String(a.title || a.id))} · ${Bun.escapeHTML(a.id)}</option>`).join("");
     const esc = (s: string) => Bun.escapeHTML(s);
     const opt = models.map((m) => `<option value="${esc(m.name)}"${m.name === "large-v3-turbo" ? " selected" : ""}>${esc(m.name)}</option>`).join("");
     const input = "rounded-lg border border-line bg-transparent px-3 py-2 text-sm";
@@ -24,7 +27,15 @@ export default async function (ctx: Context, _session: Session | null, _opts: { 
  <span id="l-clapflash" class="rounded-full px-2 py-1 text-xs opacity-0 transition-opacity duration-300 bg-yellow-400 text-black">👏 new block</span>
  <span id="l-st" class="text-sm text-faint">off</span>
 </div>
-<div id="l-blocks" class="mt-6 space-y-3"></div>
+<div class="mt-6 grid gap-5 lg:grid-cols-[3fr_2fr]">
+ <div id="l-blocks" class="space-y-3"></div>
+ <div class="rounded-2xl border border-line p-4">
+  <div class="mb-2 flex items-center justify-between gap-2"><div class="text-sm font-semibold">Dispatcher log</div><span class="text-xs text-faint">dry run · nothing is executed</span></div>
+  <label class="block text-xs text-faint">Focused agent<select id="d-focus" class="${input} mt-1 w-full"><option value="">— none —</option>${agentOpt}</select></label>
+  <input id="d-text" class="${input} mt-2 w-full" placeholder="type a phrase + Enter to test without mic">
+  <div id="d-log" class="mt-3 max-h-[60vh] space-y-2 overflow-auto font-mono text-xs"></div>
+ </div>
+</div>
 </div>
 <script>(function(){
 const $=id=>document.getElementById(id), btn=$('l-btn'), st=$('l-st'), blocks=$('l-blocks');
@@ -52,8 +63,20 @@ async function finalize(){ const chunks=buf, cnt=len; reset(); const my=gen, blk
   const f=blk.querySelector('[data-f]'), p=blk.querySelector('[data-p]');
   if(cnt<SR*0.3){ p.textContent=''; return; }
   p.textContent=(p.textContent||'')+' …';
-  try{ const j=await ask(chunks,cnt); if(!junk(j.text)) f.textContent+=((f.textContent?' ':'')+j.text); }
+  try{ const j=await ask(chunks,cnt); if(!junk(j.text)){ f.textContent+=((f.textContent?' ':'')+j.text); dispatch(j.text); } }
   catch(e){ st.textContent=String(e) } if(my===gen||blk!==cur) p.textContent=''; }
+async function dispatch(text){ const t0=performance.now(); let j;
+  try{ const r=await fetch('/whisper/dispatch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,focusAgentId:$('d-focus').value})}); j=await r.json(); }
+  catch(e){ j={error:String(e)} }
+  const d=document.createElement('div'); d.className='rounded-lg border border-line p-2';
+  const say=document.createElement('div'); say.className='text-faint'; say.textContent='🗣 '+text+'  ·  '+Math.round(performance.now()-t0)+' ms';
+  const cmd=document.createElement('div'); cmd.className=j.command?'text-primary':'text-faint';
+  cmd.textContent=j.error?('error: '+j.error):('command: '+(j.command||'—')+'  opts: '+JSON.stringify(j.opts));
+  const why=document.createElement('div'); why.className='text-faint'; why.textContent=(j.reason||'')+(j.match?'  ['+j.match.map(m=>m.title+' '+m.score).join(', ')+']':'');
+  d.append(say,cmd,why); $('d-log').prepend(d);
+  console.log('command:',j.command,'opts:',j.opts);
+  if(j.command==='ui.openAgent'&&j.opts&&j.opts.agentId) $('d-focus').value=j.opts.agentId; }
+$('d-text').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.value.trim()){ dispatch(e.target.value.trim()); e.target.value=''; } });
 // clap: sudden loud peak (≥ threshold, far above recent level) that decays within ~150 ms
 let env=0.01, envPk=0.02, clapCand=null, clapCooldown=0, maxPk=0, maxT=0;
 let decT=0; function dbg(t,d){ if(d) decT=performance.now(); else if(performance.now()-decT<2500) return; $('l-clapdbg').textContent=t; }

@@ -30,9 +30,8 @@ Anything else (drag, zoom, invoke_menu, clipboard, window frames, recording): `d
 ## Notes
 
 - **Keep awake**: while connected to a remote Mac, the connection runs `caffeinate -dims` tied to the `cua-driver mcp` process, so the display does not sleep or auto-lock mid-task; it ends with the connection, which closes after `desktop.idleDisconnectMinutes` (default 10) without calls. Setting `desktop.keepAwake` (env `DESKTOP_KEEP_AWAKE`) turns it off. It cannot unlock an already locked screen.
-- **Locked screen**: when the target Mac locks, windows disappear from Accessibility (`ax_unresolved`, empty outline, background input refused) and screenshots show only the wallpaper. Unlock it, and disable auto-lock or keep `caffeinate -d` running while an agent works there.
-
+- **Locked screen**: when the target Mac locks, windows disappear from Accessibility (`ax_unresolved`, empty outline, background input refused) and screenshots show only the wallpaper. Unlock it; keep-awake prevents new locks only while connected.
 - Background delivery: no pointer movement, no focus steal; covered windows work, minimized/hidden ones need `open` first.
 - Electron apps (Discord, Slack) expose some labelled elements; otherwise `look({ ocr: true })` + `click({ x, y })` or `click({ text })`.
 - Labels differ by state/version (Calculator shows "All Clear" or "Clear"); look before guessing.
-- Measured (M-series, Tailscale SSH): look tree ~0.2 s, screenshot ~0.4 s, OCR +2 s, fast-mode click ~0.4-1.5 s.
+- Measured (M-series, Tailscale SSH): look tree ~0.2 s, screenshot ~0.4 s, OCR +2 s, fast-mode key ~0.4 s, click by text ~1.5-2 s (includes a fresh tree lookup), first call per host up to ~3 s when the daemon is restarted into fast mode.

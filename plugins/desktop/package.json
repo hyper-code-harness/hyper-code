@@ -7,6 +7,6 @@
     "label": "Desktop",
     "icon": "ph-desktop",
     "optional": true,
-    "description": "Local macOS desktop control for agents: apps, windows, Accessibility UI tree, element actions, mouse, keyboard and screenshots."
+    "description": "macOS desktop control for agents on this Mac or remote Macs over SSH via Cua Driver: apps, windows, Accessibility outline, screenshots with OCR, background clicks, typing, keys and scrolling."
   }
 }

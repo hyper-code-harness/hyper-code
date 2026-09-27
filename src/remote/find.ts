@@ -29,16 +29,18 @@ export default async function (
         /** Seconds before the walk is cut short. @default 60 @minimum 1 */
         timeout?: number;
     },
-): Promise<{ paths: string[]; engine: "rg" | "find" }> {
+): Promise<{ paths: string[]; engine: "rg" | "find"; timedOut?: boolean }> {
     const shq = (s: string) => ctx.fns.remote.quote({ value: s });
     const p = opts.path || ".";
     const target = ctx.fns.remote.quote({ value: p, path: true });
     const limit = Math.max(1, opts.limit ?? 200);
     const rg = ["--files", "--no-require-git"]; if (opts.noIgnore) rg.push("--no-ignore"); else for (const d of ["node_modules", ".git", "dist", "build", ".runtime"]) rg.push("--glob", shq("!" + d)); if (opts.hidden) rg.push("--hidden");
     const prune = "\\( -name node_modules -o -name .git -o -name dist -o -name build -o -name .runtime" + (opts.hidden ? "" : " -o -name '.?*'") + " \\) -prune -o -type f -print";
-    const script = "cd " + target + " || exit 2; if command -v rg >/dev/null; then echo ENGINE=rg; rg " + rg.join(" ") + " . 2>/dev/null; else echo ENGINE=find; find . -mindepth 1 " + prune + " 2>/dev/null; fi";
+    const script = "cd -- " + target + " 2>/dev/null || exit 2; if command -v rg >/dev/null; then echo ENGINE=rg; rg " + rg.join(" ") + " . 2>/dev/null; else echo ENGINE=find; find . -mindepth 1 " + prune + " 2>/dev/null; fi";
     const r = await ctx.fns.remote.exec({ host: opts.host, command: script, timeout: opts.timeout ?? 60 });
     if (r.exitCode === 2) throw new Error(opts.host + ": no such directory: " + p);
+    // rg exits 1 when no files are listed; find exits 1 on unreadable subdirs (kept silent). 255 = ssh failed.
+    if (r.exitCode !== 0 && r.exitCode !== 1 && !r.timedOut) throw new Error(opts.host + ": " + (r.stderr.trim() || "exit " + r.exitCode));
     const lines = r.stdout.split("\n");
     const engine = lines.shift() === "ENGINE=rg" ? "rg" : "find";
     const pat = String(opts.pattern || "*");
@@ -51,5 +53,5 @@ export default async function (
       paths.push(prefix + rel);
       if (paths.length >= limit) break;
     }
-    return { paths, engine };
+    return { paths, engine, ...(r.timedOut ? { timedOut: true } : {}) };
 }

@@ -10,7 +10,8 @@
 // process is restarted on the next call unless it crashed 3 times within a
 // minute, then tsgo stays off (lastError says why) and callers fall back.
 import { watch } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /**
  * Returns the running tsgo language-server client, starting it on first use.
@@ -55,6 +56,13 @@ async function start(ctx: Context, st: types.tsgo.State): Promise<types.tsgo.Cli
         proc.stdin.flush();
     };
 
+    // Watchers belong to this client: an old client going away must never
+    // close the ones a newer client installed.
+    const watchers: Array<{ close(): void }> = [];
+    const closeWatchers = () => {
+        for (const w of watchers.splice(0)) w.close();
+        if (st.client === client || !st.client) st.watchers = [];
+    };
     const client: types.tsgo.Client = {
         pid: proc.pid,
         root,
@@ -75,9 +83,9 @@ async function start(ctx: Context, st: types.tsgo.State): Promise<types.tsgo.Cli
             if (!client.alive) return;
             try { await client.request("shutdown", null, 2000); client.notify("exit", null); } catch { /* going down anyway */ }
             client.alive = false;
-            for (const w of st.watchers ?? []) w.close();
-            st.watchers = [];
+            closeWatchers();
             proc.kill();
+            await Promise.race([proc.exited, Bun.sleep(2000)]);
         },
     };
 
@@ -119,8 +127,7 @@ async function start(ctx: Context, st: types.tsgo.State): Promise<types.tsgo.Cli
         client.alive = false;
         for (const p of pending.values()) { clearTimeout(p.timer); p.reject(new Error(`tsgo exited (${code})`)); }
         pending.clear();
-        for (const w of st.watchers ?? []) w.close();
-        st.watchers = [];
+        closeWatchers();
         if (st.client === client) st.client = undefined;
         if (wasAlive) {
             (st.crashes ??= []).push(Date.now());
@@ -132,8 +139,8 @@ async function start(ctx: Context, st: types.tsgo.State): Promise<types.tsgo.Cli
     client.ready = (async () => {
         await client.request("initialize", {
             processId: process.pid,
-            rootUri: "file://" + root,
-            workspaceFolders: [{ uri: "file://" + root, name: "project" }],
+            rootUri: pathToFileURL(root).href,
+            workspaceFolders: [{ uri: pathToFileURL(root).href, name: "project" }],
             capabilities: {
                 workspace: { didChangeWatchedFiles: { dynamicRegistration: false } },
                 textDocument: { diagnostic: { dynamicRegistration: false }, synchronization: { didSave: false } },
@@ -155,20 +162,24 @@ async function start(ctx: Context, st: types.tsgo.State): Promise<types.tsgo.Cli
     // Keep tsgo's view of the disk current. It does not watch files itself
     // under --stdio; a change it does not hear about keeps stale types.
     st.pendingChanges = new Map();
-    st.watchers = [];
     st.docVersion = 0;
+    const toUri = (abs: string) => pathToFileURL(abs).href;
+    const push = (abs: string) => { if (!abs.includes("__hyper_virtual_eval__")) st.pendingChanges!.set(abs, 2); };
     for (const dir of ["src", "script"]) {
         try {
-            const w = watch(join(root, dir), { recursive: true }, (_event, file) => {
-                if (!file || !/\.(ts|tsx|d\.ts|js|mjs|json)$/.test(String(file))) return;
-                const abs = join(root, dir, String(file));
-                if (relative(root, abs).includes("__hyper_virtual_eval__")) return;
-                st.pendingChanges!.set(abs, 2);
-            });
-            st.watchers.push(w);
+            watchers.push(watch(join(root, dir), { recursive: true }, (_event, file) => {
+                if (file && /\.(ts|tsx|d\.ts|js|mjs|json)$/.test(String(file))) push(join(root, dir, String(file)));
+            }));
         } catch { /* directory may not exist */ }
     }
-
+    // Project configuration lives at the root: a change there reloads the project.
+    try {
+        watchers.push(watch(root, (_event, file) => {
+            if (file && /^(tsconfig(\..+)?\.json|package\.json)$/.test(String(file))) push(join(root, String(file)));
+        }));
+    } catch { /* root not watchable */ }
+    st.watchers = watchers;
+    (client as any).uri = toUri;
     st.client = client;
     st.lastError = undefined;
     ctx.fns.procs.log.info({ event: "tsgo.started", msg: `pid ${client.pid}`, bin });

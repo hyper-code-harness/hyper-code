@@ -36,9 +36,17 @@ export default async function (
     if (opts.host && !opts.hashline && /\.(png|jpe?g|gif|webp)$/i.test(opts.path)) {
         const { tmpdir } = await import("node:os");
         const { join, extname } = await import("node:path");
-        const local = join(tmpdir(), `hyper-remote-${Bun.hash(opts.host + ":" + opts.path).toString(36)}${extname(opts.path)}`);
-        await ctx.fns.remote.rsync({ host: opts.host, direction: "pull", remote: opts.path, local });
-        const image = await ctx.fns.agent.imageContent({ path: local });
+        const { mkdtemp, rm } = await import("node:fs/promises");
+        // Private per-call directory, removed once the image is in memory.
+        const dir = await mkdtemp(join(tmpdir(), "hyper-remote-"));
+        let image: types.tools.Content;
+        try {
+            const local = join(dir, "image" + extname(opts.path));
+            await ctx.fns.remote.rsync({ host: opts.host, direction: "pull", remote: opts.path, local });
+            image = await ctx.fns.agent.imageContent({ path: local });
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
         return { output: `[image: ${opts.host}:${opts.path}]`, content: [image] };
     }
     if (!opts.hashline && /\.(png|jpe?g|gif|webp)$/i.test(opts.path)) {

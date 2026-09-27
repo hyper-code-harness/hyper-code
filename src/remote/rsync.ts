@@ -38,16 +38,22 @@ export default async function (
     if (opts.delete) args.push("--delete");
     if (opts.dryRun) args.push("--dry-run");
     for (const e of opts.exclude ?? []) args.push("--exclude", e);
-    const remote = opts.host + ":" + opts.remote;
+    // The client (openrsync on macOS) hands the remote path to a remote shell
+    // unprotected: quote it like a shell word so spaces, quotes and $(…) stay
+    // literal. A leading ~ is kept outside the quotes so it still expands.
+    const remote = opts.host + ":" + ctx.fns.remote.quote({ value: opts.remote, path: true });
     if (opts.direction !== "push" && opts.direction !== "pull") throw new Error("direction must be push or pull");
     // macOS ships openrsync without --mkpath: create the destination's parent first.
     const { mkdir } = await import("node:fs/promises");
     const { dirname } = await import("node:path");
-    if (opts.direction === "push") {
-        const dest = opts.remote.endsWith("/") ? opts.remote : opts.remote.replace(/\/[^/]*$/, "") || ".";
-        const q = ctx.fns.remote.quote({ value: dest, path: true });
-        await ctx.fns.remote.exec({ host: opts.host, command: "mkdir -p " + q, timeout: 30 });
-    } else if (!opts.dryRun) {
+    if (opts.dryRun) {
+        // A dry run changes nothing on either side.
+    } else if (opts.direction === "push") {
+        // POSIX parent of the destination: "dir/" → itself, "a/b.txt" → "a", "b.txt" → ".".
+        const dest = opts.remote.endsWith("/") ? opts.remote : (opts.remote.includes("/") ? opts.remote.slice(0, opts.remote.lastIndexOf("/")) || "/" : ".");
+        const mk = await ctx.fns.remote.exec({ host: opts.host, command: "mkdir -p -- " + ctx.fns.remote.quote({ value: dest, path: true }), timeout: 30 });
+        if (mk.exitCode !== 0) throw new Error(`${opts.host}: cannot create ${dest}: ${(mk.stderr || "exit " + mk.exitCode).trim()}`);
+    } else {
         await mkdir(opts.local.endsWith("/") ? local : dirname(local), { recursive: true });
     }
     args.push(...(opts.direction === "push" ? [local, remote] : [remote, local]));

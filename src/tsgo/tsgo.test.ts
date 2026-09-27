@@ -84,6 +84,34 @@ describe.skipIf(!installed)("tsgo eval typechecker", () => {
         expect(st).toMatchObject({ installed: true, running: true });
     }, 60_000);
 
+    test("review: restarting does not let the old client close the new client's watchers", async () => {
+        const first = ctx.state.tsgo.client;
+        await ctx.fns.tsgo.server({ restart: true });
+        await ctx.fns.tsgo.check({ code: "return 0", timeoutMs: 30_000 });
+        expect(ctx.state.tsgo.client).not.toBe(first);
+        await Bun.sleep(200); // let the old process's exit handler run
+        writeFileSync(PROBE, "export const probeValue: number = 5;\n");
+        await Bun.sleep(200);
+        const code = "const m = await import('./__tsgo_test_probe__'); const s: string = m.probeValue; return s";
+        expect((await ctx.fns.tsgo.check({ code })).ok).toBe(false);
+    }, 60_000);
+
+    test("review: a server that stops answering is dropped instead of slowing every check", async () => {
+        const client = ctx.state.tsgo.client;
+        process.kill(client.pid, "SIGSTOP");
+        try {
+            await expect(ctx.fns.tsgo.check({ code: "return 1", timeoutMs: 300 })).rejects.toThrow("timed out");
+        } finally {
+            try { process.kill(client.pid, "SIGCONT"); } catch { /* already gone */ }
+        }
+        await Bun.sleep(300);
+        expect(client.alive).toBe(false);
+        const t = performance.now();
+        expect((await ctx.fns.tsgo.check({ code: "return 1", timeoutMs: 30_000 })).ok).toBe(true);
+        expect(ctx.state.tsgo.client).not.toBe(client);
+        expect(performance.now() - t).toBeLessThan(10_000);
+    }, 60_000);
+
     test("procs.repl.typecheck uses tsgo and falls back to the in-process service when disabled", async () => {
         expect((await ctx.fns.procs.repl.typecheck({ code: "return 1" })).engine).toBe("tsgo");
         ctx.env.TSGO_TYPECHECK = "false";

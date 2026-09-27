@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /**
  * Typechecks a snippet of eval code against the project's types in the tsgo language server.
@@ -11,7 +12,7 @@ import { join } from "node:path";
  * the caller can fall back to the in-process checker.
  * @param opts.code Eval source: the body of an async function.
  * @param opts.bindings Extra named values the eval code receives; only their names matter (agent is typed as types.agent.Agent).
- * @param opts.timeoutMs Maximum wait for diagnostics. @default 5000 @minimum 100
+ * @param opts.timeoutMs Maximum total wait, queue included; a server that misses it is restarted. @default 5000 @minimum 100
  */
 export default async function (
     ctx: Context,
@@ -21,12 +22,16 @@ export default async function (
         code: string;
         /** Extra named values the eval code receives; only their names matter (agent is typed as types.agent.Agent). */
         bindings?: Record<string, unknown>;
-        /** Maximum wait for diagnostics. @default 5000 @minimum 100 */
+        /** Maximum total wait, queue included; a server that misses it is restarted. @default 5000 @minimum 100 */
         timeoutMs?: number;
     },
 ): Promise<{ ok: boolean; errors: string[]; ms: number }> {
     const st = ((ctx.state as any).tsgo ??= {}) as types.tsgo.State;
+    const timeoutMs = Math.max(100, opts.timeoutMs ?? 5000);
+    // One deadline for the whole call, queue wait included.
+    const deadlineAt = performance.now() + timeoutMs;
     const run = async () => {
+        if (performance.now() >= deadlineAt) throw new Error(`tsgo check timed out after ${timeoutMs} ms (queued)`);
         const started = performance.now();
         const client = await ctx.fns.tsgo.server({});
         if (!client) throw new Error(st.lastError ?? "tsgo unavailable");
@@ -45,20 +50,29 @@ export default async function (
             const changes = [];
             for (const [abs] of st.pendingChanges) {
                 const exists = await Bun.file(abs).exists();
-                changes.push({ uri: "file://" + abs, type: exists ? 2 : 3 });
+                changes.push({ uri: pathToFileURL(abs).href, type: exists ? 2 : 3 });
             }
             st.pendingChanges.clear();
             client.notify("workspace/didChangeWatchedFiles", { changes });
         }
 
-        const uri = "file://" + join(client.root, "src", "__hyper_virtual_eval__.ts");
+        const uri = pathToFileURL(join(client.root, "src", "__hyper_virtual_eval__.ts")).href;
         st.docVersion = (st.docVersion ?? 0) + 1;
         if (st.docVersion === 1) {
             client.notify("textDocument/didOpen", { textDocument: { uri, languageId: "typescript", version: st.docVersion, text } });
         } else {
             client.notify("textDocument/didChange", { textDocument: { uri, version: st.docVersion }, contentChanges: [{ text }] });
         }
-        const report = await client.request("textDocument/diagnostic", { textDocument: { uri } }, Math.max(100, opts.timeoutMs ?? 5000));
+        const remaining = Math.max(100, deadlineAt - performance.now());
+        let report: any;
+        try {
+            report = await client.request("textDocument/diagnostic", { textDocument: { uri } }, remaining);
+        } catch (e: any) {
+            // A server that stops answering is useless and would make every later
+            // check wait out its own timeout: drop it; the next check starts fresh.
+            if (/timed out/.test(String(e?.message))) { st.docVersion = 0; void client.close(); }
+            throw e;
+        }
         const all = ((report?.items ?? []) as any[]).filter(d => d.severity === 1);
         // Like the in-process checker: when the text does not parse, report only
         // the parse errors — semantic ones on broken code are noise. tsgo tags
@@ -74,11 +88,15 @@ export default async function (
     // One virtual document: checks must not interleave their didChange/diagnostic pairs.
     const next = (st.queue ?? Promise.resolve()).catch(() => {}).then(run);
     st.queue = next.catch(() => {});
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expire = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`tsgo check timed out after ${timeoutMs} ms`)), timeoutMs + 50); });
     try {
-        return await next;
+        return await Promise.race([next, expire]);
     } catch (e: any) {
         if (/timed out/.test(String(e?.message))) (st.stats ??= { checks: 0, totalMs: 0, maxMs: 0, timeouts: 0, fallbacks: 0 }).timeouts++;
         throw e;
+    } finally {
+        clearTimeout(timer);
     }
 }
 

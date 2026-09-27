@@ -1,7 +1,9 @@
 // remote.* and the host-aware tools against disposable sshd containers.
 //
-// test/ssh/fixture.ts builds two Alpine sshd images (docker compose project
-// `hyper-ssh-test`): `plain` has no ripgrep (grep/find fallbacks), `rg` has it.
+// test/ssh/fixture.ts keeps two Alpine sshd containers running (compose project
+// hyper-ssh-<hash of the checkout>): `plain` has no ripgrep (grep/find
+// fallbacks), `rg` has it. They persist between runs; each run starts from a
+// clean remote home.
 // The ctx is pointed at a private ssh_config + ControlMaster dir through
 // HYPER_SSH_CONFIG / HYPER_SSH_CONTROL_DIR, so the developer's ~/.ssh is never
 // read or written. Without Docker (or with HYPER_SKIP_DOCKER_TESTS=1) the whole
@@ -213,6 +215,103 @@ describe.skipIf(!enabled)("remote over ssh (docker sshd)", () => {
         expect(s.cpus).toBeGreaterThan(0);
         const bad = await R().status({ host: "no-such-host.invalid" });
         expect(bad.reachable).toBe(false);
+    });
+
+    // Regressions from the Astra review (codex:gpt-6-astra).
+    test("review: a missing grep path is never executed by the shell", async () => {
+        await R().exec({ host: "plain", command: "rm -f /tmp/pwn-grep" });
+        await expect(R().grep({ host: "plain", pattern: "x", path: "nope$(touch /tmp/pwn-grep)" })).rejects.toThrow("no such file or directory");
+        expect((await R().exec({ host: "plain", command: "test -e /tmp/pwn-grep && echo YES || echo no" })).stdout.trim()).toBe("no");
+    });
+
+    test("review: grep and find report real failures instead of empty results", async () => {
+        await R().writeFile({ host: "plain", path: "rv/a.txt", content: "x\n" });
+        for (const host of ["plain", "rg"]) {
+            await R().writeFile({ host, path: "rv/a.txt", content: "x\n" });
+            await expect(R().grep({ host, pattern: "[", path: "rv" })).rejects.toThrow("search failed");
+            expect((await R().grep({ host, pattern: "nomatch", path: "rv" })).matches).toEqual([]);
+        }
+        await expect(R().find({ host: "no-such-host.invalid", pattern: "*" })).rejects.toThrow();
+    });
+
+    test("review: overlapping context windows share lines", async () => {
+        for (const host of ["plain", "rg"]) {
+            await R().writeFile({ host, path: "rv/ctx.txt", content: "m\nc\nm\nd\n" });
+            const r = await R().grep({ host, pattern: "^m$", path: "rv/ctx.txt", context: 1 });
+            expect(r.matches.map((m: any) => [m.line, m.before, m.after])).toEqual([[1, [], ["c"]], [3, ["c"], ["d"]]]);
+        }
+    });
+
+    test("review: remote.start keeps env values out of ps and tmux", async () => {
+        await R().start({ host: "plain", name: "sec", command: "sleep 20", env: { TOK: "zz-start-secret" }, wait: 0.5, restart: true });
+        const seen = await R().exec({ host: "plain", command: "ps -ww -o args | grep -v grep | grep -c zz-start-secret; tmux list-sessions -F '#{session_name} #{pane_start_command}' 2>/dev/null | grep -c zz-start-secret" });
+        expect(seen.stdout.trim().split("\n")).toEqual(["0", "0"]);
+        // owner-only access; the directory may also carry a setgid bit from its parent
+        const perm = await R().exec({ host: "plain", command: "stat -c %a ~/.hyper-jobs/sec.sh ~/.hyper-jobs" });
+        expect(perm.stdout.trim().split("\n").map((m: string) => m.slice(-3))).toEqual(["700", "700"]);
+        await R().stop({ host: "plain", name: "sec", grace: 0 });
+    });
+
+    test("review: stopping a job never hits another job with the same prefix", async () => {
+        await R().start({ host: "plain", name: "worker-long", command: "sleep 30", wait: 0.3, restart: true });
+        expect(await R().stop({ host: "plain", name: "worker", grace: 0 })).toMatchObject({ wasRunning: false });
+        expect((await R().logs({ host: "plain", name: "worker-long" })).running).toBe(true);
+        await R().stop({ host: "plain", name: "worker-long", grace: 0 });
+        await expect(R().start({ host: "plain", name: "a.b", command: "true" })).rejects.toThrow("invalid job name");
+    });
+
+    test("review: rsync keeps remote paths literal and bare filenames are files", async () => {
+        await R().exec({ host: "plain", command: "rm -f pwn-rsync; rm -rf rq" });
+        mkdirSync(join(LOCAL, "rq"), { recursive: true });
+        writeFileSync(join(LOCAL, "rq/f.txt"), "q");
+        for (const dest of ["rq/sp ace/", "rq/q'x/", "rq/$(touch pwn-rsync)/"]) {
+            await R().rsync({ host: "plain", direction: "push", local: join(LOCAL, "rq") + "/", remote: dest });
+        }
+        const ls = await R().exec({ host: "plain", command: "ls rq; test -e pwn-rsync && echo PWNED || echo safe" });
+        expect(ls.stdout.split("\n").filter(Boolean).sort()).toEqual(["$(touch pwn-rsync)", "q'x", "safe", "sp ace"].sort());
+        // a slash-free destination filename is a file in the home, not a directory
+        await R().rsync({ host: "plain", direction: "push", local: join(LOCAL, "rq/f.txt"), remote: "single.txt" });
+        expect((await R().exec({ host: "plain", command: "test -f single.txt && cat single.txt" })).stdout).toBe("q");
+        // pull from a path with a space
+        const back = await R().rsync({ host: "plain", direction: "pull", remote: "rq/sp ace/", local: join(LOCAL, "rq-back") + "/" });
+        expect(back.files).toBe(1);
+        // a dry run creates nothing
+        await R().rsync({ host: "plain", direction: "push", local: join(LOCAL, "rq") + "/", remote: "rq/dry/new/", dryRun: true });
+        expect((await R().exec({ host: "plain", command: "test -e rq/dry && echo yes || echo no" })).stdout.trim()).toBe("no");
+    });
+
+    test("review: writeFile keeps the file mode, writes through symlinks, leaves no temp files", async () => {
+        await R().exec({ host: "plain", command: "mkdir -p wm && printf 'a\\n' > wm/run.sh && chmod 700 wm/run.sh && printf 's\\n' > wm/secret && chmod 600 wm/secret && ln -sf secret wm/link" });
+        await T().edit({ host: "plain", path: "wm/run.sh", edits: [{ oldText: "a", newText: "b" }] });
+        await R().writeFile({ host: "plain", path: "wm/link", content: "t\n" });
+        const r = await R().exec({ host: "plain", command: "stat -c '%n %a' wm/run.sh wm/secret; test -L wm/link && echo link; cat wm/secret; ls -a wm | grep -c hyper || true" });
+        expect(r.stdout.trim().split("\n")).toEqual(["wm/run.sh 700", "wm/secret 600", "link", "t", "0"]);
+    });
+
+    test("review: concurrent guarded writes — exactly one wins", async () => {
+        await R().writeFile({ host: "plain", path: "wm/race.txt", content: "base\n" });
+        const base = await R().readFile({ host: "plain", path: "wm/race.txt" });
+        const results = await Promise.allSettled([1, 2, 3, 4].map(i => R().writeFile({ host: "plain", path: "wm/race.txt", content: `w${i}\n`, expectedContent: base })));
+        expect(results.filter(r => r.status === "fulfilled").length).toBe(1);
+        expect(results.filter(r => r.status === "rejected").every((r: any) => /changed on the server/.test(String(r.reason)))).toBe(true);
+    });
+
+    test("review: exec caps captured output and still times out while stdin is pending", async () => {
+        const big = await R().exec({ host: "plain", command: "yes abcdefgh | head -c 3000000", maxOutput: 100_000 });
+        expect(big.stdout.length).toBe(100_000);
+        expect(big.stderr).toContain("output truncated");
+        const t = Date.now();
+        const stuck = await R().exec({ host: "plain", command: "sleep 30", stdin: "x".repeat(5_000_000), timeout: 2 });
+        expect(stuck.timedOut).toBe(true);
+        expect(Date.now() - t).toBeLessThan(10_000);
+    });
+
+    test("review: read of a remote image leaves no temp files", async () => {
+        const { readdirSync } = await import("node:fs");
+        const { tmpdir } = await import("node:os");
+        const before = readdirSync(tmpdir()).filter(f => f.startsWith("hyper-remote-")).length;
+        await T().read({ host: "plain", path: "img/dot.png" });
+        expect(readdirSync(tmpdir()).filter(f => f.startsWith("hyper-remote-")).length).toBe(before);
     });
 
     test("close drops the master; the next call reconnects", async () => {

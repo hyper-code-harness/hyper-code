@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import mermaid, { injectClassDefs } from "./mermaid";
+import mermaid, { injectClassDefs } from "./render";
+import fence from "./$fence_mermaid";
 
-describe("markdown.mermaid", () => {
+describe("mermaid.render", () => {
     test("injectClassDefs injects palette class defs", () => {
         const code = ["flowchart LR", "A(Foo):::blue2 --> B(Bar)", "class B red1"].join("\n");
         const result = injectClassDefs(code);
@@ -28,5 +29,11 @@ describe("markdown.mermaid", () => {
         const html = await mermaid({} as Context, null, { source: "flowchart LR\nA --> B" });
         expect(html).not.toContain("fonts.googleapis.com");
         expect(html).not.toContain("@import");
+    }, 20000);
+
+    test("fence delegates to mermaid.render", async () => {
+        const ctx = { fns: { mermaid: { render: (o: any) => mermaid({} as Context, null, o) } } } as unknown as Context;
+        const html = await fence(ctx, null, { source: "flowchart LR\nA --> B", lang: "mermaid", info: "" });
+        expect(html).toContain("class=\"mermaid-diagram\"");
     }, 20000);
 });

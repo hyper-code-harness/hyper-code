@@ -53,6 +53,12 @@
     },
     "vision": {
       "path": "plugins/vision"
+    },
+    "reladraw": {
+      "path": "plugins/reladraw"
+    },
+    "mermaid": {
+      "path": "plugins/mermaid"
     }
   }
 }

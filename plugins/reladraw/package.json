@@ -1,0 +1,15 @@
+{
+  "name": "reladraw",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Reladraw",
+    "icon": "ph-flow-arrow",
+    "optional": true,
+    "description": "Reladraw diagram language: render relative-placement diagrams to SVG, validate source, and show ```reladraw fences in Markdown."
+  },
+  "dependencies": {
+    "reladraw": "0.9.0"
+  }
+}

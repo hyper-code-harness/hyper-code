@@ -1,0 +1,5 @@
+/* Layout for inline Mermaid diagrams rendered by mermaid.render. Mounted with
+ * the plugin and linked by the host layout; turn the plugin off and it goes too. */
+.mermaid-diagram { display: block; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; }
+.mermaid-light { display: block; width: 100%; max-width: 100%; min-width: 0; }
+.mermaid-diagram svg { display: block; width: auto; max-width: 100% !important; height: auto !important; }

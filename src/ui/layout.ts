@@ -158,9 +158,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
   box-shadow: 0 0 0 3px rgb(59 130 246 / .72), 0 2px 10px rgb(0 0 0 / .055), 0 4px 80px 8px rgb(0 0 0 / .03);
 }
 .chat-composer kbd { font: inherit; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-.mermaid-diagram { display: block; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; }
-.mermaid-light { display: block; width: 100%; max-width: 100%; min-width: 0; }
-.mermaid-diagram svg { display: block; width: auto; max-width: 100% !important; height: auto !important; }
 
 
 .chat-glass,

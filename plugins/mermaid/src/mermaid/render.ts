@@ -36,10 +36,17 @@ export function injectClassDefs(code: string): string {
 }
 
 /**
- * Renders Mermaid source as an SVG data URL.
- * @param opts.source Markdown or Mermaid source.
+ * Renders Mermaid diagram source to an inline, responsive SVG HTML fragment.
+ *
+ * Use to turn Mermaid (flowchart, sequence, state, class, ER diagrams) into
+ * markup for chat answers, docs or pages; ```mermaid fences in Markdown go
+ * through this function automatically. Palette classes such as `:::blue2` or
+ * `class A red1` get their classDef injected. Invalid source throws.
  */
-export default async function (_ctx: Context, _session: Session | null, opts: { source: string }): Promise<string> {
+export default async function (_ctx: Context, _session: Session | null, opts: {
+    /** Mermaid diagram source, without the surrounding ``` fence. */
+    source: string;
+}): Promise<string> {
     const svg = await renderMermaid(injectClassDefs(opts.source), {
         bg: "#ffffff",
         fg: "#1D2331",
@@ -50,6 +57,7 @@ export default async function (_ctx: Context, _session: Session | null, opts: { 
         font: "Inter, verdana",
         transparent: true,
     });
+    // Layout lives in $style_mermaid.css, shipped with this plugin.
     const responsive = stripFontImports(svg)
         .replace(/<svg\b([^>]*)\swidth="([^"]+)"\sheight="[^"]+"([^>]*)>/, '<svg$1$3 width="$2" height="auto" preserveAspectRatio="xMinYMin meet">');
     return "<div class=\"mermaid-diagram\"><span class=\"mermaid-light\" data-ignore>" + responsive + "</span></div>";

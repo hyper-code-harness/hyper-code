@@ -29,15 +29,23 @@ function frontmatterTable(source: string): { source: string; html: string } | nu
 }
 
 
-async function preprocessMermaid(ctx: Context, text: string): Promise<string> {
-    const re = /```mermaid[^\n]*\n([\s\S]*?)```/g;
-    const matches = [...text.matchAll(re)];
+// A fenced block whose language some `$fence_<lang>.ts` answers is replaced by
+// that renderer's HTML before Markdown parsing; the rest stay code blocks and
+// are highlighted below. A renderer that throws leaves its block as code.
+const FENCE = /^(`{3,}|~{3,})[ \t]*([A-Za-z][\w+-]*)([^\n]*)\n([\s\S]*?)^\1[ \t]*$/gm;
+
+async function preprocessFences(ctx: Context, text: string): Promise<string> {
+    const fences = (ctx.state as any)?.markdown?.fences as types.markdown.State["fences"];
+    if (!fences || Object.keys(fences).length === 0) return text;
+    const matches = [...text.matchAll(FENCE)].filter(m => fences[m[2]!.toLowerCase()]);
     if (matches.length === 0) return text;
     let out = text;
     for (const m of matches.reverse()) {
-        const code = m[1]?.trim() ?? "";
+        const lang = m[2]!.toLowerCase();
+        const source = (m[4] ?? "").replace(/\n$/, "");
         try {
-            const html = await ctx.fns.markdown.mermaid({ source: code });
+            const html = await fences[lang]!.render(ctx, null, { source: source.trim(), lang, info: (m[3] ?? "").trim() });
+            if (typeof html !== "string" || !html) continue;
             out = out.slice(0, m.index!) + html + out.slice(m.index! + m[0]!.length);
         } catch {
             continue;
@@ -100,14 +108,14 @@ function linkifyText(text: string): string {
 
 
 /**
- * Renders Markdown to sanitized, highlighted HTML.
- * @param opts.source Markdown or Mermaid source.
+ * Renders Markdown to highlighted HTML; fenced blocks whose language has a `$fence_<lang>` renderer (such as mermaid) become diagrams.
+ * @param opts.source Markdown source.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { source: string; /** Resolve ordinary Markdown links as local files relative to this directory. */ fileBaseDir?: string }): Promise<string> {
     let source = opts.source;
     const frontmatter = frontmatterTable(source);
     if (frontmatter) source = frontmatter.source;
-    if (source.includes("```mermaid")) source = await preprocessMermaid(ctx, source);
+    source = await preprocessFences(ctx, source);
     let html = autolinkTextNodes(Bun.markdown.html(source));
     const re = /<pre><code class="language-([^"]+)">([\s\S]*?)<\/code><\/pre>/g;
     const replacements: Array<{ full: string; pretty: string }> = [];

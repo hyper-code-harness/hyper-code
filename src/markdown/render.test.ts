@@ -6,7 +6,8 @@ import highlight from "./highlight";
 // call sites), delegating to the raw (ctx, session, opts) implementations.
 const mkCtx = (mermaid: (opts: { source: string }) => Promise<string> = async () => "") => {
     const ctx: any = {};
-    ctx.fns = { markdown: { highlight: (o: any) => highlight(ctx, null, o), mermaid } };
+    ctx.fns = { markdown: { highlight: (o: any) => highlight(ctx, null, o) } };
+    ctx.state = { markdown: { fences: { mermaid: { lang: "mermaid", module: "markdown", rel: "mermaid/$fence_mermaid.ts", render: (_c: any, _s: any, o: any) => mermaid(o) } } } };
     return ctx as Context;
 };
 
@@ -77,6 +78,23 @@ describe("markdown.render", () => {
         expect(html).toContain("class=\"mermaid-diagram\"");
         expect(html).toContain("<svg></svg>");
         expect(html).not.toContain("language-mermaid");
+    });
+
+    test("any registered fence language is rendered; tildes and info strings work", async () => {
+        const ctx = mkCtx();
+        const seen: any[] = [];
+        (ctx.state as any).markdown.fences.boxes = { lang: "boxes", module: "x", rel: "x/$fence_boxes.ts", render: async (_c: any, _s: any, o: any) => { seen.push(o); return "<figure class=\"boxes\">" + o.source + "</figure>"; } };
+        const html = await render(ctx, null, { source: ["~~~boxes wide", "a -> b", "~~~", "", "```ts", "const x = 1", "```"].join("\n") });
+        expect(seen).toEqual([{ source: "a -> b", lang: "boxes", info: "wide" }]);
+        expect(html).toContain("<figure class=\"boxes\">a -> b</figure>");
+        expect(html).toContain("shiki");
+    });
+
+    test("unregistered fence languages stay code blocks", async () => {
+        const ctx = mkCtx();
+        const html = await render(ctx, null, { source: ["```reladraw", "node a", "```"].join("\n") });
+        expect(html).toContain("node a");
+        expect(html).not.toContain("<figure");
     });
 
     test("mermaid render failure falls back to plain code block", async () => {

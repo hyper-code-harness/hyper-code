@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "reladraw",
+      "dependencies": {
+        "reladraw": "0.9.0",
+      },
+    },
+  },
+  "packages": {
+    "reladraw": ["reladraw@0.9.0", "", { "bin": { "reladraw": "dist/cli.js" } }, "sha512-8CGx++f3Wes0+fPiMMP7voYjiVHfZTDAL4E2bCsiQCebk4UdME4PTExgWhJMjrbOXxmtbvW9ZLDNj1INc6SLZg=="],
+  }
+}

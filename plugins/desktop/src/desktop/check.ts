@@ -3,7 +3,7 @@
  *
  * Call first when desktop functions fail. Reports Accessibility and Screen Recording as granted to CuaDriver.app. If permissions look missing right after granting them, or on permissions_pending errors, pass fix true: it restarts the daemon via `cua-driver permissions grant`, which re-reads the grants (someone at that Mac must approve any dialog on first setup). Install with `curl -fsSL https://cua.ai/driver/install.sh | bash` and `cua-driver telemetry disable`.
  * @param opts.host SSH host alias of a remote Mac; omit for this machine. @default local
- * @param opts.fast Restart the daemon with a 250 ms post-action window watch instead of 1 s (about 3x faster clicks and keys; popups opening later than that are not reported). Also applied by fix. @default false
+ * @param opts.fast Restart the daemon now with the desktop.windowChangeTimeoutMs post-action window watch (default 250 ms; also applied automatically on first connect and by fix). @default false
  * @param opts.fix Restart the Cua Driver daemon through `cua-driver permissions grant` and reconnect. @default false
  */
 export default async function (
@@ -12,7 +12,7 @@ export default async function (
     opts: {
         /** SSH host alias of a remote Mac; omit for this machine. @default local */
         host?: string;
-        /** Restart the daemon with a 250 ms post-action window watch instead of 1 s (about 3x faster clicks and keys; popups opening later than that are not reported). Also applied by fix. @default false */
+        /** Restart the daemon now with the desktop.windowChangeTimeoutMs post-action window watch (default 250 ms; also applied automatically on first connect and by fix). @default false */
         fast?: boolean;
         /** Restart the Cua Driver daemon through `cua-driver permissions grant` and reconnect. @default false */
         fix?: boolean;
@@ -30,9 +30,8 @@ export default async function (
         await sh("C=~/.local/bin/cua-driver; pkill -f 'cua-driver permissions grant'; $C stop >/dev/null 2>&1; sleep 2; ($C permissions grant > /tmp/cua-grant.log 2>&1 &); sleep 25; tail -3 /tmp/cua-grant.log", 60);
     }
     if (opts.fix || opts.fast) {
-        // Cua Driver waits up to 1 s after every action for new windows; 250 ms makes clicks and keys ~3x faster.
         await ctx.fns.desktop.disconnect({ host });
-        await sh("C=~/.local/bin/cua-driver; $C stop >/dev/null 2>&1; sleep 1; open -n -g --env CUA_DRIVER_WINDOW_CHANGE_TIMEOUT_MS=250 -a CuaDriver --args serve; sleep 4", 30);
+        await ctx.fns.desktop.ensureDaemon({ host, force: true });
     }
     const p = await ctx.fns.desktop.call({ host, tool: "check_permissions", allowError: true });
     const acc = p.structured?.accessibility, scr = p.structured?.screen_recording;

@@ -85,7 +85,14 @@ export default async function (
 ): Promise<{ host: string; tool: string; ms: number; isError: boolean; structured: Record<string, any> | null; text: string; images: string[] }> {
     const host = opts.host || "local";
     let conn = pool.get(host);
-    if (!conn || conn.dead) conn = connect(host);
+    if (!conn || conn.dead) {
+        // First contact with this host in this server process: pin the daemon's fast mode before connecting.
+        const ensured: Map<string, Promise<unknown>> = ((globalThis as any).__desktopCuaEnsured ??= new Map());
+        if (!ensured.has(host)) ensured.set(host, ctx.fns.desktop.ensureDaemon({ host }).catch(e => { ensured.delete(host); console.warn(String(e)); }));
+        await ensured.get(host);
+        conn = pool.get(host);
+        if (!conn || conn.dead) conn = connect(host);
+    }
     await conn.ready;
     const started = performance.now();
     const result = await (conn as any).send("tools/call", { name: opts.tool, arguments: opts.args ?? {} }, opts.timeoutMs ?? 60000);

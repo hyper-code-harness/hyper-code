@@ -25,9 +25,11 @@ Anything else (drag, zoom, invoke_menu, clipboard, window frames, recording): `d
 - Install: `curl -fsSL https://cua.ai/driver/install.sh | bash -s -- --no-modify-path` then `~/.local/bin/cua-driver telemetry disable` (telemetry is on by default).
 - Grant: `cua-driver permissions grant`, approve CuaDriver in Privacy & Security → Accessibility and Screen Recording (someone at the Mac or via Screen Sharing).
 - `desktop.check({ host })` verifies; on `permissions_pending` or stale grants use `desktop.check({ host, fix: true })` (restarts the daemon via `permissions grant`).
-- `desktop.check({ host, fast: true })` restarts the daemon with a 250 ms post-action window watch (default 1 s): clicks and keys drop from ~1.2 s to ~0.4 s.
+- Fast mode is pinned automatically: on the first connection to each host `desktop.ensureDaemon` checks the daemon's `CUA_DRIVER_WINDOW_CHANGE_TIMEOUT_MS` and restarts CuaDriver.app with the `desktop.windowChangeTimeoutMs` setting (default 250 ms, env `DESKTOP_WINDOW_CHANGE_TIMEOUT_MS`, 0 = leave the daemon alone) instead of Cua Driver's 1 s, so reboots and updates do not bring the slow mode back. Keys drop from ~1.2 s to ~0.4 s. `desktop.check({ host, fast: true })` forces a restart now.
 
 ## Notes
+
+- **Locked screen**: when the target Mac locks, windows disappear from Accessibility (`ax_unresolved`, empty outline, background input refused) and screenshots show only the wallpaper. Unlock it, and disable auto-lock or keep `caffeinate -d` running while an agent works there.
 
 - Background delivery: no pointer movement, no focus steal; covered windows work, minimized/hidden ones need `open` first.
 - Electron apps (Discord, Slack) expose some labelled elements; otherwise `look({ ocr: true })` + `click({ x, y })` or `click({ text })`.

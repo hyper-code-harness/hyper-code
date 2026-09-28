@@ -9,7 +9,8 @@
  */
 export default function (ctx: Context, session: Session | null, _opts?: {}): () => void {
     const user = (session as any)?.user;
-    const id = user?.sub ?? "local";
+    // session.user is the auth module's User ({ id, name }); older callers put JWT claims ({ sub }) there.
+    const id = user?.id ?? user?.sub ?? "local";
     const name = user?.name ?? "you";
 
     const presence = ((ctx.state.procs.events ??= {}).presence ??= new Map());
@@ -17,6 +18,7 @@ export default function (ctx: Context, session: Session | null, _opts?: {}): () 
     if (there) there.tabs += 1;
     else presence.set(id, { id, name, tabs: 1 });
     ctx.fns.procs.events.emit({ event: { type: "presence" } });
+    if (!there) ctx.fns.procs.events.refresh({ topic: "presence", reason: "join" });
 
     let left = false;
     return () => {
@@ -27,5 +29,6 @@ export default function (ctx: Context, session: Session | null, _opts?: {}): () 
         p.tabs -= 1;
         if (p.tabs <= 0) presence.delete(id);
         ctx.fns.procs.events.emit({ event: { type: "presence" } });
+        if (p.tabs <= 0) ctx.fns.procs.events.refresh({ topic: "presence", reason: "leave" });
     };
 }

@@ -110,3 +110,33 @@ test("photo from the ID token's picture claim is stored and shown as the avatar"
     expect(payload.html).toContain('<img src="https://lh3.googleusercontent.com/a/v=s96-c"');
     expect(payload.html).toContain("Valeria F");
 });
+
+test("who is online: people with an open tab, with photo or initials, refreshed on join/leave", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_OIDC_ISSUER: "https://cp.example" } });
+    const val = await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: "val", email: "valeria@health-samurai.io", name: "Valeria F", picture: "https://lh3.googleusercontent.com/a/v=s96-c" });
+    const nik = await ctx.fns.auth.createUser({ name: "Nikolai Ryzhikov", email: "niquola@health-samurai.io", password: "password-123" });
+    expect(await ctx.fns.auth.online({})).toBe("");
+    const topics: string[] = [];
+    ctx.fns.procs.events.subscribe({ handler: (e: any) => { if (e.topic) topics.push(e.topic); }, topics: ["presence"] });
+    const leaveVal = ctx.fns.procs.events.join({}); // anonymous tab (no session user): ignored
+    const r = await asUser(ctx, val);
+    const leaveVal2 = r.fns.procs.events.join({});
+    const leaveVal3 = r.fns.procs.events.join({}); // second tab: still one person
+    const rn = await asUser(ctx, nik);
+    const leaveNik = rn.fns.procs.events.join({});
+    let html = await ctx.fns.auth.online({});
+    expect(html).toContain('data-online="' + val!.id + '"');
+    expect(html).toContain('<img src="https://lh3.googleusercontent.com/a/v=s96-c"');
+    expect(html).toContain('(2 tabs)');
+    expect(html).toContain('data-online="' + nik.id + '"');
+    expect(html).toContain(">NR<");
+    expect(html).toContain("ring-success");
+    leaveNik();
+    html = await ctx.fns.auth.online({});
+    expect(html).not.toContain('data-online="' + nik.id + '"');
+    leaveVal2(); leaveVal3(); leaveVal();
+    expect(await ctx.fns.auth.online({})).toBe("");
+    expect(topics.filter((t) => t === "presence").length).toBeGreaterThanOrEqual(4);
+    const route = await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/online" });
+    expect(route.status).toBe(401); // signed-in people only
+});

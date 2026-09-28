@@ -139,6 +139,30 @@ if (cmd === "up") {
         console.log(`✓ created ${first.id} <${first.email ?? "-"}>, owner, ${first.hasPassword ? "password carried over" : "no password"}`);
     } else console.log(`• users already exist, first = ${first.id}`);
 
+    // Carry the shared read state and pins over to the first user, so nothing looks unread or
+    // unpinned after the switch. Idempotent: existing rows keep the newer watermark / pin state.
+    // kv keys are kept (the previous code still reads them on rollback).
+    const seen: any = await db.run({
+        sql: `INSERT INTO user_agent_state (user_id, agent_id, seen_at, pinned, updated_at)
+              SELECT ?, substring(k.key FROM 9), k.value::bigint, false, ?
+                FROM kv k JOIN agents a ON a.id = substring(k.key FROM 9)
+               WHERE k.key LIKE 'seen-at:%' AND k.value ~ '^-?[0-9]+$'
+              ON CONFLICT (user_id, agent_id) DO UPDATE
+                 SET seen_at = GREATEST(COALESCE(user_agent_state.seen_at, 0), EXCLUDED.seen_at)`,
+        params: [first.id, Date.now()],
+    });
+    const pins: any = await db.run({
+        sql: `INSERT INTO user_agent_state (user_id, agent_id, pinned, updated_at)
+              SELECT ?, substring(k.key FROM 18), true, ?
+                FROM kv k JOIN agents a ON a.id = substring(k.key FROM 18)
+               WHERE k.key LIKE 'mobile-pin-agent:%'
+              ON CONFLICT (user_id, agent_id) DO UPDATE SET pinned = true`,
+        params: [first.id, Date.now()],
+    });
+    const carried = await one("SELECT count(*) FILTER (WHERE seen_at IS NOT NULL)::int AS seen, count(*) FILTER (WHERE pinned)::int AS pinned FROM user_agent_state WHERE user_id = ?", [first.id]);
+    console.log(`✓ read state and pins carried over to ${first.id}: ${carried.seen} read marks, ${carried.pinned} pins`);
+    void seen; void pins;
+
     if (has("attribute")) {
         // Optional and resumable: batches, so it never holds long locks on the big tables.
         let total = 0;

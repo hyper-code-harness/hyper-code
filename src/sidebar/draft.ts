@@ -19,7 +19,7 @@ export default async function (
     if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(peer)||u.protocol!=='http:'||!['localhost','127.0.0.1','[::1]'].includes(u.hostname)||['forwarded','x-forwarded-host','x-forwarded-for','x-forwarded-proto'].some(h=>req.headers.has(h)))return deny('Loopback required');
     if(!['GET','POST'].includes(req.method))return deny('Method not allowed',405);
     if(req.headers.has('authorization'))return deny('Use your Hyper owner session');
-    if(await ctx.fns.auth.password({}) && !await ctx.fns.procs.auth.authenticate({req}))return new Response(null,{status:303,headers:{...headers,location:'/auth/login?next='+encodeURIComponent(u.pathname+u.search)}});
+    if(await ctx.fns.auth.oidcOnly({}) ? !(await ctx.fns.auth.currentUser({req})).user : (await ctx.fns.auth.password({}) && !await ctx.fns.procs.auth.authenticate({req})))return new Response(null,{status:303,headers:{...headers,location:'/auth/login?next='+encodeURIComponent(u.pathname+u.search)}});
     if(req.method==='POST'){try{await ctx.fns.sidebar.requestOrigin({req,extension:false});}catch{return deny('Origin rejected');}}
     if(!/^[a-f0-9-]{36}$/.test(id))return deny('Not found',404);
     await ctx.fns.sidebar.ensureSchema({});

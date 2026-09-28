@@ -5,6 +5,7 @@
  * legacy password) without a confirmed name. Otherwise redirects home.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
+    if (await ctx.fns.auth.oidcOnly({})) return new Response(null, { status: 303, headers: { location: "/auth/login", "cache-control": "no-store" } });
     const users = await ctx.fns.auth.listUsers({});
     const lone = users.length === 1 ? users[0]! : null;
     if (users.length > 1 || (lone && lone.configuredAt != null)) return new Response(null, { status: 303, headers: { location: "/" } });

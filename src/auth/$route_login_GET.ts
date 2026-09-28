@@ -1,7 +1,7 @@
 /**
  * Renders sign-in: password only while there is a single user, email and password with more,
  * plus "Sign in with Google" when Google sign-in is configured. Redirects to setup when no user
- * can sign in yet.
+ * can sign in yet. In OIDC-only mode shows just the provider button.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const url = new URL(opts.req.url);
@@ -10,6 +10,16 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const legacy = users.length === 0 && !!(await ctx.fns.auth.password({}));
     const google = await ctx.fns.auth.googleConfig({});
     const oidc = await ctx.fns.auth.oidcConfig({});
+    if (await ctx.fns.auth.oidcOnly({})) {
+        const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+        const err = url.searchParams.get("error");
+        const msg = err && err !== "1" ? `<p class="err">${esc(err)}</p>` : `<p>Sign in to continue.</p>`;
+        const style = `<style>.google{display:flex;align-items:center;justify-content:center;gap:.4rem;box-sizing:border-box;width:100%;min-height:46px;margin-top:1rem;border-radius:.8rem;background:#fff;color:#1f1f1f;font-weight:600;text-decoration:none}</style>`;
+        const button = oidc
+            ? `<a class="google" href="/auth/oidc?next=${encodeURIComponent(next)}" role="button">Sign in with ${esc(oidc.label)}</a>`
+            : `<p class="err">The sign-in service is unreachable. Try again in a minute.</p>`;
+        return ctx.fns.auth.page({ title: "Sign in", body: `${style}<form><h1>Hyper</h1>${msg}${button}</form>` });
+    }
     if (!legacy && !google && !oidc && (users.length === 0 || (users.length === 1 && !users[0]!.canSignIn))) {
         return new Response(null, { status: 303, headers: { location: "/auth/setup", "cache-control": "no-store" } });
     }

@@ -3,9 +3,15 @@
  *
  * Accepts form or JSON with `password` and, when there is more than one user, `email`.
  * A single-user install keeps password-only sign-in, so existing clients continue to work.
+ * Refused (403 / back to the login page) in OIDC-only mode.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const isJson = (opts.req.headers.get("content-type") ?? "").includes("application/json");
+    if (await ctx.fns.auth.oidcOnly({})) {
+        return isJson
+            ? Response.json({ error: "password_sign_in_disabled", message: "Sign in through the control plane" }, { status: 403 })
+            : new Response(null, { status: 303, headers: { location: "/auth/login", "cache-control": "no-store" } });
+    }
     let email = "", password = "", next = "/";
     if (isJson) {
         const body: any = await opts.req.json().catch(() => ({}));

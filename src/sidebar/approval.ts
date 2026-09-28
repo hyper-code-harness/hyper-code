@@ -18,7 +18,8 @@ export default async function (
     const peer=ctx.state.procs?.http?.server?.server?.requestIP(opts.req)?.address;
     if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(peer)||u.protocol!=='http:'||!['localhost','127.0.0.1','[::1]'].includes(u.hostname)||['forwarded','x-forwarded-host','x-forwarded-for','x-forwarded-proto'].some(h=>opts.req.headers.has(h)))return new Response('Loopback required',{status:403,headers});
     if(opts.req.method==='POST')await ctx.fns.sidebar.requestOrigin({req:opts.req,extension:false});
-    if(await ctx.fns.auth.password({})){if(!await ctx.fns.procs.auth.authenticate({req:opts.req}))return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
+    if(await ctx.fns.auth.oidcOnly({})){if(!(await ctx.fns.auth.currentUser({req:opts.req})).user)return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
+    else if(await ctx.fns.auth.password({})){if(!await ctx.fns.procs.auth.authenticate({req:opts.req}))return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
     if(!/^[a-f0-9-]{36}$/.test(id))return new Response('Not found',{status:404,headers});
     await ctx.fns.sidebar.ensureSchema({});const[pair]=await ctx.fns.procs.db.select({sql:'SELECT * FROM sidebar_pairs WHERE id=?',params:[id]});if(!pair||pair.revoked||Number(pair.expires_at)<Date.now())return new Response('Pair request expired',{status:410,headers});
     if(opts.req.method==='POST'){

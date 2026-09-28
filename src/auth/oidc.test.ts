@@ -110,3 +110,28 @@ test.skipIf(!available)("logout revokes the server-side session", async () => {
     const [row] = await ctx.fns.procs.db.select({ sql: "SELECT revoked_at FROM auth_sessions WHERE id = ?", params: [sid] });
     expect(row.revoked_at).not.toBeNull();
 });
+
+test.skipIf(!available)("OIDC-only mode: no password form, password and legacy sessions refused, only the provider lets in", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_OIDC_ISSUER: cp.issuer, HYPER_OIDC_CLIENT_ID: cp.clientId, HYPER_OIDC_CLIENT_SECRET: cp.clientSecret, HYPER_OIDC_ONLY: "true", HYPER_PASSWORD: "legacy-pass-123" } });
+    expect(await ctx.fns.auth.oidcOnly({})).toBe(true);
+    const name = ctx.fns.procs.auth.cookieName({});
+    // No users yet: still closed (no open mode, no setup).
+    const anon = await ctx.fns.procs.http.dispatch({ method: "GET", url: "/agent/ab", headers: { accept: "text/html" } });
+    expect(anon.status).toBe(303);
+    expect(anon.headers.get("location")).toContain("/auth/login");
+    expect((await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/setup" })).headers.get("location")).toBe("/auth/login");
+    const page = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/login" })).text();
+    expect(page).toContain("Sign in with");
+    expect(page).not.toContain('name="password"');
+    // Password sign-in (legacy shared password) is refused.
+    const pw = await ctx.fns.procs.http.dispatch({ method: "POST", url: "/auth/login", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: "legacy-pass-123" }) });
+    expect(pw.status).toBe(403);
+    // A plain signed cookie (password-style session) does not count.
+    const legacy = `${name}=` + await ctx.fns.procs.auth.sign({ sub: "password-user", name: "Hyper user", role: "owner", days: 1 });
+    expect((await ctx.fns.procs.http.dispatch({ method: "GET", url: "/agent/ab", headers: { cookie: legacy, accept: "application/json" } })).status).toBe(401);
+    // The control plane lets people in; the first becomes owner.
+    const res = await signIn(ctx, { sub: "g-val", email: "valeria@health-samurai.io", name: "Valeria", hd: "health-samurai.io" });
+    const me = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/session", headers: { cookie: cookieOf(res, name) } })).json();
+    expect(me.user.email).toBe("valeria@health-samurai.io");
+    expect(me.user.role).toBe("owner");
+});

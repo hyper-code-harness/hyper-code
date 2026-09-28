@@ -82,3 +82,11 @@ test("buildLlmRequest sends the prefix and the one-line explanation to the model
     expect(all).toContain("<Anna K>: status?");
     expect(all).toContain("Each human message starts with `<Name>:`");
 });
+
+test("control-plane instance shows the author badge even with a single user", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_OIDC_ISSUER: "https://cp.example" } });
+    const nik = await ctx.fns.auth.createUser({ name: "Nikolai Ryzhikov", email: "niquola@health-samurai.io", password: "password-123" });
+    const html = await ctx.fns.auth.badge({ userId: nik.id });
+    expect(html).toContain("Nikolai Ryzhikov");
+    expect(html).toContain(">NR<");
+});

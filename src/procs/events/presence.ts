@@ -6,10 +6,15 @@
 // and closing one tab does not make them leave. That refcount is the whole
 // trick — it is what makes "who is here" survive a reload.
 /**
- * Report presence for the events subsystem.
+ * Lists who has Hyper open now: person id, name, open tabs and the chats (agent ids) they are looking at.
+ * @param opts.agentId Only people currently looking at this chat.
  */
-export default function (ctx: Context, _session: Session | null, _opts?: {}) {
+export default function (ctx: Context, _session: Session | null, opts?: {
+    /** Only people currently looking at this chat. */
+    agentId?: string;
+}): Array<{ id: string; name: string; tabs: number; agents: string[] }> {
     return [...(ctx.state.procs?.events?.presence ?? new Map()).values()]
-        .map(p => ({ id: p.id, name: p.name, tabs: p.tabs }))
+        .filter(p => !opts?.agentId || p.agents?.has(opts.agentId))
+        .map(p => ({ id: p.id, name: p.name, tabs: p.tabs, agents: [...(p.agents?.keys() ?? [])] }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }

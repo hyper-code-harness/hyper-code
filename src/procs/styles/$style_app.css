@@ -256,6 +256,13 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 }
 .inplace-popup-panel::backdrop { background: transparent; }
+/* Side placement (e.g. the account menu in the narrow quick bar): open to the right of the
+   trigger, bottom-aligned, instead of below it. */
+.inplace-popup-panel[data-placement="side"] {
+  top: auto; right: auto; bottom: anchor(bottom); left: anchor(right);
+  margin: 0 0 0 .5rem; width: 14rem; padding: .35rem;
+  position-try-fallbacks: flip-block;
+}
 /* Phones: anchor math can push a right-aligned panel past the left edge; pin it
  * to the viewport under the header instead. */
 @media (max-width: 700px) {

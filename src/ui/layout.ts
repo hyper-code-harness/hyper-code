@@ -289,7 +289,7 @@ ${opts.headExtra ?? ""}
     <div id="quick-items" class="mt-2 flex min-h-0 flex-1 flex-col items-center gap-1" aria-label="Pinned pages"></div>
     <!-- Subscription quota, loaded by itself so the shell never waits on it.
          Collapsed to rings in the narrow bar; the title carries the detail. -->
-    <div class="mt-auto flex w-full flex-col items-center">${await ctx.fns.auth.meBadge({}).catch(() => "")}</div>
+    <div class="mt-auto flex w-full flex-col items-center">${ctx.fns.auth.onlineRegion({ layout: "column" })}${await ctx.fns.auth.meBadge({}).catch(() => "")}</div>
     <div id="quota-rings" class="w-full" hx-get="/llms/usage" hx-trigger="load" hx-swap="innerHTML" hx-target="this"></div>
     <script>(function(){var button=document.getElementById('theme-toggle');function paint(){var dark=document.documentElement.dataset.theme==='dark';button.setAttribute('aria-pressed',String(dark));button.title=dark?'Use light theme':'Use dark theme';button.querySelector('i').className='ph '+(dark?'ph-sun':'ph-moon')}paint();button.addEventListener('click',function(){var next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;document.documentElement.style.colorScheme=next;try{localStorage.setItem('hyper-theme',next)}catch(_){}paint()})})()</script>
   </nav>`}

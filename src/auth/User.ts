@@ -6,6 +6,8 @@ export type User = {
     email: string | null;
     /** Display name. */
     name: string;
+    /** Profile photo URL (https) from the sign-in provider's `picture` claim; null when unknown. */
+    picture: string | null;
     /** Instance role; owners manage users. */
     role: "owner" | "member";
     /** Whether this user has a password; a lone user without one signs in without a prompt. */

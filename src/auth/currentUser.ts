@@ -7,6 +7,7 @@
  * - a single user without a password: open; that user is the author of everything;
  * - otherwise: a valid session cookie for an active user is required, and the users row is
  *   re-read on every call so a disabled user is rejected immediately.
+ * - OIDC-only mode (auth.oidcOnly): always required, and only a server-side OIDC session counts.
  * `required` says whether an anonymous request must be turned away.
  * @param opts.req Incoming HTTP request carrying the session cookie.
  */
@@ -18,6 +19,13 @@ export default async function (
         req: Request;
     },
 ): Promise<{ user: types.auth.User | null; required: boolean; legacy?: boolean; setCookie?: string | null }> {
+    if (await ctx.fns.auth.oidcOnly({})) {
+        // Only the control plane lets people in: no open mode, no password or legacy sessions.
+        const peek: any = await ctx.fns.procs.auth.verify({ token: new Bun.CookieMap(opts.req.headers.get("cookie") ?? "").get(ctx.fns.procs.auth.cookieName({})) ?? "", allowExpired: true }).catch(() => null);
+        if (!String(peek?.jti ?? "").startsWith("s_")) return { user: null, required: true };
+        const s = await ctx.fns.auth.oidcSession({ action: "resolve", req: opts.req });
+        return { user: s.user, required: true, setCookie: s.setCookie };
+    }
     const users = await ctx.fns.auth.listUsers({});
     if (users.length === 0) {
         if (!(await ctx.fns.auth.password({}))) return { user: null, required: false };

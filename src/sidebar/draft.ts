@@ -18,7 +18,7 @@ export default async function (
     if(!['GET','POST'].includes(req.method))return deny('Method not allowed',405);
     try{await ctx.fns.sidebar.requestOrigin({req:new Request(req,{headers:new Headers(req.headers)}),extension:false});}catch{if(req.method==='GET'){const h=new Headers(req.headers);h.set('origin',u.origin);try{await ctx.fns.sidebar.requestOrigin({req:new Request(req,{headers:h}),extension:false});}catch{return deny('Trusted Hyper transport required');}}else return deny('Origin rejected');}
     if(req.headers.has('authorization'))return deny('Use your Hyper owner session');
-    if(await ctx.fns.auth.password({}) && !await ctx.fns.procs.auth.authenticate({req}))return new Response(null,{status:303,headers:{...headers,location:'/auth/login?next='+encodeURIComponent(u.pathname+u.search)}});
+    if(await ctx.fns.auth.oidcOnly({}) ? !(await ctx.fns.auth.currentUser({req})).user : (await ctx.fns.auth.password({}) && !await ctx.fns.procs.auth.authenticate({req})))return new Response(null,{status:303,headers:{...headers,location:'/auth/login?next='+encodeURIComponent(u.pathname+u.search)}});
     if(req.method==='POST'&&!req.headers.get('origin'))return deny('Origin rejected');
     if(!/^[a-f0-9-]{36}$/.test(id))return deny('Not found',404);
     await ctx.fns.sidebar.ensureSchema({});

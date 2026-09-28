@@ -27,8 +27,10 @@ export default async function (
     if (sleep?.draftRevision != null) throw new Error("compaction already running");
     const active = sleep ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" }) : null;
     const oldHead = sleep?.activeRevision ?? null;
-    const activeMessages = active?.contextAgentId ? await ctx.fns.session.getMessages({ id: String(active.contextAgentId) }) : (active?.contextMessages ?? []);
-    const effective = active ? [...activeMessages, ...rootMessages.slice(Math.max(0, Number(active.tailStart ?? active.sourceOffset ?? 0)))] : rootMessages;
+    const storedActive = active?.contextAgentId ? await ctx.fns.session.getMessages({ id: String(active.contextAgentId) }) : (active?.contextMessages ?? []);
+    // Same view as buildLlmRequest: a foreign checkpoint is adapted, an unreadable one means the full transcript.
+    const activeMessages = active ? ctx.fns.compaction.portable({ model: parent.model, producedBy: active.model, messages: storedActive }) : [];
+    const effective = active && activeMessages ? [...activeMessages, ...rootMessages.slice(Math.max(0, Number(active.tailStart ?? active.sourceOffset ?? 0)))] : rootMessages;
     const tokensBefore = estimate(effective);
     let tailStart = rootMessages.length;
     let chars = 0;
@@ -43,7 +45,7 @@ export default async function (
     }
     while (tailStart > 0 && rootMessages[tailStart]?.role === "tool") tailStart--;
     if (tailStart > 0 && rootMessages[tailStart - 1]?.role === "assistant" && rootMessages[tailStart - 1]?.tool_calls?.length) tailStart--;
-    if (tailStart <= Math.max(0, Number(active?.tailStart ?? 0))) return { status: "not_needed", tokensBefore };
+    if (tailStart <= Math.max(0, activeMessages ? Number(active?.tailStart ?? 0) : 0)) return { status: "not_needed", tokensBefore };
     const revision = Math.max(0, ...(sleep?.generations ?? []).map((g: any) => Number(g.revision ?? 0))) + 1;
     const createdAt = Date.now();
     const draftOwner = ((ctx.state as any).compactionOwner ??= crypto.randomUUID());

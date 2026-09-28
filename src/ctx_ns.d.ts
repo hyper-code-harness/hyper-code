@@ -212,6 +212,7 @@ declare global {
         };
         compaction: {
             contextWindow: Injected<typeof import("./compaction/contextWindow").default>;
+            portable: Injected<typeof import("./compaction/portable").default>;
             resolve: Injected<typeof import("./compaction/resolve").default>;
         };
         controlPlane: {

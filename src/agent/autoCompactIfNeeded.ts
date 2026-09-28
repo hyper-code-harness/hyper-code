@@ -23,8 +23,10 @@ export default async function (
     const sleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: row.sleep_context });
     const active = sleep ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" }) : null;
     const root = await ctx.fns.session.getMessages({ id: agent.id });
-    const activeMessages = active?.contextAgentId ? await ctx.fns.session.getMessages({ id: String(active.contextAgentId) }) : (active?.contextMessages ?? []);
-    const effective = active ? [...activeMessages, ...root.slice(Math.max(0, Number(active.tailStart ?? active.sourceOffset ?? 0)))] : root;
+    const storedActive = active?.contextAgentId ? await ctx.fns.session.getMessages({ id: String(active.contextAgentId) }) : (active?.contextMessages ?? []);
+    // Same view as buildLlmRequest: a foreign checkpoint is adapted, an unreadable one means the full transcript.
+    const activeMessages = active ? ctx.fns.compaction.portable({ model: agent.model, producedBy: active.model, messages: storedActive }) : [];
+    const effective = active && activeMessages ? [...activeMessages, ...root.slice(Math.max(0, Number(active.tailStart ?? active.sourceOffset ?? 0)))] : root;
     // chars/4 underestimates code and JSON; the provider's own count of the last
     // request is authoritative when it exists (it predates this turn's reply).
     const last = ((await ctx.fns.procs.db.select({ sql: "SELECT payload, ts FROM events WHERE agent_id = ? AND type = 'assistant' ORDER BY idx DESC LIMIT 1", params: [agent.id] })) as any[])[0];
@@ -33,7 +35,7 @@ export default async function (
     // A usage recorded before the active compaction describes the old, larger context.
     const fresh = !active || Number(last?.ts ?? 0) > Number(active.activatedAt ?? 0);
     const estimatedTokens = Math.max(estimate(effective), fresh ? reported : 0);
-    if (active && active.tailStart >= root.length - 1) return { status: "already_compact", estimatedTokens };
+    if (active && activeMessages && active.tailStart >= root.length - 1) return { status: "already_compact", estimatedTokens };
     const configured = await ctx.fns.settings.getNumber({ module: "agent", scopeType: "global", key: "autoCompactTokens", fallback: 700000 });
     const percent = await ctx.fns.settings.getNumber({ module: "agent", scopeType: "global", key: "autoCompactWindowPercent", fallback: 80 });
     const window = ctx.fns.compaction.contextWindow({ model: agent.model });

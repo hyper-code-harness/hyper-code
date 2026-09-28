@@ -33,9 +33,14 @@ export default async function (
     const generation = sleep?.mode === "compact"
         ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" })
         : null;
-    const sleepMessages = generation?.contextAgentId
+    const storedSleepMessages = generation?.contextAgentId
         ? await ctx.fns.session.getMessages({ id: String(generation.contextAgentId) })
         : generation?.contextMessages;
+    // A checkpoint made by another model is adapted (Claude block → text) or,
+    // when unreadable (Codex item), dropped in favour of the full transcript.
+    const sleepMessages = storedSleepMessages?.length
+        ? ctx.fns.compaction.portable({ model: agent.model, producedBy: generation?.model, messages: storedSleepMessages })
+        : storedSleepMessages;
     const raw = generation && sleepMessages?.length && Number(generation.sourceOffset) <= fullHistory.length
         ? [...sleepMessages, ...fullHistory.slice(Math.max(0, Number(generation.tailStart ?? generation.sourceOffset)))]
         : fullHistory;

@@ -103,7 +103,15 @@ Anthropic beta `compact-2026-09-04` (works with API keys and Claude subscription
 - Summarizer tokens are reported only in `usage.iterations[type=compaction]`; top-level usage is zero.
 - The older `compact-2026-01-12` mechanism (`context_management.edits: [{type:"compact_20260112"}]`, threshold-triggered mid-response) is accepted too but not used: it compacts inside a turn, outside our generation/CAS model.
 
-Checkpoints are provider-bound. After switching an agent between Codex and Claude, `toAnthropicMessages` drops a `codex_compaction` item (opaque, useless to Claude), and `toCodexInput` passes an `anthropic_compaction` block through as plain user text (the JSON still carries the readable summary). Compact again after switching model family.
+### Switching models after compaction
+
+Checkpoints are model-bound, so `compaction.portable({ model, producedBy, messages })` adapts the stored checkpoint to the model about to read it. `buildLlmRequest`, `compactContext` and `autoCompactIfNeeded` all use it, so they share one view of the context:
+
+- the exact model that produced a native checkpoint gets it unchanged;
+- a Claude `anthropic_compaction` block for any other model — including Claude models without the compact strategy (haiku rejects it with 400) — becomes a text `compaction_summary` (the block's readable summary + `SUMMARY_PREFIX`);
+- an opaque `codex_compaction` item for any other model is unusable, so the projection falls back to the full root transcript (never modified).
+
+`agent.setModel` then runs `autoCompactIfNeeded` in the background, so a fallback that is too large for the new window gets re-compacted by the new model's compactor before the next turn. Verified live: one agent switched opus-5 → haiku-4.5 → codex gpt-5.6 → opus-5-5 → opus-5 answered correctly after a Claude compaction every time.
 
 ## Transactional activation
 

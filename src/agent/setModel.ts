@@ -101,6 +101,11 @@ export default async function (
         }
         ctx.fns.events.refreshAgentMeta({ agentId: id, section: "wake", reason: "model-changed" });
         changed.push(id);
+        // A checkpoint the new model cannot read falls back to the full
+        // transcript (compaction.portable); re-compact for the new window now
+        // rather than overflowing on the next turn. Background, best effort.
+        const switched = live ?? await ctx.fns.session.load({ id }).catch(() => null);
+        if (switched) void ctx.fns.agent.autoCompactIfNeeded({ agent: switched }).catch(() => undefined);
     }
     if (changed.length) { try { ctx.fns.events.emitAgentsChanged({}); } catch {} }
 

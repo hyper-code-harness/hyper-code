@@ -14,10 +14,13 @@ describe("agent.autoCompactIfNeeded", () => {
         expect(calls).toBe(1);
     });
 
-    test("skips non-Codex and below-threshold agents", async () => {
+    test("skips agents without a compactor and below-threshold agents", async () => {
         const ctx: any = await mkTestCtx();
         const local = await ctx.fns.agent.start({ model: "mock:test" });
-        expect((await ctx.fns.agent.autoCompactIfNeeded({ agent: local, thresholdTokens: 10_000 })).status).toBe("not_codex");
+        const saved = ctx.state.compaction.compactors;
+        ctx.state.compaction.compactors = {};
+        expect((await ctx.fns.agent.autoCompactIfNeeded({ agent: local, thresholdTokens: 10_000 })).status).toBe("no_compactor");
+        ctx.state.compaction.compactors = saved;
         const codex = await ctx.fns.agent.start({ model: "codex:gpt-test" });
         await ctx.fns.session.appendMessage({ id: codex.id, message: { role: "user", content: "small" } });
         await ctx.fns.session.syncAgentState({ agent: codex });

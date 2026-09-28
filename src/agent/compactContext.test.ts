@@ -18,7 +18,7 @@ describe("agent.compactContext", () => {
     expect(result.status).toBe("compacted");
     expect(await ctx.fns.session.getMessages({ id: agent.id })).toEqual(before);
     const request = await ctx.fns.agent.buildLlmRequest({ agent });
-    const summaryAt = request.messages.findIndex((m: any) => m.content === "handoff summary");
+    const summaryAt = request.messages.findIndex((m: any) => String(m.content).endsWith("handoff summary"));
     expect(summaryAt).toBeGreaterThanOrEqual(0);
     // The seeded transcript ends on an assistant message, so buildLlmRequest
     // closes the request with its synthetic "keep going" user turn (never
@@ -75,7 +75,7 @@ describe("agent.compactContext", () => {
     const loaded = await ctx.fns.session.load({ id: agent.id });
     expect(loaded!.sleepContext.activeRevision).toBe(2);
     const request = await ctx.fns.agent.buildLlmRequest({ agent: loaded! });
-    expect(request.messages.some((m: any) => m.content === "summary two")).toBe(true);
+    expect(request.messages.some((m: any) => String(m.content).endsWith("summary two"))).toBe(true);
   });
 
 

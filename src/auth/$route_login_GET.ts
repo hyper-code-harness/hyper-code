@@ -9,7 +9,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const users = await ctx.fns.auth.listUsers({});
     const legacy = users.length === 0 && !!(await ctx.fns.auth.password({}));
     const google = await ctx.fns.auth.googleConfig({});
-    if (!legacy && !google && (users.length === 0 || (users.length === 1 && !users[0]!.canSignIn))) {
+    const oidc = await ctx.fns.auth.oidcConfig({});
+    if (!legacy && !google && !oidc && (users.length === 0 || (users.length === 1 && !users[0]!.canSignIn))) {
         return new Response(null, { status: 303, headers: { location: "/auth/setup", "cache-control": "no-store" } });
     }
     const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
@@ -26,8 +27,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const googleButton = google
         ? `<a class="google" href="/auth/google?next=${encodeURIComponent(next)}" role="button">Sign in with Google <span>(${esc(google.domain)})</span></a>`
         : "";
-    const divider = showPassword && google ? `<div class="or">or</div>` : "";
+    const oidcButton = oidc
+        ? `<a class="google" href="/auth/oidc?next=${encodeURIComponent(next)}" role="button">Sign in with ${esc(oidc.label)}</a>`
+        : "";
+    const divider = showPassword && (google || oidc) ? `<div class="or">or</div>` : "";
     const style = `<style>.google{display:flex;align-items:center;justify-content:center;gap:.4rem;box-sizing:border-box;width:100%;min-height:46px;margin-top:1rem;border-radius:.8rem;background:#fff;color:#1f1f1f;font-weight:600;text-decoration:none}.google span{font-weight:400;color:#5f6368;font-size:.85rem}.or{text-align:center;color:#ffffff66;margin:.8rem 0 -.2rem;font-size:.85rem}</style>`;
-    const body = `${style}<form method="post" action="/auth/login"><h1>Hyper</h1>${message}${googleButton}${divider}${passwordForm}</form>`;
+    const body = `${style}<form method="post" action="/auth/login"><h1>Hyper</h1>${message}${oidcButton}${googleButton}${divider}${passwordForm}</form>`;
     return ctx.fns.auth.page({ title: "Sign in", body });
 }

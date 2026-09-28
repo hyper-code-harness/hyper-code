@@ -38,11 +38,17 @@ export default async function (
     // Request ctx: inherits this env-ctx (so dispatch on a forked test ctx runs
     // against the test env), carries the session through the call chain.
     const rctx = makeRequestCtx(ctx, { kind: "dispatch", req, params: m?.params ?? {}, url: u, route: m?.path });
+    // Same as the server (http/$start.ts): a cookie renewed by middleware rides on the final response.
+    const withSessionCookie = (res: Response) => {
+        const extra = (rctx.session as any)?.setCookie;
+        if (extra) { try { res.headers.append("set-cookie", String(extra)); } catch { /* immutable */ } }
+        return res;
+    };
     try {
         // Middleware first, matched route or not — see http/$start.ts.
         for (const mw of ctx.fns.procs.http.middleware({ pathname: u.pathname })) {
             const short = await mw.handler(rctx, rctx.session, { req, params: m?.params ?? {} });
-            if (short instanceof Response) return short;
+            if (short instanceof Response) return withSessionCookie(short);
         }
         // A miss is a page for anything that reads HTML — same contract as the
         // server (http/$start.ts), so a test sees what a browser sees.
@@ -56,7 +62,7 @@ export default async function (
         // session to decide between a document and a fragment, and the base ctx has
         // none — so wrapping there quietly returned the whole page to every htmx
         // caller, and no test could see the difference.
-        return rctx.fns.procs.http.toResponse({ value: raw });
+        return withSessionCookie(await rctx.fns.procs.http.toResponse({ value: raw }));
     } catch (e: any) {
         // Same 500 contract as the real server (http/$start.ts) — dispatch is
         // "the same path minus the socket", so a throwing handler is a Response.

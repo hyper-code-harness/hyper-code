@@ -9,7 +9,7 @@
  * Perform verify for the auth subsystem.
  * @param opts.token The token value used by the operation.
  */
-export default async function (ctx: Context, _session: Session | null, opts: { token: string }): Promise<{ sub: string; name: string; email?: string; role?: string; kind?: string; jti?: string; exp: number } | null> {
+export default async function (ctx: Context, _session: Session | null, opts: { token: string; allowExpired?: boolean }): Promise<{ sub: string; name: string; email?: string; role?: string; kind?: string; jti?: string; exp: number } | null> {
     const parts = opts.token.trim().split(".");
     if (parts.length !== 3) return null;
     const [head, body, signature] = parts as [string, string, string];
@@ -17,7 +17,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { t
     let claims: any;
     try { claims = JSON.parse(Buffer.from(body, "base64url").toString()); } catch { return null; }
     if (!claims?.sub || !claims?.name) return null;                       // a session must know who it is
-    if (typeof claims.exp === "number" && claims.exp * 1000 < Date.now()) return null;
+    // allowExpired: the signature is still checked; only expiry is skipped (used to renew a session).
+    if (!opts.allowExpired && typeof claims.exp === "number" && claims.exp * 1000 < Date.now()) return null;
 
     const data = new TextEncoder().encode(`${head}.${body}`);
     const sig = Buffer.from(signature, "base64url");

@@ -132,4 +132,4 @@ pg_restore --clean --if-exists --no-owner -d postgres://hyper:hyper@localhost:54
 - Drop the rehearsal copy: `psql postgres://hyper:hyper@localhost:54393/postgres -c "DROP DATABASE hyper_rehearsal"`.
 - Delete `/tmp/hyper_full.dump`; delete branch `main-wip-snapshot`.
 - `git worktree remove ~/hyper-code2-users`.
-- Second email (`niquola@gmail.com`) is not supported yet (one email per user) — plan step 5.
+- Second email (`<personal email>`) is not supported yet (one email per user) — plan step 5.

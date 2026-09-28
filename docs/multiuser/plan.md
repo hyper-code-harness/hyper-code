@@ -160,7 +160,7 @@
 | 3 | нет (есть `scope_type`) | нет | код |
 | 4 | `oauth_credentials.owner_id`, `llm_account_owners`, `usage.user_id` | все аккаунты → `niquola` | `owner_id = NULL`; drop |
 | 5 | `local_secrets.owner_id` | личные токены → `niquola` | `owner_id = NULL`; drop |
-| 6 | `user_emails` | `niquola@gmail.com` → `niquola` | drop |
+| 6 | `user_emails` | `<personal email>` → `niquola` | drop |
 | 7 | `sidebar_pairs.user_id` | существующие pairs → `niquola` | drop колонки |
 
 Все — только добавление, catalog-only, с `lock_timeout`, репетиция на копии

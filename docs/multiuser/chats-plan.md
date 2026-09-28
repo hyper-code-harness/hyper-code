@@ -210,4 +210,4 @@ and cron off, queued runs/triggers neutralized, a fake Google on :3021. Live Hyp
 Tests: 101/101 (`src/auth`, `src/session`, affected `src/api`).
 
 Not done yet: iPhone email field (step 6), sidebar pairing per user, real Google OAuth client in
-`hs-hyper-code` (console-only; see below), the switch of the live Hyper.
+`<gcp-project>` (console-only; see below), the switch of the live Hyper.

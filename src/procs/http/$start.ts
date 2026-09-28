@@ -28,8 +28,13 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             // die and the last to come back, while its htmx requests keep working
             // — which is exactly the tab that breaks. So every answer says who
             // gave it, and the page reloads itself when that changes.
+            let rctxRef: any = null;
             const stamp = (res: Response) => {
                 try { res.headers.set("x-procs-start", String((ctx.state as any).serverStart ?? 0)); } catch { /* immutable (a proxied response) */ }
+                // Middleware may renew a session and leave the new cookie on the session; attach it to
+                // whatever response the request ends with (page, fragment, API, redirect).
+                const extra = rctxRef?.session?.setCookie;
+                if (extra) { try { res.headers.append("set-cookie", String(extra)); } catch { /* immutable */ } }
                 return res;
             };
             const m = ctx.fns.procs.http.match({ method: req.method, pathname: url.pathname });
@@ -37,6 +42,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             // the handler calls via rctx.fns.* gets this session implicitly. It
             // is built even with no route, because middleware runs either way.
             const rctx = makeRequestCtx(ctx, { kind: 'http', req, params: m?.params ?? {}, url, route: m?.path });
+            rctxRef = rctx;
             try {
                 // Middleware (by path prefix) run BEFORE matching, and so also for
                 // a path this app does not route: that is what lets one answer for

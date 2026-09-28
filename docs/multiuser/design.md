@@ -2074,7 +2074,7 @@ VM (Debian, e2-standard-4, без публичного IP)
 1. **Одна VM** — всё выше. Доказывает модель прав на реальных проектах.
 2. **Вторая VM** для недоверенного/тяжёлого (`ephemeral`, GPU) — это второй
    compute (§15), без смены архитектуры.
-3. **Перенос в кластер** (samurai-backoffice уже имеет CNPG, Traefik,
+3. **Перенос в кластер** (an existing GCP project уже имеет CNPG, Traefik,
    external-secrets, Flux) — когда упрёмся в ресурсы или нужен HA.
    Юниты становятся подами, unix-user → ServiceAccount, systemd-creds →
    external-secrets. Границы те же.
@@ -2089,15 +2089,15 @@ VM (Debian, e2-standard-4, без публичного IP)
 
 Интерес от niquola к tailnet. Факты о текущей инфраструктуре (проверено):
 
-- В кластере `samurai-backoffice` в namespace `vpn` работает **headscale
+- В кластере `an existing GCP project` в namespace `vpn` работает **headscale
   v0.29.3** (открытая реализация control-server Tailscale) с UI headplane,
-  доступен по `ep.cs.aidbox.dev`. Управляется Flux (GitOps).
+  доступен по `an internal address`. Управляется Flux (GitOps).
 - Политика ACL уже описывает людей **по их Google Workspace email**
-  (`niquola@health-samurai.io`) и **группам** (`group:cto`, `group:devops`,
-  `group:core`, `group:atomic`, …) и даёт доступ к тегам узлов
-  (`tag:hetzner`). DNS-записи — ConfigMap `headscale-dns` (сейчас пуст).
+  (`niquola@health-samurai.io`) и **группам** (`group:<team>`, `group:<team>`,
+  `group:<team>`, `group:<team>`, …) и даёт доступ к тегам узлов
+  (`tag:<servers>`). DNS-записи — ConfigMap `headscale-dns` (сейчас пуст).
 - Мак, с которого работает Hyper, при этом в **личном** tailnet на
-  tailscale.com (`niquola@gmail.com`, `tail32c871.ts.net`), а не в
+  tailscale.com (`<personal email>`, `a personal tailnet`), а не в
   корпоративном headscale.
 
 ### 27.1 Почему tailnet подходит почти идеально
@@ -2162,7 +2162,7 @@ Tailnet уже делает то, что наш дизайн требует от
 
 - Hyper использует **корпоративный headscale** (identity =
   `@health-samurai.io`, есть группы) — да, это правильная сеть для
-  организационной платформы; личный tailnet `niquola@gmail.com` остаётся
+  организационной платформы; личный tailnet `<personal email>` остаётся
   для личного compute.
 - Как соединить личный compute (ноутбук с персональным агентом) с
   корпоративной сетью: ноутбук в обоих tailnet не может быть одновременно —
@@ -2175,7 +2175,7 @@ Tailnet уже делает то, что наш дизайн требует от
 ## 28. Hetzner как площадка для VM
 
 Вопрос от niquola: будет ли секьюрно поднять в Hetzner? (В ACL headscale уже
-есть `tag:hetzner` — машины там у организации есть.)
+есть `tag:<servers>` — машины там у организации есть.)
 
 ### 28.1 Ответ: да, при тех же условиях, что и в GCP
 
@@ -2843,7 +2843,7 @@ Control plane решает только общие вопросы: кто ты, 
   клиенты, OIDC. Доступов, каталога и inbox нет, и не будет — проект намеренно узкий.
 - Поэтому control plane — **свой небольшой сервис** (Hyper-стек: Bun + Postgres), говорящий с Google
   напрямую (код уже есть в `src/auth/google*`). Dex опционально как движок входа, но не обязателен.
-- У NetBird уже есть встроенный Dex (`netbird.health-samurai.io/oauth2`) — можно использовать для
+- У NetBird уже есть встроенный Dex (`<netbird-host>/oauth2`) — можно использовать для
   входа на первом этапе, если он разрешает сторонних клиентов (проверить).
 
 ### 36.5 Правила
@@ -2854,4 +2854,4 @@ Control plane решает только общие вопросы: кто ты, 
   недоступный control plane не запирал людей.
 - **Hyper хранит своих пользователей сам.** Control plane удостоверяет личность и выдаёт право войти;
   данные, чаты и роли внутри Hyper остаются в его базе (§34).
-- **Только `health-samurai.io`** на этапе 1 (consent screen Internal уже настроен в `hs-hyper-code`).
+- **Только `health-samurai.io`** на этапе 1 (consent screen Internal уже настроен в `<gcp-project>`).

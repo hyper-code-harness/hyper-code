@@ -7,7 +7,7 @@ describe("GET /api/mobile/v1/agents", () => {
         const ctx: any = { fns: { session: { list: async (opts: any) => {
             listOpts = opts;
             return [{ id: "ab", title: "Agent", model: "test:model", runState: "idle", unread: 2, turns: 3, updatedAt: 10, workspaceDir: "/tmp", delegated: false, visibility: "nav" }];
-        } }, procs: { db: { select: async () => [] } } } };
+        } }, auth: { pinnedIds: async () => new Set<string>() }, procs: { db: { select: async () => [] } } } };
         const response = await route(ctx, null, { req: new Request("http://localhost/api/mobile/v1/agents"), params: {} });
         expect(response.status).toBe(200);
         expect(listOpts).toEqual({});

@@ -9,6 +9,7 @@
  * @param opts.password Plain password or an existing Argon2 hash; only a hash is stored.
  * @param opts.role Instance role. @default member, or owner for the first user
  * @param opts.configured Mark the user as confirmed at setup rather than seeded. @default true
+ * @param opts.allowNoPassword Allow a new person without a password (they sign in with Google). Email is still required. @default false
  */
 export default async function (
     ctx: Context,
@@ -24,6 +25,8 @@ export default async function (
         role?: "owner" | "member";
         /** Mark the user as confirmed at setup rather than seeded. @default true */
         configured?: boolean;
+        /** Allow a new person without a password (they sign in with Google). Email is still required. @default false */
+        allowNoPassword?: boolean;
     },
 ): Promise<types.auth.User> {
     const name = String(opts.name ?? "").trim();
@@ -33,8 +36,8 @@ export default async function (
 
     const existing = await ctx.fns.auth.listUsers({});
     if (existing.length > 0) {
-        if (!email || !opts.password) throw new Error("auth.createUser: with more than one user, email and password are required");
-        const unnamed = existing.filter((u) => !u.email || !u.hasPassword);
+        if (!email || (!opts.password && !opts.allowNoPassword)) throw new Error("auth.createUser: with more than one user, email and password are required");
+        const unnamed = existing.filter((u) => !u.email || !u.canSignIn);
         if (unnamed.length) throw new Error(`auth.createUser: set email and password for ${unnamed.map((u) => u.name).join(", ")} first`);
     }
     if (email) {

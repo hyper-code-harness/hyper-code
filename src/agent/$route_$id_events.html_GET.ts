@@ -41,12 +41,7 @@ params: Record<string, string> }) {
 
     // This poll only runs while the chat is on screen, so it IS the reader:
     // move the event watermark past every user-facing completion signal.
-    await ctx.fns.procs.db.run({
-        sql: `INSERT INTO kv (key, value)
-              SELECT 'seen-at:' || ?, COALESCE(MAX(ts), -1)::text FROM events WHERE agent_id = ?
-              ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
-        params: [id, id],
-    }).catch(() => { /* a missed mark is a badge that lingers one poll */ });
+    await ctx.fns.auth.markSeen({ agentId: id }).catch(() => { /* a missed mark is a badge that lingers one poll */ });
 
     const lastAssistant = [...events].reverse().find((ev: any) => ev?.type === 'assistant');
     const usageOob = lastAssistant?.usage

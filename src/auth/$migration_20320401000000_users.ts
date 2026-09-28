@@ -47,10 +47,24 @@ const up_sql = [
         PRIMARY KEY (provider, subject)
     )`,
     "CREATE INDEX IF NOT EXISTS user_identities_user_idx ON user_identities (user_id)",
+    // Per-user chat state: what each person has read and pinned. Replaces the shared kv keys
+    // seen-at:<agent>, seen:<agent>, mobile-pin-agent:<agent>, which are kept (not deleted) so
+    // the previous code still works on rollback.
+    `CREATE TABLE IF NOT EXISTS user_agent_state (
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        agent_id TEXT NOT NULL,
+        seen_at BIGINT,
+        pinned BOOLEAN NOT NULL DEFAULT false,
+        updated_at BIGINT NOT NULL,
+        PRIMARY KEY (user_id, agent_id)
+    )`,
+    "CREATE INDEX IF NOT EXISTS agents_created_by_idx ON agents (created_by) WHERE created_by IS NOT NULL",
 ];
 
 const down_sql = [
     "SET LOCAL lock_timeout = '3s'",
+    "DROP INDEX IF EXISTS agents_created_by_idx",
+    "DROP TABLE IF EXISTS user_agent_state",
     "DROP TABLE IF EXISTS user_identities",
     "ALTER TABLE events DROP COLUMN IF EXISTS actor",
     "ALTER TABLE messages DROP COLUMN IF EXISTS author",

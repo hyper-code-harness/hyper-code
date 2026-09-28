@@ -17,12 +17,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     // ships, so the rail (which fetches itself right after load) already sees
     // zero unread — no badge lingering for a refresh cycle. The events.html
     // poll keeps moving it while the chat stays open.
-    await ctx.fns.procs.db.run({
-        sql: `INSERT INTO kv (key, value)
-              SELECT 'seen-at:' || ?, COALESCE(MAX(ts), -1)::text FROM events WHERE agent_id = ?
-              ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
-        params: [id, id],
-    }).catch(() => { /* a lingering badge, not a broken page */ });
+    await ctx.fns.auth.markSeen({ agentId: id }).catch(() => { /* a lingering badge, not a broken page */ });
     let agent = (ctx.state as any).agent?.[id];
     if (!agent) {
         agent = (await ctx.fns.session?.load?.({ id })) ?? null;

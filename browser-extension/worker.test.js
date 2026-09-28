@@ -2,6 +2,8 @@ import {test, expect} from 'bun:test';
 import vm from 'node:vm';
 import * as helpers from './helpers.js';
 
+import {DEFAULT_BASE, HYPER_TAB_URL} from './helpers.js';
+
 const source = (await Bun.file(new URL('./worker.js', import.meta.url)).text()).replace(/^import .*?;\n/, '');
 async function worker(saved, cold = false) {
   const hooks = {}, options = new Map(), opened = [], behavior = [];
@@ -21,7 +23,7 @@ async function worker(saved, cold = false) {
       ...Object.fromEntries(['Created', 'Removed', 'Updated', 'Replaced', 'Attached', 'Activated'].map(name => [`on${name}`, event(name)]))},
     windows: {update: async () => {}},
   };
-  const context = vm.createContext({chrome, ...helpers, crypto, console, URL, AbortSignal, fetch: async () => { throw Error('Unexpected network'); }});
+  const context = vm.createContext({chrome, ...helpers, DEFAULT_BASE, HYPER_TAB_URL, crypto, console, URL, AbortSignal, fetch: async () => { throw Error('Unexpected network'); }});
   vm.runInContext(source, context);
   const settle = () => vm.runInContext('queue', context);
   if (!cold) await settle();

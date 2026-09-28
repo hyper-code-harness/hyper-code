@@ -2,9 +2,9 @@ import {describe, test, expect} from 'bun:test';
 import {DEFAULT_BASE, normalizeBase, panelPath, parsePanelIdentity, targetForTab, sourceLabel, agentUrl, draftUrl} from './helpers.js';
 
 describe('loopback configuration', () => {
-  test('default and explicit ports', () => {
+  test('default configured HTTPS origin', () => {
     expect(normalizeBase()).toBe(DEFAULT_BASE);
-    expect(normalizeBase('http://127.0.0.1:3333/')).toBe('http://127.0.0.1:3333');
+    expect(normalizeBase('https://macstudio-nikolai.tail32c871.ts.net:3443/')).toBe(DEFAULT_BASE);
   });
   test('rejects remote hosts, credentials, scripts and path/query injection', () => {
     for (const value of ['https://localhost:3010', 'http://localhost.evil.test', 'http://user:secret@localhost:3010', 'http://localhost/a', 'http://localhost/?token=x', 'http://localhost/#x', 'javascript:alert(1)', 'http://[::1]:3010']) {
@@ -38,8 +38,8 @@ describe('target mapping', () => {
   });
 });
 test('frame is existing sidebar UI on configured origin, without token', () => {
-  expect(agentUrl(DEFAULT_BASE, 'ab')).toBe('http://localhost:3010/agent/ab?presentation=sidebar');
-  expect(agentUrl(DEFAULT_BASE, 'ab', false)).toBe('http://localhost:3010/agent/ab');
+  expect(agentUrl(DEFAULT_BASE, 'ab')).toBe(`${DEFAULT_BASE}/agent/ab?presentation=sidebar`);
+  expect(agentUrl(DEFAULT_BASE, 'ab', false)).toBe(`${DEFAULT_BASE}/agent/ab`);
   expect(() => agentUrl(DEFAULT_BASE, '../other?token=x')).toThrow();
 });
 test('source label tolerates unavailable URL', () => {
@@ -49,7 +49,7 @@ test('source label tolerates unavailable URL', () => {
 test('manifest is local MV3 with no injection or remote privileged scripts', async () => {
   const manifest = await Bun.file(new URL('./manifest.json', import.meta.url)).json();
   expect(manifest.manifest_version).toBe(3);
-  expect(manifest.host_permissions).toEqual(['http://localhost/*', 'http://127.0.0.1/*']);
+  expect(manifest.host_permissions).toEqual(['https://macstudio-nikolai.tail32c871.ts.net:3443/*']);
   expect(manifest.content_scripts).toBeUndefined();
   expect(manifest.permissions).toContain('debugger');
   expect(manifest.content_security_policy.extension_pages).toContain("script-src 'self'");

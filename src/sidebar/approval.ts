@@ -14,10 +14,10 @@ export default async function (
 ): Promise<Response> {
     const u=new URL(opts.req.url);const id=u.pathname.slice('/sidebar/approve/'.length);const headers={'cache-control':'no-store','content-type':'text/html; charset=utf-8','content-security-policy':"default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",'x-frame-options':'DENY'};
     try{
-    // GET has no Origin; use an internal copy with same-origin header for the host check, while checking the real peer separately.
-    const peer=ctx.state.procs?.http?.server?.server?.requestIP(opts.req)?.address;
-    if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(peer)||u.protocol!=='http:'||!['localhost','127.0.0.1','[::1]'].includes(u.hostname)||['forwarded','x-forwarded-host','x-forwarded-for','x-forwarded-proto'].some(h=>opts.req.headers.has(h)))return new Response('Loopback required',{status:403,headers});
-    if(opts.req.method==='POST')await ctx.fns.sidebar.requestOrigin({req:opts.req,extension:false});
+    // GET has no Origin, so validate transport with a same-origin copy.
+    const transportHeaders=new Headers(opts.req.headers);if(!transportHeaders.has('origin'))transportHeaders.set('origin',u.origin);
+    await ctx.fns.sidebar.requestOrigin({req:new Request(opts.req,{headers:transportHeaders}),extension:false});
+    if(opts.req.method==='POST'&&!opts.req.headers.get('origin'))return new Response('Origin rejected',{status:403,headers});
     if(await ctx.fns.auth.password({})){if(!await ctx.fns.procs.auth.authenticate({req:opts.req}))return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
     if(!/^[a-f0-9-]{36}$/.test(id))return new Response('Not found',{status:404,headers});
     await ctx.fns.sidebar.ensureSchema({});const[pair]=await ctx.fns.procs.db.select({sql:'SELECT * FROM sidebar_pairs WHERE id=?',params:[id]});if(!pair||pair.revoked||Number(pair.expires_at)<Date.now())return new Response('Pair request expired',{status:410,headers});

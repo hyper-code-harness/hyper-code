@@ -10,7 +10,7 @@ test('sidebar origin rejects remote, missing and forwarded requests',async()=>{
  expect(await requestOrigin(c,null,{req:req('api/pair'),extension:true})).toBe(origin);
  for(const r of [new Request('http://localhost:3010/sidebar/api/pair'),new Request('http://evil.test/sidebar/api/pair',{headers:{origin}}),new Request('http://localhost:3010/sidebar/api/pair',{headers:{origin,'x-forwarded-host':'localhost'}}),new Request('http://localhost:3010/sidebar/api/pair',{headers:{origin:'https://evil.test'}})])await expect(requestOrigin(c,null,{req:r,extension:true})).rejects.toThrow();
  c.state.procs.http.server.server.requestIP=()=>({address:'192.168.1.2'});
- await expect(requestOrigin(c,null,{req:req('api/pair'),extension:true})).rejects.toThrow('loopback');
+ await expect(requestOrigin(c,null,{req:req('api/pair'),extension:true})).rejects.toThrow('trusted_transport');
 });
 
 test('sidebar explicit approval, durable identity, context, restart and close',async()=>{

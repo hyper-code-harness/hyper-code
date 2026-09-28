@@ -5,6 +5,7 @@ const status = document.querySelector('#status');
 const error = document.querySelector('#error');
 const chat = document.querySelector('#chat');
 const open = document.querySelector('#open');
+const back = document.querySelector('#back');
 let base;
 let mountedAgent;
 let generation = 0;
@@ -15,6 +16,7 @@ function clearFrame() {
   chat.removeAttribute('src');
   open.hidden = true;
   open.removeAttribute('href');
+  back.hidden = true;
   mountedAgent = undefined;
   base = undefined;
 }
@@ -35,6 +37,7 @@ function render(record) {
   if ((record.agentId || record.bindingId) && base) {
     open.href = record.agentId ? agentUrl(base, record.agentId, false) : draftUrl(base, record.bindingId, false);
     open.hidden = false;
+    back.hidden = !record.agentId;
     // A mounted draft redirects itself after submit; context updates must not reload it.
     const mountKey = record.bindingId || record.agentId;
     if (mountedAgent !== mountKey) {
@@ -69,6 +72,17 @@ chrome.runtime.onMessage.addListener(message => {
   if (message.type === 'state') render(message.record);
 });
 document.querySelector('#retry').addEventListener('click', connect);
+back.addEventListener('click', async () => {
+  back.disabled = true;
+  try {
+    const response = await chrome.runtime.sendMessage({type: 'detach', ...identity});
+    if (!response?.ok) throw new Error(response?.error || 'Could not return to chat list');
+    base = response.data.base;
+    mountedAgent = undefined;
+    render(response.data.record);
+  } catch (failure) { showError(failure.message); }
+  finally { back.disabled = false; }
+});
 document.querySelector('#settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 chat.addEventListener('error', () => showError('Hyper frame could not load. Check the server and open this agent in Hyper to sign in.'));
 connect();

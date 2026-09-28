@@ -87,6 +87,17 @@ describe("llm.toAnthropicMessages", () => {
     });
 });
 
+test("keeps only the newest twenty images in screenshot-heavy histories", () => {
+    const image = (n: number) => ({ role: "tool", tool_call_id: `c${n}`, content: [{ type: "image", mimeType: "image/png", data: `image-${n}` }] });
+    const out = convert(ctx, null, { messages: Array.from({ length: 22 }, (_, n) => image(n)) });
+    const blocks = out.flatMap(message => message.content);
+    const images = blocks.filter(block => block.type === "image");
+    expect(images).toHaveLength(20);
+    expect(images[0].source.data).toBe("image-2");
+    expect(blocks.some(block => block.type === "tool_result" && String(block.content).includes("earlier image"))).toBe(true);
+});
+
+
 test("final assistant content is trimmed (anthropic rejects trailing whitespace)", () => {
     const out = convert({} as any, null, { messages: [
         { role: "user", content: "go" },

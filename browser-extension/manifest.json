@@ -5,7 +5,7 @@
   "minimum_chrome_version": "142",
   "description": "One Hyper agent per Chrome tab, using the existing local Hyper UI.",
   "permissions": ["sidePanel", "tabs", "storage", "debugger"],
-  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "host_permissions": ["https://macstudio-nikolai.tail32c871.ts.net:3443/*"],
   "background": {"service_worker": "worker.js", "type": "module"},
   "action": {"default_title": "Open Hyper sidebar"},
   "commands": {
@@ -16,6 +16,6 @@
   "side_panel": {"default_path": "panel.html"},
   "options_ui": {"page": "options.html", "open_in_tab": true},
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src http://localhost:* http://127.0.0.1:*; frame-src http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'"
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src https://macstudio-nikolai.tail32c871.ts.net:3443; frame-src https://macstudio-nikolai.tail32c871.ts.net:3443; object-src 'none'; base-uri 'none'"
   }
 }

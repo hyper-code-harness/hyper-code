@@ -1,11 +1,11 @@
-export const DEFAULT_BASE = 'http://localhost:3010';
+export const DEFAULT_BASE = 'https://macstudio-nikolai.tail32c871.ts.net:3443';
+export const HYPER_TAB_URL = `${DEFAULT_BASE}/agent/bzxf`;
 
-/** Accept only plain HTTP loopback origins supported by the packaged CSP. */
+/** Accept the single configured HTTPS Hyper origin without paths or credentials. */
 export function normalizeBase(value = DEFAULT_BASE) {
   const url = new URL(value);
-  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname)
-      || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
-    throw new Error('Use a loopback HTTP origin, for example http://localhost:3010');
+  if (url.origin !== DEFAULT_BASE || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error(`Use ${DEFAULT_BASE}`);
   }
   return url.origin;
 }

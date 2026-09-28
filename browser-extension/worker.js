@@ -1,4 +1,4 @@
-import {DEFAULT_BASE, normalizeBase, panelPath, targetForTab, sourceLabel} from './helpers.js';
+import {DEFAULT_BASE, HYPER_TAB_URL, normalizeBase, panelPath, targetForTab, sourceLabel} from './helpers.js';
 
 // Serialize mutations including network requests; Chrome may suspend us between events.
 let queue = Promise.resolve();
@@ -13,7 +13,7 @@ async function loadState() {
   await chrome.storage.local.setAccessLevel({accessLevel: 'TRUSTED_CONTEXTS'});
   const local = await chrome.storage.local.get(['installationId', 'base']);
   if (!local.installationId) await chrome.storage.local.set({installationId: crypto.randomUUID()});
-  if (!local.base) await chrome.storage.local.set({base: DEFAULT_BASE});
+  if (!local.base || local.base !== DEFAULT_BASE) await chrome.storage.local.set({base: DEFAULT_BASE});
   const saved = await chrome.storage.session.get('sidebar');
   state = saved.sidebar || {epoch: crypto.randomUUID(), tabs: {}, closes: []};
   await save();
@@ -131,10 +131,9 @@ chrome.action.onClicked.addListener(tab => {
 });
 chrome.commands.onCommand.addListener(event(async command => {
   if (command === 'open-hyper-tab') {
-    const {base} = await config();
-    const url = normalizeBase(base);
-    const matches = await chrome.tabs.query({url: `${url}/*`});
-    let target = matches.find(tab => tab.pinned) || matches[0];
+    const url = HYPER_TAB_URL;
+    const matches = await chrome.tabs.query({url: `${new URL(url).origin}/*`});
+    let target = matches.find(tab => tab.url === url) || matches.find(tab => tab.pinned);
     if (!target) target = await chrome.tabs.create({url, pinned: true, active: true});
     else {
       if (!target.pinned) await chrome.tabs.update(target.id, {pinned: true});
@@ -172,7 +171,7 @@ chrome.tabs.onActivated.addListener(event(async ({tabId}) => { await ensure(awai
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL(''))) return;
-  if (!['open', 'retry', 'config', 'pair', 'pairStatus', 'revoke'].includes(message.type)) return;
+  if (!['open', 'retry', 'detach', 'config', 'pair', 'pairStatus', 'revoke'].includes(message.type)) return;
   serial(async () => {
     await load();
     if (message.type === 'config') {
@@ -208,6 +207,13 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (!record?.optedIn || record.nonce !== message.nonce || record.windowId !== message.windowId) throw new Error('This panel is stale. Close and reopen it from its tab.');
     const current = await chrome.tabs.get(record.tabId);
     if (current.windowId !== record.windowId) throw new Error('Tab moved windows. Reopen its panel.');
+    if (message.type === 'detach') {
+      const targetId = targetForTab(await chrome.debugger.getTargets(), record.tabId);
+      const data = await api('detach', {browserEpoch: state.epoch, tabId: record.tabId, targetId});
+      Object.assign(record, {agentId: null, bindingId: data.bindingId, targetId, status: 'Choose a chat', error: null});
+      await announce(record);
+      return {record, base: (await config()).base};
+    }
     const result = await refresh(record.tabId, true);
     return {record: result, base: (await config()).base};
   }).then(data => reply({ok: true, data}), error => reply({ok: false, error: String(error.message || error)}));

@@ -17,7 +17,7 @@ export default async function (
     try{
      origin=await ctx.fns.sidebar.requestOrigin({req:opts.req,extension:true});headers['access-control-allow-origin']=origin;headers['access-control-allow-methods']='POST, OPTIONS';headers['access-control-allow-headers']='authorization, content-type';
      if(opts.req.method==='OPTIONS')return new Response(null,{status:204,headers});
-     if(opts.req.method!=='POST'||!['pair','status','bind','context','close','revoke'].includes(action))return reply({error:'not_found'},404);
+     if(opts.req.method!=='POST'||!['pair','status','bind','context','detach','close','revoke'].includes(action))return reply({error:'not_found'},404);
      if(!(opts.req.headers.get('content-type')??'').startsWith('application/json'))return reply({error:'json_required'},400);
      const raw=await opts.req.text();if(raw.length>16384)return reply({error:'body_too_large'},413);const body=JSON.parse(raw) as Record<string,string|number>;if(!body||Array.isArray(body)||typeof body!=='object')return reply({error:'invalid_body'},400);
      await ctx.fns.sidebar.ensureSchema({});const now=Date.now();const hash=(v:string)=>new Bun.CryptoHasher('sha256').update(v).digest('hex');
@@ -45,10 +45,15 @@ export default async function (
      if(!b&&action==='context')return reply({error:'binding_not_found'},409);
      const snapshot=await ctx.fns.sidebar.targetSnapshot({targetId:target});
      if(b&&b.browser_id!==snapshot.browserId){await ctx.fns.procs.db.run({sql:"UPDATE sidebar_bindings SET state='revoked' WHERE id=?",params:[b.id]});return reply({error:'browser_restarted'},409);}
+     if(action==='detach'){
+      if(!b||b.state!=='active'||b.target_id!==target)return reply({error:'binding_conflict'},409);
+      await ctx.fns.procs.db.run({sql:"UPDATE sidebar_bindings SET agent_id=NULL,first_send_state='draft',url=?,title=? WHERE id=? AND state='active'",params:[snapshot.url,snapshot.title,b.id]});
+      return reply({agentId:null,bindingId:b.id,targetId:target,frameUrl:u.origin+'/sidebar/draft/'+b.id+'?presentation=sidebar'});
+     }
      if(!b){await ctx.fns.procs.db.run({sql:'INSERT INTO sidebar_bindings(id,pair_id,browser_epoch,tab_id,target_id,browser_id,url,title) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(pair_id,browser_epoch,tab_id) DO NOTHING',params:[crypto.randomUUID(),pair.id,epoch,tab,target,snapshot.browserId,snapshot.url,snapshot.title]});[b]=await ctx.fns.procs.db.select({sql:'SELECT * FROM sidebar_bindings WHERE pair_id=? AND browser_epoch=? AND tab_id=?',params:[pair.id,epoch,tab]});}
      if(b.state!=='active'||b.target_id!==target||b.browser_id!==snapshot.browserId)return reply({error:'binding_conflict'},409);
      await ctx.fns.procs.db.run({sql:"UPDATE sidebar_bindings SET url=?,title=?,context_revision=context_revision+1 WHERE id=? AND state='active'",params:[snapshot.url,snapshot.title,b.id]});
      const[current]=await ctx.fns.procs.db.select({sql:'SELECT b.state,p.revoked FROM sidebar_bindings b JOIN sidebar_pairs p ON p.id=b.pair_id WHERE b.id=?',params:[b.id]});if(current.state!=='active'||current.revoked)return reply({error:'binding_revoked'},409);
      return reply({agentId:b.agent_id,bindingId:b.id,targetId:target,frameUrl:u.origin+(b.agent_id?'/agent/'+b.agent_id:'/sidebar/draft/'+b.id)+'?presentation=sidebar'});
-    }catch(e){const error=e instanceof Error?e.message:'bridge_error';return reply({error:['loopback_required','origin_rejected','target_unavailable','cdp_unavailable'].includes(error)?error:'bridge_error'},error==='loopback_required'||error==='origin_rejected'?403:error.includes('target')||error.includes('cdp')?502:400);}
+    }catch(e){const error=e instanceof Error?e.message:'bridge_error';return reply({error:['trusted_transport_required','origin_rejected','target_unavailable','cdp_unavailable'].includes(error)?error:'bridge_error'},error==='trusted_transport_required'||error==='origin_rejected'?403:error.includes('target')||error.includes('cdp')?502:400);}
 }

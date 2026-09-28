@@ -30,6 +30,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
         /** Conversation messages to convert. */ messages: any[] }): any[] {
     const out: { role: "user" | "assistant"; content: any[] }[] = [];
 
+    // Screenshot-heavy histories trigger Anthropic's stricter many-image
+    // dimension limit. Keep the newest 20 images and summarize older images as
+    // text; the durable transcript remains unchanged.
+    let imagesToOmit = Math.max(0, opts.messages.reduce((count: number, message: any) => count + toParts(message?.content).filter((part: any) => part.type === "image").length, 0) - 20);
     const push = (role: "user" | "assistant", block: any) => {
         const prev = out.length > 0 ? out[out.length - 1] : undefined;
         if (prev && prev.role === role) {
@@ -50,7 +54,15 @@ export default function (ctx: Context, _session: Session | null, opts: {
 
     for (const m of opts.messages) {
         const role = m?.role;
-        const parts = toParts(m?.content);
+        let parts = toParts(m?.content);
+        if (imagesToOmit > 0) {
+            let omitted = 0;
+            parts = parts.filter((part: any) => {
+                if (part.type !== "image" || imagesToOmit <= 0) return true;
+                imagesToOmit--; omitted++; return false;
+            });
+            if (omitted) parts.push({ type: "text", text: `[${omitted} earlier image${omitted === 1 ? "" : "s"} omitted from the model request]` });
+        }
         const text = parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
         const images = parts.filter((p): p is Extract<types.tools.Content, { type: "image" }> => p.type === "image");
         const documents = parts.filter((p): p is Extract<types.tools.Content, { type: "document" }> => p.type === "document");

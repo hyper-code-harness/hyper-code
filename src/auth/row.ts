@@ -18,6 +18,7 @@ export default function (
         id: String(r.id),
         email: r.email == null ? null : String(r.email),
         name: String(r.name),
+        picture: typeof r.picture === "string" && r.picture.startsWith("https://") ? r.picture : null,
         role: r.role === "owner" ? "owner" : "member",
         hasPassword,
         canSignIn: hasPassword || Number(r.identities ?? 0) > 0,

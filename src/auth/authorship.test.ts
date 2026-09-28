@@ -66,6 +66,7 @@ test("chat shows the author badge on user messages once there are two users", as
     expect(payload.html).toContain('data-author="anna"');
     expect(payload.html).toContain("Anna K");
     expect(payload.html).toContain(">AK<");
+    expect(payload.html).toContain("rounded-br-md");
 });
 
 test("buildLlmRequest sends the prefix and the one-line explanation to the model", async () => {
@@ -89,4 +90,23 @@ test("control-plane instance shows the author badge even with a single user", as
     const html = await ctx.fns.auth.badge({ userId: nik.id });
     expect(html).toContain("Nikolai Ryzhikov");
     expect(html).toContain(">NR<");
+});
+
+test("photo from the ID token's picture claim is stored and shown as the avatar", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_OIDC_ISSUER: "https://cp.example" } });
+    const u = await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: "val", email: "valeria@health-samurai.io", name: "Valeria F", picture: "https://lh3.googleusercontent.com/a/v=s96-c" });
+    expect(u?.picture).toBe("https://lh3.googleusercontent.com/a/v=s96-c");
+    // a later sign-in without a photo keeps it; a non-https photo is ignored
+    await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: "val", email: "valeria@health-samurai.io", name: "Valeria F", picture: "http://x/p.png" });
+    expect((await ctx.fns.auth.getUser({ id: u!.id }))?.picture).toBe("https://lh3.googleusercontent.com/a/v=s96-c");
+    const a = await ctx.fns.auth.author({ userId: u!.id });
+    expect(a?.picture).toBe("https://lh3.googleusercontent.com/a/v=s96-c");
+    const r = await asUser(ctx, u);
+    const agent = await r.fns.agent.start({ model: "mock:echo" });
+    await r.fns.session.save({ agent });
+    await r.fns.session.appendUserMessage({ id: agent.id, text: "hi" });
+    const [ev] = await ctx.fns.procs.db.select({ sql: "SELECT payload FROM events WHERE agent_id = ? AND type = 'user' ORDER BY idx DESC LIMIT 1", params: [agent.id] });
+    const payload = typeof ev.payload === "string" ? JSON.parse(ev.payload) : ev.payload;
+    expect(payload.html).toContain('<img src="https://lh3.googleusercontent.com/a/v=s96-c"');
+    expect(payload.html).toContain("Valeria F");
 });

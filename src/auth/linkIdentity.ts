@@ -8,6 +8,7 @@
  * @param opts.sub Provider subject (stable account id).
  * @param opts.email Verified email from the ID token.
  * @param opts.name Display name from the ID token.
+ * @param opts.picture Profile photo URL from the ID token's `picture` claim; stored only when https.
  * @param opts.autoCreate Create a user on first sign-in when none matches. @default true
  */
 export default async function (
@@ -22,18 +23,26 @@ export default async function (
         email: string;
         /** Display name from the ID token. */
         name: string;
+        /** Profile photo URL from the ID token's `picture` claim; stored only when https. */
+        picture?: string | null;
         /** Create a user on first sign-in when none matches. @default true */
         autoCreate?: boolean;
     },
 ): Promise<types.auth.User | null> {
     const db = ctx.fns.procs.db;
     const now = Date.now();
+    const picture = typeof opts.picture === "string" && opts.picture.startsWith("https://") ? opts.picture : null;
+    // Keep the photo fresh on every sign-in; never erase a known one when the provider sends none.
+    const savePicture = async (userId: string) => {
+        if (picture) await db.run({ sql: "UPDATE users SET picture = ? WHERE id = ? AND picture IS DISTINCT FROM ?", params: [picture, userId, picture] });
+    };
     const linked = await db.select({ sql: "SELECT user_id FROM user_identities WHERE provider = ? AND subject = ?", params: [opts.provider, opts.sub] }) as any[];
     if (linked.length) {
         const user = await ctx.fns.auth.getUser({ id: linked[0].user_id });
         if (!user) return null;
         await db.run({ sql: "UPDATE user_identities SET last_login_at = ?, email = ? WHERE provider = ? AND subject = ?", params: [now, opts.email, opts.provider, opts.sub] });
-        return user;
+        await savePicture(user.id);
+        return picture ? await ctx.fns.auth.getUser({ id: user.id }) : user;
     }
     const byEmail = await db.select({ sql: "SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u WHERE lower(u.email) = ?", params: [opts.email.toLowerCase()] }) as any[];
     let user: types.auth.User | null = null;
@@ -52,9 +61,10 @@ export default async function (
         user = await ctx.fns.auth.getUser({ id });
     }
     if (!user) return null;
+    await savePicture(user.id);
     await db.run({
         sql: "INSERT INTO user_identities (provider, subject, user_id, email, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (provider, subject) DO NOTHING",
         params: [opts.provider, opts.sub, user.id, opts.email, now, now],
     });
-    return user;
+    return picture ? await ctx.fns.auth.getUser({ id: user.id }) : user;
 }

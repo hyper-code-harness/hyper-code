@@ -36,7 +36,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (!email) return fail("The provider did not share an email");
 
     // Same identity table as Google: provider 'oidc', subject = the control plane's stable user id.
-    const user = await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: String(claims.sub), email, name: String(claims.name ?? email.split("@")[0]) });
+    const user = await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: String(claims.sub), email, name: String(claims.name ?? email.split("@")[0]), picture: typeof claims.picture === "string" ? claims.picture : null });
     if (!user) return fail(`${email} is not allowed to sign in to this Hyper`);
 
     const s = await ctx.fns.auth.oidcSession({ action: "create", req: opts.req, userId: user.id, refreshToken: tokens.refresh_token ?? null });

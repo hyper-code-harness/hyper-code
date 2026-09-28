@@ -25,7 +25,7 @@ export default async function (
         /** Override of Google's JWKS endpoint, for tests. @default https://www.googleapis.com/oauth2/v3/certs */
         jwksUrl?: string;
     },
-): Promise<{ sub: string; email: string; name: string; hd: string }> {
+): Promise<{ sub: string; email: string; name: string; hd: string; picture: string | null }> {
     if (!opts.nonce) throw new Error("google: nonce mismatch");
     const claims = await ctx.fns.auth.verifyIdToken({
         idToken: opts.idToken, clientId: opts.clientId, nonce: opts.nonce,
@@ -39,5 +39,6 @@ export default async function (
     if (String(claims.hd ?? "").toLowerCase() !== domain || !email.endsWith("@" + domain)) {
         throw new Error(`google: only ${domain} accounts may sign in`);
     }
-    return { sub: String(claims.sub), email, name: String(claims.name ?? email.split("@")[0]), hd: domain };
+    const picture = typeof claims.picture === "string" && claims.picture.startsWith("https://") ? claims.picture : null;
+    return { sub: String(claims.sub), email, name: String(claims.name ?? email.split("@")[0]), hd: domain, picture };
 }

@@ -36,7 +36,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (!tokenRes || !tokenRes.ok) return fail("Google did not accept the sign-in");
     const tokens: any = await tokenRes.json().catch(() => ({}));
 
-    let identity: { sub: string; email: string; name: string };
+    let identity: { sub: string; email: string; name: string; picture: string | null };
     try {
         identity = await ctx.fns.auth.googleVerify({ idToken: String(tokens.id_token ?? ""), clientId: config.clientId, nonce: String(saved.name), domain: config.domain, jwksUrl: ctx.env.HYPER_GOOGLE_JWKS_URL || undefined });
     } catch (e) {

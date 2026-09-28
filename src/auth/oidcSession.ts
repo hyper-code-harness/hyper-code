@@ -5,6 +5,8 @@
  * refresh token is stored encrypted in `auth_sessions`. When the cookie is close to expiry, the session is
  * renewed with the provider's refresh_token grant (rotated each time); if the provider refuses (user
  * disabled, token reused, session maxed out), the session is revoked and the person must sign in again.
+ * Renewal is serialized per session (shared in-flight promise + row lock) and debounced for 30 s, so
+ * concurrent requests from one page never present the same rotated refresh token twice.
  * Use `action: "create"` after a successful code exchange, `"resolve"` on each request.
  * @param opts.action create a session, or resolve (and maybe renew) the one in the request cookie.
  * @param opts.req Incoming request (cookie source; also picks cookie security flags).
@@ -71,25 +73,49 @@ export default async function (
     if (!claims.__expired && secondsLeft > RENEW_BEFORE) return { user, setCookie: null };
 
     // Renew through the provider: this is where a disabled user or a stolen/reused token is caught.
+    // The provider rotates refresh tokens and treats a reused one as theft (it ends the whole sign-in),
+    // so concurrent requests of one page must never renew the same session twice:
+    // - in-process: requests for one session share a single in-flight renewal (serialization);
+    // - across processes/restarts: the renewal runs under a row lock on the session (SELECT … FOR UPDATE);
+    // - debounce: a session renewed in the last RENEW_DEBOUNCE_MS just gets a fresh cookie, no provider call.
     const cfg = await ctx.fns.auth.oidcConfig({});
     if (!cfg || !s.refresh_enc) {
         // Provider not configured or unreachable: allow a short grace only if the token is still valid.
         return { user: claims.__expired ? null : user, setCookie: null };
     }
-    const refreshToken = await ctx.fns.secrets.decryptLocal({ namespace: "auth-session", name: sid, envelope: String(s.refresh_enc) });
-    const res = await fetch(cfg.tokenEndpoint, {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded", authorization: "Basic " + btoa(`${encodeURIComponent(cfg.clientId)}:${encodeURIComponent(cfg.clientSecret)}`) },
-        body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
-    }).catch(() => null);
-    if (!res) return { user: claims.__expired ? null : user, setCookie: null }; // network blip: keep a valid token, don't revoke
-    if (!res.ok) {
-        await db.run({ sql: "UPDATE auth_sessions SET revoked_at = ? WHERE id = ?", params: [Date.now(), sid] });
-        ctx.fns.procs.log.info({ event: "auth.oidc.renew_refused", msg: `session ${sid} for ${user.id} ended by the provider` });
-        return { user: null, setCookie: null };
+    const RENEW_DEBOUNCE_MS = 30_000;
+    const inflight: Map<string, Promise<"renewed" | "refused" | "unreachable">> = ((ctx.state as any).authOidcRenewals ??= new Map());
+    let pending = inflight.get(sid);
+    if (!pending) {
+        pending = (async () => {
+            const pool: any = await db.conn();
+            return await pool.begin(async (tx: any) => {
+                const [row] = await tx.unsafe("SELECT refresh_enc, refreshed_at, revoked_at FROM auth_sessions WHERE id = $1 FOR UPDATE", [sid]);
+                if (!row || row.revoked_at != null) return "refused";
+                if (Date.now() - Number(row.refreshed_at) < RENEW_DEBOUNCE_MS) return "renewed"; // someone just did it
+                const refreshToken = await ctx.fns.secrets.decryptLocal({ namespace: "auth-session", name: sid, envelope: String(row.refresh_enc) });
+                const res = await fetch(cfg.tokenEndpoint, {
+                    method: "POST",
+                    headers: { "content-type": "application/x-www-form-urlencoded", authorization: "Basic " + btoa(`${encodeURIComponent(cfg.clientId)}:${encodeURIComponent(cfg.clientSecret)}`) },
+                    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+                    signal: AbortSignal.timeout(10_000),
+                }).catch(() => null);
+                if (!res) return "unreachable";
+                if (!res.ok) {
+                    await tx.unsafe("UPDATE auth_sessions SET revoked_at = $1 WHERE id = $2", [Date.now(), sid]);
+                    ctx.fns.procs.log.info({ event: "auth.oidc.renew_refused", msg: `session ${sid} for ${user.id} ended by the provider` });
+                    return "refused";
+                }
+                const t: any = await res.json();
+                const enc = t.refresh_token ? await ctx.fns.secrets.encryptLocal({ namespace: "auth-session", name: sid, value: String(t.refresh_token) }) : row.refresh_enc;
+                await tx.unsafe("UPDATE auth_sessions SET refresh_enc = $1, refreshed_at = $2 WHERE id = $3", [enc, Date.now(), sid]);
+                return "renewed";
+            });
+        })().finally(() => inflight.delete(sid));
+        inflight.set(sid, pending);
     }
-    const t: any = await res.json();
-    const enc = t.refresh_token ? await ctx.fns.secrets.encryptLocal({ namespace: "auth-session", name: sid, value: String(t.refresh_token) }) : s.refresh_enc;
-    await db.run({ sql: "UPDATE auth_sessions SET refresh_enc = ?, refreshed_at = ? WHERE id = ?", params: [enc, Date.now(), sid] });
+    const outcome = await pending.catch(() => "unreachable" as const);
+    if (outcome === "refused") return { user: null, setCookie: null };
+    if (outcome === "unreachable") return { user: claims.__expired ? null : user, setCookie: null }; // network blip: keep a valid token, don't revoke
     return { user, setCookie: await cookieFor(user, sid) };
 }

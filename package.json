@@ -55,6 +55,7 @@
       },
       "procs/migrate": {},
       "auth": {},
+      "controlPlane": {},
       "procs/repl": {},
       "external": {},
       "agent": {},

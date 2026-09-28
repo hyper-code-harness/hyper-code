@@ -18,7 +18,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const token = await ctx.fns.procs.auth.sign({ sub: state, name: nonce, email: next, kind: "google-state", seconds: 600 });
     const forwardedProto = opts.req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
     const cookie = ctx.fns.procs.auth.cookie({ name: "hyper_google_state", token, url: forwardedProto === "https" ? "https://hyper.invalid/" : opts.req.url, days: 1 / 144 });
-    const google = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    const google = new URL(ctx.env.HYPER_GOOGLE_AUTH_URL || "https://accounts.google.com/o/oauth2/v2/auth");
     google.searchParams.set("client_id", config.clientId);
     google.searchParams.set("redirect_uri", redirectUri);
     google.searchParams.set("response_type", "code");

@@ -1,0 +1,8 @@
+{
+  "label": "People",
+  "href": "/auth/users",
+  "hint": "page · who can sign in, roles, Google sign-in",
+  "icon": "ph-users",
+  "group": "System",
+  "order": 15
+}

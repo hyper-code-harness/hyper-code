@@ -54,6 +54,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
             return `<div class="group flex items-center gap-0.5"><a href="${esc(item.href)}" class="nav-row flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">
   ${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}
   <span class="min-w-0 flex-1 truncate text-xs text-muted">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-warning" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>
+  ${multi && agent.createdBy && agent.createdBy !== me ? `<span class="max-w-24 shrink-0 truncate text-3xs text-faint" data-owner="${esc(agent.createdBy)}">${esc(names.get(agent.createdBy) ?? agent.createdBy)}</span>` : ""}
   ${badge}
 </a>${pinControl}</div>`;
         }
@@ -74,7 +75,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         list.push(agent);
         agentGroups.set(key, list);
     }
-    const agentRow = (agent: any, nested = false) => row({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: nested ? "subagent" : multi && agent.createdBy && agent.createdBy !== me ? String(names.get(agent.createdBy) ?? agent.createdBy) : "agent" });
+    const agentRow = (agent: any, nested = false) => row({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: nested ? "subagent" : "agent" });
     const quickAgentRow = (agent: any) => {
         const active = agent.runState !== "idle";
         const badge = Number(agent.unread ?? 0) > 0

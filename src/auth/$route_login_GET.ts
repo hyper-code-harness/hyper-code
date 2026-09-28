@@ -17,7 +17,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const error = url.searchParams.get("error");
     const message = error
         ? `<p class="err">${esc(error === "1" ? `Invalid ${single ? "password" : "email or password"}.` : error)}</p>`
-        : `<p>${users.length === 1 ? `Signed in as ${esc(users[0]!.name)}.` : single ? "Enter the access password." : "Sign in to continue."}</p>`;
+        : `<p>${users.length === 1 ? `Sign in as ${esc(users[0]!.name)}.` : single ? "Enter the access password." : "Sign in to continue."}</p>`;
     const showPassword = legacy || users.some((u) => u.hasPassword);
     const email = single ? "" : `<input name="email" type="email" autocomplete="username" required aria-label="Email" placeholder="Email">`;
     const passwordForm = showPassword

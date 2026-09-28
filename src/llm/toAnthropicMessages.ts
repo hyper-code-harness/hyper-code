@@ -29,6 +29,7 @@
 export default function (ctx: Context, _session: Session | null, opts: {
         /** Conversation messages to convert. */ messages: any[] }): any[] {
     const out: { role: "user" | "assistant"; content: any[] }[] = [];
+    const compactions: any[] = [];
 
     // Screenshot-heavy histories trigger Anthropic's stricter many-image
     // dimension limit. Keep the newest 20 images and summarize older images as
@@ -79,6 +80,15 @@ export default function (ctx: Context, _session: Session | null, opts: {
             continue;
         }
 
+        // Native Claude compaction block: Anthropic requires it FIRST in the
+        // request, in place of what it summarizes — hoisted after the loop.
+        if (m?.message_type === "anthropic_compaction") {
+            try { const block = typeof m.content === "string" ? JSON.parse(m.content) : m.content; if (block?.type === "compaction") compactions.push(block); } catch {}
+            continue;
+        }
+        // An opaque Codex checkpoint means nothing to Claude.
+        if (m?.message_type === "codex_compaction") continue;
+
         if (role !== "user" && role !== "assistant") continue;   // system handled elsewhere
 
         if (text.trim() !== "") push(role, { type: "text", text });
@@ -88,6 +98,13 @@ export default function (ctx: Context, _session: Session | null, opts: {
             push("assistant", { type: "tool_use", id: call.id, name: call.name, input: call.args ?? {} });
         }
     }
+
+    if (compactions.length) {
+        const block = compactions[compactions.length - 1];
+        if (out[0]?.role === "user") out[0].content.unshift(block);
+        else out.unshift({ role: "user", content: [block] });
+    }
+
 
     // 4. "final assistant content cannot end with trailing whitespace" — a
     //    marker text / prose row usually carries a trailing \n, and when the

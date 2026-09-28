@@ -27,3 +27,19 @@ describe("agent.autoCompactIfNeeded", () => {
         expect((await ctx.fns.agent.autoCompactIfNeeded({ agent: codex, thresholdTokens: 10_000 })).status).toBe("below_threshold");
     });
 });
+
+describe("agent.autoCompactIfNeeded window threshold", () => {
+    test("compacts a Claude agent at a fraction of its 200K window", async () => {
+        const ctx: any = await mkTestCtx();
+        const agent = await ctx.fns.agent.start({ model: "claude-code:claude-opus-5" });
+        await ctx.fns.session.appendMessage({ id: agent.id, message: { role: "user", content: "x".repeat(700_000) } });
+        await ctx.fns.session.syncAgentState({ agent });
+        let calls = 0;
+        ctx.state.registry.agent.compactContext = async () => { calls++; return { status: "compacted", tokensBefore: 175_000 }; };
+        const result = await ctx.fns.agent.autoCompactIfNeeded({ agent });
+        expect(result.status).toBe("compacted");
+        expect(calls).toBe(1);
+        expect(ctx.fns.compaction.contextWindow({ model: "codex/work:gpt-5.6-sol" })).toBe(272_000);
+        expect(ctx.fns.compaction.contextWindow({ model: "lmstudio:mystery" })).toBeNull();
+    });
+});

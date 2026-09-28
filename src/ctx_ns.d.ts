@@ -126,8 +126,40 @@ declare global {
             saveUploads: Injected<typeof import("./attachments/saveUploads").default>;
         };
         auth: {
+            actorId: Injected<typeof import("./auth/actorId").default>;
+            attributeMessages: Injected<typeof import("./auth/attributeMessages").default>;
+            author: Injected<typeof import("./auth/author").default>;
+            badge: Injected<typeof import("./auth/badge").default>;
             checkPassword: Injected<typeof import("./auth/checkPassword").default>;
+            createUser: Injected<typeof import("./auth/createUser").default>;
+            currentUser: Injected<typeof import("./auth/currentUser").default>;
+            getUser: Injected<typeof import("./auth/getUser").default>;
+            googleConfig: Injected<typeof import("./auth/googleConfig").default>;
+            googleRedirectUri: Injected<typeof import("./auth/googleRedirectUri").default>;
+            googleVerify: Injected<typeof import("./auth/googleVerify").default>;
+            issueSession: Injected<typeof import("./auth/issueSession").default>;
+            linkIdentity: Injected<typeof import("./auth/linkIdentity").default>;
+            listUsers: Injected<typeof import("./auth/listUsers").default>;
+            markSeen: Injected<typeof import("./auth/markSeen").default>;
+            meBadge: Injected<typeof import("./auth/meBadge").default>;
+            oidcConfig: Injected<typeof import("./auth/oidcConfig").default>;
+            oidcOnly: Injected<typeof import("./auth/oidcOnly").default>;
+            oidcRedirectUri: Injected<typeof import("./auth/oidcRedirectUri").default>;
+            oidcSession: Injected<typeof import("./auth/oidcSession").default>;
+            online: Injected<typeof import("./auth/online").default>;
+            onlineRegion: Injected<typeof import("./auth/onlineRegion").default>;
+            page: Injected<typeof import("./auth/page").default>;
             password: Injected<typeof import("./auth/password").default>;
+            pinnedIds: Injected<typeof import("./auth/pinnedIds").default>;
+            row: Injected<typeof import("./auth/row").default>;
+            seed: Injected<typeof import("./auth/seed").default>;
+            setPinned: Injected<typeof import("./auth/setPinned").default>;
+            setUserDisabled: Injected<typeof import("./auth/setUserDisabled").default>;
+            slug: Injected<typeof import("./auth/slug").default>;
+            updateUser: Injected<typeof import("./auth/updateUser").default>;
+            verifyIdToken: Injected<typeof import("./auth/verifyIdToken").default>;
+            verifyUser: Injected<typeof import("./auth/verifyUser").default>;
+            viewerId: Injected<typeof import("./auth/viewerId").default>;
         };
         brave: {
             search: Injected<typeof import("../plugins/brave/src/brave/search").default>;
@@ -178,6 +210,15 @@ declare global {
             meetings: Injected<typeof import("../../.hyper/user/circleback/src/circleback/meetings").default>;
             sql: Injected<typeof import("../../.hyper/user/circleback/src/circleback/sql").default>;
         };
+        compaction: {
+            contextWindow: Injected<typeof import("./compaction/contextWindow").default>;
+            resolve: Injected<typeof import("./compaction/resolve").default>;
+        };
+        controlPlane: {
+            heartbeat: Injected<typeof import("./controlPlane/heartbeat").default>;
+            services: Injected<typeof import("./controlPlane/services").default>;
+            token: Injected<typeof import("./controlPlane/token").default>;
+        };
         crme: {
             find: Injected<typeof import("../../.hyper/user/crme/src/crme/find").default>;
             get: Injected<typeof import("../../.hyper/user/crme/src/crme/get").default>;
@@ -210,6 +251,25 @@ declare global {
             ensureLogin: Injected<typeof import("../../.hyper/user/cuf/src/cuf/ensureLogin").default>;
             searchAppointments: Injected<typeof import("../../.hyper/user/cuf/src/cuf/searchAppointments").default>;
             searchDoctors: Injected<typeof import("../../.hyper/user/cuf/src/cuf/searchDoctors").default>;
+        };
+        desktop: {
+            act: Injected<typeof import("../plugins/desktop/src/desktop/act").default>;
+            apps: Injected<typeof import("../plugins/desktop/src/desktop/apps").default>;
+            call: Injected<typeof import("../plugins/desktop/src/desktop/call").default>;
+            check: Injected<typeof import("../plugins/desktop/src/desktop/check").default>;
+            click: Injected<typeof import("../plugins/desktop/src/desktop/click").default>;
+            disconnect: Injected<typeof import("../plugins/desktop/src/desktop/disconnect").default>;
+            ensureDaemon: Injected<typeof import("../plugins/desktop/src/desktop/ensureDaemon").default>;
+            key: Injected<typeof import("../plugins/desktop/src/desktop/key").default>;
+            locate: Injected<typeof import("../plugins/desktop/src/desktop/locate").default>;
+            look: Injected<typeof import("../plugins/desktop/src/desktop/look").default>;
+            open: Injected<typeof import("../plugins/desktop/src/desktop/open").default>;
+            resolve: Injected<typeof import("../plugins/desktop/src/desktop/resolve").default>;
+            scroll: Injected<typeof import("../plugins/desktop/src/desktop/scroll").default>;
+            setValue: Injected<typeof import("../plugins/desktop/src/desktop/setValue").default>;
+            tools: Injected<typeof import("../plugins/desktop/src/desktop/tools").default>;
+            type: Injected<typeof import("../plugins/desktop/src/desktop/type").default>;
+            windows: Injected<typeof import("../plugins/desktop/src/desktop/windows").default>;
         };
         dev: {
             ping: Injected<typeof import("./dev/ping").default>;
@@ -358,6 +418,7 @@ declare global {
             formatHashline: Injected<typeof import("./files/formatHashline").default>;
             grep: Injected<typeof import("./files/grep").default>;
             grepHashline: Injected<typeof import("./files/grepHashline").default>;
+            isPageRequest: Injected<typeof import("./files/isPageRequest").default>;
             lineHash: Injected<typeof import("./files/lineHash").default>;
             list: Injected<typeof import("./files/list").default>;
             listOpen: Injected<typeof import("./files/listOpen").default>;
@@ -596,6 +657,7 @@ declare global {
             syncRepository: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/syncRepository").default>;
             translateDocument: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/translateDocument").default>;
             updateDiary: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/updateDiary").default>;
+            upsertAppointment: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/upsertAppointment").default>;
             validateForm: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/validateForm").default>;
             vitals: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/vitals").default>;
             writeResource: Injected<typeof import("../../.hyper/user/healthrepo/src/healthrepo/writeResource").default>;
@@ -672,6 +734,7 @@ declare global {
             classifyError: Injected<typeof import("./llm/classifyError").default>;
             claudeCodeCliVersion: Injected<typeof import("./llm/claudeCodeCliVersion").default>;
             codexCliVersion: Injected<typeof import("./llm/codexCliVersion").default>;
+            compactAnthropic: Injected<typeof import("./llm/compactAnthropic").default>;
             compactCodex: Injected<typeof import("./llm/compactCodex").default>;
             completeAnthropicOAuth: Injected<typeof import("./llm/completeAnthropicOAuth").default>;
             connectFetch: Injected<typeof import("./llm/connectFetch").default>;
@@ -746,15 +809,14 @@ declare global {
         };
         markdown: {
             highlight: Injected<typeof import("./markdown/highlight").default>;
-            mermaid: Injected<typeof import("./markdown/mermaid").default>;
             render: Injected<typeof import("./markdown/render").default>;
         };
         marker: {
-            analyze: Injected<typeof import("../../.hyper/user/marker/src/marker/analyze").default>;
-            batch: Injected<typeof import("../../.hyper/user/marker/src/marker/batch").default>;
-            convert: Injected<typeof import("../../.hyper/user/marker/src/marker/convert").default>;
-            probe: Injected<typeof import("../../.hyper/user/marker/src/marker/probe").default>;
-            status: Injected<typeof import("../../.hyper/user/marker/src/marker/status").default>;
+            analyze: Injected<typeof import("../plugins/marker/src/marker/analyze").default>;
+            batch: Injected<typeof import("../plugins/marker/src/marker/batch").default>;
+            convert: Injected<typeof import("../plugins/marker/src/marker/convert").default>;
+            probe: Injected<typeof import("../plugins/marker/src/marker/probe").default>;
+            status: Injected<typeof import("../plugins/marker/src/marker/status").default>;
         };
         medsearch: {
             article: Injected<typeof import("../plugins/medsearch/src/medsearch/article").default>;
@@ -767,10 +829,13 @@ declare global {
             related: Injected<typeof import("../plugins/medsearch/src/medsearch/related").default>;
             search: Injected<typeof import("../plugins/medsearch/src/medsearch/search").default>;
         };
+        mermaid: {
+            render: Injected<typeof import("../plugins/mermaid/src/mermaid/render").default>;
+        };
         mineru: {
-            compare: Injected<typeof import("../../.hyper/user/mineru/src/mineru/compare").default>;
-            convert: Injected<typeof import("../../.hyper/user/mineru/src/mineru/convert").default>;
-            status: Injected<typeof import("../../.hyper/user/mineru/src/mineru/status").default>;
+            compare: Injected<typeof import("../plugins/mineru/src/mineru/compare").default>;
+            convert: Injected<typeof import("../plugins/mineru/src/mineru/convert").default>;
+            status: Injected<typeof import("../plugins/mineru/src/mineru/status").default>;
         };
         mobiledev: {
             build: Injected<typeof import("../../.hyper/user/mobiledev/src/mobiledev/build").default>;
@@ -785,6 +850,19 @@ declare global {
         };
         nav: {
             items: Injected<typeof import("./nav/items").default>;
+        };
+        netbird: {
+            approvePeer: Injected<typeof import("../../.hyper/user/netbird/src/netbird/approvePeer").default>;
+            createSetupKey: Injected<typeof import("../../.hyper/user/netbird/src/netbird/createSetupKey").default>;
+            deleteDNSNameserverGroup: Injected<typeof import("../../.hyper/user/netbird/src/netbird/deleteDNSNameserverGroup").default>;
+            listDNS: Injected<typeof import("../../.hyper/user/netbird/src/netbird/listDNS").default>;
+            listPeers: Injected<typeof import("../../.hyper/user/netbird/src/netbird/listPeers").default>;
+            listSetupKeys: Injected<typeof import("../../.hyper/user/netbird/src/netbird/listSetupKeys").default>;
+            listUsers: Injected<typeof import("../../.hyper/user/netbird/src/netbird/listUsers").default>;
+            revokeSetupKey: Injected<typeof import("../../.hyper/user/netbird/src/netbird/revokeSetupKey").default>;
+            saveDNSNameserverGroup: Injected<typeof import("../../.hyper/user/netbird/src/netbird/saveDNSNameserverGroup").default>;
+            setDNSSettings: Injected<typeof import("../../.hyper/user/netbird/src/netbird/setDNSSettings").default>;
+            status: Injected<typeof import("../../.hyper/user/netbird/src/netbird/status").default>;
         };
         news: {
             canonicalUrl: Injected<typeof import("../plugins/news/src/news/canonicalUrl").default>;
@@ -805,11 +883,36 @@ declare global {
             summarize: Injected<typeof import("../plugins/news/src/news/summarize").default>;
             summarizePending: Injected<typeof import("../plugins/news/src/news/summarizePending").default>;
         };
+        node: {
+            add: Injected<typeof import("./node/add").default>;
+            authorize: Injected<typeof import("./node/authorize").default>;
+            card: Injected<typeof import("./node/card").default>;
+            catalog: Injected<typeof import("./node/catalog").default>;
+            clients: Injected<typeof import("./node/clients").default>;
+            editPopup: Injected<typeof import("./node/editPopup").default>;
+            get: Injected<typeof import("./node/get").default>;
+            issueClient: Injected<typeof import("./node/issueClient").default>;
+            issueFromPopup: Injected<typeof import("./node/issueFromPopup").default>;
+            issuePopup: Injected<typeof import("./node/issuePopup").default>;
+            list: Injected<typeof import("./node/list").default>;
+            refresh: Injected<typeof import("./node/refresh").default>;
+            refreshFromPopup: Injected<typeof import("./node/refreshFromPopup").default>;
+            relay: Injected<typeof import("./node/relay").default>;
+            remove: Injected<typeof import("./node/remove").default>;
+            revokeClient: Injected<typeof import("./node/revokeClient").default>;
+            revokeFromPopup: Injected<typeof import("./node/revokeFromPopup").default>;
+            saveFromPopup: Injected<typeof import("./node/saveFromPopup").default>;
+            token: Injected<typeof import("./node/token").default>;
+            upstream: Injected<typeof import("./node/upstream").default>;
+        };
         pdf: {
-            compare: Injected<typeof import("../../.hyper/user/pdf/src/pdf/compare").default>;
-            convert: Injected<typeof import("../../.hyper/user/pdf/src/pdf/convert").default>;
-            inspect: Injected<typeof import("../../.hyper/user/pdf/src/pdf/inspect").default>;
-            status: Injected<typeof import("../../.hyper/user/pdf/src/pdf/status").default>;
+            compare: Injected<typeof import("../plugins/pdf/src/pdf/compare").default>;
+            convert: Injected<typeof import("../plugins/pdf/src/pdf/convert").default>;
+            inspect: Injected<typeof import("../plugins/pdf/src/pdf/inspect").default>;
+            litBin: Injected<typeof import("../plugins/pdf/src/pdf/litBin").default>;
+            needsOcr: Injected<typeof import("../plugins/pdf/src/pdf/needsOcr").default>;
+            parseLite: Injected<typeof import("../plugins/pdf/src/pdf/parseLite").default>;
+            status: Injected<typeof import("../plugins/pdf/src/pdf/status").default>;
         };
         pipedrive: {
             api: Injected<typeof import("../plugins/pipedrive/src/pipedrive/api").default>;
@@ -1058,6 +1161,31 @@ declare global {
             receiptUpload: Injected<typeof import("../../.hyper/user/ramp/src/ramp/receiptUpload").default>;
             token: Injected<typeof import("../../.hyper/user/ramp/src/ramp/token").default>;
         };
+        reladraw: {
+            render: Injected<typeof import("../plugins/reladraw/src/reladraw/render").default>;
+            validate: Injected<typeof import("../plugins/reladraw/src/reladraw/validate").default>;
+        };
+        remote: {
+            close: Injected<typeof import("./remote/close").default>;
+            exec: Injected<typeof import("./remote/exec").default>;
+            find: Injected<typeof import("./remote/find").default>;
+            grep: Injected<typeof import("./remote/grep").default>;
+            jobs: Injected<typeof import("./remote/jobs").default>;
+            list: Injected<typeof import("./remote/list").default>;
+            logs: Injected<typeof import("./remote/logs").default>;
+            quote: Injected<typeof import("./remote/quote").default>;
+            readBytes: Injected<typeof import("./remote/readBytes").default>;
+            readFile: Injected<typeof import("./remote/readFile").default>;
+            rsync: Injected<typeof import("./remote/rsync").default>;
+            servers: Injected<typeof import("./remote/servers").default>;
+            shellPrelude: Injected<typeof import("./remote/shellPrelude").default>;
+            sshOptions: Injected<typeof import("./remote/sshOptions").default>;
+            start: Injected<typeof import("./remote/start").default>;
+            stat: Injected<typeof import("./remote/stat").default>;
+            status: Injected<typeof import("./remote/status").default>;
+            stop: Injected<typeof import("./remote/stop").default>;
+            writeFile: Injected<typeof import("./remote/writeFile").default>;
+        };
         repl: {
             diagnoseParse: Injected<typeof import("./repl/diagnoseParse").default>;
             eval: Injected<typeof import("./repl/eval").default>;
@@ -1191,6 +1319,14 @@ declare global {
             startKimiLogin: Injected<typeof import("./settings/startKimiLogin").default>;
             status: Injected<typeof import("./settings/status").default>;
         };
+        share: {
+            broadcast: Injected<typeof import("../../.hyper/user/share/src/share/broadcast").default>;
+            newsDigest: Injected<typeof import("../../.hyper/user/share/src/share/newsDigest").default>;
+            post: Injected<typeof import("../../.hyper/user/share/src/share/post").default>;
+            postAudio: Injected<typeof import("../../.hyper/user/share/src/share/postAudio").default>;
+            resolveChat: Injected<typeof import("../../.hyper/user/share/src/share/resolveChat").default>;
+            targets: Injected<typeof import("../../.hyper/user/share/src/share/targets").default>;
+        };
         sharedAgent: {
             delegate: Injected<typeof import("./sharedAgent/delegate").default>;
             list: Injected<typeof import("./sharedAgent/list").default>;
@@ -1240,6 +1376,7 @@ declare global {
         telegram: {
             contacts: Injected<typeof import("../plugins/telegram/src/telegram/contacts").default>;
             createFolder: Injected<typeof import("../plugins/telegram/src/telegram/createFolder").default>;
+            deleteMessages: Injected<typeof import("../plugins/telegram/src/telegram/deleteMessages").default>;
             dialogs: Injected<typeof import("../plugins/telegram/src/telegram/dialogs").default>;
             findChat: Injected<typeof import("../plugins/telegram/src/telegram/findChat").default>;
             folder: Injected<typeof import("../plugins/telegram/src/telegram/folder").default>;
@@ -1290,7 +1427,14 @@ declare global {
             play: Injected<typeof import("./tour/play").default>;
             review: Injected<typeof import("./tour/review").default>;
         };
+        tsgo: {
+            bin: Injected<typeof import("./tsgo/bin").default>;
+            check: Injected<typeof import("./tsgo/check").default>;
+            server: Injected<typeof import("./tsgo/server").default>;
+            status: Injected<typeof import("./tsgo/status").default>;
+        };
         tts: {
+            gemini: Injected<typeof import("../plugins/tts/src/tts/gemini").default>;
             speak: Injected<typeof import("../plugins/tts/src/tts/speak").default>;
             voices: Injected<typeof import("../plugins/tts/src/tts/voices").default>;
         };
@@ -1372,11 +1516,19 @@ declare global {
             read: Injected<typeof import("../plugins/websearch/src/websearch/read").default>;
             search: Injected<typeof import("../plugins/websearch/src/websearch/search").default>;
         };
+        whisper: {
+            dispatch: Injected<typeof import("../plugins/whisper/src/whisper/dispatch").default>;
+            ensureServer: Injected<typeof import("../plugins/whisper/src/whisper/ensureServer").default>;
+            models: Injected<typeof import("../plugins/whisper/src/whisper/models").default>;
+            transcribe: Injected<typeof import("../plugins/whisper/src/whisper/transcribe").default>;
+            waiting: Injected<typeof import("../plugins/whisper/src/whisper/waiting").default>;
+        };
         workspace: {
             get: Injected<typeof import("./workspace/get").default>;
             normalize: Injected<typeof import("./workspace/normalize").default>;
             resolve: Injected<typeof import("./workspace/resolve").default>;
             set: Injected<typeof import("./workspace/set").default>;
+            target: Injected<typeof import("./workspace/target").default>;
         };
         youtube: {
             api: Injected<typeof import("../plugins/youtube/src/youtube/api").default>;
@@ -1410,6 +1562,18 @@ declare global {
         namespace arxiv {
             type Paper = import("../plugins/arxiv/src/arxiv/Paper").Paper;
             type SearchResult = import("../plugins/arxiv/src/arxiv/SearchResult").SearchResult;
+        }
+        namespace auth {
+            type User = import("./auth/User").User;
+        }
+        namespace compaction {
+            type CompactionResult = import("./compaction/CompactionResult").CompactionResult;
+            type Compactor = import("./compaction/Compactor").Compactor;
+            type CompactorEntry = import("./compaction/CompactorEntry").CompactorEntry;
+            type State = import("./compaction/State").State;
+        }
+        namespace desktop {
+            type AppWindow = import("../plugins/desktop/src/desktop/AppWindow").AppWindow;
         }
         namespace dev {
             type TestRun = import("./dev/TestRun").TestRun;
@@ -1456,6 +1620,9 @@ declare global {
             type UsageSnapshot = import("./llm/UsageSnapshot").UsageSnapshot;
             type UsageWindow = import("./llm/UsageWindow").UsageWindow;
         }
+        namespace markdown {
+            type State = import("./markdown/State").State;
+        }
         namespace medsearch {
             type EuropePmcRecord = import("../plugins/medsearch/src/medsearch/EuropePmcRecord").EuropePmcRecord;
             type Paper = import("../plugins/medsearch/src/medsearch/Paper").Paper;
@@ -1463,6 +1630,12 @@ declare global {
         }
         namespace nav {
             type Item = import("./nav/Item").Item;
+        }
+        namespace netbird {
+            type Json = import("../../.hyper/user/netbird/src/netbird/Json").Json;
+        }
+        namespace node {
+            type NodeEntry = import("./node/NodeEntry").NodeEntry;
         }
         namespace procs {
             namespace auth {
@@ -1519,6 +1692,10 @@ declare global {
                 type State = import("./procs/telemetry/State").State;
             }
         }
+        namespace reladraw {
+            type Problem = import("../plugins/reladraw/src/reladraw/Problem").Problem;
+            type Rendered = import("../plugins/reladraw/src/reladraw/Rendered").Rendered;
+        }
         namespace research {
             type AskResult = import("../plugins/research/src/research/AskResult").AskResult;
             type Citation = import("../plugins/research/src/research/Citation").Citation;
@@ -1553,6 +1730,10 @@ declare global {
         namespace tour {
             type Step = import("./tour/Step").Step;
         }
+        namespace tsgo {
+            type Client = import("./tsgo/Client").Client;
+            type State = import("./tsgo/State").State;
+        }
         namespace ui {
             type AgentLaunch = import("./ui/AgentLaunch").AgentLaunch;
         }
@@ -1563,7 +1744,9 @@ declare global {
     }
 
     interface CtxState {
+        compaction: import("./compaction/State").State;
         flow: import("../plugins/flow/src/flow/State").State;
+        markdown: import("./markdown/State").State;
         procs: {
             auth: import("./procs/auth/State").State;
             boot: import("./procs/boot/State").State;
@@ -1584,6 +1767,7 @@ declare global {
             telemetry: import("./procs/telemetry/State").State;
         };
         screen: import("./screen/State").State;
+        tsgo: import("./tsgo/State").State;
     }
 
     type Session = import("./Session").Session;

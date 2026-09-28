@@ -99,6 +99,10 @@ export default async function (
         headers["anthropic-dangerous-direct-browser-access"] = "true";
         headers["x-client-request-id"] = (globalThis as any).crypto?.randomUUID?.() ?? Bun.randomUUIDv7();
     }
+    // A replayed server compaction block is rejected (400) without its beta.
+    if (messages[0]?.content?.[0]?.type === "compaction") {
+        headers["anthropic-beta"] = [headers["anthropic-beta"], "compact-2026-09-04"].filter(Boolean).join(",");
+    }
 
     const res = await ctx.fns.llm.connectFetch({ url: ep.url, init: {
         method: "POST",

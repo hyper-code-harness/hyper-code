@@ -35,10 +35,23 @@ const up_sql = [
     "ALTER TABLE agents ADD COLUMN IF NOT EXISTS created_by TEXT",
     "ALTER TABLE messages ADD COLUMN IF NOT EXISTS author TEXT",
     "ALTER TABLE events ADD COLUMN IF NOT EXISTS actor TEXT",
+    // External sign-in identities (optional SSO). Looked up by the provider's stable subject,
+    // never by email, which can change. One user may have several (work + personal Google).
+    `CREATE TABLE IF NOT EXISTS user_identities (
+        provider TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT,
+        created_at BIGINT NOT NULL,
+        last_login_at BIGINT,
+        PRIMARY KEY (provider, subject)
+    )`,
+    "CREATE INDEX IF NOT EXISTS user_identities_user_idx ON user_identities (user_id)",
 ];
 
 const down_sql = [
     "SET LOCAL lock_timeout = '3s'",
+    "DROP TABLE IF EXISTS user_identities",
     "ALTER TABLE events DROP COLUMN IF EXISTS actor",
     "ALTER TABLE messages DROP COLUMN IF EXISTS author",
     "ALTER TABLE agents DROP COLUMN IF EXISTS created_by",

@@ -10,6 +10,8 @@ export type User = {
     role: "owner" | "member";
     /** Whether this user has a password; a lone user without one signs in without a prompt. */
     hasPassword: boolean;
+    /** Whether this user has any way to sign in (password or a linked external identity such as Google). */
+    canSignIn: boolean;
     /** When the name was confirmed at setup; null for a user seeded from env or the legacy password. */
     configuredAt: number | null;
     createdAt: number;

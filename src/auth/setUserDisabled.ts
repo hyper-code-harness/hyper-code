@@ -16,7 +16,7 @@ export default async function (
         disabled: boolean;
     },
 ): Promise<types.auth.User> {
-    const rows = await ctx.fns.procs.db.select({ sql: "SELECT * FROM users WHERE id = ?", params: [opts.id] }) as any[];
+    const rows = await ctx.fns.procs.db.select({ sql: "SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u WHERE u.id = ?", params: [opts.id] }) as any[];
     if (!rows.length) throw new Error("auth.setUserDisabled: no such user: " + opts.id);
     const user = ctx.fns.auth.row({ row: rows[0] });
     if (opts.disabled && user.role === "owner" && user.disabledAt == null) {
@@ -28,6 +28,6 @@ export default async function (
         sql: "UPDATE users SET disabled_at = ?, updated_at = ? WHERE id = ?",
         params: [opts.disabled ? (user.disabledAt ?? now) : null, now, opts.id],
     });
-    const after = await ctx.fns.procs.db.select({ sql: "SELECT * FROM users WHERE id = ?", params: [opts.id] }) as any[];
+    const after = await ctx.fns.procs.db.select({ sql: "SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u WHERE u.id = ?", params: [opts.id] }) as any[];
     return ctx.fns.auth.row({ row: after[0] });
 }

@@ -13,12 +13,14 @@ export default function (
     },
 ): types.auth.User {
     const r = opts.row as any;
+    const hasPassword = r.password_hash != null && String(r.password_hash) !== "";
     return {
         id: String(r.id),
         email: r.email == null ? null : String(r.email),
         name: String(r.name),
         role: r.role === "owner" ? "owner" : "member",
-        hasPassword: r.password_hash != null && String(r.password_hash) !== "",
+        hasPassword,
+        canSignIn: hasPassword || Number(r.identities ?? 0) > 0,
         configuredAt: r.configured_at == null ? null : Number(r.configured_at),
         createdAt: Number(r.created_at),
         disabledAt: r.disabled_at == null ? null : Number(r.disabled_at),

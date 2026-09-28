@@ -56,6 +56,6 @@ export default async function (
         sql: "INSERT INTO users (id, email, name, password_hash, role, created_at, updated_at, configured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         params: [id, email, name, hash, role, now, now, opts.configured === false ? null : now],
     });
-    const created = await ctx.fns.procs.db.select({ sql: "SELECT * FROM users WHERE id = ?", params: [id] }) as any[];
+    const created = await ctx.fns.procs.db.select({ sql: "SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u WHERE u.id = ?", params: [id] }) as any[];
     return ctx.fns.auth.row({ row: created[0] });
 }

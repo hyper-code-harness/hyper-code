@@ -21,9 +21,9 @@ export default async function (
     const email = opts.email ? String(opts.email).trim().toLowerCase() : "";
     let rows: any[];
     if (email) {
-        rows = await ctx.fns.procs.db.select({ sql: "SELECT * FROM users WHERE lower(email) = ? AND disabled_at IS NULL", params: [email] }) as any[];
+        rows = await ctx.fns.procs.db.select({ sql: "SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u WHERE lower(u.email) = ? AND u.disabled_at IS NULL", params: [email] }) as any[];
     } else {
-        rows = await ctx.fns.procs.db.select({ sql: "SELECT * FROM users WHERE disabled_at IS NULL LIMIT 2" }) as any[];
+        rows = await ctx.fns.procs.db.select({ sql: "SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u WHERE u.disabled_at IS NULL LIMIT 2" }) as any[];
         if (rows.length !== 1) return null;
     }
     const row = rows[0];

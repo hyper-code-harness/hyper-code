@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import middleware from "../$middleware";
 
-const nik = { id: "nik", email: null, name: "Nik", role: "owner", hasPassword: true, configuredAt: 1, createdAt: 1, disabledAt: null };
+const nik = { id: "nik", email: null, name: "Nik", role: "owner", hasPassword: true, canSignIn: true, configuredAt: 1, createdAt: 1, disabledAt: null };
 
 function context(who: { user: any; required: boolean }): any {
     return { fns: { auth: { currentUser: async () => who }, h2: { redirect: () => null } }, state: {} };

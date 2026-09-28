@@ -13,7 +13,7 @@ export default async function (
         includeDisabled?: boolean;
     },
 ): Promise<types.auth.User[]> {
-    const where = opts?.includeDisabled ? "" : "WHERE disabled_at IS NULL";
-    const rows = await ctx.fns.procs.db.select({ sql: `SELECT * FROM users ${where} ORDER BY created_at, id` }) as any[];
+    const where = opts?.includeDisabled ? "" : "WHERE u.disabled_at IS NULL";
+    const rows = await ctx.fns.procs.db.select({ sql: `SELECT u.*, (SELECT count(*) FROM user_identities i WHERE i.user_id = u.id) AS identities FROM users u ${where} ORDER BY u.created_at, u.id` }) as any[];
     return rows.map((row) => ctx.fns.auth.row({ row }));
 }

@@ -26,7 +26,7 @@ export default async function (
         const claims: any = await ctx.fns.procs.auth.authenticate({ req: opts.req });
         return { user: null, required: true, legacy: !!claims };
     }
-    if (users.length === 1 && !users[0]!.hasPassword) return { user: users[0]!, required: false };
+    if (users.length === 1 && !users[0]!.canSignIn) return { user: users[0]!, required: false };
     const claims: any = await ctx.fns.procs.auth.authenticate({ req: opts.req });
     const user = claims?.sub ? await ctx.fns.auth.getUser({ id: String(claims.sub) }) : null;
     return { user, required: true };

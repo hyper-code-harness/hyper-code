@@ -3,7 +3,7 @@
  * signs the matching Hyper user in.
  *
  * Only verified accounts of the allowed Workspace domain get through (googleVerify). The user is
- * found by Google subject, then by email, then created when auto-create is on (googleSignIn).
+ * found by Google subject, then by email, then created when auto-create is on (linkIdentity).
  * Any failure returns to the sign-in page with a message; password sign-in keeps working.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
@@ -42,7 +42,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     } catch (e) {
         return fail(String((e as Error).message).replace(/^google: /, ""));
     }
-    const user = await ctx.fns.auth.googleSignIn({ ...identity, autoCreate: config.autoCreate });
+    const user = await ctx.fns.auth.linkIdentity({ provider: "google", ...identity, autoCreate: config.autoCreate });
     if (!user) return fail(`${identity.email} is not allowed to sign in to this Hyper`);
 
     const session = await ctx.fns.auth.issueSession({ user, req: opts.req });

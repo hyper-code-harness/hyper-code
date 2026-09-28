@@ -64,6 +64,7 @@ const up_sql = [
 const down_sql = [
     "SET LOCAL lock_timeout = '3s'",
     "DROP INDEX IF EXISTS agents_created_by_idx",
+    "DROP TABLE IF EXISTS auth_sessions",          // from 20320402000000_oidc_sessions, references users
     "DROP TABLE IF EXISTS user_agent_state",
     "DROP TABLE IF EXISTS user_identities",
     "ALTER TABLE events DROP COLUMN IF EXISTS actor",

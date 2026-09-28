@@ -17,7 +17,7 @@ export default async function (
         /** Incoming HTTP request carrying the session cookie. */
         req: Request;
     },
-): Promise<{ user: types.auth.User | null; required: boolean; legacy?: boolean }> {
+): Promise<{ user: types.auth.User | null; required: boolean; legacy?: boolean; setCookie?: string | null }> {
     const users = await ctx.fns.auth.listUsers({});
     if (users.length === 0) {
         if (!(await ctx.fns.auth.password({}))) return { user: null, required: false };
@@ -27,6 +27,13 @@ export default async function (
         return { user: null, required: true, legacy: !!claims };
     }
     if (users.length === 1 && !users[0]!.canSignIn) return { user: users[0]!, required: false };
+    // Sessions started through the OIDC provider carry a server-side session id (jti "s_…") and are
+    // renewed silently; password/Google sessions are plain signed cookies.
+    const peek: any = await ctx.fns.procs.auth.verify({ token: new Bun.CookieMap(opts.req.headers.get("cookie") ?? "").get(ctx.fns.procs.auth.cookieName({})) ?? "", allowExpired: true }).catch(() => null);
+    if (String(peek?.jti ?? "").startsWith("s_")) {
+        const s = await ctx.fns.auth.oidcSession({ action: "resolve", req: opts.req });
+        return { user: s.user, required: true, setCookie: s.setCookie };
+    }
     const claims: any = await ctx.fns.procs.auth.authenticate({ req: opts.req });
     const user = claims?.sub ? await ctx.fns.auth.getUser({ id: String(claims.sub) }) : null;
     return { user, required: true };

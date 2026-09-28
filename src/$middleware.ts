@@ -9,11 +9,12 @@ export default async function (ctx: Context, session: Session | null, opts: { re
     // Dedicated bridge owns its narrow authentication. Its bearer is never a UI/REPL credential.
     if (url.pathname.startsWith('/sidebar/api/')) return ctx.fns.sidebar.bridge({ req: opts.req });
     if (url.pathname.startsWith('/sidebar/approve/')) return ctx.fns.sidebar.approval({ req: opts.req });
-    const publicPath = url.pathname === "/auth/login" || url.pathname === "/auth/logout" || url.pathname === "/auth/setup" || url.pathname === "/auth/google" || url.pathname === "/auth/google/callback" || url.pathname === "/favicon.ico";
+    const publicPath = url.pathname === "/auth/login" || url.pathname === "/auth/logout" || url.pathname === "/auth/setup" || url.pathname === "/auth/google" || url.pathname === "/auth/google/callback" || url.pathname === "/auth/oidc" || url.pathname === "/auth/oidc/callback" || url.pathname === "/favicon.ico";
     // /procs/repl, /external/* and /node/v1/* check loopback + their own scoped tokens.
     const infrastructurePath = url.pathname === "/procs/repl" || url.pathname.startsWith("/external/") || url.pathname.startsWith("/node/v1/");
     const who = publicPath || infrastructurePath ? null : await ctx.fns.auth.currentUser({ req: opts.req });
     if (session && who?.user) (session as any).user = who.user;
+    if (session && who?.setCookie) (session as any).setCookie = who.setCookie;
     if (who?.required) {
     if (url.pathname.startsWith('/sidebar/draft/')) return ctx.fns.sidebar.draft({ req: opts.req });
         {

@@ -78,9 +78,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
   color: var(--color-base-content);
 }
 .tool.tool-tucked:active { transform: translateY(0) scale(1.05); }
-/* backdrop-filter makes the bar its own stacking context: lift it above the page so its
-   popups (account menu) are not covered by the chat area painted after it. */
-#quick-bar { position: relative; z-index: 40; }
 #quick-bar,
 .glass-panel {
   background-color: rgb(from var(--color-base-100) r g b / .68);

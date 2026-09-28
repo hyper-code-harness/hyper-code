@@ -42,7 +42,7 @@ export default async function (ctx: Context, session: Session, opts: { req: Requ
             send({ type: "hello", serverStart: (ctx.state as any).serverStart, refresh: topics });
             unsub = ctx.fns.procs.events.subscribe({ handler: send, topics });
             // The stream is also the presence: it lasts exactly as long as the tab.
-            leave = ctx.fns.procs.events.join({});
+            leave = ctx.fns.procs.events.join({ topics });
             keepalive = setInterval(() => {
                 try { controller.enqueue(enc.encode(`: ping\n\n`)); } catch { cleanup(); }
             }, 25_000);

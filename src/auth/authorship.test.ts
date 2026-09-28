@@ -111,32 +111,44 @@ test("photo from the ID token's picture claim is stored and shown as the avatar"
     expect(payload.html).toContain("Valeria F");
 });
 
-test("who is online: people with an open tab, with photo or initials, refreshed on join/leave", async () => {
+test("who is online: everyone in Hyper (left bar) and who is in this chat (inspector), live on join/leave", async () => {
     const ctx = await mkTestCtx({ env: { HYPER_OIDC_ISSUER: "https://cp.example" } });
     const val = await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: "val", email: "valeria@health-samurai.io", name: "Valeria F", picture: "https://lh3.googleusercontent.com/a/v=s96-c" });
     const nik = await ctx.fns.auth.createUser({ name: "Nikolai Ryzhikov", email: "niquola@health-samurai.io", password: "password-123" });
     expect(await ctx.fns.auth.online({})).toBe("");
     const topics: string[] = [];
     ctx.fns.procs.events.subscribe({ handler: (e: any) => { if (e.topic) topics.push(e.topic); }, topics: ["presence"] });
-    const leaveVal = ctx.fns.procs.events.join({}); // anonymous tab (no session user): ignored
-    const r = await asUser(ctx, val);
-    const leaveVal2 = r.fns.procs.events.join({});
-    const leaveVal3 = r.fns.procs.events.join({}); // second tab: still one person
-    const rn = await asUser(ctx, nik);
-    const leaveNik = rn.fns.procs.events.join({});
-    let html = await ctx.fns.auth.online({});
-    expect(html).toContain('data-online="' + val!.id + '"');
-    expect(html).toContain('<img src="https://lh3.googleusercontent.com/a/v=s96-c"');
-    expect(html).toContain('(2 tabs)');
-    expect(html).toContain('data-online="' + nik.id + '"');
-    expect(html).toContain(">NR<");
-    expect(html).toContain("ring-success");
-    leaveNik();
-    html = await ctx.fns.auth.online({});
-    expect(html).not.toContain('data-online="' + nik.id + '"');
-    leaveVal2(); leaveVal3(); leaveVal();
+    const anon = ctx.fns.procs.events.join({}); // anonymous tab (no session user): ignored
+    const rv = await asUser(ctx, val), rn = await asUser(ctx, nik);
+    const valChatA = rv.fns.procs.events.join({ topics: ["agent:a", "presence"] });
+    const valHome = rv.fns.procs.events.join({ topics: ["agents"] }); // second tab, no chat
+    const nikChatB = rn.fns.procs.events.join({ topics: ["agent:b"] });
+
+    // Everyone in Hyper, seen by an anonymous/other viewer: both.
+    let all = await ctx.fns.auth.online({ layout: "column" });
+    expect(all).toContain('data-online="' + val!.id + '"');
+    expect(all).toContain('<img src="https://lh3.googleusercontent.com/a/v=s96-c"');
+    expect(all).toContain("(2 tabs)");
+    expect(all).toContain(">NR<");
+    expect(all).toContain("flex-col");
+    // Nikolai does not see himself.
+    const nikSees = await rn.fns.auth.online({});
+    expect(nikSees).toContain('data-online="' + val!.id + '"');
+    expect(nikSees).not.toContain('data-online="' + nik.id + '"');
+    // Per chat: only who looks at it.
+    const inA = await ctx.fns.auth.online({ agentId: "a" });
+    expect(inA).toContain('data-online="' + val!.id + '"');
+    expect(inA).not.toContain('data-online="' + nik.id + '"');
+    expect(inA).toContain("in this chat");
+    expect(await ctx.fns.auth.online({ agentId: "b" })).toContain('data-online="' + nik.id + '"');
+
+    valChatA();
+    expect(await ctx.fns.auth.online({ agentId: "a" })).toBe("");
+    expect(await ctx.fns.auth.online({})).toContain('data-online="' + val!.id + '"'); // still has the home tab
+    valHome(); nikChatB(); anon();
     expect(await ctx.fns.auth.online({})).toBe("");
-    expect(topics.filter((t) => t === "presence").length).toBeGreaterThanOrEqual(4);
-    const route = await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/online" });
-    expect(route.status).toBe(401); // signed-in people only
+    expect(topics.filter((t) => t === "presence").length).toBeGreaterThanOrEqual(6);
+    expect((await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/online" })).status).toBe(401); // signed-in people only
+    expect(ctx.fns.auth.onlineRegion({ agentId: "a" })).toContain('hx-get="/auth/online?agent=a"');
+    expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('data-live-topic="presence"');
 });

@@ -3,6 +3,8 @@
 // signed `compaction` block with a readable summary. toAnthropicMessages replays
 // it byte-for-byte as the first block of the request; streamAnthropic adds the
 // beta header. Models without support fall back to the generic text summary.
+// The agent system prompt is NOT sent: its output-format rules (respondHtml…)
+// leak into the summary; the block replays fine under any system prompt.
 
 /**
  * Compacts a Claude transcript into a native signed server compaction block.
@@ -11,7 +13,7 @@
  */
 export default async function (ctx: Context, session: Session | null, opts: Parameters<types.compaction.Compactor>[2]): Promise<types.compaction.CompactionResult> {
     try {
-        const { block } = await ctx.fns.llm.compactAnthropic({ model: opts.model, instructions: opts.instructions, focus: opts.focus, messages: opts.messages, signal: opts.signal });
+        const { block } = await ctx.fns.llm.compactAnthropic({ model: opts.model, focus: opts.focus, messages: opts.messages, signal: opts.signal });
         return { message: { role: "user", content: JSON.stringify(block), message_type: "anthropic_compaction" }, summary: block.content };
     } catch (error: any) {
         opts.signal?.throwIfAborted();

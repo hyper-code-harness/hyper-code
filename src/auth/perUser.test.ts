@@ -80,3 +80,16 @@ test("People page: owners only; add person; Google-only member needs Google on",
     expect(decodeURIComponent(noPw.headers.get("location")!)).toContain("Google sign-in is off");
     expect((await ctx.fns.auth.listUsers({})).map((u: any) => u.id)).toContain("pavel");
 });
+
+test("fork and delegated child belong to the parent chat's owner, not to whoever triggered them", async () => {
+    const { ctx, nik, anna, rn, ra } = await twoUsers();
+    const parent = await rn.fns.agent.start({ model: "mock:echo" });
+    await rn.fns.session.save({ agent: parent });
+    const fork = await ra.fns.session.fork({ id: parent.id, visibility: "team" });
+    const [row] = await ctx.fns.procs.db.select({ sql: "SELECT created_by FROM agents WHERE id = ?", params: [fork.id] });
+    expect(row.created_by).toBe(nik.id);
+    const own = await ra.fns.agent.start({ model: "mock:echo" });
+    await ra.fns.session.save({ agent: own });
+    const [mine] = await ctx.fns.procs.db.select({ sql: "SELECT created_by FROM agents WHERE id = ?", params: [own.id] });
+    expect(mine.created_by).toBe(anna.id);
+});

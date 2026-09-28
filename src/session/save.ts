@@ -4,8 +4,15 @@ export default async function (ctx: Context, session: Session | null, opts: {
 agent: types.agent.Agent }): Promise<void> {
     const { agent } = opts;
     const now = Date.now();
-    // Author is set once, on the first save; never changed by later saves (not in ON CONFLICT).
-    agent.createdBy ??= await ctx.fns.auth.actorId({ agentId: agent.parentId ?? undefined });
+    // Owner is set once, on the first save, never changed later (not in ON CONFLICT).
+    // A derived chat (fork, delegated child) belongs to the owner of its parent, not to whoever
+    // happened to trigger it; a new top-level chat belongs to the person creating it.
+    if (agent.createdBy === undefined) {
+        const parentOwner = agent.parentId
+            ? ((await ctx.fns.procs.db.select({ sql: "SELECT created_by FROM agents WHERE id = ?", params: [agent.parentId] })) as any[])[0]?.created_by ?? null
+            : null;
+        agent.createdBy = parentOwner ?? await ctx.fns.auth.actorId({});
+    }
     await ctx.fns.procs.db.run({
         sql: `
         INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_by, created_at, updated_at)

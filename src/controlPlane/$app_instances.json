@@ -1,0 +1,8 @@
+{
+  "label": "Hyper instances",
+  "href": "/controlPlane",
+  "hint": "page · every Hyper registered in the control plane",
+  "icon": "ph-circles-three",
+  "group": "System",
+  "order": 16
+}

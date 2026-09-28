@@ -36,6 +36,7 @@ export default async function (
         if (Number(r.excluded_from_llm ?? 0) !== 0) m.excluded_from_llm = true;
         if (r.message_type != null && r.message_type !== "message") m.message_type = r.message_type;
         if (Number(r.excluded_from_cursor ?? 0) !== 0) m.excluded_from_cursor = true;
+        if (r.author != null) m.author = r.author;
         return m;
     });
 }

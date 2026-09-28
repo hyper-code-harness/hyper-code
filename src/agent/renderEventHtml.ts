@@ -131,6 +131,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             : '';
         return '<div class="group relative flex justify-end pb-0">'
             + '<div class="relative ml-auto max-w-[80%]">'
+            + await (ctx as any).fns.auth.badge({ userId: ev.actor ?? null })
             + '<div class="chat-glass-primary rounded-xl px-4 py-3 text-white whitespace-pre-wrap break-words shadow-sm border border-black/20">'
             + attachmentHtml
             + appendTime((ev.text ? esc(ev.text) : '') + ragIcon, ev.ts, 'dark')

@@ -184,3 +184,30 @@ All five step-1 blockers fixed and re-rehearsed on a fresh full copy of the live
    on the copy and creates no user.
 
 Steps 2–7 keep the review notes above.
+
+## Implemented and browser-verified (branch `multiuser-users`, 076f04b)
+
+Test instance: full copy of the live DB (`hyper_multitest`, 53 657 agents), port 3020, agent worker
+and cron off, queued runs/triggers neutralized, a fake Google on :3021. Live Hyper untouched.
+
+| Checked in the browser | Result |
+|---|---|
+| boot on the new code, before the switch | migration applied at boot, no user; old password login unchanged; no new UI |
+| `script/multiuser.ts up` | user `niquola` created, password carried over |
+| old session cookie after the switch | rejected, back to login |
+| sign-in as Nikolai (password only, one user) | ok; avatar "NR" + menu: name, email, owner, People, Sign out |
+| People page | add Anna (password); roles; disable → Anna's live session 401 at once, password login refused; enable → works |
+| two users | login asks email + password |
+| Anna writes into Nikolai's chat | message stored with author `anna`; badge "Anna K · AK" for both viewers |
+| model input | `<Anna K>: …`, `<Nikolai Ryzhikov>: …` + one explanatory line |
+| menu Mine / All | Anna: 1 chat in Mine, 570 in All; owner name shown on others' chats |
+| read state | per person (Nikolai read ≠ Anna read) |
+| Google: new @health-samurai.io account | created as member without password, signed in |
+| Google: existing user by email (Anna) | linked to `anna`, no duplicate |
+| Google: gmail.com account | refused: "only health-samurai.io accounts may sign in" |
+| rollback: old `main` code on the migrated DB | legacy password login, API, chat page, home — all 200 |
+
+Tests: 101/101 (`src/auth`, `src/session`, affected `src/api`).
+
+Not done yet: iPhone email field (step 6), sidebar pairing per user, real Google OAuth client in
+`hs-hyper-code` (console-only; see below), the switch of the live Hyper.

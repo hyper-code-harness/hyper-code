@@ -66,7 +66,7 @@ export default async function (
 
 function isPageRoute(path: string): boolean {
     if (path === "/" || /\.(?:js|css|map|ico|png|jpg|jpeg|svg|md)$/i.test(path)) return false;
-    if (/^\/(?:api|external|nav|procs)(?:\/|$)/.test(path)) return false;
+    if (/^\/(?:api|external|nav|procs|auth)(?:\/|$)/.test(path)) return false;
     if (/\/(?:raw|status|usage|accounts|jobs|dirs)(?:\/|$)/.test(path)) return false;
     return true;
 }

@@ -9,10 +9,6 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         const exists = ((await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM agents WHERE id = ?", params: [id] })) as any[])[0];
         if (!exists) return Response.json({ error: "not_found", message: "Agent not found" }, { status: 404 });
     }
-    const seenAt = row?.ts == null ? Date.now() : Number(row.ts);
-    await ctx.fns.procs.db.run({
-        sql: "INSERT INTO kv(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",
-        params: [`seen-at:${id}`, String(seenAt)],
-    });
+    const seenAt = await ctx.fns.auth.markSeen({ agentId: id });
     return Response.json({ version: 1, ok: true, agentId: id, seenAt });
 }

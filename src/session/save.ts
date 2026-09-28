@@ -1,13 +1,22 @@
 /** Save for the runtime. */
-export default async function (ctx: Context, _session: Session | null, opts: {
+export default async function (ctx: Context, session: Session | null, opts: {
         /** Live agent instance to operate on. */
 agent: types.agent.Agent }): Promise<void> {
     const { agent } = opts;
     const now = Date.now();
+    // Owner is set once, on the first save, never changed later (not in ON CONFLICT).
+    // A derived chat (fork, delegated child) belongs to the owner of its parent, not to whoever
+    // happened to trigger it; a new top-level chat belongs to the person creating it.
+    if (agent.createdBy === undefined) {
+        const parentOwner = agent.parentId
+            ? ((await ctx.fns.procs.db.select({ sql: "SELECT created_by FROM agents WHERE id = ?", params: [agent.parentId] })) as any[])[0]?.created_by ?? null
+            : null;
+        agent.createdBy = parentOwner ?? await ctx.fns.auth.actorId({});
+    }
     await ctx.fns.procs.db.run({
         sql: `
-        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
+        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
         ON CONFLICT(id) DO UPDATE SET
             model = excluded.model,
             title = excluded.title,
@@ -51,6 +60,7 @@ agent: types.agent.Agent }): Promise<void> {
             agent.parentId ?? null,
             agent.visibility ?? "nav",
             agent.forkOffset ?? null,
+            agent.createdBy ?? null,
             agent.id,
             now,
             now,
@@ -62,7 +72,7 @@ agent: types.agent.Agent }): Promise<void> {
     for (let idx = 0; idx < messages.length; idx++) {
         const message: any = messages[idx];
         await ctx.fns.procs.db.run({
-            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             params: [
                 agent.id,
                 idx,
@@ -74,6 +84,7 @@ agent: types.agent.Agent }): Promise<void> {
                 now + idx,
                 message.excluded_from_llm ? 1 : 0,
                 message.excluded_from_cursor ? 1 : 0,
+                message.author ?? null,
             ],
         });
     }
@@ -82,6 +93,6 @@ agent: types.agent.Agent }): Promise<void> {
     const events: any[] = agent.events ?? [];
     for (let idx = 0; idx < events.length; idx++) {
         const event: any = events[idx];
-        await ctx.fns.procs.db.run({ sql: 'INSERT INTO events (agent_id, idx, type, payload, ts) VALUES (?, ?, ?, ?, ?)', params: [agent.id, idx, event.type, JSON.stringify(event), now + idx] });
+        await ctx.fns.procs.db.run({ sql: 'INSERT INTO events (agent_id, idx, type, payload, ts, actor) VALUES (?, ?, ?, ?, ?, ?)', params: [agent.id, idx, event.type, JSON.stringify(event), now + idx, event.actor ?? null] });
     }
 }

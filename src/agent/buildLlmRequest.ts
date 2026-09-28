@@ -99,10 +99,17 @@ export default async function (
         ]
         : [];
 
+    // Several people may write into one chat: tell the model who said what. A copy for this
+    // request only; with a single user nothing changes and the cached prefix stays identical.
+    const attributed = await ctx.fns.auth.attributeMessages({ messages: base });
+    if (attributed.applied && bootstrap.length) {
+        bootstrap[0] = { role: 'user' as const, content: bootstrap[0]!.content + '\n\nSeveral people use this chat. Each human message starts with `<Name>:` — the person who wrote it. Answer that person; your own replies have no such prefix.' };
+    }
+
     // Durable attachment refs stay tiny in Postgres and are materialized only
     // for this provider request. This keeps forks, BM25 and compaction free of
     // base64 while retaining native image/PDF input where supported.
-    const messages = await ctx.fns.attachments.resolveContent({ messages: [...bootstrap, ...base] });
+    const messages = await ctx.fns.attachments.resolveContent({ messages: [...bootstrap, ...attributed.messages] });
 
     // Check for large tool call arguments before sending to LLM.
     // If a write/edit call has content > 100 KB, block it and instruct model.

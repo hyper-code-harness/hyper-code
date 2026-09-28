@@ -50,6 +50,8 @@ export default async function (
         const userAppend = await ctx.fns.session.appendMessage({ id, message: { role: "user", content: uploads.length ? content : text }, ts });
         if (uploads.length) await ctx.fns.attachments.commitUploads({ agentId: id, messageIdx: userAppend.idx, uploads });
         const event: any = { type: "user", text, attachments: uploads.map(item => item.meta), messageIdx: userAppend.idx, ts };
+        // Author before rendering, so the chat shows who wrote it.
+        event.actor = await ctx.fns.auth.actorId({ agentId: id }) ?? undefined;
         event.html = await ctx.fns.agent.renderEventHtml({ event, agentId: id });
         await ctx.fns.session.appendEvent({ id, event, ts });
         await ctx.fns.session.syncAgentState({ agent });

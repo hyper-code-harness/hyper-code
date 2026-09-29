@@ -1,0 +1,12 @@
+{
+  "name": "hyperlet",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Hyperlet",
+    "icon": "ph-globe-hemisphere-west",
+    "optional": true,
+    "description": "Publish local services of this machine to the team VPN (https://<service>.<team>.in.hs.hyper-mesh.xyz) through the Hyperlet agent: list, publish, unpublish, status."
+  }
+}

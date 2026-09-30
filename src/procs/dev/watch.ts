@@ -59,6 +59,10 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             const entry = ctx.fns.procs.project.classify({ rel });
             if (entry.kind === 'skip') continue;
             const exists = await Bun.file(srcDir + '/' + rel).exists();
+            // The call graph follows the file either way: a deleted file must
+            // lose its edges, an edited one must gain the new ones. Best-effort
+            // — an index that cannot update is not a reason to stop reloading.
+            await ctx.fns.code.index({ rel }).catch(() => {});
             if (!exists) { errors.delete(rel); needTypes = true; continue; } // deleted: types only, fn stays in memory
             try {
                 if (entry.kind === 'fn') {

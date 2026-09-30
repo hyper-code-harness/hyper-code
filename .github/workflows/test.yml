@@ -63,6 +63,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate ambient types
+        # src/ctx_ns.d.ts is generated, not committed: its import paths point at
+        # whatever is mounted on the machine that wrote it. Boot does this in
+        # development; CI has to do it before tsc can see ctx.fns at all.
+        run: bun script/cli.ts types
+
       - name: Type-check
         run: bunx tsc --noEmit
 

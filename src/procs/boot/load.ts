@@ -59,6 +59,7 @@ export async function apply(ctx: Context, entries: any[], mounted: any[], opts: 
     // loader, which will find them already imported rather than importing them
     // a second time.
     const importErrors: string[] = [];
+    const failedImport = new Set<any>();
     for (const entry of entries) {
         if (entry.kind === "type" || entry.kind === "skip" || !entry.abs?.endsWith(".ts")) continue;
         try {
@@ -67,11 +68,18 @@ export async function apply(ctx: Context, entries: any[], mounted: any[], opts: 
             const message = `[load] ${entry.rel}: ${error?.message ?? error}`;
             importErrors.push(message);
             console.error(message);
+            // Remember the failure. A loader falls back to `entry.fn ?? await
+            // import(...)`, which for a file that just failed means importing
+            // it AGAIN, outside this try — turning one reported error into an
+            // unhandled one that kills the boot. A plugin whose npm dependency
+            // is missing must not take the process down with it.
+            failedImport.add(entry);
             continue;
         }
     }
     if (opts.strict && importErrors.length) throw new Error(importErrors.join("\n"));
-    await loaders.fn(ctx, null, { entries: entries.filter((e: any) => e.kind === "fn") });
+    const loadable = (list: any[]) => list.filter(e => !failedImport.has(e));
+    await loaders.fn(ctx, null, { entries: loadable(entries.filter((e: any) => e.kind === "fn")) });
 
     // ── Phase B · the loaders ─────────────────────────────────────────────────
     // Now that every function exists, a loader may use any of them — log,
@@ -150,6 +158,7 @@ export async function apply(ctx: Context, entries: any[], mounted: any[], opts: 
     const byKind = new Map<string, any[]>();
     for (const entry of entries) {
         if (entry.kind === "fn" || entry.kind === "type" || entry.kind === "skip" || entry.kind === "loader") continue;
+        if (failedImport.has(entry)) continue; // already reported; re-importing it would throw outside any handler
         (byKind.get(entry.kind) ?? byKind.set(entry.kind, []).get(entry.kind)!).push(entry);
     }
     for (const kind of [...Object.keys(loaders), ...byKind.keys()]) {

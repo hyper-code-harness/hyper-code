@@ -210,6 +210,12 @@ declare global {
             meetings: Injected<typeof import("../../.hyper/user/circleback/src/circleback/meetings").default>;
             sql: Injected<typeof import("../../.hyper/user/circleback/src/circleback/sql").default>;
         };
+        code: {
+            callers: Injected<typeof import("./code/callers").default>;
+            dead: Injected<typeof import("./code/dead").default>;
+            index: Injected<typeof import("./code/index").default>;
+            slice: Injected<typeof import("./code/slice").default>;
+        };
         compaction: {
             contextWindow: Injected<typeof import("./compaction/contextWindow").default>;
             portable: Injected<typeof import("./compaction/portable").default>;

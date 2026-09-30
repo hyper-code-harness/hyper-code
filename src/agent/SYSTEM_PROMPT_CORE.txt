@@ -65,6 +65,9 @@ Call graph of this codebase (ctx.fns edges, indexed in Postgres, refreshed on ev
                                                                   function: its source, the signatures of what
                                                                   it calls, and every call site that would break
   ctx.fns.code.dead({ root: "core" })                             uncalled vs called-only-by-its-test
+  ctx.fns.code.boundary({})                                       committed code reaching into a private
+                                                                  ~/.hyper/user plugin — works here, breaks
+                                                                  in a fresh clone. ok:false means fix it
   ctx.fns.code.index({})                                          full reindex; ({ rel }) for one file
 Use code.slice instead of opening five files by hand, and code.callers before changing any signature.
 It sees ctx.fns calls, `types.<mod>.<Name>` uses, UI string dispatch and test calls — not local helpers.

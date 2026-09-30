@@ -23,6 +23,15 @@ function wrapFns(ctx: any, node: any): any {
             const v = target[prop as any];
             // Keep procedure dispatch transparent. Telemetry is deliberately
             // installed by hand only at coarse, known-cost boundaries.
+            //
+            // A missing name is NOT explained here. It is explained by
+            // procs.repl.explain, which reads the raw TypeError and answers
+            // with what to do about it ("no module called `x` is mounted",
+            // "`x` is on disk and this process has not read it"). Guarding the
+            // proxy as well would mean two sources of that message drifting
+            // apart — and it silently broke the guard `if (ctx.fns.services)`,
+            // which is how this codebase asks whether an optional module is
+            // mounted.
             if (typeof v === 'function') return (opts?: any) => v.call(v, ctx, ctx.session, opts);
             if (v && typeof v === 'object') return wrapFns(ctx, v);
             return v;

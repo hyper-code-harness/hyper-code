@@ -44,6 +44,11 @@ export default async function (
     // opens with the agent's own API and nobody believes the rest of it.
     const promptNames = await agentFacingNames(ctx, entries);
 
+    // Who owns each scan root: code this repo commits, an official plugin under
+    // plugins/, or a private one mounted from ~/.hyper/user. Stored per function
+    // so `code.boundary` can ask the question later without re-reading mounts.
+    const tierByRoot = await tiers(ctx);
+
     const inScope = (e: any) => (!opts?.root || e.root === opts.root) && (!opts?.rel || e.projectRel === opts.rel);
     const files = entries.filter(e => wanted(e) && inScope(e));
     const typeFiles = entries.filter(e => e.kind === "type" && inScope(e));
@@ -138,7 +143,7 @@ export default async function (
         // greppable, and visibly not a function.
         const name = nameOf(e);
 
-        fnRows.push([name, e.kind, e.projectRel, e.root, ENTRY.has(e.kind) || promptNames.has(name), now]);
+        fnRows.push([name, e.kind, e.projectRel, e.root, ENTRY.has(e.kind) || promptNames.has(name), now, tierByRoot[e.root] ?? "core"]);
         scanCalls(text, name, e.projectRel, e.kind);
     }
 
@@ -177,7 +182,7 @@ export default async function (
             await tx.unsafe(toPg(deleteCalls), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_functions" + scope), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_types" + scope), scopeP);
-            await bulk(tx, toPg, "code_functions", ["name", "kind", "rel", "root", "entry_point", "indexed_at"], fnRows);
+            await bulk(tx, toPg, "code_functions", ["name", "kind", "rel", "root", "entry_point", "indexed_at", "tier"], fnRows);
             await bulk(tx, toPg, "code_types", ["name", "rel", "root", "indexed_at"], typeRows);
             await bulk(tx, toPg, "code_calls", ["caller", "callee", "rel", "line", "kind"], callRows);
         });
@@ -204,8 +209,7 @@ export default async function (
 // the model calls `respondHtml` by name, and `$setting_*`/prompt prose name
 // functions in text. Derived from files rather than hardcoded, so it cannot
 // drift away from what the runtime actually exposes.
-async function agentFacingNames(ctx: Context, entries: any[]): Promise<Set<string>> {
-    const names = new Set<string>();
+async function agentFacingNames(ctx: Context, entries: any[]): Promise<Set<string>> {    const names = new Set<string>();
 
     for (const e of entries) {
         const tool = /^\$tool_(.+)\.(md|ts)$/.exec(e.fileName ?? "");
@@ -223,6 +227,28 @@ async function agentFacingNames(ctx: Context, entries: any[]): Promise<Set<strin
         for (const m of text.matchAll(/\b([a-z][\w$]*\.[a-z][\w$]*(?:\.[a-z][\w$]*)?)\s*\(/gi)) names.add(m[1]!);
     }
     return names;
+}
+
+// Which tier each scan root belongs to. `core` and `hyper` are this repository;
+// everything else reports its own source, and a root the mount table does not
+// know is treated as core rather than silently becoming a boundary violation.
+async function tiers(ctx: Context): Promise<Record<string, string>> {
+    // `.hyper/` is the project-local glue layer: small procedures the owner of
+    // this checkout writes for themselves, and the one place that is SUPPOSED
+    // to wire private plugins together. It is committed, but it is personal by
+    // design, so it gets its own tier rather than being judged as core.
+    const out: Record<string, string> = { core: "core", hyper: "local" };
+    // modules.list is synchronous, so this is a plain read, not an await.
+    let mods: any[] = [];
+    try {
+        const list: any = ctx.fns.procs.modules.list({});
+        mods = Array.isArray(list) ? list : list?.modules ?? [];
+    } catch { mods = []; }
+    for (const m of mods) {
+        if (m.self || m.name === "core" || m.name === "hyper") continue;  // the process itself
+        out[m.name] = m.source ?? "core";
+    }
+    return out;
 }
 
 // Postgres caps a statement at 65535 bound parameters; chunk well under it.

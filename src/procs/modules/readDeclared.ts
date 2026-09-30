@@ -1,10 +1,20 @@
 import projectRootFn from "../project/projectRoot";
 
-// What this process is made of, in one list. It lives in the app's own
-// package.json under `procs.modules`; a supervised project may add to it (and
-// override entries) in WORKDIR/workspace.json under `modules`. The key is the
-// namespace the module is mounted under — never the package's own preference —
-// and the value says where it comes from and how it is configured:
+// What this process is made of, in one list, assembled from two files with
+// different owners:
+//
+//   package.json   `procs.modules`  — what the REPO ships. Committed, reviewed,
+//                                     the same for everyone who clones it.
+//   workspace.json `modules`       — what THIS MACHINE mounts on top. Gitignored
+//                                     (see workspace.example.json), written by
+//                                     modules.add, holds absolute paths into
+//                                     $HOME and per-machine config.
+//
+// The split is the point: the second file is where a path like
+// /Users/me/.hyper/user/linkedin belongs, and such a path in the first one is a
+// mount nobody else can satisfy. The key is the namespace the module is mounted
+// under — never the package's own preference — and the value says where it
+// comes from and how it is configured:
 //
 //   "modules": {
 //     "billing":  {},                                 // a folder found on PROCS_PATH

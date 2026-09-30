@@ -1,0 +1,12 @@
+{
+  "//": "Local overlay — copy to workspace.json (gitignored) and edit. The modules this repo ships are declared in package.json under `procs.modules`; put here only what THIS machine mounts on top: private plugins under ~/.hyper/user, folders found on PROCS_PATH, per-machine config, or `false` to unmount something the project declares. `modules.add` writes to this file.",
+  "modules": {
+    "myplugin": {
+      "path": "~/.hyper/user/myplugin"
+    },
+    "billing": {
+      "git": "https://github.com/acme/billing"
+    },
+    "tasks": false
+  }
+}

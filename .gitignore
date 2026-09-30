@@ -57,6 +57,13 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # with `bun script/cli.ts types`.
 src/ctx_ns.d.ts
 
+# What THIS machine mounts on top of the project. The modules the repo ships
+# are declared in package.json under `procs.modules`; this file is the local
+# overlay, and modules.add writes here. It holds absolute paths into $HOME, so
+# committing it made one person's mounts everyone's — and a fresh clone tried
+# to load plugins that only exist on that laptop.
+workspace.json
+
 # Test fixtures — written at runtime by src/files/*.test.ts. Kept OUT of the
 # scanned roots (src/, .hyper/) so they can never leak into ctx.fns / ctx_ns.d.ts.
 .test-tmp/

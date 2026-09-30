@@ -76,7 +76,61 @@
       "gcs": {},
       "tts": {},
       "telegram": {},
-      "gh": {}
+      "gh": {},
+      "zulip": {},
+      "tasks": {},
+      "google": {},
+      "research": {},
+      "arxiv": {},
+      "pipedrive": {},
+      "knowledge": {
+        "path": "plugins/knowledge"
+      },
+      "news": {
+        "path": "plugins/news"
+      },
+      "rss": {
+        "path": "plugins/rss"
+      },
+      "hackernews": {
+        "path": "plugins/hackernews"
+      },
+      "substack": {
+        "path": "plugins/substack"
+      },
+      "flow": {
+        "path": "plugins/flow"
+      },
+      "medsearch": {
+        "path": "plugins/medsearch"
+      },
+      "vision": {
+        "path": "plugins/vision"
+      },
+      "reladraw": {
+        "path": "plugins/reladraw"
+      },
+      "mermaid": {
+        "path": "plugins/mermaid"
+      },
+      "marker": {
+        "path": "plugins/marker"
+      },
+      "mineru": {
+        "path": "plugins/mineru"
+      },
+      "pdf": {
+        "path": "plugins/pdf"
+      },
+      "desktop": {
+        "path": "plugins/desktop"
+      },
+      "whisper": {
+        "path": "plugins/whisper"
+      },
+      "hyperlet": {
+        "path": "plugins/hyperlet"
+      }
     }
   }
 }

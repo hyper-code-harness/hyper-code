@@ -229,4 +229,84 @@ describe("code.index incremental", () => {
             expect(fns.map((f: any) => f.name)).toEqual(["shop.charge"]);
         } finally { rmSync(dir, { recursive: true, force: true }); }
     });
+
+    // The regex this indexer used to be could not tell a call from the same text
+    // quoted in a string. Both halves of that matter, so both are pinned here.
+    test("a call quoted inside a string is not an edge", async () => {
+        const { ctx, cleanup } = await indexed({
+            // What procs.repl.explain actually does: hands a human the advice to
+            // run something. Reading it as an edge invented a callee that exists
+            // nowhere in the tree.
+            "shop/advise.ts": 'export default function () {\n    return `run ctx.fns.shop.nosuchthing({}) to fix it`;\n}\n',
+        });
+        try {
+            const edges = await ctx.fns.procs.db.select({ sql: "SELECT callee FROM code_calls WHERE kind='fn'", params: [] });
+            expect(edges).toEqual([]);
+        } finally { cleanup(); }
+    });
+
+    test("a real call inside a template interpolation is an edge", async () => {
+        const { ctx, cleanup } = await indexed({
+            // The line that blanking string literals destroyed: a genuine call
+            // interpolated into a template.
+            "shop/render.ts": 'export default function (ctx: Context) {\n    return `<p>${ctx.fns.shop.total({})}</p>`;\n}\n',
+            "shop/total.ts": 'export default function () { return 42; }\n',
+        });
+        try {
+            const edges = await ctx.fns.procs.db.select({ sql: "SELECT caller, callee FROM code_calls WHERE kind='fn'", params: [] });
+            expect(edges).toEqual([{ caller: "shop.render", callee: "shop.total" }]);
+        } finally { cleanup(); }
+    });
+
+    test("a mention in a comment is not an edge", async () => {
+        const { ctx, cleanup } = await indexed({
+            "shop/quiet.ts": '// see ctx.fns.shop.vanished({}) for the old way\n/* and ctx.fns.shop.alsoGone({}) */\nexport default function () { return 1; }\n',
+        });
+        try {
+            const edges = await ctx.fns.procs.db.select({ sql: "SELECT callee FROM code_calls WHERE kind='fn'", params: [] });
+            expect(edges).toEqual([]);
+        } finally { cleanup(); }
+    });
+
+    test("reading fns as data is not a dynamic call", async () => {
+        const { result, cleanup } = await indexed({
+            // procs/dev/genTypes.ts does exactly this: walks plain objects that
+            // happen to have an `fns` key. The regex counted each as a dynamic
+            // dispatch and reported a blind spot that was not there.
+            "shop/tree.ts": 'export default function (opts: { node: any; name: string }) {\n    return opts.node.fns[opts.name];\n}\n',
+        });
+        try {
+            expect(result.dynamic).toEqual([]);
+        } finally { cleanup(); }
+    });
+
+    test("a dotted string that is not dispatch stays out of the graph", async () => {
+        const { ctx, cleanup } = await indexed({
+            // Chrome DevTools Protocol command names look exactly like runtime
+            // function names. 32 of them used to arrive as unresolved edges.
+            "browser/send.ts": 'export default async function (ctx: Context) {\n    const cmd = "Input.dispatchMouseEvent";\n    return await ctx.fns.browser.raw({ cmd });\n}\n',
+            "browser/raw.ts": 'export default async function () { return 1; }\n',
+        });
+        try {
+            const strings = await ctx.fns.procs.db.select({ sql: "SELECT callee FROM code_calls WHERE kind='string'", params: [] });
+            expect(strings).toEqual([]);
+            const real = await ctx.fns.procs.db.select({ sql: "SELECT callee FROM code_calls WHERE kind='fn'", params: [] });
+            expect(real).toEqual([{ callee: "browser.raw" }]);
+        } finally { cleanup(); }
+    });
+
+    test("a popup descriptor's method is an edge", async () => {
+        const { ctx, cleanup } = await indexed({
+            // src/ui/chatColumn.ts dispatches this way: not an HTML attribute,
+            // a property value the htmx layer resolves at request time.
+            "ui/bar.ts": "export default function (ctx: Context) {\n    return ctx.fns.ui.popup({ method: 'shop.picker', params: {} });\n}\n",
+            "ui/popup.ts": 'export default function () { return ""; }\n',
+            "shop/picker.ts": 'export default function () { return ""; }\n',
+        });
+        try {
+            const strings = await ctx.fns.procs.db.select({ sql: "SELECT caller, callee FROM code_calls WHERE kind='string'", params: [] });
+            expect(strings).toEqual([{ caller: "ui.bar", callee: "shop.picker" }]);
+        } finally { cleanup(); }
+    });
+
 });

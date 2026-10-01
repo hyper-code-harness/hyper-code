@@ -1,11 +1,36 @@
 // Rebuild the call graph from source text.
 //
-// Why a regex and not a TypeScript AST: cross-imports between project files are
-// forbidden here, so EVERY edge between two runtime functions has to be a
-// literal `ctx.fns.<ns>.<fn>(` in the text. The call graph is already explicit
-// in the source; parsing would cost seconds and buy nothing. The one thing a
-// regex cannot see — a dynamic `ctx.fns[name]` dispatch — is counted and
-// returned, so the blind spot is reported rather than hidden.
+// Cross-imports between project files are forbidden here, so EVERY edge between
+// two runtime functions is a literal `ctx.fns.<ns>.<fn>(` in the source — the
+// call graph is already explicit, nothing has to be inferred.
+//
+// That made a regex tempting, and it worked until it didn't: a regex cannot tell
+// a call from the same text quoted inside a string, and this codebase does both.
+// `procs.repl.explain` RETURNS the advice "await ctx.fns.services.restart(…)" as
+// a string to show a human, which the regex read as an edge to a function that
+// does not exist. Blanking string literals first was worse — it also erased the
+// genuine call inside a template's `${…}` two lines below. So: the TypeScript
+// parser, which knows the difference by construction. It costs a few hundred ms
+// for 1600 functions, which is cheap enough to run on every save.
+//
+// Still honest about the one thing no parser can resolve: a dynamic
+// `ctx.fns[name]` dispatch is counted and returned, so the blind spot is
+// reported rather than hidden.
+import ts from "typescript";
+
+// The fields of procs.project.scan this file actually reads. Named once so the
+// compiler checks them, instead of `any` hiding a typo until a query comes back
+// empty.
+type ScanEntry = {
+    kind: string; abs: string; projectRel: string; root: string;
+    moduleDir: string; module?: string; runtimeName?: string; fileName: string;
+};
+
+// A row bound for a bulk INSERT: the column order is positional by nature.
+type Row = Array<string | number | boolean | null>;
+
+// The slice of a Bun SQL transaction this file uses.
+type SqlTx = { unsafe: (sql: string, params?: unknown[]) => Promise<unknown> };
 
 /**
  * Rebuilds the `code_functions`, `code_types` and `code_calls` tables from source.
@@ -29,14 +54,14 @@ export default async function (
     opts?: { root?: string; rel?: string; dryRun?: boolean },
 ): Promise<{ functions: number; types: number; calls: number; unresolved: number; dynamic: Array<{ rel: string; line: number }>; ms: number }> {
     const started = Date.now();
-    const entries = (await ctx.fns.procs.project.scan({})) as any[];
+    const entries = (await ctx.fns.procs.project.scan({})) as ScanEntry[];
     const now = Date.now();
 
     // Entry points are called by the framework, never from code: a route is hit
     // over HTTP, a cron by the scheduler, a tool by the model. They have zero
     // in-edges by nature and must never be mistaken for dead code.
     const ENTRY = new Set(["route", "cron", "tool", "lifecycle", "app", "middleware", "compaction", "gap", "point", "hook"]);
-    const wanted = (e: any) => (e.kind === "fn" || ENTRY.has(e.kind)) && e.abs.endsWith(".ts") && !e.abs.endsWith(".test.ts");
+    const wanted = (e: ScanEntry) => (e.kind === "fn" || ENTRY.has(e.kind)) && e.abs.endsWith(".ts") && !e.abs.endsWith(".test.ts");
 
     // A third kind of entry point, invisible in the call graph: functions the
     // system prompt teaches the model to call. `agent.delegate` has no caller
@@ -49,7 +74,7 @@ export default async function (
     // so `code.boundary` can ask the question later without re-reading mounts.
     const tierByRoot = await tiers(ctx);
 
-    const inScope = (e: any) => (!opts?.root || e.root === opts.root) && (!opts?.rel || e.projectRel === opts.rel);
+    const inScope = (e: ScanEntry) => (!opts?.root || e.root === opts.root) && (!opts?.rel || e.projectRel === opts.rel);
     const files = entries.filter(e => wanted(e) && inScope(e));
     const typeFiles = entries.filter(e => e.kind === "type" && inScope(e));
     // Tests are not part of the registry, but a call from a test IS a call — it
@@ -58,16 +83,17 @@ export default async function (
     // test calls this", which are different diagnoses with different fixes.
     const testFiles = entries.filter(e => e.abs.endsWith(".test.ts") && inScope(e));
 
-    const fnRows: any[][] = [];
-    const typeRows: any[][] = [];
-    const callRows: any[][] = [];
+    const fnRows: Row[] = [];
+    const typeRows: Row[] = [];
+    const callRows: Row[] = [];
     const dynamic: Array<{ rel: string; line: number }> = [];
 
     // The dotted name a file answers to. Computed without reading anything, so
     // it can be done for the whole tree before any call is resolved.
-    const nameOf = (e: any) => e.kind === "fn"
-        ? (e.moduleDir === "." ? e.runtimeName : `${e.moduleDir.replaceAll("/", ".")}.${e.runtimeName}`)
-        : e.projectRel;
+    const nameOf = (e: ScanEntry): string => {
+        if (e.kind !== "fn" || !e.runtimeName) return e.projectRel;
+        return e.moduleDir === "." ? e.runtimeName : `${e.moduleDir.replaceAll("/", ".")}.${e.runtimeName}`;
+    };
 
     // Every name the registry has, not just the ones in scope: resolving a call
     // needs the whole picture even when only one file is being re-indexed.
@@ -80,60 +106,83 @@ export default async function (
         typeRows.push([name, e.projectRel, e.root, now]);
     }
 
-    // `ctx.fns.a.b(` is the normal form, but a cast writes `(ctx as any).fns.a.b(`
-    // and a destructured `const { fns } = ctx` writes `fns.a.b(`. All three are
-    // the same edge, so the prefix before `fns.` is optional.
-    const CALL = /(?<![\w$])fns\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)(?:\.([A-Za-z_$][\w$]*))?\s*\(/g;
-    const TYPE = /\btypes\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g;
-    // String dispatch from the UI layer: hx-popup="agent.modelPicker",
-    // method: 'agent.effortPicker', action="session.rename". These are real
-    // edges — the htmx layer resolves the string against the registry at
-    // request time — and missing them made half the UI look like dead code.
-    const STRING_CALL = /(?:hx-popup|hx-post|hx-get|data-fn|method|action|fn)\s*[=:]\s*["'`]([a-z][\w$]*(?:\.[\w$]+)+)["'`]/gi;
-    const DYNAMIC = /(?:ctx\.)?fns\s*\[/g;
+    // A dotted name that could be a runtime function, used to decide whether a
+    // string is dispatch or ordinary prose.
+    const STRING_TARGET = /^[a-z][\w$]*(?:\.[\w$]+)+$/;
 
     // One reader for both kinds of file. A second copy of "what counts as a
     // call" would drift from this one within a week.
+    //
+    // Real calls come from the TypeScript AST, not from a regex over lines. The
+    // regex had no way to tell `ctx.fns.a.b({})` from the same text quoted inside
+    // a string, and this codebase does both: `procs.repl.explain` RETURNS
+    // "await ctx.fns.services.restart(…)" as advice to a human. Blanking string
+    // literals first was worse than either — it also removed the genuine call
+    // inside a template's `${…}` on the next line of that same file. The AST
+    // knows the difference by construction.
     const scanCalls = (text: string, from: string, rel: string, edgeKind: string) => {
-        const lines = text.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i]!;
-            if (line.trimStart().startsWith("//")) continue; // a mention in a comment is not a call
+        const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true,
+            rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+        const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
 
-            CALL.lastIndex = 0;
-            let m: RegExpExecArray | null;
-            while ((m = CALL.exec(line)) !== null) {
-                // Two segments or three? `runtime.docs.search` is a nested
-                // module and `procs.db.select` is too, while `shop.charge(…)`
-                // followed by `.then` is not. Ask the registry instead of
-                // hardcoding which prefixes are allowed to nest: the three-part
-                // name wins only if such a function actually exists.
-                const two = `${m[1]}.${m[2]}`;
-                const three = m[3] ? `${two}.${m[3]}` : null;
-                const callee = three && allNames.has(three) ? three : two;
-                if (callee !== from) callRows.push([from, callee, rel, i + 1, edgeKind]);
+        const visit = (node: ts.Node): void => {
+            if (ts.isCallExpression(node)) {
+                const target = callTarget(node, sf);
+                if (target) {
+                    // Two segments or three? `runtime.docs.search` is a nested
+                    // module and `procs.db.select` is too, while `shop.charge(…)`
+                    // followed by `.then` is not. Ask the registry instead of
+                    // hardcoding which prefixes nest: the longer name wins only
+                    // if such a function actually exists.
+                    const parts = target.split(".");
+                    const two = parts.slice(0, 2).join(".");
+                    const three = parts.length > 2 ? parts.slice(0, 3).join(".") : null;
+                    const callee = three && allNames.has(three) ? three : two;
+                    if (callee !== from) callRows.push([from, callee, rel, lineOf(node), edgeKind]);
+                }
+                // `ctx.fns[name]` — a target this analysis cannot name.
+                if (isDynamicFns(node.expression)) {
+                    const line = lineOf(node);
+                    dynamic.push({ rel, line });
+                    // Recorded as a real edge to an unnamable target, so a query
+                    // can see the graph has a hole here instead of reading the
+                    // silence as "nothing is called".
+                    callRows.push([from, "(dynamic)", rel, line, "dynamic"]);
+                }
             }
 
-            TYPE.lastIndex = 0;
-            while ((m = TYPE.exec(line)) !== null) {
-                callRows.push([from, `types.${m[1]}.${m[2]}`, rel, i + 1, edgeKind === "test" ? "test" : "type"]);
+            // `types.<mod>.<Name>` in a type position — these are the global type
+            // aliases genTypes writes, so they appear as qualified names.
+            if (ts.isQualifiedName(node) || ts.isPropertyAccessExpression(node)) {
+                const m = /^types\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)$/.exec(node.getText(sf));
+                if (m) callRows.push([from, `types.${m[1]}.${m[2]}`, rel, lineOf(node), edgeKind === "test" ? "test" : "type"]);
             }
 
-            STRING_CALL.lastIndex = 0;
-            while ((m = STRING_CALL.exec(line)) !== null) {
-                const callee = m[1]!;
-                if (callee !== from) callRows.push([from, callee, rel, i + 1, edgeKind === "test" ? "test" : "string"]);
+            // String dispatch is the one thing that genuinely lives in a string:
+            // `{ method: 'agent.modelPicker' }` in a popup descriptor, and
+            // `hx-popup="ui.popupDemo"` inside the HTML a function returns. The
+            // htmx layer resolves these against the registry at request time, so
+            // they are real edges — missing them made half the UI look dead.
+            //
+            // Two shapes, because the AST sees them differently: a property value
+            // is its own node, while an HTML attribute is just characters in a
+            // template. Only these keys count — reading every dotted-looking
+            // string as an edge is how the previous version invented 32 of them
+            // out of Chrome DevTools Protocol command names.
+            if (ts.isStringLiteralLike(node) && !ts.isTemplateExpression(node.parent)) {
+                if (STRING_TARGET.test(node.text) && stringDispatchContext(node, sf) && node.text !== from) {
+                    callRows.push([from, node.text, rel, lineOf(node), edgeKind === "test" ? "test" : "string"]);
+                }
+            }
+            if (ts.isTemplateLiteralToken(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+                for (const target of htmlDispatchTargets(node.text)) {
+                    if (target !== from) callRows.push([from, target, rel, lineOf(node), edgeKind === "test" ? "test" : "string"]);
+                }
             }
 
-            DYNAMIC.lastIndex = 0;
-            if (DYNAMIC.test(line)) {
-                dynamic.push({ rel, line: i + 1 });
-                // Recorded as a real edge to an unnamable target, so that a
-                // query can see the graph has a hole here instead of reading
-                // the silence as "nothing is called".
-                callRows.push([from, "(dynamic)", rel, i + 1, "dynamic"]);
-            }
-        }
+            ts.forEachChild(node, visit);
+        };
+        visit(sf);
     };
 
     for (const e of files) {
@@ -166,7 +215,7 @@ export default async function (
         // delete. A single file replaces only its own rows; a root replaces the
         // root's; no scope means the whole graph.
         let scope = "";
-        let scopeP: any[] = [];
+        let scopeP: unknown[] = [];
         let deleteCalls = "DELETE FROM code_calls";
         if (opts?.rel) {
             scope = " WHERE rel = ?";
@@ -178,7 +227,7 @@ export default async function (
             deleteCalls = "DELETE FROM code_calls WHERE rel IN (SELECT rel FROM code_functions WHERE root = ?)";
         }
 
-        await sql.begin(async (tx: any) => {
+        await sql.begin(async (tx: SqlTx) => {
             await tx.unsafe(toPg(deleteCalls), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_functions" + scope), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_types" + scope), scopeP);
@@ -204,12 +253,81 @@ export default async function (
     return { functions: fnRows.length, types: typeRows.length, calls: distinct, unresolved, dynamic, ms: Date.now() - started };
 }
 
+// The dotted runtime name a call expression targets, or null if it is not a
+// `ctx.fns` call at all. The chain is read right-to-left and anchored on the
+// `fns` hop rather than on what precedes it, because all of these are the same
+// edge: `ctx.fns.a.b()`, `(ctx as any).fns.a.b()`, a destructured `fns.a.b()`,
+// and `(globalThis as any).ctx.fns.a.b()` as the tests write it.
+function callTarget(node: ts.CallExpression, sf: ts.SourceFile): string | null {
+    const parts: string[] = [];
+    let cur: ts.Node = node.expression;
+    while (ts.isPropertyAccessExpression(cur)) {
+        parts.unshift(cur.name.getText(sf));
+        cur = stripParens(cur.expression);
+    }
+    // `fns` as the root identifier: a destructured `const { fns } = ctx`.
+    if (ts.isIdentifier(cur) && cur.text === "fns") {
+        return parts.length >= 2 ? parts.join(".") : null;
+    }
+    // Otherwise `fns` has to appear as one of the hops; everything before it is
+    // whatever expression happens to hold the context.
+    const at = parts.indexOf("fns");
+    if (at === -1) return null;
+    const rest = parts.slice(at + 1);
+    return rest.length >= 2 ? rest.join(".") : null;
+}
+
+// `ctx.fns[name](…)` or `fns[name](…)` — a call whose target is computed, and
+// therefore unnamable by any static analysis.
+function isDynamicFns(expr: ts.Node): boolean {
+    if (!ts.isElementAccessExpression(expr)) return false;
+    const obj = stripParens(expr.expression);
+    if (ts.isIdentifier(obj)) return obj.text === "fns";
+    return ts.isPropertyAccessExpression(obj) && obj.name.text === "fns";
+}
+
+// Is this string literal being used as a dispatch target, rather than being
+// ordinary text that happens to look like a dotted name? Only the attribute and
+// property names the htmx layer actually resolves count — everything else is
+// prose, and treating prose as an edge is how the regex version invented 32 of
+// them from Chrome DevTools Protocol command names.
+const DISPATCH_KEYS = /^(hx-popup|hx-post|hx-get|data-fn|method|action|fn)$/i;
+
+function stringDispatchContext(node: ts.StringLiteralLike, sf: ts.SourceFile): boolean {
+    const parent = node.parent;
+    // `{ method: "agent.modelPicker" }`
+    if (ts.isPropertyAssignment(parent) && parent.initializer === node) {
+        return DISPATCH_KEYS.test(parent.name.getText(sf).replace(/["']/g, ""));
+    }
+    // `hx-popup="agent.modelPicker"` as a real JSX attribute
+    if (ts.isJsxAttribute(parent)) return DISPATCH_KEYS.test(parent.name.getText(sf));
+    return false;
+}
+
+// Dispatch targets inside the HTML a function returns as a template literal.
+// Here the attribute is plain text to the parser, so this is the one place a
+// regex is still the right tool — it reads characters that are characters.
+function htmlDispatchTargets(text: string): string[] {
+    const out: string[] = [];
+    const re = /(?:hx-popup|hx-post|hx-get|data-fn|action)\s*=\s*["']([a-z][\w$]*(?:\.[\w$]+)+)["']/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) if (m[1]) out.push(m[1]);
+    return out;
+}
+
+function stripParens(node: ts.Node): ts.Node {
+    let cur = node;
+    while (ts.isParenthesizedExpression(cur) || ts.isAsExpression(cur) || ts.isNonNullExpression(cur)) cur = cur.expression;
+    return cur;
+}
+
 // Names the system prompt hands to the model, plus the tool declarations it
 // can invoke: the agent-facing API surface. A `$tool_respondHtml.md` file means
 // the model calls `respondHtml` by name, and `$setting_*`/prompt prose name
 // functions in text. Derived from files rather than hardcoded, so it cannot
 // drift away from what the runtime actually exposes.
-async function agentFacingNames(ctx: Context, entries: any[]): Promise<Set<string>> {    const names = new Set<string>();
+async function agentFacingNames(ctx: Context, entries: ScanEntry[]): Promise<Set<string>> {
+    const names = new Set<string>();
 
     for (const e of entries) {
         const tool = /^\$tool_(.+)\.(md|ts)$/.exec(e.fileName ?? "");
@@ -239,10 +357,14 @@ async function tiers(ctx: Context): Promise<Record<string, string>> {
     // design, so it gets its own tier rather than being judged as core.
     const out: Record<string, string> = { core: "core", hyper: "local" };
     // modules.list is synchronous, so this is a plain read, not an await.
-    let mods: any[] = [];
+    let mods: Array<{ name: string; source?: string; self?: boolean }> = [];
     try {
-        const list: any = ctx.fns.procs.modules.list({});
-        mods = Array.isArray(list) ? list : list?.modules ?? [];
+        const list = ctx.fns.procs.modules.list({}) as unknown;
+        const maybe = Array.isArray(list) ? list
+            : (list && typeof list === "object" && Array.isArray((list as { modules?: unknown }).modules))
+                ? (list as { modules: unknown[] }).modules
+                : [];
+        mods = maybe as Array<{ name: string; source?: string; self?: boolean }>;
     } catch { mods = []; }
     for (const m of mods) {
         if (m.self || m.name === "core" || m.name === "hyper") continue;  // the process itself
@@ -252,7 +374,7 @@ async function tiers(ctx: Context): Promise<Record<string, string>> {
 }
 
 // Postgres caps a statement at 65535 bound parameters; chunk well under it.
-async function bulk(tx: any, toPg: (sql: string) => string, table: string, cols: string[], rows: any[][]): Promise<void> {
+async function bulk(tx: SqlTx, toPg: (sql: string) => string, table: string, cols: string[], rows: Row[]): Promise<void> {
     if (!rows.length) return;
     const chunk = Math.max(1, Math.floor(5000 / cols.length));
     const tuple = "(" + cols.map(() => "?").join(",") + ")";

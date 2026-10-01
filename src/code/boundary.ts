@@ -63,6 +63,9 @@ export default async function (
     // The tier of the callee comes from the function it names, so an edge is
     // only judged when both ends are known: an unresolved callee is a different
     // problem (code.index reports it) and must not masquerade as a violation.
+    // db.select answers any query, so the shape of THIS result is named here
+    // rather than travelling as `any` through five callbacks below.
+    type Edge = { caller: string; callee: string; rel: string; line: number | string; from_tier: string; to_tier: string };
     const rows = await ctx.fns.procs.db.select({
         sql: `
             SELECT c.caller, c.callee, c.rel, c.line,
@@ -76,17 +79,17 @@ export default async function (
                ${opts?.from ? "AND caller_fn.tier = ?" : ""}
              ORDER BY c.rel, c.line`,
         params: opts?.from ? [opts.from] : [],
-    });
+    }) as Edge[];
 
     const rank = (tier: string) => {
-        const i = SHARED_ORDER.indexOf(tier as any);
+        const i = (SHARED_ORDER as readonly string[]).indexOf(tier);
         return i === -1 ? SHARED_ORDER.length : i;   // an unknown tier is treated as the most private
     };
 
     const violations = rows
-        .filter((r: any) => !EXEMPT_FROM.has(r.from_tier))
-        .filter((r: any) => rank(r.to_tier) > rank(r.from_tier))
-        .map((r: any) => {
+        .filter(r => !EXEMPT_FROM.has(r.from_tier))
+        .filter(r => rank(r.to_tier) > rank(r.from_tier))
+        .map(r => {
             const severity: "error" | "warn" = PRIVATE.has(r.to_tier) ? "error" : "warn";
             return {
                 severity,
@@ -97,7 +100,7 @@ export default async function (
                     : `${r.from_tier} code depends on the "${r.callee.split(".")[0]}" plugin — a clone has it, but core should not require a mountable module`,
             };
         })
-        .filter((v: any) => !opts?.severity || v.severity === opts.severity);
+        .filter(v => !opts?.severity || v.severity === opts.severity);
 
     const byPair: Record<string, number> = {};
     for (const v of violations) {
@@ -105,14 +108,14 @@ export default async function (
         byPair[key] = (byPair[key] ?? 0) + 1;
     }
 
-    const errors = violations.filter((v: any) => v.severity === "error").length;
+    const errors = violations.filter(v => v.severity === "error").length;
     return {
         ok: errors === 0,
         errors,
         warnings: violations.length - errors,
         total: violations.length,
         // Errors first: the list is read top-down and the broken ones matter.
-        violations: violations.sort((a: any, b: any) => (a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1)).slice(0, limit),
+        violations: violations.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1)).slice(0, limit),
         byPair,
     };
 }

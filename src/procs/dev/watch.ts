@@ -89,6 +89,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             if (needRoutes) await ctx.fns.procs.http.loadRoutes({});
             if (needTypes) await ctx.fns.procs.dev.genTypes({});
             if (needReload) ctx.fns.procs.events.reload({});
+            await reportQuality(ctx);
         } catch (e: any) {
             console.error(`[watch] post: ${e?.message ?? e}`);
         }
@@ -103,6 +104,43 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         timer = setTimeout(() => { flush().catch(e => console.error('[watch]', e)); }, 100);
     });
     st.watcher = watcher;
+    // Seed the baseline now, while the tree is still as committed. If the first
+    // measurement happened on the first save instead, that save would be compared
+    // against nothing and the problem it introduced would pass in silence —
+    // exactly the save worth catching.
+    await reportQuality(ctx);
     ctx.fns.procs.log.info({ event: "watch.started", msg: srcDir });
     return { watching: srcDir };
+}
+
+// Everything the call graph can hold against this tree, checked on the save that
+// could break it.
+//
+// code.quality on its own is a report somebody has to remember to run, and a
+// report nobody runs is not a check: the three files that reached into a private
+// plugin sat committed for weeks. The graph is already re-indexed above, so
+// asking the question costs one query — and the moment to answer it is while the
+// line is still on screen.
+//
+// Only errors are announced: committed code calling into a module a fresh clone
+// will not have, or a call to a name nothing provides. Warnings (uncalled
+// functions, inverted plugin dependencies) are a design opinion and would turn
+// into noise on every save. Only a RISE is announced, so a pre-existing problem
+// does not shout on every unrelated edit — and the first clean save after a fix
+// says so once.
+let lastErrors: number | null = null;
+
+async function reportQuality(ctx: Context): Promise<void> {
+    try {
+        const { errors, findings } = await ctx.fns.code.quality({ severity: "error", limit: 5 });
+        const before = lastErrors;
+        lastErrors = errors;
+        if (before === null || errors === before) return;      // first run, or no change
+        if (errors > before) {
+            for (const f of findings) console.error(`[watch] ${f.kind}: ${f.rel}${f.line ? ":" + f.line : ""} — ${f.detail}`);
+            console.error(`[watch] code.quality: ${errors} error(s) — ctx.fns.code.quality({}) for the full list`);
+        } else if (errors === 0) {
+            console.log("[watch] code.quality: clean");
+        }
+    } catch { /* the graph may be mid-migration; never break the reload loop */ }
 }

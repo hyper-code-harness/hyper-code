@@ -153,16 +153,18 @@ ${ctx.fns.ui.live({
   url: `/agent/${encodeURIComponent(id)}/active-tool`,
   topic: `agent:${id}`,
   // Sits below the last event, so "what is happening now" reads where the eye
-  // already is. The watchdog is tight because this region is the whole answer
-  // to "is it alive?" — and it only polls while a chat is actually open.
+  // already is — inline, as one chip, because a panel here would push the
+  // conversation down every time any tool ran. The watchdog is tight because
+  // this region is the whole answer to "is it alive?" — and it only polls
+  // while a chat is actually open.
   every: 5,
-  // innerHTML, not the default outerHTML: the route answers with the card
+  // innerHTML, not the default outerHTML: the route answers with the chip
   // alone, so an outerHTML swap would overwrite the region with its own
   // contents — taking the id, hx-get and topic with it. The indicator then
   // renders exactly once and never updates again, which is the one failure
   // this feature cannot afford.
   swap: 'innerHTML',
-  attrs: 'class="empty:hidden"',
+  attrs: 'class="flex items-center gap-1 empty:hidden"',
   html: ctx.fns.agent.renderActiveToolCall({ agentId: id }),
 })}
 </div>

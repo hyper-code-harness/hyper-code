@@ -1,30 +1,50 @@
-import { test, expect, describe } from "bun:test";
-import { resolve } from "node:path";
-import resolveSafe from "./resolveSafe";
+// Fifteen call sites resolve paths through this, so its exact behaviour decides
+// where files.* can read and write. The confinement it is named after was
+// removed on purpose; these tests record what it ACTUALLY does, so that nobody
+// reintroduces a guard by accident and nobody keeps believing in one.
+import { test, expect } from "bun:test";
+import { testCtx } from "../$test";
+import { makeRequestCtx } from "../$main";
 
-const ctx = {} as Context;
+const base = await testCtx();
+const inWorkspace = (dir: string) => makeRequestCtx(base, { kind: "test", agent: { id: "ab", workspaceDir: dir } } as unknown as Session);
 
-describe("files.resolveSafe", () => {
-    test("empty string → cwd root", () => {
-        expect(resolveSafe(ctx, null, { path: "" })).toBe(process.cwd());
-    });
+test("a relative path resolves against the agent's workspace", () => {
+    const ctx = inWorkspace("/tmp/ws");
+    expect(ctx.fns.files.resolveSafe({ path: "src/a.ts" })).toBe("/tmp/ws/src/a.ts");
+});
 
-    test("normal relative path resolves inside cwd", () => {
-        expect(resolveSafe(ctx, null, { path: "src/agent" })).toBe(process.cwd() + "/src/agent");
-    });
+test("an empty path is the workspace itself", () => {
+    const ctx = inWorkspace("/tmp/ws");
+    expect(ctx.fns.files.resolveSafe({ path: "" })).toBe("/tmp/ws");
+});
 
-    // Workspace confinement was removed by request — resolveSafe is now just a
-    // relative→absolute resolver; out-of-cwd paths resolve, not throw.
-    test("parent traversal resolves (no longer rejected)", () => {
-        expect(resolveSafe(ctx, null, { path: "../other" })).toBe(resolve(process.cwd(), "../other"));
-        expect(resolveSafe(ctx, null, { path: "src/../../outside" })).toBe(resolve(process.cwd(), "../outside"));
-    });
+test("an absolute path passes through untouched", () => {
+    const ctx = inWorkspace("/tmp/ws");
+    expect(ctx.fns.files.resolveSafe({ path: "/etc/hosts" })).toBe("/etc/hosts");
+});
 
-    test("absolute path outside cwd passes through (no throw)", () => {
-        expect(resolveSafe(ctx, null, { path: "/etc/passwd" })).toBe("/etc/passwd");
-    });
+test("`..` DOES escape the workspace — the result is not validated", () => {
+    // This is the whole reason the docs had to be corrected: the name promises a
+    // check that no longer exists. A caller that needs confinement must do it.
+    const ctx = inWorkspace("/tmp/ws/project");
+    expect(ctx.fns.files.resolveSafe({ path: "../../../etc/passwd" })).toBe("/etc/passwd");
+    expect(ctx.fns.files.resolveSafe({ path: "../sibling/x" })).toBe("/tmp/ws/sibling/x");
+});
 
-    test("absolute path inside cwd is OK", () => {
-        expect(resolveSafe(ctx, null, { path: process.cwd() + "/src" })).toBe(process.cwd() + "/src");
-    });
+test("redundant segments are collapsed", () => {
+    const ctx = inWorkspace("/tmp/ws");
+    expect(ctx.fns.files.resolveSafe({ path: "./a/./b/../c" })).toBe("/tmp/ws/a/c");
+});
+
+test("a remote workspace resolves against the local cwd, not the remote dir", () => {
+    // The remote directory is not a path on this machine, so joining it here
+    // would produce something that exists nowhere.
+    const ctx = makeRequestCtx(base, { kind: "test", agent: { id: "ab", workspaceHost: "box", workspaceDir: "/srv/app" } } as unknown as Session);
+    expect(ctx.fns.files.resolveSafe({ path: "a.ts" })).toBe(`${process.cwd()}/a.ts`);
+});
+
+test("with no agent it falls back to the process cwd", () => {
+    const ctx = makeRequestCtx(base, { kind: "test" } as unknown as Session);
+    expect(ctx.fns.files.resolveSafe({ path: "a.ts" })).toBe(`${process.cwd()}/a.ts`);
 });

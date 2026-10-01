@@ -39,8 +39,8 @@ type Finding = {
  *
  * @param opts.root Limit findings to one scan root, such as `core` for `src/`. Defaults to `core` for the dead-code checks, whose answer is meaningless for plugins.
  * @param opts.severity Only report this severity: `error` or `warn`.
- * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise"]
- * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`.
+ * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise","untested"]
+ * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`.
  * @param opts.limit Maximum findings to return. @default 50 @minimum 1 @maximum 500
  */
 export default async function (
@@ -49,7 +49,7 @@ export default async function (
     opts?: {
         root?: string;
         severity?: "error" | "warn";
-        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise">;
+        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise" | "untested">;
         rule?: string;
         limit?: number;
     },
@@ -65,7 +65,7 @@ export default async function (
     // `rule` narrows by the finding's kind, whichever check produced it, so
     // `{ rule: "dead" }` and `{ rule: "empty-catch" }` behave the same way.
     const wantRule = (kind: string) => !opts?.rule || kind === opts.rule;
-    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise"]);
+    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise", "untested"]);
     const findings: Finding[] = [];
 
     if (include.has("boundary") && wantRule("boundary")) {
@@ -167,6 +167,26 @@ export default async function (
         }
     }
 
+    // A function with callers that no test ever reaches. Not every function needs
+    // one, so this is deliberately not "coverage is below N%": the finding is the
+    // pair "nothing pins this behaviour" AND "other code depends on it", which is
+    // the only version of the question with an obvious action attached.
+    //
+    // Why measured from the graph rather than from `bun test --coverage`: under
+    // this harness lcov stops attributing function bodies once the run spans more
+    // than ~8 test files — escape.ts reports FNH:2 alone and FNH:0 in the full
+    // suite, though its four assertions pass either way. Calls recorded at index
+    // time do not have that failure mode.
+    if (include.has("untested") && wantRule("untested")) {
+        const cov = await ctx.fns.code.coverage({ root: opts?.root ?? "core", status: "none", minCallers: 1, limit: 500 });
+        for (const f of cov.functions) {
+            findings.push({
+                kind: "untested", severity: "warn", name: f.name, rel: f.rel,
+                detail: `${f.callers} function(s) depend on it and no test reaches it`,
+            });
+        }
+    }
+
     if ((include.has("dead") && wantRule("dead")) || (include.has("test-only") && wantRule("test-only"))) {
         // Scoped to one root, `core` unless asked otherwise. A plugin's functions
         // are its PUBLIC surface: the agent calls them by name after reading the
@@ -214,6 +234,7 @@ export default async function (
             "a call to an optional module behind `if (ctx.fns.x)` or `x?.()` is treated as deliberate, not as unresolved",
             "floating promises are only seen for ctx.fns calls: an unawaited Bun.spawn or fetch is invisible here",
             "the per-file rules read syntax, not types: they cannot tell what a value actually is at runtime",
+            "`untested` means no test CALLS the function; it does not claim the test that does call it checks anything useful",
         ],
     };
 }

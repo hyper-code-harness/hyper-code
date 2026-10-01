@@ -74,7 +74,13 @@ Call graph of this codebase (ctx.fns edges, indexed in Postgres, refreshed on ev
                                                                   automatically on every save too
   ctx.fns.code.quality({ rule: "empty-catch" })                   one rule only: empty-catch, lost-cause,
                                                                   formdata-to-string, floating-promise,
-                                                                  extra-parameter, boundary, dead, test-only
+                                                                  untested, extra-parameter, boundary, dead,
+                                                                  test-only
+  ctx.fns.code.coverage({})                                       what tests actually exercise, ranked by how
+                                                                  much depends on it: direct (a test calls it),
+                                                                  indirect (reached through another), none.
+                                                                  ({ status: "none", minCallers: 5 }) is the
+                                                                  "what is risky to change" list
   ctx.fns.code.boundary({})                                       just the ownership question: committed code
                                                                   reaching into a private ~/.hyper/user plugin
   ctx.fns.code.index({})                                          full reindex; ({ rel }) for one file

@@ -18,7 +18,7 @@
 import ts from "typescript";
 
 type Finding = {
-    kind: "boundary" | "unresolved" | "dead" | "test-only";
+    kind: "boundary" | "unresolved" | "dead" | "test-only" | "floating-promise" | string;
     severity: "error" | "warn";
     name: string;
     rel: string;
@@ -30,14 +30,17 @@ type Finding = {
  * Reports every warning the indexed call graph can raise about this codebase.
  *
  * Collects boundary violations (committed code calling a private per-machine
- * plugin), calls to names no function provides, functions nobody calls and
- * functions kept alive only by their own test — one ranked list instead of three
- * separate queries. Reads the stored graph, so run `code.index` first if the tree
- * changed. `ok` is true when there are no errors.
+ * plugin), calls to names no function provides, promises nobody awaits, uncalled
+ * functions, functions kept alive only by their own test, and the per-file rule
+ * violations the indexer recorded while parsing — one ranked list instead of
+ * several queries. Reads the stored graph, so the whole project is answered in
+ * milliseconds; run `code.index` first if the tree changed. `ok` is true when
+ * there are no errors.
  *
  * @param opts.root Limit findings to one scan root, such as `core` for `src/`. Defaults to `core` for the dead-code checks, whose answer is meaningless for plugins.
  * @param opts.severity Only report this severity: `error` or `warn`.
- * @param opts.include Which checks to run. @default ["boundary","unresolved","dead","test-only"]
+ * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise"]
+ * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`.
  * @param opts.limit Maximum findings to return. @default 50 @minimum 1 @maximum 500
  */
 export default async function (
@@ -46,7 +49,8 @@ export default async function (
     opts?: {
         root?: string;
         severity?: "error" | "warn";
-        include?: Array<"boundary" | "unresolved" | "dead" | "test-only">;
+        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise">;
+        rule?: string;
         limit?: number;
     },
 ): Promise<{
@@ -58,10 +62,13 @@ export default async function (
     blind: string[];
 }> {
     const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 500);
-    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only"]);
+    // `rule` narrows by the finding's kind, whichever check produced it, so
+    // `{ rule: "dead" }` and `{ rule: "empty-catch" }` behave the same way.
+    const wantRule = (kind: string) => !opts?.rule || kind === opts.rule;
+    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise"]);
     const findings: Finding[] = [];
 
-    if (include.has("boundary")) {
+    if (include.has("boundary") && wantRule("boundary")) {
         const b = await ctx.fns.code.boundary({ limit: 500 });
         for (const v of b.violations) {
             if (opts?.root && !v.rel.startsWith(opts.root === "core" ? "" : opts.root)) continue;
@@ -80,7 +87,7 @@ export default async function (
     // the same tree. `string` matters most: UI dispatch and CDP commands look
     // like `Input.dispatchMouseEvent` and resolve to nothing by design — counting
     // them reported 33 errors where there is 1.
-    if (include.has("unresolved")) {
+    if (include.has("unresolved") && wantRule("unresolved")) {
         // db.select is untyped by design (it answers any query), so the shape of
         // this particular result is named here instead of being carried around as
         // `any` — the compiler then checks the field names below.
@@ -117,7 +124,50 @@ export default async function (
         }
     }
 
-    if (include.has("dead") || include.has("test-only")) {
+    // Rule violations the indexer wrote while it was parsing each file anyway.
+    // Reading them back is a SELECT, which is the whole point: the project stays
+    // checked without anyone paying to re-read 1315 files to ask.
+    if (include.has("rules")) {
+        type RuleRow = { rel: string; line: number | string; rule: string; severity: string; detail: string };
+        const rows = await ctx.fns.procs.db.select({
+            sql: `SELECT rel, line, rule, severity, detail FROM code_findings
+                   WHERE 1=1 ${opts?.root ? "AND root = ?" : ""} ${opts?.rule ? "AND rule = ?" : ""}
+                   ORDER BY rel, line`,
+            params: [...(opts?.root ? [opts.root] : []), ...(opts?.rule ? [opts.rule] : [])],
+        }) as RuleRow[];
+        for (const r of rows) {
+            findings.push({
+                kind: r.rule, severity: r.severity === "error" ? "error" : "warn",
+                name: r.rel, rel: r.rel, line: Number(r.line), detail: r.detail,
+            });
+        }
+    }
+
+    // A promise nobody waits for. Neither half of this is visible on its own: the
+    // call site knows the result is dropped, the callee knows it returns a
+    // promise, and only the join of the two is a finding. A text scan that
+    // skipped this reported 199 — of which 189 were calls to synchronous
+    // functions, where there is nothing to await.
+    if (include.has("floating-promise") && wantRule("floating-promise")) {
+        type FloatRow = { caller: string; callee: string; rel: string; line: number | string };
+        const rows = await ctx.fns.procs.db.select({
+            sql: `SELECT c.caller, c.callee, c.rel, c.line
+                    FROM code_calls c
+                    JOIN code_functions f ON f.name = c.callee
+                   WHERE c.discarded = TRUE AND f.is_async = TRUE AND c.kind = 'fn'
+                   ${opts?.root ? "AND EXISTS (SELECT 1 FROM code_functions cf WHERE cf.name = c.caller AND cf.root = ?)" : ""}
+                   ORDER BY c.rel, c.line`,
+            params: opts?.root ? [opts.root] : [],
+        }) as FloatRow[];
+        for (const r of rows) {
+            findings.push({
+                kind: "floating-promise", severity: "warn", name: r.caller, rel: r.rel, line: Number(r.line),
+                detail: `calls ${r.callee} without awaiting it — an error there is lost silently`,
+            });
+        }
+    }
+
+    if ((include.has("dead") && wantRule("dead")) || (include.has("test-only") && wantRule("test-only"))) {
         // Scoped to one root, `core` unless asked otherwise. A plugin's functions
         // are its PUBLIC surface: the agent calls them by name after reading the
         // docs, so "no code calls this" is the normal state for almost all of
@@ -128,7 +178,8 @@ export default async function (
         for (const f of d.functions) {
             const testOnly = f.status === "test-only";
             if (testOnly && !include.has("test-only")) continue;
-            if (!testOnly && !include.has("dead")) continue;
+            if (!testOnly && !(include.has("dead") && wantRule("dead"))) continue;
+            if (testOnly && !(include.has("test-only") && wantRule("test-only"))) continue;
             findings.push({
                 kind: testOnly ? "test-only" : "dead",
                 severity: "warn",
@@ -161,6 +212,8 @@ export default async function (
             "a function named in a prompt or a tool file counts as an entry point, not as dead",
             "the dead-code checks cover one root at a time, `core` by default: a plugin function with no caller is usually just its public API",
             "a call to an optional module behind `if (ctx.fns.x)` or `x?.()` is treated as deliberate, not as unresolved",
+            "floating promises are only seen for ctx.fns calls: an unawaited Bun.spawn or fetch is invisible here",
+            "the per-file rules read syntax, not types: they cannot tell what a value actually is at runtime",
         ],
     };
 }

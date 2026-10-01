@@ -14,7 +14,7 @@ async function indexed(files: Record<string, string>) {
     const ctx = await testCtx({ root: dir });
     const root = basename(dir);
     await ctx.fns.code.index({ root });
-    return { ctx, root, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    return { ctx, root, dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 describe("code.quality", () => {
@@ -99,4 +99,93 @@ describe("code.quality", () => {
             expect(q.warnings).toBe(0);
         } finally { cleanup(); }
     });
+
+    test("a rule violation reaches the report through the table", async () => {
+        const { ctx, root, cleanup } = await indexed({
+            // Written by the indexer while it parses, read back by a SELECT —
+            // the whole project stays checked without re-reading any file.
+            "shop/risky.ts": 'export default function () {\n    try { go(); } catch {}\n}\n',
+            "shop/$route_go_GET.ts": 'export default async function (ctx: Context) { return await ctx.fns.shop.risky({}); }\n',
+        });
+        try {
+            const q = await ctx.fns.code.quality({ root, limit: 10 });
+            const found = q.findings.find(f => f.kind === "empty-catch");
+            expect(found).toBeDefined();
+            expect(found!.rel).toBe("shop/risky.ts");
+            expect(found!.line).toBe(2);
+        } finally { cleanup(); }
+    });
+
+    test("rule narrows the whole report, not just one check", async () => {
+        const { ctx, root, cleanup } = await indexed({
+            "shop/risky.ts": 'export default function () {\n    try { go(); } catch {}\n}\n',
+            "shop/orphan.ts": 'export default function () { return 1; }\n',
+        });
+        try {
+            const only = await ctx.fns.code.quality({ root, rule: "empty-catch", limit: 10 });
+            expect(only.findings.every(f => f.kind === "empty-catch")).toBe(true);
+            expect(only.findings.length).toBe(1);
+            // The dead function is still there when nothing is filtered out.
+            const all = await ctx.fns.code.quality({ root, limit: 10 });
+            expect(all.findings.some(f => f.kind === "dead")).toBe(true);
+        } finally { cleanup(); }
+    });
+
+    test("an unawaited call to an async function is reported", async () => {
+        const { ctx, root, cleanup } = await indexed({
+            // Neither half is a finding alone: the call site knows the result is
+            // dropped, the callee knows it returns a promise. Only the join is.
+            "shop/caller.ts": 'export default async function (ctx: Context) {\n    ctx.fns.shop.slow({});\n    return 1;\n}\n',
+            "shop/slow.ts": 'export default async function () { return 2; }\n',
+        });
+        try {
+            const q = await ctx.fns.code.quality({ root, rule: "floating-promise", limit: 10 });
+            expect(q.findings.length).toBe(1);
+            expect(q.findings[0]!.rel).toBe("shop/caller.ts");
+            expect(q.findings[0]!.line).toBe(2);
+        } finally { cleanup(); }
+    });
+
+    test("an unawaited call to a SYNC function is not a floating promise", async () => {
+        const { ctx, root, cleanup } = await indexed({
+            // A text scan that skipped this reported 199 of these; 189 were calls
+            // to synchronous functions, where there is nothing to await.
+            "shop/caller.ts": 'export default async function (ctx: Context) {\n    ctx.fns.shop.quick({});\n    return 1;\n}\n',
+            "shop/quick.ts": 'export default function () { return 2; }\n',
+        });
+        try {
+            const q = await ctx.fns.code.quality({ root, rule: "floating-promise", limit: 10 });
+            expect(q.findings).toEqual([]);
+        } finally { cleanup(); }
+    });
+
+    test("awaiting, returning or voiding the call clears it", async () => {
+        const { ctx, root, cleanup } = await indexed({
+            "shop/a.ts": 'export default async function (ctx: Context) {\n    await ctx.fns.shop.slow({});\n}\n',
+            "shop/b.ts": 'export default function (ctx: Context) {\n    return ctx.fns.shop.slow({});\n}\n',
+            "shop/c.ts": 'export default function (ctx: Context) {\n    ctx.fns.shop.slow({}).catch(() => {});\n}\n',
+            "shop/d.ts": 'export default function (ctx: Context) {\n    void ctx.fns.shop.slow({});\n}\n',
+            "shop/slow.ts": 'export default async function () { return 2; }\n',
+        });
+        try {
+            const q = await ctx.fns.code.quality({ root, rule: "floating-promise", limit: 10 });
+            expect(q.findings).toEqual([]);
+        } finally { cleanup(); }
+    });
+
+    test("re-indexing one file replaces only its own findings", async () => {
+        const { ctx, root, dir, cleanup } = await indexed({
+            "shop/risky.ts": 'export default function () {\n    try { go(); } catch {}\n}\n',
+            "shop/other.ts": 'export default function () {\n    try { go(); } catch {}\n}\n',
+        });
+        try {
+            expect((await ctx.fns.code.quality({ root, rule: "empty-catch", limit: 10 })).findings.length).toBe(2);
+            await Bun.write(`${dir}/src/shop/risky.ts`, 'export default function () { return 1; }\n');
+            await ctx.fns.code.index({ rel: "shop/risky.ts" });
+            const after = await ctx.fns.code.quality({ root, rule: "empty-catch", limit: 10 });
+            expect(after.findings.length).toBe(1);
+            expect(after.findings[0]!.rel).toBe("shop/other.ts");
+        } finally { cleanup(); }
+    });
+
 });

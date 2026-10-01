@@ -86,6 +86,7 @@ export default async function (
     const fnRows: Row[] = [];
     const typeRows: Row[] = [];
     const callRows: Row[] = [];
+    const findingRows: Row[] = [];
     const dynamic: Array<{ rel: string; line: number }> = [];
 
     // The dotted name a file answers to. Computed without reading anything, so
@@ -138,7 +139,13 @@ export default async function (
                     const two = parts.slice(0, 2).join(".");
                     const three = parts.length > 2 ? parts.slice(0, 3).join(".") : null;
                     const callee = three && allNames.has(three) ? three : two;
-                    if (callee !== from) callRows.push([from, callee, rel, lineOf(node), edgeKind]);
+                    // Is the result dropped? A call that is its own statement,
+                    // with no `await`, no `.then`, no `.catch` and no `void`,
+                    // discards whatever comes back. That only matters when the
+                    // callee returns a promise — which the graph records per
+                    // function, so the question is answered later by a JOIN
+                    // rather than guessed here.
+                    if (callee !== from) callRows.push([from, callee, rel, lineOf(node), edgeKind, isDiscarded(node)]);
                 }
                 // `ctx.fns[name]` — a target this analysis cannot name.
                 if (isDynamicFns(node.expression)) {
@@ -147,7 +154,7 @@ export default async function (
                     // Recorded as a real edge to an unnamable target, so a query
                     // can see the graph has a hole here instead of reading the
                     // silence as "nothing is called".
-                    callRows.push([from, "(dynamic)", rel, line, "dynamic"]);
+                    callRows.push([from, "(dynamic)", rel, line, "dynamic", false]);
                 }
             }
 
@@ -155,7 +162,7 @@ export default async function (
             // aliases genTypes writes, so they appear as qualified names.
             if (ts.isQualifiedName(node) || ts.isPropertyAccessExpression(node)) {
                 const m = /^types\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)$/.exec(node.getText(sf));
-                if (m) callRows.push([from, `types.${m[1]}.${m[2]}`, rel, lineOf(node), edgeKind === "test" ? "test" : "type"]);
+                if (m) callRows.push([from, `types.${m[1]}.${m[2]}`, rel, lineOf(node), edgeKind === "test" ? "test" : "type", false]);
             }
 
             // String dispatch is the one thing that genuinely lives in a string:
@@ -171,12 +178,12 @@ export default async function (
             // out of Chrome DevTools Protocol command names.
             if (ts.isStringLiteralLike(node) && !ts.isTemplateExpression(node.parent)) {
                 if (STRING_TARGET.test(node.text) && stringDispatchContext(node, sf) && node.text !== from) {
-                    callRows.push([from, node.text, rel, lineOf(node), edgeKind === "test" ? "test" : "string"]);
+                    callRows.push([from, node.text, rel, lineOf(node), edgeKind === "test" ? "test" : "string", false]);
                 }
             }
             if (ts.isTemplateLiteralToken(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
                 for (const target of htmlDispatchTargets(node.text)) {
-                    if (target !== from) callRows.push([from, target, rel, lineOf(node), edgeKind === "test" ? "test" : "string"]);
+                    if (target !== from) callRows.push([from, target, rel, lineOf(node), edgeKind === "test" ? "test" : "string", false]);
                 }
             }
 
@@ -192,8 +199,14 @@ export default async function (
         // greppable, and visibly not a function.
         const name = nameOf(e);
 
-        fnRows.push([name, e.kind, e.projectRel, e.root, ENTRY.has(e.kind) || promptNames.has(name), now, tierByRoot[e.root] ?? "core"]);
+        fnRows.push([name, e.kind, e.projectRel, e.root, ENTRY.has(e.kind) || promptNames.has(name), now, tierByRoot[e.root] ?? "core", isAsyncFile(text)]);
         scanCalls(text, name, e.projectRel, e.kind);
+        // The file is open and parsed anyway, so the per-file rules ride along.
+        // Checking the tree separately would mean parsing all 1315 files again
+        // for every report; here the whole project stays checked for free.
+        for (const f of ctx.fns.code.rules({ text, rel: e.projectRel })) {
+            findingRows.push([e.projectRel, f.line, f.rule, f.severity, f.detail, e.root, now]);
+        }
     }
 
     // Test files produce edges but no node: a test is not something the runtime
@@ -231,9 +244,11 @@ export default async function (
             await tx.unsafe(toPg(deleteCalls), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_functions" + scope), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_types" + scope), scopeP);
-            await bulk(tx, toPg, "code_functions", ["name", "kind", "rel", "root", "entry_point", "indexed_at", "tier"], fnRows);
+            await tx.unsafe(toPg("DELETE FROM code_findings" + scope), scopeP);
+            await bulk(tx, toPg, "code_functions", ["name", "kind", "rel", "root", "entry_point", "indexed_at", "tier", "is_async"], fnRows);
             await bulk(tx, toPg, "code_types", ["name", "rel", "root", "indexed_at"], typeRows);
-            await bulk(tx, toPg, "code_calls", ["caller", "callee", "rel", "line", "kind"], callRows);
+            await bulk(tx, toPg, "code_calls", ["caller", "callee", "rel", "line", "kind", "discarded"], callRows);
+            await bulk(tx, toPg, "code_findings", ["rel", "line", "rule", "severity", "detail", "root", "indexed_at"], findingRows);
         });
     }
 
@@ -313,6 +328,34 @@ function htmlDispatchTargets(text: string): string[] {
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) if (m[1]) out.push(m[1]);
     return out;
+}
+
+// Does this file's default export return a promise? Stored per function so that
+// "nobody awaited this call" becomes a JOIN instead of a second pass over the
+// tree. Eight of the ten floating calls a naive text scan reported turned out to
+// be sync functions, where there is no promise to forget.
+// Is this call's result thrown away? True when the call is the entire statement
+// and nothing upstream consumes it. `void ctx.fns.x.y()` reads as deliberate and
+// is left alone, as is anything inside an expression.
+function isDiscarded(node: ts.CallExpression): boolean {
+    let cur: ts.Node = node;
+    // Climb out of `a.b()` chains and non-null assertions to find the statement.
+    while (cur.parent && (ts.isPropertyAccessExpression(cur.parent) || ts.isCallExpression(cur.parent)
+        || ts.isNonNullExpression(cur.parent) || ts.isParenthesizedExpression(cur.parent))) {
+        // `foo().catch(...)` and `foo().then(...)` handle the result themselves.
+        if (ts.isPropertyAccessExpression(cur.parent) && /^(then|catch|finally)$/.test(cur.parent.name.text)) return false;
+        cur = cur.parent;
+    }
+    const parent = cur.parent;
+    if (!parent) return false;
+    if (ts.isAwaitExpression(parent) || ts.isReturnStatement(parent)) return false;
+    if (ts.isVoidExpression(parent)) return false;                 // `void fn()` says "I know"
+    return ts.isExpressionStatement(parent);
+}
+
+function isAsyncFile(text: string): boolean {
+    const head = text.split("\n").find(l => l.includes("export default")) ?? "";
+    return /\basync\b/.test(head) || /Promise</.test(head) || /:\s*Promise</.test(text.slice(0, 2000));
 }
 
 function stripParens(node: ts.Node): ts.Node {

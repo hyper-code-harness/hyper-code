@@ -93,6 +93,31 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
 
     if (ev.type === "user") {
         const idx = ev.messageIdx ?? ev.idx ?? 0;
+        // Another agent speaking in this chat under its own name (agent.message): an incoming,
+        // left-aligned bubble with the sender's name/link, hop counter and the owner it acts for.
+        if (ev.agentMessage || String(ev.actor ?? '').startsWith('agent:')) {
+            const am = ev.agentMessage ?? {};
+            const fromId = String(am.from ?? String(ev.actor ?? '').slice(6));
+            const sender = (ctx as any).fns.auth?.author ? await (ctx as any).fns.auth.author({ userId: 'agent:' + fromId }).catch(() => null) : null;
+            const hue = sender?.hue ?? 210;
+            const name = sender?.name ?? ('agent ' + fromId);
+            const body = String(am.body ?? ev.text ?? '');
+            const ownerName = am.onBehalfOf ? await (ctx as any).fns.auth?.getUser?.({ id: String(am.onBehalfOf) }).then((u: any) => u?.name ?? null).catch(() => null) : null;
+            const meta = [am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
+            return '<div class="group relative flex items-end justify-start gap-2 pb-0" data-agent-message="' + esc(fromId) + '">'
+                + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white no-underline" style="background:hsl(' + hue + ' 55% 40%)" title="' + esc(name) + '"><i class="ph ph-robot" aria-hidden="true"></i></a>'
+                + '<div class="relative mr-auto max-w-[80%]">'
+                + '<div class="rounded-2xl rounded-bl-md border px-3.5 py-2 whitespace-pre-wrap break-words shadow-sm bg-base-200 text-base-content" style="border-color:hsl(' + hue + ' 55% 45% / .5)">'
+                + '<div class="mb-0.5 flex items-center gap-1.5 text-xs font-semibold leading-tight whitespace-normal">'
+                + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="no-underline hover:underline" data-author="agent:' + esc(fromId) + '" style="color:hsl(' + hue + ' 70% 60%)">' + esc(name) + '</a>'
+                + '<span class="rounded-full border border-ui-border px-1.5 text-3xs font-normal text-subtle">agent</span>'
+                + (meta ? '<span class="text-3xs font-normal text-subtle">' + esc(meta) + '</span>' : '')
+                + '</div>'
+                + appendTime(esc(body), ev.ts, 'light')
+                + '</div>'
+                + '<div class="absolute left-full top-1/2 z-10 ml-2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
+                + '</div></div>';
+        }
         const ragFunctions = Array.isArray(ev.functionRag?.functions) ? ev.functionRag.functions : [];
         const ragNames = ragFunctions.map((item: any) => String(typeof item === "string" ? item : item?.name ?? "")).filter(Boolean);
         const injected = String(ev.functionRag?.injected ?? ragNames.join("\n"));

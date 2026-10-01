@@ -33,7 +33,10 @@ export default async function (
     if (!child) throw new Error("ask: member not found: " + member);
     let answer = "";
     try {
-        const response = await ctx.fns.agent.run({ agent: child, userText: ["Parent follow-up question:", question, "", "Answer concisely from your preserved work. Do not call finishTask again."].join("\n") });
+        const userText = ["Parent follow-up question:", question, "", "Answer concisely from your preserved work. Do not call finishTask again."].join("\n");
+        await ctx.fns.session.appendUserMessage({ id: child.id, text: userText, author: "agent:" + opts.agent.id, eventExtra: { agentMessage: { from: opts.agent.id, title: String(opts.agent.title ?? ""), body: question } } });
+        await ctx.fns.session.syncAgentState({ agent: child });
+        const response = await ctx.fns.agent.run({ agent: child, userText, userMessageAlreadyAppended: true });
         answer = String((response as any)?.text ?? "").trim();
         if (answer) await ctx.fns.agent.steer({ from: child, event: "answer", summary: answer });
         return { member, answer };

@@ -6,6 +6,8 @@
  * prompt caches are kept. Every human message with a recorded author is prefixed, including the
  * chat owner's; messages written before users existed (no author) are left as they are.
  * Structured content (images, documents) gets the prefix on its first text part, or a new one.
+ * Messages authored by another agent (`agent:<id>`) are never prefixed: agent.message already
+ * stores them inside an `<agent-message from=...>` envelope that names the sender.
  * @param opts.messages Outgoing provider-neutral messages (role, content, author).
  */
 export default async function (
@@ -20,7 +22,7 @@ export default async function (
     if (users.filter((u) => u.disabledAt == null).length < 2) return { messages: opts.messages, applied: false };
     const names = new Map(users.map((u) => [u.id, u.name]));
     const messages = opts.messages.map((m: any) => {
-        if (m?.role !== "user" || !m.author || m.excluded_from_cursor) return m;
+        if (m?.role !== "user" || !m.author || m.excluded_from_cursor || String(m.author).startsWith("agent:")) return m;
         const prefix = `<${names.get(m.author) ?? m.author}>: `;
         if (typeof m.content === "string") return { ...m, content: prefix + m.content };
         if (Array.isArray(m.content)) {

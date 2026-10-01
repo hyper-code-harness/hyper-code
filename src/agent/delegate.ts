@@ -32,7 +32,7 @@ export default async function (
     await ctx.fns.session.plan({ agent: child, title, tasks: opts.tasks });
     const taskText = opts.tasks.map((task, index) => String(index + 1) + ". [" + task.id + "] " + task.title + (task.instructions ? ": " + task.instructions : "")).join("\n");
     const prompt = ["You are a delegated subagent working for a parent agent.", "Execute the visible task plan in order. After each task is actually complete, call session.done({ agent, id }).", "When the entire plan is complete, you MUST call agent.finishTask({ agent, summary, result }) with a concrete JSON-compatible result. Completion without result is invalid.", "Keep noisy tool output in this child session; return a concise parent-facing summary.", "Do not ask the user questions. If blocked, call agent.steer({ from: agent, event: 'blocked', summary }).", "", "Plan:", taskText].join("\n");
-    await ctx.fns.session.appendUserMessage({ id: child.id, text: prompt });
+    await ctx.fns.session.appendUserMessage({ id: child.id, text: prompt, author: "agent:" + opts.agent.id, eventExtra: { agentMessage: { from: opts.agent.id, title: String(opts.agent.title ?? ""), body: prompt } } });
     const now = Date.now();
     await ctx.fns.procs.db.run({
         sql: "UPDATE agents SET next_run_at = COALESCE(next_run_at, ?), updated_at = ? WHERE id = ? AND archived_at IS NULL",

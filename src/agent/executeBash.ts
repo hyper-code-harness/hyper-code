@@ -20,7 +20,7 @@
  * @param opts.timeout Maximum execution time in milliseconds.
 */
 export default async function (
-    _ctx: Context,
+    ctx: Context,
     session: Session | null,
     opts: {
         /** Code used by the operation. */
@@ -51,9 +51,29 @@ export default async function (
     });
 
     const buf = { out: "", err: "" };
-    const pump = async (stream: ReadableStream<Uint8Array>, key: "out" | "err") => {
+
+    // The live tail. tools.call puts the handle on the ctx when this runs as a
+    // tool; called directly (tests, other code) there is none and the streaming
+    // simply does not happen. Throttled because a chatty command would
+    // otherwise push an SSE refresh per chunk.
+    const run: types.tools.ToolRun | undefined = (ctx as any).toolRun;
+    let lastPush = 0;
+    const stream = (text: string) => {
+        if (!run) return;
+        ctx.fns.tools.appendRunOutput({ id: run.id, chunk: text });
+        const now = Date.now();
+        if (now - lastPush < 1500) return;
+        lastPush = now;
+        if (run.agentId) ctx.fns.procs.events.refresh({ topic: `agent:${run.agentId}`, reason: "tool-run-tail" });
+    };
+
+    const pump = async (stream_: ReadableStream<Uint8Array>, key: "out" | "err") => {
         const decoder = new TextDecoder();
-        for await (const chunk of stream) buf[key] += decoder.decode(chunk, { stream: true });
+        for await (const chunk of stream_) {
+            const text = decoder.decode(chunk, { stream: true });
+            buf[key] += text;
+            stream(text);
+        }
     };
     const finished = Promise.all([
         pump(proc.stdout as ReadableStream<Uint8Array>, "out"),
@@ -61,23 +81,33 @@ export default async function (
         proc.exited,
     ]);
 
+    // A user abort must kill the process, not merely stop awaiting it. The
+    // incident case was `notarytool --wait`: abandoning the promise would have
+    // left Apple's poller running and the pipes open for another half hour.
+    const abort = new Promise<"aborted">(resolve => {
+        if (!run) return;
+        if (run.controller.signal.aborted) return resolve("aborted");
+        run.controller.signal.addEventListener("abort", () => resolve("aborted"), { once: true });
+    });
+
     const seconds = Number(opts.timeout);
-    if (Number.isFinite(seconds) && seconds > 0) {
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        const deadline = new Promise<"timeout">(resolve => {
-            timer = setTimeout(() => resolve("timeout"), seconds * 1000);
-        });
-        const who = await Promise.race([finished.then(() => "done" as const), deadline]);
-        clearTimeout(timer);
-        if (who === "timeout") {
-            proc.kill(9);
-            const parts = [`[timed out after ${seconds}s — the command was killed]`];
-            if (buf.out.trimEnd()) parts.push(buf.out.trimEnd());
-            if (buf.err.trimEnd()) parts.push("stderr:\n" + buf.err.trimEnd());
-            return { output: parts.join("\n"), isError: true };
-        }
-    } else {
-        await finished;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = Number.isFinite(seconds) && seconds > 0
+        ? new Promise<"timeout">(resolve => { timer = setTimeout(() => resolve("timeout"), seconds * 1000); })
+        : new Promise<"timeout">(() => { /* no timeout declared: never settles */ });
+
+    const who = await Promise.race([finished.then(() => "done" as const), deadline, abort]);
+    clearTimeout(timer);
+
+    if (who !== "done") {
+        proc.kill(9);
+        const reason = who === "timeout"
+            ? `[timed out after ${seconds}s — the command was killed]`
+            : `[stopped by the user — the command was killed]`;
+        const parts = [reason];
+        if (buf.out.trimEnd()) parts.push(buf.out.trimEnd());
+        if (buf.err.trimEnd()) parts.push("stderr:\n" + buf.err.trimEnd());
+        return { output: parts.join("\n"), isError: true };
     }
 
     const stdout = buf.out.trimEnd();

@@ -278,6 +278,7 @@ ${opts.headExtra ?? ""}
 <script src="/ui/meta.js" defer></script>
 <script src="/screen/client.js" defer></script>
 <script src="/ui/wake-timer.js" defer></script>
+<script src="/ui/tool-timer.js" defer></script>
 </head>
 <body class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>
 <div id="frame" class="relative flex h-screen">

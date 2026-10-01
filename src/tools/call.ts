@@ -49,11 +49,30 @@ export default async function (
         callCtx.session = wanted;
     }
 
+    // Announce the call BEFORE it starts. Every tool passes through here, so
+    // the chat's running indicator and its abort button cover tools that never
+    // had to know either exists — including ones added later.
+    //
+    // The handle is carried on a derived ctx rather than in the arguments: it
+    // is not part of any tool's declared schema, and `fns` is a getter reading
+    // `this`, so everything the tool calls downstream sees the same object.
+    // This derivation must happen BEFORE `fn` is resolved — resolving through
+    // the old ctx would hand the implementation a ctx with no toolRun on it.
+    const run = ctx.fns.tools.beginRun({
+        agentId: opts.agent?.id,
+        name: tool.wireName,
+        args,
+        timeoutMs: typeof args?.timeout === "number" ? args.timeout * 1000 : undefined,
+    });
+    callCtx = Object.create(callCtx);
+    callCtx.toolRun = run;
+
     // Declaration and implementation are separate files, so the fn is resolved
     // through ctx.fns by its dotted name — which also means a hot-reloaded
     // implementation is picked up without touching the declaration.
     const fn = String(tool.fn).split(".").reduce((node: any, seg: string) => node?.[seg], callCtx.fns);
     if (typeof fn !== "function") {
+        ctx.fns.tools.endRun({ id: run.id });
         return { output: `Error: tool "${tool.wireName}" declares fn "${tool.fn}", but nothing is registered under that name`, isError: true };
     }
 
@@ -62,11 +81,19 @@ export default async function (
     let terminal: { type: 'html'; html: string; text: string } | undefined;
     let isError = false;
     const attrs: Record<string, any> = { "tool.name": tool.wireName, "agent.id": opts.agent?.id };
+
     try {
         const telemetry: any = (callCtx.fns.procs as any).telemetry;
+        const invoke = () => Promise.race([
+            fn(args),
+            new Promise((_resolve, reject) => {
+                if (run.controller.signal.aborted) return reject(new Error("aborted by user"));
+                run.controller.signal.addEventListener("abort", () => reject(new Error("aborted by user")), { once: true });
+            }),
+        ]);
         const r: any = await (typeof telemetry?.safeSpan === "function"
-            ? telemetry.safeSpan({ name: "tool.execute", attrs, fn: () => fn(args) })
-            : fn(args));
+            ? telemetry.safeSpan({ name: "tool.execute", attrs, fn: invoke })
+            : invoke());
         if (typeof r === "string") output = r;
         else {
             output = String(r?.output ?? "");
@@ -79,9 +106,24 @@ export default async function (
             };
         }
     } catch (e: any) {
-        output = "Error: " + (e?.message ?? String(e));
+        // A user abort is a RESULT, not a crash. Reporting elapsed time and
+        // whatever the tool had already printed gives the model enough to
+        // decide what to do next instead of blindly retrying the same call.
+        if (run.aborted) {
+            const secs = Math.round((Date.now() - run.startedAt) / 1000);
+            const tail = run.tail.trimEnd();
+            output = `[stopped by the user after ${secs}s — the result is unknown, do not assume it failed]`
+                + (tail ? `\nOutput before it was stopped:\n${tail}` : "");
+        } else {
+            output = "Error: " + (e?.message ?? String(e));
+        }
         isError = true;
+    } finally {
+        // Unconditional: an indicator that outlives its work is the same lie
+        // as no indicator at all, just more convincing.
+        ctx.fns.tools.endRun({ id: run.id });
     }
+    attrs["tool.aborted"] = run.aborted;
     attrs["tool.error"] = isError;
     attrs["tool.output_bytes"] = Buffer.byteLength(output);
 

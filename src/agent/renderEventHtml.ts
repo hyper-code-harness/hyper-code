@@ -199,6 +199,44 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         });
     }
 
+    // "Сообщение услышано, вот что мешает". Эта карточка — постоянная запись в
+    // транскрипте; тикающая карточка над композером — живая. Обе могут быть на
+    // экране одновременно, и это правильно: одна история, другая «сейчас».
+    if (ev.type === "tool_busy") {
+        const secs = Number(ev.elapsedSec ?? 0);
+        const mins = Math.floor(secs / 60);
+        const been = mins >= 1 ? `${mins} мин` : `${secs} с`;
+        const limit = Number(ev.timeoutMs) > 0 ? ` из лимита ${Math.round(Number(ev.timeoutMs) / 60000)} мин` : '';
+        const stop = ev.runId && agentId
+            ? ctx.fns.procs.ui.button({
+                action: 'abort-tool-call',
+                label: `Прервать ${String(ev.name ?? 'tool')}`,
+                size: 'xs',
+                class: 'mt-2 rounded-full',
+                title: 'Остановить только этот вызов — агент продолжит и прочтёт ваше сообщение',
+                post: `/agent/${encodeURIComponent(agentId)}/tool/${encodeURIComponent(String(ev.runId))}/abort`,
+                swap: 'none',
+            })
+            : '';
+        return eventCard({
+            title: `Агент занят: ${String(ev.name ?? 'tool')} идёт ${been}${limit}`,
+            icon: 'hourglass-high',
+            tone: 'warning',
+            body: `<div class="font-mono text-3xs text-muted">${esc(String(ev.subject ?? ''))}</div>`
+                + `<div class="mt-1">Сообщение принято и встало в очередь — агент прочтёт его, как только вызов завершится.</div>${stop}`,
+        });
+    }
+
+    if (ev.type === "tool_aborted") {
+        return eventCard({
+            title: `Вызов ${String(ev.name ?? 'tool')} прерван пользователем`,
+            icon: 'hand-palm',
+            tone: 'warning',
+            badge: badge(`${Number(ev.elapsedSec ?? 0)}s`, 'warning'),
+            body: `<div class="font-mono text-3xs text-muted">${esc(String(ev.subject ?? ''))}</div>`,
+        });
+    }
+
     if (ev.type === "plan_activation") {
         return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: `<div class="font-medium text-muted">${esc(ev.title ?? ev.taskId ?? "Task")}</div>${ev.instructions ? `<div class="mt-1 whitespace-pre-wrap">${esc(ev.instructions)}</div>` : ""}` });
     }

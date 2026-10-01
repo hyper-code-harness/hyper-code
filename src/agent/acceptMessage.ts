@@ -56,6 +56,33 @@ export default async function (
         await ctx.fns.session.appendEvent({ id, event, ts });
         await ctx.fns.session.syncAgentState({ agent });
 
+        // A message that arrives mid-tool-call used to vanish into the queue
+        // with no acknowledgement — the "ау" / "в чем дело?" case. Say out loud that
+        // it was received, what is holding the agent up, and offer the one
+        // action that actually unblocks it.
+        //
+        // Only for calls already slow enough to be worth explaining: a card
+        // saying "busy: eval идёт 1 с" is noise, and noise is what trained the
+        // user to stop reading these in the first place.
+        const BUSY_NOTICE_AFTER_MS = 10_000;
+        if (text) {
+            const running = ctx.fns.tools.runs({ agentId: id })[0];
+            const elapsed = running ? Date.now() - running.startedAt : 0;
+            if (running && elapsed >= BUSY_NOTICE_AFTER_MS) {
+                const busy: any = {
+                    type: "tool_busy",
+                    name: running.name,
+                    subject: running.subject,
+                    runId: running.id,
+                    elapsedSec: Math.round(elapsed / 1000),
+                    timeoutMs: running.timeoutMs,
+                    ts: Date.now(),
+                };
+                busy.html = await ctx.fns.agent.renderEventHtml({ event: busy, agentId: id });
+                await ctx.fns.session.appendEvent({ id, event: busy, ts: busy.ts });
+            }
+        }
+
         // Instant steering cancels only the active provider request. The durable
         // run and worker lease continue; agent.run refreshes history and samples
         // again. Tool execution has no sampling controller, so tools finish at

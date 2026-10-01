@@ -148,6 +148,23 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 ${agent.sleepContext?.active === true
   ? `<div id="msg-tail" hx-get="/agent/${encodeURIComponent(id)}/events.html?offset=${maxIdx + 1}&compact=1" hx-trigger="load" hx-target="this" hx-swap="outerHTML"></div>`
   : `<div id="msg-tail" hx-get="/agent/${encodeURIComponent(id)}/events.html?offset=${maxIdx + 1}" hx-trigger="load" hx-target="this" hx-swap="outerHTML"></div>`}
+${ctx.fns.ui.live({
+  id: 'active-tool-call',
+  url: `/agent/${encodeURIComponent(id)}/active-tool`,
+  topic: `agent:${id}`,
+  // Sits below the last event, so "what is happening now" reads where the eye
+  // already is. The watchdog is tight because this region is the whole answer
+  // to "is it alive?" — and it only polls while a chat is actually open.
+  every: 5,
+  // innerHTML, not the default outerHTML: the route answers with the card
+  // alone, so an outerHTML swap would overwrite the region with its own
+  // contents — taking the id, hx-get and topic with it. The indicator then
+  // renders exactly once and never updates again, which is the one failure
+  // this feature cannot afford.
+  swap: 'innerHTML',
+  attrs: 'class="empty:hidden"',
+  html: ctx.fns.agent.renderActiveToolCall({ agentId: id }),
+})}
 </div>
 ${await ctx.fns.ui.chatComposer({ action: `/agent/${encodeURIComponent(id)}?debounceSeconds=0.1`, controlsHtml: stopControlRegion, statusHtml: statusLinePopup })}
 

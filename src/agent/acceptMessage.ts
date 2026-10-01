@@ -64,11 +64,20 @@ export default async function (
         // Only for calls already slow enough to be worth explaining: a card
         // saying "busy: eval идёт 1 с" is noise, and noise is what trained the
         // user to stop reading these in the first place.
+        //
+        // Once per call, not once per message: someone who writes "ау" and then
+        // "ну что там" gets the same answer twice, and a column of identical
+        // cards reads as the UI being stuck too. The first card stays true for
+        // as long as the call runs — it has a live timer and a working Stop
+        // button — so repeating it adds nothing but noise.
         const BUSY_NOTICE_AFTER_MS = 10_000;
         if (text) {
             const running = ctx.fns.tools.runs({ agentId: id })[0];
             const elapsed = running ? Date.now() - running.startedAt : 0;
-            if (running && elapsed >= BUSY_NOTICE_AFTER_MS) {
+            const alreadyToldAbout = running
+                ? (agent.events ?? []).some((ev: any) => ev?.type === "tool_busy" && ev?.runId === running.id)
+                : false;
+            if (running && !alreadyToldAbout && elapsed >= BUSY_NOTICE_AFTER_MS) {
                 const busy: any = {
                     type: "tool_busy",
                     name: running.name,

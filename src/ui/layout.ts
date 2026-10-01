@@ -52,8 +52,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
 .inplace-popup-panel[id^="chat-more-"] :is(a, button) { justify-content: flex-start !important; width: 100%; min-height: 2.25rem; }
 .tool-tray-toggle { display: inline-flex; align-items: center; gap: .3rem; height: 1.5rem; padding: 0 .55rem; border: 1px solid var(--ui-border); border-radius: 9999px; background: rgb(from var(--color-base-100) r g b / .6); font-size: var(--text-2xs); color: var(--color-subtle); cursor: pointer; }
 .tool-tray-toggle:hover { color: var(--color-base-content); border-color: var(--ui-border-strong); }
-/* Folded: failures and the latest call stay on the row. */
-.tool-tray--folded > .tool:not(.text-error):not(:last-child) { display: none; }
+/* Folded: failures and the latest call stay on the row. The latest one is
+   marked by the script rather than matched with :last-child, because the live
+   region for the running call also sits in this row and would otherwise take
+   that position — silently hiding the very call the folded row exists to show. */
+.tool-tray--folded > .tool:not(.text-error):not(.tool-latest) { display: none; }
 .tool.tool-tucked {
   width: 1.333rem; height: 1.333rem; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -278,6 +281,7 @@ ${opts.headExtra ?? ""}
 <script src="/ui/meta.js" defer></script>
 <script src="/screen/client.js" defer></script>
 <script src="/ui/wake-timer.js" defer></script>
+<script src="/ui/spin-sync.js" defer></script>
 <script src="/ui/tool-timer.js" defer></script>
 </head>
 <body class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>

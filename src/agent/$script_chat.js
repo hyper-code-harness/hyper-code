@@ -202,8 +202,41 @@
         }
 
         arrangeTools(root) {
-            root?.querySelectorAll('.tool[data-tool]').forEach(card => this.moveToTray(card));
+            // The live chip is excluded: it is already a row member by way of
+            // its region, and wrapping it would build a second row inside that
+            // region instead of joining the one on screen.
+            root?.querySelectorAll('.tool[data-tool]:not(#active-tool-call .tool)').forEach(card => this.moveToTray(card));
+            // Placed before the rows are summarized: folding reads the row's
+            // membership, so the region has to be in its final position first.
+            this.placeActiveTool(root);
             root?.querySelectorAll('.tool-tray').forEach(tray => this.summarizeTray(tray));
+        }
+
+        // The running call belongs in the row its finished siblings are in: it
+        // is the next chip in that row, and a line of its own would say it is a
+        // different kind of thing. It also stops the transcript from twitching
+        // — a dedicated line appears and disappears with every tool call.
+        //
+        // The live region is moved, never the chip inside it: htmx owns that
+        // element by id, and lifting the chip out would leave the polling shell
+        // behind, freezing the indicator at its first render.
+        //
+        // It is moved into the row unconditionally, empty or not. Parking an
+        // empty region next to the row instead put a non-tray element between
+        // two tool cards, and moveToTray starts a NEW row whenever the element
+        // before a card is not a row — so the next chip opened a second line.
+        // An empty region is already invisible (empty:hidden) and a flex item
+        // of zero size changes no layout, so there is nothing to gain by
+        // treating the two cases differently, and a race to lose.
+        placeActiveTool(root) {
+            const region = root?.querySelector('#active-tool-call');
+            if (!region) return;
+            const trays = [...root.querySelectorAll('.tool-tray')].filter(t => !region.contains(t));
+            const tray = trays[trays.length - 1];
+            // Before the first tool call of a session there is no row yet, so
+            // the region stays where the server put it.
+            if (!tray) return;
+            if (region !== tray.lastElementChild) tray.appendChild(region);
         }
 
         // A long run of tool calls is one line — "12 tool calls ▸" — that opens
@@ -211,6 +244,9 @@
         // row still says what went wrong or what is happening now.
         summarizeTray(tray) {
             const tools = [...tray.querySelectorAll(':scope > .tool[data-tool]')];
+            // Which call is the latest is a fact about this list, not about DOM
+            // order — the live region shares the row and would win :last-child.
+            tools.forEach((t, i) => t.classList.toggle('tool-latest', i === tools.length - 1));
             let toggle = tray.querySelector(':scope > .tool-tray-toggle');
             if (tools.length <= 4) { toggle?.remove(); tray.classList.remove('tool-tray--folded'); return; }
             if (!toggle) {
@@ -233,7 +269,11 @@
 
         moveToTray(card) {
             if (card.parentElement?.classList.contains('tool-tray')) return;
-            const prev = card.previousElementSibling;
+            // Walk back past the live region: it is a row member, not a wall
+            // between two rows. Reading it as "not a row" is what used to start
+            // a second line mid-sequence.
+            let prev = card.previousElementSibling;
+            if (prev?.id === 'active-tool-call') prev = prev.previousElementSibling;
             const tray = prev?.classList.contains('tool-tray') ? prev : document.createElement('div');
             if (!tray.isConnected) {
                 tray.className = 'tool-tray';

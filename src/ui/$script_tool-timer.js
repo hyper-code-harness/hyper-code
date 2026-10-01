@@ -17,7 +17,23 @@
     return (h ? h + ':' : '') + mm + ':' + String(s).padStart(2, '0');
   };
 
+  // The turning arc around a running call's icon: its length is the progress
+  // toward the call's own deadline. Same source of truth as the text timer, so
+  // the two can never disagree.
+  const C = 97.4; // circumference of the r=15.5 ring in viewBox units
+  const MIN_ARC = 9; // keep it visible in the first seconds — must match toolSpinner
+  const arc = () => {
+    document.querySelectorAll('.tool-progress[data-tool-deadline]').forEach((el) => {
+      const started = Number(el.dataset.toolStartedAt);
+      const deadline = Number(el.dataset.toolDeadline);
+      if (!Number.isFinite(started) || !Number.isFinite(deadline) || deadline <= started) return;
+      const done = Math.min(1, Math.max(0, (Date.now() - started) / (deadline - started)));
+      el.setAttribute('stroke-dasharray', Math.max(MIN_ARC, C * done).toFixed(1) + ' ' + C);
+    });
+  };
+
   const tick = () => {
+    arc();
     document.querySelectorAll('.tool-timer[data-tool-started-at]').forEach((el) => {
       const started = Number(el.dataset.toolStartedAt);
       if (!Number.isFinite(started)) return;

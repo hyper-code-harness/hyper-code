@@ -76,9 +76,9 @@ export default function (
             : `<div class="rounded-lg border border-ui-border bg-base-100 px-3 py-2 text-2xs text-faint">No output yet.</div>`;
 
         return `<div class="flex flex-wrap items-center gap-2">`
-            + `<span class="relative flex size-6 shrink-0 items-center justify-center rounded-full border border-info/60 bg-info/10">`
-            + `<span class="absolute -inset-0.5 animate-spin rounded-full border-2 border-transparent border-t-info border-r-info/40" aria-hidden="true"></span>`
-            + `<i class="ph ph-${esc(r.icon)} text-info text-xs" aria-hidden="true"></i></span>`
+            + `<span class="relative flex size-6 shrink-0 items-center justify-center rounded-full bg-info/10 text-info">`
+            + ctx.fns.agent.toolSpinner({ icon: r.icon, startedAt: r.startedAt, timeoutMs: r.timeoutMs, iconClass: "text-xs" })
+            + `</span>`
             + `<span class="text-xs font-semibold">${esc(r.name)}</span>${timer}`
             + `<span class="ml-auto">${stop}</span></div>`
             + (r.subject ? `<div class="mt-2 break-words font-mono text-2xs text-muted">${esc(r.subject)}</div>` : "")

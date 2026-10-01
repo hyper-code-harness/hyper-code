@@ -219,7 +219,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             })
             : '';
         return eventCard({
-            title: `Агент занят: ${String(ev.name ?? 'tool')} идёт ${been}${limit}`,
+            title: `Сообщение принято: ${String(ev.name ?? 'tool')} на тот момент шёл ${been}${limit}`,
             icon: 'hourglass-high',
             tone: 'warning',
             body: `<div class="font-mono text-3xs text-muted">${esc(String(ev.subject ?? ''))}</div>`

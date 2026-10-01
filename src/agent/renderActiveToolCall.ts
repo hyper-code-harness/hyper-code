@@ -40,13 +40,19 @@ export default function (
 
     // A ring that turns on top of the chip's own border, not a second widget
     // beside it: one shape to learn, and the eye follows motion by itself.
-    const ring = `<span class="pointer-events-none absolute -inset-0.5 animate-spin rounded-full border-2 border-transparent border-t-info border-r-info/40" aria-hidden="true"></span>`;
+    // The arc inside it fills toward the call's own timeout, so a glance also
+    // answers "how much of the allowed wait is gone" without opening anything.
+    const chip = ctx.fns.agent.toolSpinner({
+        icon: run.icon,
+        startedAt: run.startedAt,
+        timeoutMs: run.timeoutMs,
+    });
 
     return ctx.fns.ui.popup({
         method: "agent.activeToolDetails",
         params: { agentId: opts.agentId },
-        html: `<i class="ph ph-${esc(run.icon)}" aria-hidden="true"></i>${ring}`,
-        attrs: `class="tool tool-tucked relative shrink-0 rounded-full border border-info/60 bg-info/10 text-info"`
+        html: chip,
+        attrs: `class="tool tool-tucked relative shrink-0 rounded-full border-0 bg-info/10 text-info"`
             + ` data-tool="${esc(run.name)}" data-tool-running="1" data-title="${esc(label)}"`
             + ` title="${esc(title)}" aria-label="${esc(title)}" aria-busy="true"`,
     });

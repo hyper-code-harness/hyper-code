@@ -24,6 +24,7 @@
             this.historyAnchorTop = null;
             this.loadingOlder = false;
             this.ownSwaps = new WeakSet();
+            this.submitting = false;
             this.lastAssistant = this.latestAssistant();
         }
 
@@ -60,11 +61,19 @@
             this.form.addEventListener('drop', event => { event.preventDefault(); this.form.classList.remove('ring-2', 'ring-primary/40'); this.addFiles([...(event.dataTransfer?.files || [])]); }, { signal });
             this.form.addEventListener('submit', event => {
                 if (!this.input.value.trim() && !this.fileInput?.files?.length) return event.preventDefault();
+                if (this.submitting) return event.preventDefault();
+                this.submitting = true;
+                const requestId = this.form.elements.requestId;
+                if (requestId && !requestId.value) requestId.value = crypto.randomUUID();
                 this.shouldStick = true;
             }, { signal });
             this.form.addEventListener('htmx:after:request', event => {
                 const ctx = event.detail?.ctx;
-                if (ctx?.sourceElement !== this.form || !(ctx?.response?.status < 400)) return;
+                if (ctx?.sourceElement !== this.form) return;
+                this.submitting = false;
+                if (!(ctx?.response?.status < 400)) return;
+                const requestId = this.form.elements.requestId;
+                if (requestId) requestId.value = '';
                 this.shouldStick = true;
                 this.scrollBottom();
                 this.renderAttachments();

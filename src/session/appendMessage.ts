@@ -8,8 +8,10 @@ export default async function (
         /** Message to persist or process. */
     message: any;
         /** Ts used by the operation. */
-    ts?: number },
-): Promise<{ idx: number }> {
+    ts?: number;
+        /** Stable client submission id used to make retries idempotent. */
+    clientRequestId?: string },
+): Promise<{ idx: number; duplicate?: boolean }> {
     const { id, message } = opts;
     // Postgres text refuses NUL bytes — scrub at the boundary so one stray \0
     // in a marker result / pasted text can't fail the INSERT and kill a run.
@@ -29,8 +31,9 @@ export default async function (
     for (let attempt = 0; ; attempt++) {
         try {
             const res = await ctx.fns.procs.db.run({
-        sql: `INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author)
-              SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM messages WHERE agent_id = ?
+        sql: `INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author, client_request_id)
+              SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM messages WHERE agent_id = ?
+              ON CONFLICT (agent_id, client_request_id) WHERE client_request_id IS NOT NULL DO NOTHING
               RETURNING idx`,
         params: [
             id,
@@ -46,10 +49,15 @@ export default async function (
             message.excluded_from_llm ? 1 : 0,
             message.excluded_from_cursor ? 1 : 0,
             message.author ?? null,
+            opts.clientRequestId?.trim() || null,
             id,
         ],
             });
             idx = Number((res.rows as any[])?.[0]?.idx ?? -1);
+            if (idx < 0 && opts.clientRequestId?.trim()) {
+                const existing = (await ctx.fns.procs.db.select({ sql: "SELECT idx FROM messages WHERE agent_id = ? AND client_request_id = ?", params: [id, opts.clientRequestId.trim()] }) as any[])[0];
+                if (existing) return { idx: Number(existing.idx), duplicate: true };
+            }
             break;
         } catch (e: any) {
             if (attempt >= 9 || !/duplicate key|messages_pkey/i.test(String(e?.message ?? e))) throw e;

@@ -25,10 +25,12 @@ export default async function (
         if (!agent) return Response.json({ error: "not found" }, { status: 404 });
 
         let text = "";
+        let requestId = req.headers.get("idempotency-key")?.trim() ?? "";
         let files: File[] = [];
         const ct = String(req.headers.get("content-type") ?? "");
         if (ct.startsWith("multipart/form-data") || ct.startsWith("application/x-www-form-urlencoded")) {
             const form = await req.formData();
+            requestId ||= typeof form.get("requestId") === "string" ? String(form.get("requestId")).trim() : "";
             if (form.has("text")) text = typeof form.get("text") === "string" ? String(form.get("text")).trim() : "";
             else {
                 const lines: string[] = [];
@@ -47,7 +49,11 @@ export default async function (
         if (text) content.push({ type: "text", text });
         content.push(...uploads.map(item => item.ref));
         const ts = Date.now();
-        const userAppend = await ctx.fns.session.appendMessage({ id, message: { role: "user", content: uploads.length ? content : text }, ts });
+        const userAppend = await ctx.fns.session.appendMessage({ id, message: { role: "user", content: uploads.length ? content : text }, ts, ...(requestId ? { clientRequestId: requestId } : {}) });
+        if (userAppend.duplicate) {
+            if (req.headers.get("hx-request") === "true") return new Response(null, { status: 204 });
+            return Response.json({ ok: true, duplicate: true, messageIdx: userAppend.idx });
+        }
         if (uploads.length) await ctx.fns.attachments.commitUploads({ agentId: id, messageIdx: userAppend.idx, uploads });
         const event: any = { type: "user", text, attachments: uploads.map(item => item.meta), messageIdx: userAppend.idx, ts };
         // Author before rendering, so the chat shows who wrote it.

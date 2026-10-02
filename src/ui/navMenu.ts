@@ -7,7 +7,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     <div class="flex items-center gap-3 border-b border-ui-border px-4">
       <i class="ph ph-magnifying-glass text-base text-faint" aria-hidden="true"></i>
       <input id="nav-q" name="q" placeholder="Search chats, projects, plugins, people…" autocomplete="off"
-             hx-get="/nav/items" hx-trigger="load, palette-open, nav-refresh from:body, input changed delay:100ms" hx-target="#nav-results"
+             hx-get="/nav/items" hx-trigger="load, palette-open, nav-refresh from:body, input changed delay:250ms" hx-target="#nav-results"
              class="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-base-content outline-none placeholder:text-faint">
       <kbd class="kbd kbd-xs">esc</kbd>
     </div>

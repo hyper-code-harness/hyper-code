@@ -12,21 +12,15 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const multi = users.length > 1 && !!me;
     const scope = new Bun.CookieMap(opts.req.headers.get("cookie") ?? "").get("hyper_nav_scope") === "all" ? "all" : "mine";
     const agents = await ctx.fns.nav.agents({ q, limit: q ? 40 : 500, ...(multi && scope === "mine" ? { owner: me } : {}) }).catch(() => [] as any[]);
-    const [items, sharedAgents, pinnedIds, hotRows] = await Promise.all([
+    const [items, sharedAgents, pinnedIds] = await Promise.all([
         ctx.fns.nav.items({ q, limit: q ? 40 : 500, includeAgents: false }),
         ctx.fns.sharedAgent.list({ query: q }),
         ctx.fns.auth.pinnedIds({}),
-        ctx.fns.procs.db.select({
-            sql: `SELECT a.id FROM kv h JOIN agents a ON a.id = substring(h.key FROM 5) WHERE h.key LIKE 'hot:%' AND a.archived_at IS NULL ORDER BY h.value::bigint DESC LIMIT 10`,
-            params: [],
-        }),
     ]);
     const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const visibleAgents = agents;
     const names = new Map(users.map((u: any) => [u.id, u.name]));
-    const childrenByParent = new Map<string, any[]>();
     const agentByHref = new Map(agents.map((agent: any) => [`/agent/${encodeURIComponent(agent.id)}`, agent]));
-    const hotAgents = (hotRows as any[]).map((row: any) => agents.find((agent: any) => String(agent.id) === String(row.id))).filter(Boolean);
     const scopeToggle = () => {
         const btn = (value: string, label: string) => `<button type="button" onclick="document.cookie='hyper_nav_scope=${value};path=/;max-age=31536000;samesite=lax';htmx.trigger(document.body,'nav-refresh')" class="flex-1 rounded px-2 py-1 text-3xs ${scope === value ? "bg-base-100 font-semibold text-base-content shadow-sm" : "text-faint hover:text-muted"}" aria-pressed="${scope === value}">${label}</button>`;
         return `<div class="mb-2 flex gap-1 rounded-lg bg-base-200 p-0.5" role="group" aria-label="Show chats">${btn("mine", "Mine")}${btn("all", "All")}</div>`;
@@ -76,22 +70,10 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         list.push(agent);
         agentGroups.set(key, list);
     }
-    const agentRow = (agent: any, nested = false) => row({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: nested ? "subagent" : "agent" });
-    const quickAgentRow = (agent: any) => {
-        const active = agent.runState !== "idle";
-        const badge = Number(agent.unread ?? 0) > 0
-            ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-success px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
-            : "";
-        return `<a href="/agent/${encodeURIComponent(agent.id)}" class="nav-row flex min-h-7 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}<span class="min-w-0 flex-1 truncate text-xs text-muted">${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>${badge}</a>`;
-    };
+    const agentRow = (agent: any) => row({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: "agent" });
     const pinnedAgents = visibleAgents.filter((agent: any) => pinnedIds.has(String(agent.id)));
-    const unreadAgents = visibleAgents.filter((agent: any) => !pinnedIds.has(String(agent.id)) && Number(agent.unread ?? 0) > 0);
-    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-warning">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${unreadAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-success">Unread</h4>${unreadAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}${[...agentGroups.entries()].map(([dir, list]) => `<section class="mb-2">
-  ${dir === "(no workdir)"
-      ? `<h4 class="mb-0.5 px-1.5 text-3xs font-semibold text-faint">${dir}</h4>`
-      : `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row mb-0.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-semibold text-subtle hover:bg-base-200"><i class="ph ph-folder-open"></i><span class="truncate">${esc(workspaceLabel(dir))}</span></a>`}
-  ${list.map((parent: any) => `${agentRow(parent)}${(childrenByParent.get(String(parent.id)) ?? []).map((child: any) => `<div class="ml-5 border-l border-ui-border pl-1">${agentRow(child, true)}</div>`).join("")}`).join("")}
-</section>`).join("")}`;
+    const recentAgents = visibleAgents.filter((agent: any) => !pinnedIds.has(String(agent.id))).slice(0, 30);
+    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-warning">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-faint">Recent</h4>${recentAgents.map(agent => agentRow(agent)).join("")}</section>`;
     const projects = () => {
         const folders = [...agentGroups.entries()].filter(([dir]) => dir !== "(no workdir)");
         return folders.map(([dir, list]) => `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row flex min-h-8 items-center gap-2 rounded px-2 py-1 text-sm outline-none hover:bg-base-200/60">
@@ -107,8 +89,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         const agentItems = agents.map((agent: any) => ({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: "agent", group: "Chats" }));
         html = `<div class="p-2">${sharedAgentRows()}${[...agentItems, ...items].map(row).join("")}</div>`;
     } else {
-        const newAgent = `<a href="/agent/new" class="nav-row mb-1 flex min-h-10 items-center gap-2 rounded-lg border border-ui-border bg-base-100/35 px-3 py-2 text-left text-base-content shadow-sm outline-none transition hover:border-ui-border-strong hover:bg-base-100/60 hover:text-primary"><i class="ph ph-plus-circle shrink-0 text-lg text-primary" aria-hidden="true"></i><span class="min-w-0 flex-1 text-xs">New agent</span></a>`;
-        const quick = `<section class="mb-3 border-b border-ui-border pb-2">${newAgent}${hotAgents.map((agent: any) => quickAgentRow(agent)).join("")}</section>`;
+        const newAgent = `<a href="/agent/new" data-nav-default class="nav-row mb-1 flex min-h-10 items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-2 text-left text-primary shadow-sm outline-none transition hover:bg-primary/15 focus:bg-primary/15"><i class="ph ph-plus-circle shrink-0 text-lg" aria-hidden="true"></i><span class="min-w-0 flex-1 text-xs font-medium">New agent</span></a>`;
+        const quick = `<section class="mb-3 border-b border-ui-border pb-2">${newAgent}</section>`;
         const columns = [
             { title: "Chats", content: `${multi ? scopeToggle() : ""}${quick}${chats()}` },
             { title: "Shared Agents", content: `${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },

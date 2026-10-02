@@ -37,7 +37,7 @@ async function connected(ctx: Context) {
 }
 
 /**
- * WRITE: send a file (as document) to a chat. ctx.fns.telegram.sendFile({ chat, path, caption? })
+ * WRITE: send a file to a chat — as a document, or as an inline photo with asPhoto: true. ctx.fns.telegram.sendFile({ chat, path, caption?, asPhoto? })
  *   chat: chat id (string/number) or @username; path: local file path.
  * → { id, date }
  */
@@ -56,6 +56,9 @@ export default async function (ctx: Context, session: Session | null, opts: {
         path: string;
         /** Optional file caption. */
         caption?: string;
+        /** Send an image as a Telegram photo (inline preview) instead of a document attachment.
+         * @default false */
+        asPhoto?: boolean;
         /** Whether the caller confirmed the write operation. */
         confirm?: boolean;
     }) {
@@ -66,7 +69,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const result: any = await client.sendFile(String(opts.chat), {
         file: opts.path,
         caption: opts.caption || "",
-        forceDocument: true,
+        forceDocument: !opts.asPhoto,
     });
     return { id: result.id, date: new Date(result.date * 1000).toISOString() };
 }

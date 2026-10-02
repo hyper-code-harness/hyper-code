@@ -49,7 +49,7 @@ export default async function (
     const revision = Math.max(0, ...(sleep?.generations ?? []).map((g: any) => Number(g.revision ?? 0))) + 1;
     const createdAt = Date.now();
     const draftOwner = ((ctx.state as any).compactionOwner ??= crypto.randomUUID());
-    const child = await ctx.fns.agent.start({ model: parent.model, systemPrompt: parent.systemPrompt, title: (parent.title || parent.id) + " · compact", workspaceDir: parent.workspaceDir, workspaceHost: parent.workspaceHost, parentId: parent.id, forkOffset: 0 });
+    const child = await ctx.fns.agent.start({ model: parent.model, systemPrompt: parent.systemPrompt, title: (parent.title || parent.id) + " · compact", workspaceDir: parent.workspaceDir, workspaceHost: parent.workspaceHost, parentId: parent.id, forkOffset: 0, visibility: "hidden" });
     child.scratchpad = { compaction: { sourceAgentId: parent.id, revision, status: "draft" } };
     await ctx.fns.session.updateScratchpad({ id: child.id, scratchpad: child.scratchpad });
     const generation: any = { revision, kind: "compaction", status: "draft", contextAgentId: child.id, sourceAgentId: parent.id, sourceOffset: sourceFrontier, sourceFrontier, tailStart, summary: "", ...(opts.instructions?.trim() ? { instructions: opts.instructions.trim() } : {}), tokensBefore, tokensAfter: 0, model: parent.model, createdAt };

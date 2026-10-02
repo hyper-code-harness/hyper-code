@@ -4,11 +4,12 @@
  * Lists navigation destinations for declared apps, plugins, and agent chats.
  * @param opts.q Optional case-insensitive filter applied to labels, URLs, and hints.
  * @param opts.limit Maximum number of navigation items to return.
+ * @param opts.includeAgents Whether to include agent chat destinations; disable when the caller loads scoped agent rows separately.
  */
 export default async function (
     ctx: Context,
     _session: Session | null,
-    opts: { q?: string; limit?: number },
+    opts: { q?: string; limit?: number; includeAgents?: boolean },
 ): Promise<types.nav.Item[]> {
     const q = (opts.q ?? "").trim().toLowerCase();
     const limit = opts.limit ?? 20;
@@ -51,7 +52,7 @@ export default async function (
             icon: "ph-plugs", group: "Plugins",
         }));
 
-    const agents = (await ctx.fns.session.list({}).catch(() => [])).map((agent: any): types.nav.Item => ({
+    const agents = opts.includeAgents === false ? [] : (await ctx.fns.nav.agents({ q, limit })).map((agent: any): types.nav.Item => ({
         label: `${agent.id} · ${String(agent.title ?? "").slice(0, 60)}`,
         href: `/agent/${encodeURIComponent(agent.id)}`,
         hint: `agent · ${agent.model} · ${agent.turns} turns`,

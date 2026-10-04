@@ -1,0 +1,11 @@
+{
+  "name": "telemetry",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Telemetry",
+    "icon": "ph-pulse",
+    "description": "Paged NDJSON span storage with parquet compaction, DuckDB queries and a performance dashboard over the built-in tracer."
+  }
+}

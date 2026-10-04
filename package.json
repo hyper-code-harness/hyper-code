@@ -57,6 +57,7 @@
       "auth": {},
       "controlPlane": {},
       "procs/repl": {},
+      "telemetry": {},
       "external": {},
       "agent": {},
       "cron": {},
@@ -130,6 +131,9 @@
       },
       "hyperlet": {
         "path": "plugins/hyperlet"
+      },
+      "telemetry": {
+        "path": "plugins/telemetry"
       }
     }
   }

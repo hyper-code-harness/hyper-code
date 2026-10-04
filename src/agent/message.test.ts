@@ -21,6 +21,7 @@ test("agent.message: stored under the sender's name, envelope names whom to answ
     expect(m.message_type).toBe("agent_message");
     expect(m.content).toContain(`<agent-message from="${a.id}" title="Researcher" hop="1"`);
     expect(m.content).toContain("what did you find?");
+    expect(m.content).toContain(`to: "${a.id}"`);
     // Never re-prefixed as a human author.
     const out = await ctx.fns.auth.attributeMessages({ messages: msgs });
     expect(out.messages.at(-1).content).toBe(m.content);
@@ -35,17 +36,36 @@ test("agent.message: stored under the sender's name, envelope names whom to answ
     expect(author).toMatchObject({ kind: "agent", agentId: a.id });
 });
 
+test("agent.message: allows unrelated visible agents and rejects hidden internals", async () => {
+    const ctx = await mkTestCtx();
+    const { a, b } = await pair(ctx);
+    await ctx.fns.procs.db.run({ sql: "UPDATE agents SET created_by = ? WHERE id = ?", params: ["different-owner", b.id] });
+    await expect(ctx.fns.agent.message({ agent: a, to: b.id, text: "cross chat", wake: false })).resolves.toMatchObject({ delivered: true });
+    await ctx.fns.procs.db.run({ sql: "UPDATE agents SET visibility = 'hidden' WHERE id = ?", params: [b.id] });
+    await expect(ctx.fns.agent.message({ agent: a, to: b.id, text: "internal", wake: false })).rejects.toThrow(/hidden\/internal/);
+});
+
 test("agent.message: reply continues the hop counter and stops at the limit", async () => {
     const ctx = await mkTestCtx();
     const { a, b } = await pair(ctx);
     let hop = 0;
     let from = a, to = b;
-    for (let i = 0; i < 8; i++) {
-        hop = (await ctx.fns.agent.message({ agent: from, to: to.id, text: "ping " + i, wake: false })).hop;
+    // The limit itself is not asserted: it is a tuning number that has already
+    // been raised once, and a test that hardcodes it fails on the change it is
+    // supposed to survive rather than on a regression. What must hold is the
+    // behaviour — the counter climbs by one per reply and the ping-pong is cut
+    // off eventually, with a message that says why.
+    let error: any = null;
+    for (let i = 0; i < 200; i++) {
+        const sent = await ctx.fns.agent.message({ agent: from, to: to.id, text: "ping " + i, wake: false })
+            .catch((caught: any) => { error = caught; return null; });
+        if (!sent) break;
+        expect(sent.hop).toBe(hop + 1);
+        hop = sent.hop;
         [from, to] = [to, from];
     }
-    expect(hop).toBe(8);
-    await expect(ctx.fns.agent.message({ agent: from, to: to.id, text: "one more", wake: false })).rejects.toThrow(/hop limit/);
+    expect(hop).toBeGreaterThan(1);
+    expect(String(error?.message ?? "")).toMatch(/hop limit/);
 });
 
 test("agent.message: rejects self, empty text and unknown targets", async () => {

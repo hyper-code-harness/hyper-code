@@ -5,10 +5,9 @@
  * message_type `agent_message`, wrapped in an `<agent-message from=... hop=...>` envelope so the
  * receiving model knows who wrote it and whom to answer (with agent.message back to `from`).
  * The UI shows it as a separate bubble with the sender agent's name and a link to it.
- * Allowed targets: the sender's parent or direct children, agents of the same owner, and
- * published shared agents. A hop counter (reply chain length) and a per-pair rate limit stop
- * ping-pong loops between agents. Use for agent-to-agent conversation; use agent.delegate for
- * new sub-tasks and agent.steer for structured team progress.
+ * Any active non-hidden agent may be addressed directly by id. A hop counter
+ * and a per-pair rate limit stop ping-pong loops. Use agent.search to resolve
+ * names to ids, agent.delegate for new sub-tasks and agent.steer for team progress.
  * @param opts.agent Sending agent (its id becomes the author).
  * @param opts.to Target agent id.
  * @param opts.text Message body; must be non-empty.
@@ -28,7 +27,7 @@ export default async function (
         wake?: boolean;
     },
 ): Promise<{ delivered: true; to: string; messageIdx: number; hop: number }> {
-    const MAX_HOPS = 8;
+    const MAX_HOPS = 50;
     const MAX_PER_10_MIN = 30;
     const sender = opts.agent;
     const to = String(opts.to ?? "").trim();
@@ -38,22 +37,13 @@ export default async function (
     if (to === sender.id) throw new Error("agent.message: cannot message yourself");
 
     const rows = (await ctx.fns.procs.db.select({
-        sql: "SELECT id, title, parent_id, created_by FROM agents WHERE id IN (?, ?) AND archived_at IS NULL",
+        sql: "SELECT id, title, parent_id, created_by, visibility FROM agents WHERE id IN (?, ?) AND archived_at IS NULL",
         params: [sender.id, to],
     })) as any[];
     const target = rows.find((r) => r.id === to);
     const from = rows.find((r) => r.id === sender.id);
     if (!target) throw new Error("agent.message: target agent not found or archived: " + to);
-
-    // Who may write where: family (parent/child), same owner, or a published shared agent.
-    const family = String(target.parent_id ?? "") === sender.id || String(sender.parentId ?? from?.parent_id ?? "") === to;
-    const owner = from?.created_by ?? sender.createdBy ?? null;
-    // Chats created before users existed (created_by NULL) belong to the single/first owner.
-    const sameOwner = String(target.created_by ?? "") === String(owner ?? "");
-    const published = !family && !sameOwner
-        ? ((await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM kv WHERE key = ?", params: ["shared-agent:" + to] })) as any[]).length > 0
-        : false;
-    if (!family && !sameOwner && !published) throw new Error("agent.message: not allowed to message agent " + to + " (not family, not same owner, not published)");
+    if (target.visibility === "hidden") throw new Error("agent.message: target agent is hidden/internal: " + to);
 
     // Hop = length of the agent-to-agent reply chain. If the sender is currently answering an
     // agent message, continue its counter; a human turn resets it.
@@ -72,11 +62,12 @@ export default async function (
     })) as any[];
     if (Number(recent[0]?.n ?? 0) >= MAX_PER_10_MIN) throw new Error("agent.message: rate limit — too many messages to " + to + " in 10 minutes");
 
+    const owner = from?.created_by ?? sender.createdBy ?? null;
     const title = String(sender.title ?? from?.title ?? "").replace(/["<>\n]/g, " ").slice(0, 80);
     const onBehalfOf = owner ? String(owner) : null;
     const ownerName = onBehalfOf ? (await ctx.fns.auth.getUser({ id: onBehalfOf }).catch(() => null) as any)?.name ?? onBehalfOf : null;
     const attrs = `from="${sender.id}" title="${title}" hop="${hop}"` + (ownerName ? ` on-behalf-of="${String(ownerName).replace(/["<>\n]/g, " ")}"` : "");
-    const content = `<agent-message ${attrs}>\n${text}\n</agent-message>`;
+    const content = `<agent-message ${attrs}>\n${text}\n\n<reply-guidance>If a reply is requested or useful, answer the sender with await ctx.fns.agent.message({ agent, to: "${sender.id}", text: "..." }). Do not answer only in your own chat because the sender will not receive it.</reply-guidance>\n</agent-message>`;
 
     const out = await ctx.fns.session.appendUserMessage({
         id: to,

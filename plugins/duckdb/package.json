@@ -7,6 +7,9 @@
     "label": "DuckDB",
     "icon": "ph-database",
     "optional": true,
-    "description": "Query NDJSON/JSON/CSV/Parquet and local DuckDB databases with SQL using the DuckDB CLI."
+    "description": "In-process DuckDB: SQL over NDJSON/JSON/CSV/Parquet, local DuckDB files and the project Postgres, with Markdown tables and charts."
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.5.6-r.1"
   }
 }

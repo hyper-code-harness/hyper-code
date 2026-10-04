@@ -38,6 +38,18 @@ A spec may use inline `data: { values: [...] }`, or `data: { url: "reports/sales
 - CSV, TSV, JSON and NDJSON are inferred from the extension; `format: { type }` overrides.
 - `GET /vegalite/data?path=reports/sales.csv` serves one file for the browser side, `&rows=1` returns parsed rows as JSON, `&limit=N` caps them. Same confinement, same size cap.
 
+### SQL data
+
+With the **duckdb** plugin mounted and `vegalite.allowSqlData` on, a spec may say `data: { sql: "SELECT ..." }` — the query runs read-only through DuckDB and its rows are inlined like any other source. That covers a chart straight from a Parquet file or from the attached Postgres (`duckdb.pg({})`), without a staging file:
+
+```json
+{ "data": { "sql": "SELECT level, count(*) AS n FROM read_ndjson_auto('log.ndjson') GROUP BY 1" },
+  "mark": "bar",
+  "encoding": { "x": {"field": "level", "type": "nominal"}, "y": {"field": "n", "type": "quantitative"} } }
+```
+
+It is off by default because DuckDB reads any file this server can, which deliberately escapes the data root. `duckdb.chart({ sql, x, y })` does the same thing from the other side and writes the spec for you.
+
 ## Settings
 
 | setting | default | meaning |
@@ -45,5 +57,6 @@ A spec may use inline `data: { values: [...] }`, or `data: { url: "reports/sales
 | `vegalite.dataRoot` | project root | the only tree charts and the data route may read |
 | `vegalite.allowRemoteData` | `false` | let specs fetch `https://` data; off means a remote url is an error |
 | `vegalite.maxDataBytes` | 8 MiB | largest data file a chart may read |
+| `vegalite.allowSqlData` | `false` | let specs use `data: { sql }` through the duckdb plugin |
 
 Turning `allowRemoteData` on makes any rendered fence able to reach whatever the spec names, from this machine. Leave it off unless charts come from a source you control.

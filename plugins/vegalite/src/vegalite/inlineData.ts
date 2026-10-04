@@ -1,13 +1,17 @@
 /**
- * Replaces every `data: { url }` in a Vega-Lite spec with the rows it points at.
+ * Replaces every `data: { url }` or `data: { sql }` in a Vega-Lite spec with the rows it points at.
  *
  * Rendering resolves data itself instead of letting Vega's loader do it, so a
  * spec that arrives in a Markdown fence cannot turn a page view into a request
  * from this server: local urls are confined to the data root, and an http(s)
- * url is refused unless `vegalite.allowRemoteData` is on. Walks the whole spec,
- * so layers, facets, concats and `lookup` transforms are covered too. Use when
- * compiling a spec by hand; vegalite.render calls it already.
+ * url is refused unless `vegalite.allowRemoteData` is on. A `sql` string is run
+ * read-only through the duckdb plugin, which is refused unless
+ * `vegalite.allowSqlData` is on because DuckDB reads outside the data root.
+ * Walks the whole spec, so layers, facets, concats and `lookup` transforms are
+ * covered too. Use when compiling a spec by hand; vegalite.render calls it
+ * already.
  * @param opts.spec Vega-Lite spec, parsed. Not mutated.
+ * @returns The spec with every remote reference replaced by inline rows, and one source entry per reference — a `sql:` prefix marks a query.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Vega-Lite spec, parsed. Not mutated. */
@@ -15,6 +19,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }): Promise<{ spec: Record<string, unknown>; sources: { url: string; rows: number; bytes: number; remote: boolean }[] }> {
     const allowRemote = (await ctx.fns.settings.get({ module: "vegalite", scopeType: "global", key: "allowRemoteData" })) === true;
     const sources: { url: string; rows: number; bytes: number; remote: boolean }[] = [];
+
+    const loadSql = async (sql: string) => {
+        const allowSql = (await ctx.fns.settings.get({ module: "vegalite", scopeType: "global", key: "allowSqlData" })) === true;
+        if (!allowSql) throw new Error("vegalite: data.sql is disabled, refusing to run a query (enable vegalite.allowSqlData to allow it)");
+        if (!(ctx.fns as any).duckdb) throw new Error("vegalite: data.sql needs the duckdb plugin, which is not mounted");
+        const result = await ctx.fns.duckdb.query({ sql, maxRows: 50_000 });
+        return { rows: result.rows, bytes: sql.length };
+    };
 
     const loadRemote = async (url: string, formatType?: string) => {
         if (!allowRemote) throw new Error(`vegalite: remote data is disabled, refusing to fetch ${url} (enable vegalite.allowRemoteData to allow it)`);
@@ -32,6 +44,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (Array.isArray(node)) return await Promise.all(node.map(walk));
         if (!node || typeof node !== "object") return node;
         const record = node as Record<string, unknown>;
+
+        if (typeof record.sql === "string" && typeof record.url !== "string") {
+            const sql = record.sql;
+            const loaded = await loadSql(sql);
+            sources.push({ url: `sql:${sql.replace(/\s+/g, " ").trim()}`, rows: loaded.rows.length, bytes: loaded.bytes, remote: false });
+            const { sql: _sql, format: _sqlFormat, ...rest } = record;
+            return { ...rest, values: loaded.rows };
+        }
 
         if (typeof record.url === "string") {
             const url = record.url;

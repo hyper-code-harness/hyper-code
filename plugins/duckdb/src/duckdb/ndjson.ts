@@ -1,14 +1,25 @@
 /**
- * Builds and runs an explicit SQL query over an NDJSON or JSONL file.
+ * Builds and runs a query over a local NDJSON, JSON, CSV, TSV or Parquet file.
  *
- * SQL fragments are intentionally passed through as DuckDB expressions; the
- * source path and numeric bounds are handled safely by the plugin.
+ * The no-SQL-assembly path for routine log and table analysis: name the file
+ * and the parts — a filter, a projection, grouping, ordering — and get the rows
+ * plus the SQL that produced them, which is the starting point for a hand-
+ * written `duckdb.query` when the question grows. SQL fragments are passed to
+ * DuckDB as written, so they may use any DuckDB expression.
+ * @param opts.path Source file: NDJSON, JSONL, JSON, CSV, TSV or Parquet.
+ * @param opts.select SQL SELECT expression list. @default *
+ * @param opts.where SQL predicate without the `WHERE` keyword.
+ * @param opts.groupBy SQL grouping expressions without the `GROUP BY` keywords.
+ * @param opts.orderBy SQL ordering expressions without the `ORDER BY` keywords.
+ * @param opts.limit SQL LIMIT. @default 100 @minimum 1 @maximum 100000
+ * @param opts.timeout Seconds before the query is interrupted. @default 30 @minimum 1 @maximum 300
+ * @returns The generated SQL, the rows, the row count and whether they were truncated.
  */
 export default async function (
     ctx: Context,
     _session: Session | null,
     opts: {
-        /** NDJSON or JSONL source file. */
+        /** Source file: NDJSON, JSONL, JSON, CSV, TSV or Parquet. */
         path: string;
         /** SQL SELECT expression list. @default * */
         select?: string;
@@ -18,17 +29,14 @@ export default async function (
         groupBy?: string;
         /** SQL ordering expressions without the `ORDER BY` keywords. */
         orderBy?: string;
-        /** SQL LIMIT, clamped to 1–10,000. @default 100 @minimum 1 @maximum 10000 */
+        /** SQL LIMIT. @default 100 @minimum 1 @maximum 100000 */
         limit?: number;
-        /** Maximum returned rows, clamped to 1–10,000. Defaults to `limit`. @minimum 1 @maximum 10000 */
-        maxRows?: number;
-        /** DuckDB process timeout in seconds. @default 30 @minimum 1 @maximum 300 */
+        /** Seconds before the query is interrupted. @default 30 @minimum 1 @maximum 300 */
         timeout?: number;
     },
 ): Promise<{ sql: string; rows: any[]; rowCount: number; truncated: boolean }> {
     const source = ctx.fns.duckdb.source({ path: opts.path });
-    if (source.format !== "ndjson") throw new Error("duckdb.ndjson: path must be .ndjson or .jsonl");
-    const limit = Math.max(1, Math.min(Number(opts.limit ?? 100), 10_000));
+    const limit = Math.max(1, Math.min(Number(opts.limit ?? 100), 100_000));
     const sql = [
         `SELECT ${String(opts.select || "*")} FROM ${source.table}`,
         opts.where ? `WHERE ${opts.where}` : "",
@@ -36,5 +44,5 @@ export default async function (
         opts.orderBy ? `ORDER BY ${opts.orderBy}` : "",
         `LIMIT ${limit}`,
     ].filter(Boolean).join("\n");
-    return { sql, ...(await ctx.fns.duckdb.query({ sql, maxRows: opts.maxRows ?? limit, timeout: opts.timeout })) };
+    return { sql, ...(await ctx.fns.duckdb.query({ sql, maxRows: limit, timeout: opts.timeout })) };
 }

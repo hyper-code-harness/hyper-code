@@ -129,6 +129,33 @@ describe("data confinement", () => {
             .rejects.toThrow(/remote data is disabled/);
     });
 
+    test("data.sql is refused while allowSqlData is off", async () => {
+        await expect(inlineData(makeCtx(), null, { spec: { data: { sql: "SELECT 1" } } }))
+            .rejects.toThrow(/data.sql is disabled/);
+    });
+
+    test("data.sql runs through duckdb and is inlined as rows", async () => {
+        const ctx = makeCtx({ allowSqlData: true });
+        let asked = "";
+        (ctx.fns as any).duckdb = {
+            query: async (opts: any) => {
+                asked = opts.sql;
+                return { rows: [{ month: "Jan", sales: 120 }], rowCount: 1, truncated: false };
+            },
+        };
+        const result = await inlineData(ctx, null, { spec: { data: { sql: "SELECT month, sales FROM t" }, mark: "bar" } });
+        expect(asked).toBe("SELECT month, sales FROM t");
+        expect((result.spec.data as any).values).toEqual([{ month: "Jan", sales: 120 }]);
+        expect((result.spec.data as any).sql).toBeUndefined();
+        expect(result.sources[0]!.url).toBe("sql:SELECT month, sales FROM t");
+    });
+
+    test("data.sql without the duckdb plugin says so", async () => {
+        await expect(inlineData(makeCtx({ allowSqlData: true }), null, { spec: { data: { sql: "SELECT 1" } } }))
+            .rejects.toThrow(/needs the duckdb plugin/);
+    });
+
+
     test("a file over the size cap is refused by size, not truncated", async () => {
         const ctx = makeCtx({ maxDataBytes: 10 });
         await expect(readData(ctx, null, { path: "sales.csv" })).rejects.toThrow(/too large/);

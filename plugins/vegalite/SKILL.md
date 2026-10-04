@@ -1,0 +1,49 @@
+---
+name: vegalite
+description: "Render Vega-Lite charts to static inline SVG. Use when an answer, a document or a page needs a real chart from data — write a ```vega-lite fence with a JSON spec, or call vegalite.render. Data may be inline values or a local CSV/JSON/NDJSON file under the data root. For diagrams of boxes and arrows use mermaid or reladraw instead."
+---
+
+# vegalite
+
+Compiles a Vega-Lite spec with `vega-lite`, renders it headlessly with `vega`, and returns an SVG. Static by design: no JavaScript reaches the page, so a chart works in chat, in saved HTML and in a document that is read offline. Tooltips, zoom and selections are not rendered.
+
+## Use
+
+In Markdown — the fence renders inline, and a spec that fails to compile stays visible as code:
+
+````markdown
+```vega-lite width=520 height=220
+{
+  "data": { "values": [{"m": "Jan", "sales": 120}, {"m": "Feb", "sales": 180}] },
+  "mark": "bar",
+  "encoding": { "x": {"field": "m", "type": "nominal"}, "y": {"field": "sales", "type": "quantitative"} }
+}
+```
+````
+
+The fence info string takes `width=`, `height=` and `theme=off`.
+
+From code:
+
+- `vegalite.render({ spec, width?, height?, theme? })` → `{ html, svg, sources, warnings }`. `spec` is an object or a JSON string; `sources` lists the data files it read.
+- `vegalite.readData({ path, format?, limit? })` → parsed rows of a local CSV/TSV/JSON/NDJSON file; the one way to see what a spec's `url` will actually get.
+- `vegalite.resolveDataPath({ path })` → the absolute path, or a throw if it leaves the data root.
+- `vegalite.theme({})` → the Vega config with the host font and palette, if you compile a spec yourself.
+
+## Data
+
+A spec may use inline `data: { values: [...] }`, or `data: { url: "reports/sales.csv" }`. Urls are resolved **before** rendering: every file is read, parsed and inlined, so Vega's own loader never runs and a displayed chart cannot make this server issue a request.
+
+- Relative urls resolve under the **data root** (`vegalite.dataRoot`, empty = project root) and may not escape it. `../`, absolute paths outside it and non-file schemes are refused with the path named.
+- CSV, TSV, JSON and NDJSON are inferred from the extension; `format: { type }` overrides.
+- `GET /vegalite/data?path=reports/sales.csv` serves one file for the browser side, `&rows=1` returns parsed rows as JSON, `&limit=N` caps them. Same confinement, same size cap.
+
+## Settings
+
+| setting | default | meaning |
+|---|---|---|
+| `vegalite.dataRoot` | project root | the only tree charts and the data route may read |
+| `vegalite.allowRemoteData` | `false` | let specs fetch `https://` data; off means a remote url is an error |
+| `vegalite.maxDataBytes` | 8 MiB | largest data file a chart may read |
+
+Turning `allowRemoteData` on makes any rendered fence able to reach whatever the spec names, from this machine. Leave it off unless charts come from a source you control.

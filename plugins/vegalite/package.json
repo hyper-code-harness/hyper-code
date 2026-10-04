@@ -1,0 +1,16 @@
+{
+  "name": "vegalite",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Vega-Lite",
+    "icon": "ph-chart-bar",
+    "optional": true,
+    "description": "Vega-Lite charts: render specs to static inline SVG, show ```vega-lite fences in Markdown, and serve local CSV/JSON/NDJSON data files to specs."
+  },
+  "dependencies": {
+    "vega": "^6.1.2",
+    "vega-lite": "^6.4.3"
+  }
+}

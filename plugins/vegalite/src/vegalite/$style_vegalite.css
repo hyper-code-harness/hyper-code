@@ -1,0 +1,6 @@
+/* Layout for inline Vega-Lite charts rendered by vegalite.render. Mounted with
+ * the plugin and linked by the host layout; turn the plugin off and it goes too.
+ * The SVG keeps its intrinsic size as attributes and is scaled down here, so a
+ * chart never widens a chat column but still renders at full size when it fits. */
+.vegalite-chart { display: block; width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; }
+.vegalite-chart svg { display: block; max-width: 100%; height: auto; }

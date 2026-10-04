@@ -4,10 +4,8 @@
 /**
  * Collect the recorded quota of every subscription credential.
  *
- * Returns the worst of the two rolling windows per credential — a 12% weekly
- * number is meaningless while the 5-hour one sits at 96% — together with the
- * number of agents parked on it. Reads only stored snapshots; never calls a
- * provider.
+ * Returns the worst of the two rolling windows per credential. Reads only the
+ * small stored snapshot set; it never scans agents and never calls a provider.
  *
  * @param opts.now Current time in ms, for testing.
  */
@@ -41,28 +39,6 @@ export default async function (
         params: [],
     })) as any[];
 
-    const agents = (await ctx.fns.procs.db.select({
-        sql: "SELECT model, scratchpad FROM agents WHERE archived_at IS NULL AND model IS NOT NULL",
-        params: [],
-    })) as any[];
-    const parkedCount = new Map<string, number>();
-    // Every subscription credential an agent actually uses deserves a place in
-    // the indicator from the start. Waiting for the first recorded snapshot
-    // means the panel is empty exactly when nothing has run yet — and stays
-    // empty forever for a provider that reports no numbers at all.
-    const seen = new Map<string, { provider: string; account: string; model: string }>();
-    for (const row of agents) {
-        const model = String(row.model ?? "");
-        const parsed = splitModel(model);
-        const kind = SUBSCRIPTION.has(parsed.provider);
-        if (kind) seen.set(`${parsed.provider}:${parsed.account}`, { ...parsed, model });
-        let parked: any = null;
-        try { parked = JSON.parse(String(row.scratchpad ?? "{}"))?.parked ?? null; } catch { parked = null; }
-        if (!parked?.provider) continue;
-        const key = `${parked.provider}:${parked.account ?? "default"}`;
-        parkedCount.set(key, (parkedCount.get(key) ?? 0) + 1);
-    }
-
     const out = [];
     for (const row of rows) {
         let snapshot: types.llm.UsageSnapshot | null = null;
@@ -81,58 +57,20 @@ export default async function (
 
         const usedPercent = worst ? worst.usedPercent : null;
         const account = snapshot.account ?? "default";
-        seen.delete(`${snapshot.provider}:${account}`);
         out.push({
             provider: snapshot.provider,
             account,
             label: account === "default" ? snapshot.provider : `${snapshot.provider} · ${account}`,
-            model: modelOf(snapshot.provider, account, agents),
+            model: `${snapshot.provider}${account === "default" ? "" : `/${account}`}:`,
             usedPercent,
             resetsAt: worst?.resetsAt ?? null,
             planType: snapshot.planType ?? null,
             resetCredits: snapshot.resetCredits ?? null,
-            parkedAgents: parkedCount.get(`${snapshot.provider}:${account}`) ?? 0,
+            parkedAgents: 0,
             tone: usedPercent == null ? "neutral" : usedPercent >= alertAt ? "error" : usedPercent >= warnAt ? "warning" : "neutral",
             updatedAt: Number(snapshot.updatedAt ?? 0),
         } as const);
     }
 
-    // Credentials in use but not yet measured: shown with an empty ring, so the
-    // indicator is never a blank space with no explanation.
-    for (const [key, info] of seen) {
-        out.push({
-            provider: info.provider,
-            account: info.account,
-            label: info.account === "default" ? info.provider : `${info.provider} · ${info.account}`,
-            model: info.model,
-            usedPercent: null,
-            resetsAt: null,
-            planType: null,
-            resetCredits: null,
-            parkedAgents: parkedCount.get(key) ?? 0,
-            tone: "neutral",
-            updatedAt: 0,
-        } as const);
-    }
-
     return out.sort((a, b) => (b.usedPercent ?? -1) - (a.usedPercent ?? -1));
-}
-
-// Which providers own a quota at all. Pay-per-token keys have a balance, not a
-// remaining percentage, and local models have neither.
-const SUBSCRIPTION = new Set(["codex", "claude-code", "anthropic-oauth", "kimi-coding", "xai", "hyper"]);
-
-function splitModel(model: string): { provider: string; account: string } {
-    const m = /^([a-z][\w\-]*)(?:\/([\w\-.]+))?:/.exec(model);
-    return { provider: m ? m[1]! : "lmstudio", account: m?.[2] ?? "default" };
-}
-
-// The ring shows a provider mark, and the mark is derived from a model string.
-function modelOf(provider: string, account: string, agents: any[]): string {
-    for (const row of agents) {
-        const model = String(row.model ?? "");
-        const parsed = splitModel(model);
-        if (parsed.provider === provider && parsed.account === account) return model;
-    }
-    return `${provider}${account === "default" ? "" : `/${account}`}:`;
 }

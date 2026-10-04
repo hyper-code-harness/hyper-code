@@ -82,7 +82,8 @@ bun script/repl.ts -f /tmp/play.js                     # from file; stdin works 
 
 ## Database & migrations
 
-- **Storage is Postgres** (paradedb via `~/.hyper/docker-compose.yml`, container `hyper-db`, port **54393**, db/user/pass `hyper`). Start with `cd ~/.hyper && docker compose up -d`.
+- **Storage is Postgres** (paradedb, container `hyper-db`, port **54393**, db/user/pass `hyper`). The compose file in the repo root is the source of truth: `cp docker-compose.yml ~/.hyper/docker-compose.yml && cd ~/.hyper && docker compose up -d`.
+- **Server-level settings go in `docker-compose.yml` (`command: -c …`), never `ALTER SYSTEM` from a REPL.** `shared_preload_libraries` only applies at server start, and `ALTER SYSTEM SET shared_preload_libraries = 'a,b,c'` writes the whole list as ONE quoted file name — the server then refuses to boot. Restarting the database stops every agent: ask the user first.
 - `ctx.fns.procs.db.*` — ALL ASYNC: `select({sql, params})` → rows, `run({sql, params})` → `{changes, lastInsertRowid: 0, rows}` (use RETURNING + `.rows` or `insert` for ids), `insert({into, values})` → `{id, changes}`, `exec({sql})` (multi-statement DDL, no params), `conn()` → Bun.SQL pool. `?` placeholders are translated to `$n` internally — keep writing `?`.
 - NEVER use bare `Bun.sql`/`new SQL()` in app code — it defaults to localhost:5432, not our db.
 - URL from `package.json procs.prod."procs/db".url` (env `DATABASE_URL` overrides). Pool `prepare: false` (Bun 1.3.14 pipelining bug — don't remove).

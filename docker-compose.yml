@@ -1,0 +1,52 @@
+# The hyper Postgres, as the project expects it.
+#
+# This file is the source of truth for server-level settings. A fresh install
+# copies it to ~/.hyper/docker-compose.yml and runs `docker compose up -d`;
+# settings that live only in a running container's ALTER SYSTEM are lost the
+# next time somebody rolls Hyper out, so they belong here instead.
+#
+# shared_preload_libraries in particular can only be set at server start, and
+# ALTER SYSTEM on a list parameter writes the whole list as ONE quoted file
+# name — which makes the server refuse to boot. Set it here.
+name: hyper
+services:
+  db:
+    image: paradedb/paradedb:latest-pg18
+    container_name: hyper-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hyper
+      POSTGRES_PASSWORD: hyper
+      POSTGRES_DB: hyper
+    command:
+      - postgres
+      # 1000: the test suite opens one connection per test ctx (pg_temp
+      # isolation) and holds it until the file's afterAll; the default 100
+      # exhausts mid-suite.
+      - -c
+      - max_connections=1000
+      # pg_search is paradedb's BM25 index, pg_cron the scheduler, and
+      # pg_stat_statements is what the /telemetry dashboard reads for the
+      # server's own view of slow statements. All three must be preloaded.
+      - -c
+      - shared_preload_libraries=pg_search,pg_cron,pg_stat_statements
+      # Enough statements to hold the whole working set, and long enough text
+      # that a normalized query is still identifiable in the dashboard.
+      - -c
+      - pg_stat_statements.max=5000
+      - -c
+      - pg_stat_statements.track=top
+      - -c
+      - track_activity_query_size=4096
+    ports:
+      - "54393:5432"
+    volumes:
+      - hyper_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hyper"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hyper_pgdata:

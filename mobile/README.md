@@ -178,3 +178,13 @@ The API delegates to existing Hyper session, agent, attachment, and queue proced
 - Restrict tunnel access by identity or network policy when the provider supports it.
 - The current password mode is intended for a trusted single-user deployment; it is not a multi-user authorization system.
 - Development signing is temporary. Use TestFlight or App Store distribution for durable remote installation and updates.
+
+## TestFlight
+
+One command from Hyper (eval): `await ctx.fns.mobiledev.testflight({ confirm: true, upload: true })` — bumps `CFBundleVersion`
+(Info.plist + project), archives Release, exports with `ExportOptionsHealthKit.plist` (Apple Distribution, profile
+"Hyper Code HealthKit App Store") and uploads with altool using the App Store Connect API key from 1Password
+(`Hyper App Store Connect API`, cached in the secrets store; never in git). Logs: `mobile/.runtime/testflight-build<N>-*.log`.
+The internal group "internal" has access to all builds, so a processed build appears in TestFlight automatically (~5–15 min).
+Export compliance: `ITSAppUsesNonExemptEncryption = false` (only HTTPS/TLS from the OS).
+Commit the bumped build number afterwards.

@@ -86,7 +86,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
 </a>`).join("");
     };
 
-    const sharedAgentRows = () => sharedAgents.map((card: any) => `<a href="/shared-agents?agent=${encodeURIComponent(card.agentId)}" class="nav-row flex min-h-10 items-start gap-2 rounded px-2 py-1.5 text-left outline-none hover:bg-base-200/60"><i class="ph ph-brain mt-0.5 shrink-0 text-primary"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium text-muted">${esc(card.name)}</span><span class="block truncate text-3xs text-faint">${esc((card.capabilities ?? []).join(" · ") || card.description)}</span></span><span class="font-mono text-micro text-faint">${esc(card.agentId)}</span></a>`).join("");
+    const sharedAgentRows = () => sharedAgents.map((card: any) => `<a href="/agent/${encodeURIComponent(card.agentId)}" class="nav-row flex min-h-10 items-start gap-2 rounded px-2 py-1.5 text-left outline-none hover:bg-base-200/60"><i class="ph ph-brain mt-0.5 shrink-0 text-primary"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium text-muted">${esc(card.name)}</span><span class="block truncate text-3xs text-faint">${esc((card.capabilities ?? []).join(" · ") || card.description)}</span></span><span class="font-mono text-micro text-faint">${esc(card.agentId)}</span></a>`).join("");
 
     if (q) {
         const agentItems = agents.map((agent: any) => ({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: "agent", group: "Chats" }));

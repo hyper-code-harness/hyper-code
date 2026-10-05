@@ -9,15 +9,13 @@ Cron uses two Postgres tables:
 - `cron_tasks` — one row per task: function, arguments, schedule, `next_run_at`, operational `enabled` status, worker state, and declaration source;
 - `cron_runs` — immutable execution history with scheduled/start/finish times, status, result, and error.
 
-Recurring definitions may be version-controlled in `$cron_<name>.ts` files:
+Recurring definitions live in `$cron_<name>.ts` files. hyper-code itself ships none: a schedule
+is a decision of one workspace, so declare it in a user plugin (`$USER_PLUGINS/<plugin>/src/<mod>/`)
+or in the project `.hyper/` root — every instance running the shared code would otherwise run it too.
 
 ```ts
-// .hyper/calendar/$cron_calendar-master-hourly.ts
-export default {
-  fn: "calendar.wakeMaster",
-  every: "1h",
-  args: { account: "niquola@health-samurai.io" },
-};
+// $USER_PLUGINS/schedules/src/schedules/$cron_rss-sync.ts
+export default { fn: "rss.loadAll", every: "8h", args: {} };
 ```
 
 The `$loader_cron.ts` loader collects definitions and `cron.reconcile` loads them into `cron_tasks`. File definitions own `fn`, `args`, and interval. The database owns operational state, especially `enabled`, `state`, and `next_run_at`. Reconciliation preserves an existing task's enabled status and next run. Removing a declaration disables its task rather than deleting history.

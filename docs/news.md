@@ -23,7 +23,7 @@ Excluded:
 Included operational enrichment:
 
 - `news.summarize` / `news.summarizePending` for stored articles;
-- hourly retry of pending summaries through `$cron_news-summarize-pending.ts`;
+- retry of pending summaries through `news.summarizePending`, scheduled by a workspace `$cron_` declaration (none ships with hyper-code);
 - reader/mobile share-target routes.
 
 Independent producer plugins may call `news.put` with an already prepared item.

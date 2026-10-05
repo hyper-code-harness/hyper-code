@@ -7,11 +7,11 @@
     const install = () => {
         if (!window.htmx || window.__hyperRpcInstalled) return false;
         window.__hyperRpcInstalled = true;
-        document.body.addEventListener('htmx:configRequest', event => {
-            if (!event.detail?.path?.startsWith('/rpc')) return;
-            const token = document.querySelector('meta[name="csrf-token"]')?.content;
-            if (token) event.detail.headers['X-CSRF-Token'] = token;
-        });
+        window.hyperRpcCsrfHeaders = () => {
+            const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            return token ? { 'X-CSRF-Token': token } : {};
+        };
+
         document.addEventListener('click', event => {
             const elt = event.target.closest?.('[hx-popup]');
             if (!elt) return;
@@ -80,7 +80,7 @@
             // values are already complete and target is explicit.
             const values = { method, params: JSON.stringify(params) };
             if (!secureSubmit) window.hyperPopup?.loading(title, 'rpc');
-            htmx.ajax('POST', '/rpc', { target: '#app-popup-body', swap: 'innerHTML', values });
+            htmx.ajax('POST', '/rpc', { target: '#app-popup-body', swap: 'innerHTML', values, headers: window.hyperRpcCsrfHeaders() });
         }
     };
     if (!install()) document.addEventListener('DOMContentLoaded', install, { once: true });

@@ -17,7 +17,6 @@ test('authenticated csrf-protected rpc dispatches ctx.fns with an opts object', 
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('<b>Hello Ada</b>');
 });
-
 test('rpc requires authentication and a valid cookie-bound csrf token', async () => {
     const authenticate = ctx.fns.procs.auth.authenticate;
     ctx.fns.procs.auth.authenticate = () => null;

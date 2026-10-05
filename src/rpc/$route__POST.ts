@@ -9,11 +9,10 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const req = opts.req;
     const user = await ctx.fns.procs.auth.authenticate({ req });
     if (!user) return Response.json({ error: 'authentication required' }, { status: 401 });
-    const csrf = req.headers.get('x-csrf-token') ?? '';
-    if (!await ctx.fns.auth.verifyCsrf({ req, token: csrf })) return Response.json({ error: 'invalid csrf token' }, { status: 403 });
     const length = Number(req.headers.get('content-length') ?? 0);
     if (length > 256_000) return Response.json({ error: 'rpc body too large' }, { status: 413 });
-
+    const csrf = req.headers.get('x-csrf-token') ?? '';
+    if (!await ctx.fns.auth.verifyCsrf({ req, token: csrf })) return Response.json({ error: 'invalid csrf token' }, { status: 403 });
     let body: any;
     try {
         if ((req.headers.get('content-type') ?? '').includes('application/json')) body = await req.json();

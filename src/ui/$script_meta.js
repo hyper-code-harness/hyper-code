@@ -74,6 +74,7 @@
             target: slot,
             swap: 'innerMorph',
             values: { method: 'ui.agentMetaSectionHtml', params: JSON.stringify({ agentId, section: slot.dataset.metaSection }) },
+            headers: window.hyperRpcCsrfHeaders?.() || {},
         }).catch(() => {});
     }
 

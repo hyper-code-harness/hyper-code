@@ -72,6 +72,13 @@ cd "$HYPER_DIR"
 # 3. dependencies
 say "bun install"
 bun install --frozen-lockfile 2>/dev/null || bun install
+# Plugins with their own npm dependencies carry their own package.json/bun.lock.
+for manifest in plugins/*/package.json; do
+    dir="$(dirname "$manifest")"
+    grep -q '"dependencies"' "$manifest" || continue
+    echo "  $dir"
+    (cd "$dir" && { bun install --frozen-lockfile >/dev/null 2>&1 || bun install >/dev/null; })
+done
 
 # 4. database
 say "Postgres (paradedb) на :54393"

@@ -26,6 +26,8 @@ describe("web nav pin route", () => {
         const html = await menu.text();
         expect(html).toContain("Unpin agent");
         expect(html).toContain("ph-push-pin-slash");
+        expect(html).toContain("group-hover:opacity-60");
+        expect(html).not.toContain("ph-push-pin-slash text-error");
         expect(html.indexOf('>Shared Agents</h3>')).toBeLessThan(html.indexOf('>Pinned</h4>'));
         expect(html.match(/Pinned test/g)?.length).toBeGreaterThanOrEqual(2); // recent + pinned shortcut
 

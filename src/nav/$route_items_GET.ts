@@ -45,10 +45,10 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
                 ? `<span class="size-2 shrink-0 rounded-full bg-success" title="New activity" aria-label="New activity"></span>`
                 : "";
             const pinned = pinnedIds.has(String(agent.id));
-            const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-warning"><i class="ph ${pinned ? "ph-push-pin-slash text-error" : "ph-push-pin"}"></i></button></form>`;
+            const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-muted"><i class="ph ${pinned ? "ph-push-pin-slash" : "ph-push-pin"}"></i></button></form>`;
             return `<div class="group flex items-center gap-0.5"><a href="${esc(item.href)}" class="nav-row flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left outline-none hover:bg-base-200">
   ${ctx.fns.ui.modelLogo({ model: agent.model, active, bare: true, compact: true })}
-  <span class="min-w-0 flex-1 truncate text-xs text-muted">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-warning" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>
+  <span class="min-w-0 flex-1 truncate text-xs text-muted">${pinned ? '<i class="ph ph-push-pin-fill mr-1 text-faint opacity-50" aria-label="Pinned"></i>' : ''}${esc(agent.title || agent.id)} <span class="font-mono text-3xs font-normal text-faint">(${esc(agent.id)})</span></span>
   ${multi && agent.createdBy && agent.createdBy !== me ? `<span class="max-w-24 shrink-0 truncate text-3xs text-faint" data-owner="${esc(agent.createdBy)}">${esc(names.get(agent.createdBy) ?? agent.createdBy)}</span>` : ""}
   ${badge}
 </a>${pinControl}</div>`;

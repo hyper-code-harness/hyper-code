@@ -26,6 +26,8 @@ describe("web nav pin route", () => {
         const html = await menu.text();
         expect(html).toContain("Unpin agent");
         expect(html).toContain("ph-push-pin-slash");
+        expect(html.indexOf('>Shared Agents</h3>')).toBeLessThan(html.indexOf('>Pinned</h4>'));
+        expect(html.match(/Pinned test/g)?.length).toBeGreaterThanOrEqual(2); // recent + pinned shortcut
 
         const unpin = await ctx.fns.procs.http.dispatch({
             method: "POST", url: "/nav/agent/pn/pin", body: new URLSearchParams({ pinned: "0" }),

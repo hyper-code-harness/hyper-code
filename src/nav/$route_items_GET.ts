@@ -72,8 +72,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     }
     const agentRow = (agent: any) => row({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: "agent" });
     const pinnedAgents = visibleAgents.filter((agent: any) => pinnedIds.has(String(agent.id)));
-    const recentAgents = visibleAgents.filter((agent: any) => !pinnedIds.has(String(agent.id))).slice(0, 30);
-    const chats = () => `${pinnedAgents.length ? `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-warning">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : ""}<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-faint">Recent</h4>${recentAgents.map(agent => agentRow(agent)).join("")}</section>`;
+    // The main chat column is a pure activity feed. Pinning does not perturb or
+    // remove a chat from recency; pinned shortcuts live beside Shared Agents.
+    const recentAgents = visibleAgents.slice(0, 50);
+    const chats = () => `<section class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-faint">Recent</h4>${recentAgents.map(agent => agentRow(agent)).join("")}</section>`;
+    const pinned = () => pinnedAgents.length ? `<section class="mb-3"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-warning">Pinned</h4>${pinnedAgents.map(agent => agentRow(agent)).join("")}</section>` : "";
     const projects = () => {
         const folders = [...agentGroups.entries()].filter(([dir]) => dir !== "(no workdir)");
         return folders.map(([dir, list]) => `<a href="/files?path=${encodeURIComponent(dir)}" class="nav-row flex min-h-8 items-center gap-2 rounded px-2 py-1 text-sm outline-none hover:bg-base-200/60">
@@ -93,7 +96,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         const quick = `<section class="mb-3 border-b border-ui-border pb-2">${newAgent}</section>`;
         const columns = [
             { title: "Chats", content: `${multi ? scopeToggle() : ""}${quick}${chats()}` },
-            { title: "Shared Agents", content: `${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },
+            { title: "Shared Agents", content: `${pinned()}${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },
             { title: "Pages", content: items.filter(item => group(item) === "Pages").map(row).join("") },
             { title: "Projects & files", content: `${projects()}${items.filter(item => group(item) === "Projects & files").map(row).join("")}` },
             { title: "System", content: `${items.filter(item => group(item) === "System").map(row).join("")}<h4 class="mb-1 mt-3 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">Plugins</h4>${items.filter(item => group(item) === "Plugins").map(row).join("")}` },

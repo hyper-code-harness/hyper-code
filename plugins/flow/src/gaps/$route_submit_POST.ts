@@ -1,7 +1,7 @@
 /** Same-origin, bounded form POST. HTMX receives one card; native navigation retains the shared shell. */
 export default async function(ctx:Context,_session:Session|null,opts:{req:Request}) {
- const req=opts.req,url=new URL(req.url);
- if(req.headers.get('origin')!==url.origin || req.headers.get('sec-fetch-site')==='cross-site')return new Response('Same-origin form submission required',{status:403});
+ const req=opts.req,publicOrigin=await ctx.fns.http.publicOrigin({req});
+ if(req.headers.get('origin')!==publicOrigin || req.headers.get('sec-fetch-site')==='cross-site')return new Response('Same-origin form submission required',{status:403});
  if(!req.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))return new Response('URL encoded form required',{status:415});
  const reader=req.body?.getReader();let body='';if(reader){const decoder=new TextDecoder();let bytes=0;while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>16384){await reader.cancel();return new Response('Form too large',{status:413});}body+=decoder.decode(value,{stream:true});}body+=decoder.decode();}
  const fields:Record<string,string>=Object.create(null);let html:string;

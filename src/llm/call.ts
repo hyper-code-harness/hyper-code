@@ -22,6 +22,10 @@ export default async function (
         temperature?: number;
         /** Maximum output tokens. */
         max_tokens?: number;
+        /** Groq GPT-OSS reasoning budget; use low for short completions so reasoning does not consume the whole output limit. Ignored by other providers. */
+        groqReasoningEffort?: "low" | "medium" | "high";
+        /** OpenRouter reasoning effort for models that require thinking; only sent to OpenRouter. */
+        openrouterReasoningEffort?: "minimal" | "low" | "medium" | "high";
         /** OpenAI-style response format, including `json_schema`. */
         response_format?: any;
         /** Disable the configured fallback model chain for this request. @default false */
@@ -186,6 +190,8 @@ async function openAI(endpoint: any, opts: any) {
     const body: any = { model: endpoint.modelId, messages, stream: false };
     if (opts.temperature != null) body.temperature = opts.temperature;
     if (opts.max_tokens != null) body.max_tokens = opts.max_tokens;
+    if (endpoint.provider === "groq" && /^openai\/gpt-oss-(20b|120b)$/.test(endpoint.modelId) && opts.groqReasoningEffort) body.reasoning_effort = opts.groqReasoningEffort;
+    if (endpoint.provider === "openrouter" && opts.openrouterReasoningEffort) body.reasoning = { effort: opts.openrouterReasoningEffort, exclude: true };
     if (opts.response_format != null) body.response_format = opts.response_format;
     let response = await fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) });
     response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) }));

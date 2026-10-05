@@ -61,6 +61,34 @@ describe("llm.call", () => {
     });
 
 
+    test("sends low reasoning effort for short Groq GPT-OSS completions", async () => {
+        const previousFetch = globalThis.fetch;
+        let request: any;
+        globalThis.fetch = (async (_url: any, init: any) => {
+            request = JSON.parse(init.body);
+            return Response.json({ choices: [{ message: { content: "Продолжение" }, finish_reason: "stop" }] });
+        }) as any;
+        try {
+            const ctx: any = { fns: { llm: { resolveEndpoint: async () => ({ api: "openai", provider: "groq", modelId: "openai/gpt-oss-20b", url: "https://example.test", apiKey: "key" }) } } };
+            const result = await call(ctx, null, { user: "начало", model: "groq:openai/gpt-oss-20b", max_tokens: 200, groqReasoningEffort: "low", noFallback: true });
+            expect(result.text).toBe("Продолжение");
+            expect(request.reasoning_effort).toBe("low");
+            expect(request.max_tokens).toBe(200);
+        } finally { globalThis.fetch = previousFetch; }
+    });
+
+    test("sends low reasoning to OpenRouter GLM only when requested", async () => {
+        const previousFetch = globalThis.fetch;
+        let request: any;
+        globalThis.fetch = (async (_url: any, init: any) => { request = JSON.parse(init.body); return Response.json({ choices: [{ message: { content: "ok" }, finish_reason: "stop" }] }); }) as any;
+        try {
+            const ctx: any = { fns: { llm: { resolveEndpoint: async () => ({ api: "openai", provider: "openrouter", modelId: "z-ai/glm-5.3-flash", url: "https://example.test", apiKey: "key" }) } } };
+            const result = await call(ctx, null, { user: "начало", model: "openrouter:z-ai/glm-5.3-flash", openrouterReasoningEffort: "low", noFallback: true });
+            expect(result.text).toBe("ok");
+            expect(request.reasoning).toEqual({ effort: "low", exclude: true });
+        } finally { globalThis.fetch = previousFetch; }
+    });
+
     test("uses xAI OAuth and Responses fields for non-agent calls", async () => {
         const previousFetch = globalThis.fetch;
         let request: any; let headers: Headers; let recorded: any;

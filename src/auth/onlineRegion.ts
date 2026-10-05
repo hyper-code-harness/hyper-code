@@ -23,6 +23,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
     return ctx.fns.ui.live({
         id, url: "/auth/online" + (params.size ? "?" + params : ""), topic: "presence", every: 60,
         html: opts.html ?? "", trigger: opts.html === undefined ? "load" : undefined,
-        attrs: column ? 'class="mb-2 flex w-full flex-col items-center"' : 'data-agent-meta-label class="flex shrink-0 items-center"',
+        // Keep the region itself mounted. Replacing the outer node on every
+        // presence heartbeat made the left rail visibly blink and reflow.
+        swap: "innerHTML",
+        attrs: column ? 'class="mb-2 flex min-h-7 w-full flex-col items-center"' : 'data-agent-meta-label class="flex min-h-6 shrink-0 items-center"',
     });
 }

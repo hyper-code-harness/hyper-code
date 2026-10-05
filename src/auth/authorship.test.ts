@@ -151,4 +151,6 @@ test("who is online: everyone in Hyper (left bar) and who is in this chat (inspe
     expect((await ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/online" })).status).toBe(401); // signed-in people only
     expect(ctx.fns.auth.onlineRegion({ agentId: "a" })).toContain('hx-get="/auth/online?agent=a"');
     expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('data-live-topic="presence"');
+    expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('hx-swap="innerHTML"');
+    expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('min-h-7');
 });

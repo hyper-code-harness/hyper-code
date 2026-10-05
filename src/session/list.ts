@@ -28,9 +28,8 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     // Postgres folds unquoted aliases to lowercase — camelCase aliases must be quoted.
     // created_at / updated_at / COUNT(*) are BIGINTs and come back as strings → Number().
     //
-    // `unread` counts only user-facing completion signals after the event
-    // watermark: a non-empty assistant text response, or an explicit stop.
-    // Tool calls, lifecycle updates, timers and other service events stay silent.
+    // `unread` is now a compatibility boolean (0/1), backed by the denormalized
+    // last_notifiable_at watermark and the current viewer's seen_at.
     const visibility = opts?.visibility?.length ? opts.visibility : ["nav"];
     // Unread is per viewer (user_agent_state). The shared kv watermark is the fallback only while
     // there is at most one user, so a single-user Hyper reads exactly as before.
@@ -55,15 +54,12 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
             (a.visibility = 'team') AS delegated,
             a.created_by AS "createdBy",
             COALESCE((SELECT COUNT(*) FROM messages m WHERE m.agent_id = a.id AND m.role = 'user'), 0) AS turns,
-            COALESCE((SELECT COUNT(*) FROM events e WHERE e.agent_id = a.id
-                AND e.ts > COALESCE(
+            (CASE WHEN a.last_notifiable_at IS NOT NULL AND a.last_notifiable_at > COALESCE(
                     (SELECT s.seen_at FROM user_agent_state s WHERE s.user_id = ? AND s.agent_id = a.id),
                     (SELECT k.value::bigint FROM kv k WHERE k.key = 'seen-at:' || a.id AND ? = 1),
                     (SELECT MAX(m.ts) FROM messages m WHERE m.agent_id = a.id AND m.idx <= COALESCE((SELECT k.value::int FROM kv k WHERE k.key = 'seen:' || a.id), -1)),
                     -1
-                )
-                AND ((e.type = 'assistant' AND NULLIF(BTRIM(e.payload::jsonb ->> 'text'), '') IS NOT NULL)
-                  OR (e.type = 'error' AND (e.payload::jsonb ->> 'error') LIKE 'stopped by user%'))), 0) AS unread,
+                ) THEN 1 ELSE 0 END) AS unread,
             (SELECT content FROM messages m WHERE m.agent_id = a.id AND m.role = 'user' ORDER BY idx LIMIT 1) AS "firstUser"
         FROM agents a
         WHERE a.visibility IN (${visibilitySql})

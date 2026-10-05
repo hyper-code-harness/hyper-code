@@ -41,8 +41,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         const agent: any = agentByHref.get(item.href);
         if (agent) {
             const active = agent.runState !== "idle";
-            const badge = Number(agent.unread ?? 0) > 0
-                ? `<span class="min-w-[1.1rem] shrink-0 rounded-full bg-success px-1 text-center text-3xs font-semibold leading-4 text-white">${agent.unread > 99 ? "99+" : agent.unread}</span>`
+            const badge = agent.hasUnread
+                ? `<span class="size-2 shrink-0 rounded-full bg-success" title="New activity" aria-label="New activity"></span>`
                 : "";
             const pinned = pinnedIds.has(String(agent.id));
             const pinControl = `<form hx-post="/nav/agent/${encodeURIComponent(agent.id)}/pin" hx-swap="none" class="shrink-0"><input type="hidden" name="pinned" value="${pinned ? "0" : "1"}"><button type="submit" title="${pinned ? "Unpin" : "Pin"} agent" aria-label="${pinned ? "Unpin" : "Pin"} ${esc(agent.title || agent.id)}" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-warning"><i class="ph ${pinned ? "ph-push-pin-slash text-error" : "ph-push-pin"}"></i></button></form>`;

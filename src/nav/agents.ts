@@ -19,5 +19,5 @@ export default async function (
     },
 ): Promise<any[]> {
     const rows = await ctx.fns.agent.search({ query: opts.q, limit: opts.limit ?? 40, visibility: ["nav"], ...(opts.owner ? { owner: opts.owner } : {}) });
-    return rows.map(row => ({ ...row, unread: 0, turns: 0, delegated: false }));
+    return rows.map(row => ({ ...row, turns: 0, delegated: false }));
 }

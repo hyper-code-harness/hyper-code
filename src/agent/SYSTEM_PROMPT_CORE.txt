@@ -124,6 +124,7 @@ Architecture conventions. The codebase is procedural with one thing per file:
   src/<mod>/$route_<path>_<METHOD>.ts     → HTTP handler            _ = /, $param = :param
   src/<mod>/$migration_<ts>_<name>.ts     → Postgres migration      export default { up(ctx), down?(ctx) }
   src/<mod>/$script_<name>.js             → browser asset           served as /<mod>/<name>.js
+  src/<mod>/$fence_<lang>.ts              → ```<lang> Markdown block  export default render + export const hint
 
 .hyper/<mod>/<fn>.ts is an ADDITIONAL runtime function root with the same grammar,
 scanned AFTER src/ (overrides by name): .hyper/skill/uptime.ts → ctx.fns.skill.uptime.

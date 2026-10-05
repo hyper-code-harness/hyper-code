@@ -17,5 +17,8 @@ params: Record<string, string> }) {
         : await ctx.fns.session.deleteMessageAt({ id, idx });
     if (!res.ok) return Response.json({ error: res.reason || "delete failed" }, { status: 400 });
     await ctx.fns.session.syncAgentState({ agent });
+    // HTMX 4 does not follow a 303 as a full-page navigation. Ask it to reload
+    // explicitly; native form submissions retain the redirect fallback.
+    if (opts.req.headers.get("hx-request") === "true") return new Response(null, { status: 204, headers: { "HX-Refresh": "true" } });
     return new Response(null, { status: 303, headers: { location: `/agent/${encodeURIComponent(id)}` } });
 }

@@ -10,6 +10,7 @@
  * @param opts.name Display name from the ID token.
  * @param opts.picture Profile photo URL from the ID token's `picture` claim; stored only when https.
  * @param opts.autoCreate Create a user on first sign-in when none matches. @default true
+ * @param opts.memberOnly Always create new users as members, even the first one (portal trust: the owner is managed in Hyper). @default false
  */
 export default async function (
     ctx: Context,
@@ -27,6 +28,8 @@ export default async function (
         picture?: string | null;
         /** Create a user on first sign-in when none matches. @default true */
         autoCreate?: boolean;
+        /** Always create new users as members, even the first one (portal trust: the owner is managed in Hyper). @default false */
+        memberOnly?: boolean;
     },
 ): Promise<types.auth.User | null> {
     const db = ctx.fns.procs.db;
@@ -56,7 +59,7 @@ export default async function (
         const id = await ctx.fns.auth.slug({ name: opts.name, email: opts.email });
         await db.run({
             sql: "INSERT INTO users (id, email, name, password_hash, role, created_at, updated_at, configured_at) VALUES (?, ?, ?, NULL, ?, ?, ?, ?)",
-            params: [id, opts.email.toLowerCase(), opts.name, all.length === 0 ? "owner" : "member", now, now, now],
+            params: [id, opts.email.toLowerCase(), opts.name, all.length === 0 && !opts.memberOnly ? "owner" : "member", now, now, now],
         });
         user = await ctx.fns.auth.getUser({ id });
     }

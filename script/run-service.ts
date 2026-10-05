@@ -7,6 +7,7 @@ const root = resolve(import.meta.dir, "..");
 const runtime = resolve(root, ".runtime");
 const pendingPath = resolve(runtime, "update-pending.json");
 const receiptPath = resolve(runtime, "update-result.json");
+const backupPath = resolve(runtime, "update-database.dump");
 const maxBytes = Math.max(1_048_576, Number(process.env.LOG_MAX_BYTES ?? 25 * 1024 * 1024));
 const keep = Math.max(1, Math.min(10, Number(process.env.LOG_KEEP ?? 3)));
 const port = Number(process.env.PORT ?? 3010);
@@ -27,20 +28,25 @@ function command(argv: string[]): { ok: boolean; output: string } {
     const r = Bun.spawnSync(argv, { cwd: root, env: process.env, stdout: "pipe", stderr: "pipe" });
     return { ok: r.exitCode === 0, output: `${r.stdout.toString()}${r.stderr.toString()}`.trim() };
 }
-function applyPending(): { old: string; target: string } | null {
+function applyPending(): { old: string; target: string; migrationsChanged: boolean } | null {
     if (!existsSync(pendingPath)) return null;
     const p = JSON.parse(readFileSync(pendingPath, "utf8"));
     const current = command(["git", "rev-parse", "HEAD"]);
     const clean = command(["git", "status", "--porcelain=v1"]);
     if (!current.ok || current.output !== p.old || !clean.ok || clean.output) throw new Error("staged update precondition changed; refusing checkout");
     command(["git", "update-ref", `refs/hyper-update-backups/${p.requestedAt}`, p.old]);
+    if (p.migrationsChanged) {
+        const dbUrl = process.env.DATABASE_URL || "postgres://hyper:hyper@localhost:54393/hyper";
+        const dump = command(["pg_dump", "--format=custom", "--no-owner", "--no-acl", "--file", backupPath, dbUrl]);
+        if (!dump.ok) throw new Error(dump.output || "database backup failed");
+    }
     const reset = command(["git", "reset", "--hard", p.target]);
     if (!reset.ok) throw new Error(reset.output || "git reset failed");
     if (p.lockChanged) {
         const install = command([process.execPath, "install", "--frozen-lockfile"]);
         if (!install.ok) { command(["git", "reset", "--hard", p.old]); command([process.execPath, "install", "--frozen-lockfile"]); throw new Error(install.output || "bun install failed"); }
     }
-    return { old: p.old, target: p.target };
+    return { old: p.old, target: p.target, migrationsChanged: !!p.migrationsChanged };
 }
 async function healthy(timeoutMs = 30_000): Promise<boolean> {
     const until = Date.now() + timeoutMs;
@@ -57,33 +63,41 @@ function start() {
     void pump(child.stderr as ReadableStream<Uint8Array>, resolve(runtime, "server.error.log"));
     return child;
 }
-async function rollback(update: { old: string; target: string }, reason: string) {
+async function rollback(update: { old: string; target: string; migrationsChanged: boolean }, reason: string) {
     child?.kill("SIGTERM"); try { await child?.exited; } catch {}
     const reset = command(["git", "reset", "--hard", update.old]);
     command([process.execPath, "install", "--frozen-lockfile"]);
-    writeFileSync(receiptPath, JSON.stringify({ ok: false, ...update, reason, reset: reset.output, at: Date.now() }) + "\n", { mode: 0o600 });
+    let database = "not changed";
+    if (update.migrationsChanged && existsSync(backupPath)) {
+        const dbUrl = process.env.DATABASE_URL || "postgres://hyper:hyper@localhost:54393/hyper";
+        const restore = command(["pg_restore", "--clean", "--if-exists", "--no-owner", "--no-acl", "--dbname", dbUrl, backupPath]);
+        database = restore.ok ? "restored" : `restore failed: ${restore.output}`;
+    }
+    writeFileSync(receiptPath, JSON.stringify({ ok: false, ...update, reason, reset: reset.output, database, at: Date.now() }) + "\n", { mode: 0o600 });
     rmSync(pendingPath, { force: true });
     start();
 }
 for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, () => { stopping = true; child?.kill(signal); });
 
-let update: { old: string; target: string } | null = null;
+let update: { old: string; target: string; migrationsChanged: boolean } | null = null;
 try { update = applyPending(); } catch (error) {
     writeFileSync(receiptPath, JSON.stringify({ ok: false, reason: String(error), at: Date.now() }) + "\n", { mode: 0o600 });
     rmSync(pendingPath, { force: true });
+    rmSync(backupPath, { force: true });
 }
 start();
 if (update) {
     if (await healthy()) {
         writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 });
         rmSync(pendingPath, { force: true });
+        rmSync(backupPath, { force: true });
     } else await rollback(update, "new server failed health check");
 }
 while (!stopping && child) {
     const code = await child.exited;
     if (stopping) break;
     if (code === 75 && existsSync(pendingPath)) {
-        try { update = applyPending(); start(); if (update && await healthy()) { writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); } else if (update) await rollback(update, "new server failed health check"); }
+        try { update = applyPending(); start(); if (update && await healthy()) { writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); rmSync(backupPath, { force: true }); } else if (update) await rollback(update, "new server failed health check"); }
         catch (error) { writeFileSync(receiptPath, JSON.stringify({ ok: false, reason: String(error), at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); start(); }
     } else break; // launchd restarts ordinary crashes, preserving its throttle policy.
 }

@@ -10,10 +10,10 @@ export default async function(ctx:Context,_session:Session|null,opts:{req:Reques
     const root=String((ctx.state as any).root??process.cwd());
     const changed=await ctx.fns.git.run({args:["diff","--name-only",`${s.current}..${s.target}`],dir:root,host:"local"});
     const files=changed.stdout.split("\n").filter(Boolean);
-    if(files.some(file=>/\/(?:\$migration_)[^/]+\.ts$/.test(file))) return new Response("Update contains database migrations; automatic rollback would be unsafe. Apply this release manually.",{status:409});
+    const migrationsChanged=files.some(file=>/(?:^|\/)\$migration_[^/]+\.ts$/.test(file));
     const runtime=join(root,".runtime");
     await mkdir(runtime,{recursive:true});
-    await writeFile(join(runtime,"update-pending.json"),JSON.stringify({version:1,old:s.current,target:s.target,upstream:s.upstream,requestedAt:Date.now(),lockChanged:files.includes("bun.lock")||files.includes("bun.lockb")})+"\n",{mode:0o600});
+    await writeFile(join(runtime,"update-pending.json"),JSON.stringify({version:1,old:s.current,target:s.target,upstream:s.upstream,requestedAt:Date.now(),lockChanged:files.includes("bun.lock")||files.includes("bun.lockb"),migrationsChanged})+"\n",{mode:0o600});
     setTimeout(async()=>{try{await ctx.fns.procs.lifecycle.stop({});}finally{process.exit(75);}},100);
     return new Response("Update staged; Hyper is restarting…",{status:202,headers:{"content-type":"text/plain; charset=utf-8"}});
 }

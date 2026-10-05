@@ -13,6 +13,18 @@ test("respond carries oob fragments, toast and triggers as htmx headers", async 
     expect(JSON.parse(nav.headers.get("HX-Location")!)).toEqual({ path: "/tasks/1", target: "#main", swap: "innerHTML" });
 });
 
+test("respond survives non-Latin toasts and paths: headers stay ASCII, the browser reads the same text", () => {
+    // Raw Cyrillic in a header used to make `new Response` throw, failing the whole action with 500.
+    const res = ui.respond({ toast: { message: "Сохранено 👍", level: "success" }, location: "/files/доки", redirect: "/files/доки?q=1" });
+    const trigger = res.headers.get("HX-Trigger")!;
+    expect(trigger).toMatch(/^[\x20-\x7e]+$/);
+    expect(trigger).toContain("\\u0421");
+    expect(JSON.parse(trigger)).toEqual({ "hyper-toast": { message: "Сохранено 👍", level: "success" } });
+    expect(JSON.parse(res.headers.get("HX-Location")!).path).toBe("/files/доки");
+    expect(res.headers.get("HX-Redirect")).toBe("/files/%D0%B4%D0%BE%D0%BA%D0%B8?q=1");
+    expect(ui.respond({ toast: { message: "Saved" } }).headers.get("HX-Trigger")).toBe('{"hyper-toast":{"message":"Saved","level":"info"}}');
+});
+
 test("region combines lazy, polling and event triggers", () => {
     const html = ui.region({ id: "stats", src: "/x/stats", lazy: true, pollSeconds: 30, on: ["stats-changed"] });
     expect(html).toContain(`hx-trigger="revealed, every 30s, stats-changed from:body"`);

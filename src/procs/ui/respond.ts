@@ -38,8 +38,12 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const events: Record<string, unknown> = {};
     for (const name of opts.trigger ?? []) events[name] = true;
     if (opts.toast) events["hyper-toast"] = { message: opts.toast.message, level: opts.toast.level ?? "info" };
-    if (Object.keys(events).length) headers["HX-Trigger"] = JSON.stringify(events);
-    if (opts.redirect) headers["HX-Redirect"] = opts.redirect;
-    if (opts.location) headers["HX-Location"] = JSON.stringify({ path: opts.location, target: "#main", swap: "innerHTML" });
+    // Header values must be Latin-1: a Cyrillic toast in raw JSON makes `new Response` throw and the whole
+    // action fail with 500. Escape every non-ASCII char as \uXXXX — the same string once htmx JSON.parses it.
+    const asciiJson = (value: unknown) => JSON.stringify(value).replace(/[\u007f-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+    if (Object.keys(events).length) headers["HX-Trigger"] = asciiJson(events);
+    // A URL path is not JSON: percent-encode non-ASCII instead (encodeURI keeps / ? # & intact).
+    if (opts.redirect) headers["HX-Redirect"] = /[^\x00-\x7f]/.test(opts.redirect) ? encodeURI(opts.redirect) : opts.redirect;
+    if (opts.location) headers["HX-Location"] = asciiJson({ path: opts.location, target: "#main", swap: "innerHTML" });
     return new Response(`${opts.html ?? ""}${oob}`, { status: opts.status ?? 200, headers });
 }

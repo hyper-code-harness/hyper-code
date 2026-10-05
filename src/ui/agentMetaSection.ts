@@ -20,6 +20,7 @@
  * @param opts.archivedTeam Archived delegated children, for the team section.
  * @param opts.models Models grouped by provider, for the parked-agent switcher.
  * @param opts.accounts Credential accounts with quota, for the parked-agent switcher.
+ * @param opts.extraSettings Trusted HTML blocks answered by the `ui.agentSettings` point, appended to the settings section.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Agent whose panel is rendered. */
@@ -36,6 +37,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     models?: Record<string, string[]>;
     /** Credential accounts with their quota, used by the parked-agent switcher. */
     accounts?: Array<{ provider: string; account: string; label: string; model: string; available: boolean; usedPercent: number | null; resetsAt: number | null; parkedAgents: number }>;
+    /** Trusted HTML blocks answered by `ui.agentSettings`, appended to the settings section. */
+    extraSettings?: string[];
 }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     const agent = opts.agent;
@@ -108,7 +111,16 @@ export default function (ctx: Context, _session: Session | null, opts: {
 
     if (opts.section === "settings") {
         const body = `<form hx-post="/agent/${id}/automation" hx-swap="none" hx-trigger="change delay:200ms" class="space-y-1">${ctx.fns.ui.toggle({ label: 'Function RAG', name: 'functionRagEnabled', enabled: agent.functionRagEnabled === true, hint: 'Retrieve relevant runtime functions for each user prompt' })}${ctx.fns.ui.toggle({ label: 'Pre-retrieval Gate', name: 'functionRagGateEnabled', enabled: agent.functionRagGateEnabled === true, hint: 'Heuristically skip retrieval for conversational turns; errors allow retrieval', title: agent.functionRagEnabled === true ? '' : 'Requires Function RAG' })}${ctx.fns.ui.toggle({ label: 'Jev rerank', name: 'jevRerankEnabled', enabled: agent.jevRerankEnabled === true, hint: 'Score and filter retrieved candidates independently of Gate', title: agent.functionRagEnabled === true ? '' : 'Requires Function RAG' })}</form>`;
-        return inspectorSection({ title: 'Agent settings', icon: 'sliders-horizontal', html: body, collapsible: true });
+        // Everything above is the framework's own state, read off the agent
+        // row. A plugin's switch is not, so it answers `ui.agentSettings` with
+        // its own form posting to its own route — collected by the caller,
+        // because this renderer is synchronous and the point is async.
+        const extra = (Array.isArray(opts.extraSettings) ? opts.extraSettings : [])
+            .map((block: any) => String(block ?? "").trim()).filter(Boolean);
+        const extraHtml = extra.length
+            ? `<div class="mt-1 space-y-1 border-t border-ui-border pt-1">${extra.join('')}</div>`
+            : '';
+        return inspectorSection({ title: 'Agent settings', icon: 'sliders-horizontal', html: body + extraHtml, collapsible: true });
     }
 
 

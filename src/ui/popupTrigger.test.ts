@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import render from './popup';
-const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('&', '&amp;').replaceAll('"', '&quot;') } } } };
+import { renderCtx } from './testRender.entry';
+const ctx = await renderCtx();
 test('popup helper emits the compact contract', () => {
     const html = render(ctx, null, { method: 'ui.popupDemo', params: { id: 1 }, html: 'Open' });
     expect(html).toContain('hx-popup="ui.popupDemo"');

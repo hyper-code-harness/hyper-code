@@ -38,10 +38,12 @@ test("agent meta panel is a static shell with per-section slots", () => {
     // No live region: sections are redrawn through the RPC push, not polling.
     expect(html).not.toContain("data-live-topic");
     expect(html).not.toContain("hx-get");
-    // Automation is pinned first: every other section can render empty, so a
-    // section above it would open the panel with a blank gap.
+    // Agent settings is pinned first: it is always present, and it holds the
+    // switches that change what the agent does with every prompt, which the
+    // user reaches for far more often than a trigger list.
     const order = [...html.matchAll(/data-meta-section="([a-z]+)"/g)].map((match) => match[1]);
-    expect(order[0]).toBe("automation");
+    expect(order[0]).toBe("settings");
+    expect(order[1]).toBe("automation");
 });
 
 test("renders the display-only observed goals preview", () => {
@@ -105,16 +107,28 @@ test("renders team members as semantic nested accordions", () => {
     expect(html).toContain('<progress value="0" max="1">');
 });
 
-test("automation unifies wake, schedule and watch controls at the top", () => {
+test("automation unifies wake, schedule and watch controls, below agent settings", () => {
     const html = render(mkCtx(), null, { agent: { id: "eh", goal: null } as any, triggers: [{ id: "tr_1", kind: "at", prompt: "Continue", status: "active", nextAt: Date.now() + 1000 }] });
     expect(html).toContain('>Automation');
-    const slot = html.slice(html.indexOf('id="agent-meta-automation-eh"'), html.indexOf('id="agent-meta-settings-eh"'));
+    const slot = html.slice(html.indexOf('id="agent-meta-automation-eh"'));
     expect(slot).toContain("Wake-up");
     expect(slot).toContain("Schedule");
     expect(slot).toContain("Watch condition");
     expect(slot).toContain("Add trigger");
     expect(slot).not.toContain("Function RAG");
     expect(html).toContain(">Agent settings");
+});
+
+test("a plugin block answered by ui.agentSettings lands inside agent settings", () => {
+    const html = render(mkCtx(), null, {
+        agent: { id: "eh", goal: null } as any,
+        extraSettings: ['<form hx-post="/memory/settings"><input name="autoInject"></form>', '  ', ''],
+    });
+    const settings = html.slice(html.indexOf('id="agent-meta-settings-eh"'), html.indexOf('id="agent-meta-automation-eh"'));
+    expect(settings).toContain('hx-post="/memory/settings"');
+    expect(settings).toContain("Function RAG");
+    // Blank answers are dropped rather than rendered as empty rows.
+    expect(settings.match(/<form/g)?.length).toBe(2);
 });
 
 test("a section renders standalone and an unknown section throws", () => {

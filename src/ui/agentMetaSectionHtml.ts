@@ -31,6 +31,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     let models: Record<string, string[]> = {};
     let accounts: any[] = [];
     let triggers: any[] = [];
+    let extraSettings: string[] = [];
     if (section === "team") {
         [team, archivedTeam] = await Promise.all([
             ctx.fns.agent.team({ agent }),
@@ -44,6 +45,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 ctx.fns.llm.listAccounts({}).catch(() => []),
             ]);
         }
+    } else if (section === "settings") {
+        // Collected here rather than inside the renderer, which is synchronous:
+        // a plugin answering this point may read a setting out of Postgres.
+        extraSettings = await ctx.fns.ui.agentSettingsBlocks({ agentId });
     }
-    return ctx.fns.ui.agentMetaSection({ agent, section: section as any, team, archivedTeam, models, accounts, triggers });
+    return ctx.fns.ui.agentMetaSection({ agent, section: section as any, team, archivedTeam, models, accounts, triggers, extraSettings });
 }

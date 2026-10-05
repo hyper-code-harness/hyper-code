@@ -73,7 +73,13 @@ describe('ui control helpers', () => {
     expect(html).toContain('input input-bordered');
     expect(html).toContain('ui-button ui-button--sm ui-button--primary');
     expect(html).toContain('data-secure-cancel');
-    expect(html.match(/hx-popup=/g)?.length).toBe(1);
+    // Two hx-popup attributes, and both are load-bearing: the form submits the
+    // secret through `secureInput.submit`, and Cancel posts the same method
+    // with `cancel: 1` rather than closing the popup in the browser — the
+    // waiting agent has to be told, or it waits forever. This asserted one
+    // until Cancel grew its own call and then simply went stale.
+    expect(html.match(/hx-popup=/g)?.length).toBe(2);
+    expect(html).toContain('hx-popup-params=');
   });
 
 });

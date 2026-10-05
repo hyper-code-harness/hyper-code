@@ -64,5 +64,23 @@ export default async function (
         });
     }
     if (agent.parentId) ctx.fns.events.refreshAgentMeta({ agentId: String(agent.parentId), section: "team", reason: "team-plan-done" });
+    // The only moment when "a unit of work ended" is known rather than guessed:
+    // the agent said so. Announced, not awaited — a handler that harvests the
+    // transcript may cost an LLM round trip, and closing a task must not wait
+    // for it or fail with it.
+    if (!updated.result.alreadyDone) {
+        const completed = updated.result.completed;
+        queueMicrotask(() => ctx.fns.procs.hooks.run({
+            name: "session.taskDone",
+            opts: {
+                agentId: agent.id,
+                taskId: completed.id,
+                taskTitle: completed.title,
+                elapsedMs: completed.elapsedMs,
+                complete: updated.result.complete,
+                next: updated.result.next?.id ?? null,
+            },
+        }).catch((error: any) => ctx.fns.procs.log.warn({ event: "session.task-done.hook", msg: String(error?.message ?? error), agentId: agent.id, taskId: completed.id })));
+    }
     return { ok: true, ...updated.result };
 }

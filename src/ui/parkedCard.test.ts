@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import render from "./parkedCard";
+import { renderCtx } from "./testRender.entry";
 
-const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!)) } } } };
+// The real component kit, so a renderer that starts calling another component
+// does not take this file down with a mock that never heard of it.
+const ctx = await renderCtx();
 const NOW = 1_786_900_000_000;
 const RESETS_AT = NOW + 3 * 24 * 3_600_000 + 16 * 3_600_000;
 

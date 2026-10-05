@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import render from "./inplacePopup";
+import { renderCtx } from "./testRender.entry";
 
-const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('"', '&quot;') } } } };
+const ctx = await renderCtx();
 
 test("renders a top-layer panel anchored to its trigger", async () => {
     const html = await render(ctx, null, {

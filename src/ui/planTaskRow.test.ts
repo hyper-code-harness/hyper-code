@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import render from './planTaskRow';
+import { renderCtx } from './testRender.entry';
 
-const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('<', '&lt;').replaceAll('"', '&quot;') } } } };
+const ctx = await renderCtx();
 
 test('plan task row uses ordinary repeated form fields', () => {
     const html = render(ctx, null, { task: { id: 't1', title: 'Build', instructions: 'Do it', status: 'pending', elapsedMs: 0 } });

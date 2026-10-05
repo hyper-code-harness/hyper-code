@@ -81,6 +81,27 @@ export default async function (
         });
     }
 
+    // The function catalogue above is the framework's own, so it is injected by
+    // name. Everything else with something to say about this turn answers a
+    // point instead — procedural memory, project conventions — because none of
+    // them should need an edit here to get a word in. Silence is the normal
+    // answer, and a handler that throws or hangs loses its turn, not the turn.
+    const lastUser = [...base].map((message: any, index: number) => ({ message, index })).reverse()
+        .find(({ message }) => message?.role === "user" && typeof message.content === "string")?.index;
+    if (lastUser != null) {
+        const augmented = await ctx.fns.procs.hooks.run({
+            name: "agent.promptAugment",
+            opts: { agentId: agent.id, text: String(base[lastUser].content) },
+        }).catch((error: any) => {
+            ctx.fns.procs.log.warn({ event: "agent.prompt-augment.failed", msg: String(error?.message ?? error), agentId: agent.id });
+            return [];
+        });
+        const blocks = (augmented ?? []).map((block: any) => String(block ?? "").trim()).filter(Boolean);
+        if (blocks.length) {
+            base[lastUser] = { ...base[lastUser], content: `${base[lastUser].content}\n\n${blocks.join("\n\n")}` };
+        }
+    }
+
     const ep = await ctx.fns.llm.resolveEndpoint({ model: agent.model });
     const claudeCodeHeader = "You are Claude Code, Anthropic's official CLI for Claude.";
 

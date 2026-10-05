@@ -7,12 +7,12 @@ function ctx(provider: string): any {
             fullSystemPrompt: async () => "runtime instructions",
             normalizeSleepContext: () => null,
             getSleepGeneration: () => null,
-            functionRag: async () => null,
         },
         session: {
             repairToolPairs: ({ messages }: any) => ({ messages, repaired: [] }),
             getMessages: async () => [], getFullMessages: async () => [],
         },
+        auth: { attributeMessages: async ({ messages }: any) => ({ applied: false, messages }) },
         llm: { resolveEndpoint: async () => ({ provider }) },
         attachments: { resolveContent: async ({ messages }: any) => messages },
         procs: { log: { warn: () => {} } },

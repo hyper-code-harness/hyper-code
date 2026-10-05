@@ -19,7 +19,37 @@ test("function RAG is disabled by default and enabled agents retrieve functions"
     expect(rag?.functions.every((item: any) => item.name && item.signature)).toBe(true);
 });
 
-test("buildLlmRequest injects candidates only into the outgoing copy", async () => {
+test("retrieved candidates travel as a world_state row, not by rewriting the user's message", async () => {
+    setHits(relevant);
+    const agent: any = await ctx.fns.agent.start({ model: "mock:test" });
+    agent.functionRagEnabled = true;
+    await ctx.fns.session.appendUserMessage({ id: agent.id, text: "send a telegram message" });
+    await ctx.fns.session.syncAgentState({ agent });
+
+    const first = await ctx.fns.agent.syncWorldState({ agent });
+    expect(first.appended).toBe(true);
+    expect(first.changed).toContain("functions");
+
+    const messages = await ctx.fns.session.getMessages({ id: agent.id });
+    // The user's own words are left exactly as written — the catalogue is a row
+    // of its own, so the transcript shows what the model actually saw.
+    expect(messages[0].content).toBe("send a telegram message");
+    const row = messages.findLast((message: any) => message.message_type === "world_state");
+    expect(row.content).toContain("<relevant_runtime_functions>");
+    expect(row.content).toContain("telegram.send");
+    // Cursor-excluded, like the status line: it answers no user turn.
+    expect(row.excluded_from_cursor).toBe(true);
+
+    // The same catalogue for the same turn is not sent twice: an unchanged
+    // section costs nothing, which is the whole point of the diff.
+    const again = await ctx.fns.agent.syncWorldState({ agent });
+    expect(again.appended).toBe(false);
+    expect(again.reason).toBe("unchanged");
+    const after = await ctx.fns.session.getMessages({ id: agent.id });
+    expect(after.filter((message: any) => message.message_type === "world_state").length).toBe(1);
+});
+
+test("buildLlmRequest no longer rewrites history for retrieval", async () => {
     setHits(relevant);
     const agent: any = {
         id: "rag", model: "mock:test", systemPrompt: "", scratchpad: {}, functionRagEnabled: true,
@@ -27,8 +57,7 @@ test("buildLlmRequest injects candidates only into the outgoing copy", async () 
     };
     const result = await build(ctx, null, { agent });
     const outgoing = result.messages.findLast((message: any) => message.role === "user");
-    expect(outgoing.content).toContain("<relevant_runtime_functions>");
-    expect(outgoing.content).toContain("telegram.send");
+    expect(outgoing.content).toBe("send a telegram message");
     expect(agent.messages[0].content).toBe("send a telegram message");
 });
 

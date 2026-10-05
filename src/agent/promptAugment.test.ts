@@ -17,7 +17,7 @@ test("agent.promptAugment: appends in order, tolerates silence and failure", asy
     ctx.fns.procs.hooks.register({ name: "agent.promptAugment", id: "broken", fn: () => { throw new Error("handler is broken"); } });
     ctx.fns.procs.hooks.register({ name: "agent.promptAugment", id: "last", fn: () => "<b>second</b>" });
 
-    // The fan-out itself rejects on a throwing handler; buildLlmRequest catches
+    // The fan-out itself rejects on a throwing handler; syncWorldState catches
     // there and carries on with no blocks, because a prompt without memory is
     // the fallback and not a failed run.
     const raw = await ctx.fns.procs.hooks.run({
@@ -26,9 +26,9 @@ test("agent.promptAugment: appends in order, tolerates silence and failure", asy
     }).catch(() => [] as string[]);
     expect(Array.isArray(raw)).toBe(true);
 
-    // What buildLlmRequest does with the answers: drop the empty ones, keep the
-    // order, and append after the user's text.
+    // What agent.syncWorldState does with the answers: drop the empty ones, keep
+    // the order, and render them as one block for the tail row.
     const blocks = (["<a>first</a>", "", "<b>second</b>"]).map((b) => String(b ?? "").trim()).filter(Boolean);
     expect(blocks).toEqual(["<a>first</a>", "<b>second</b>"]);
-    expect(`do the thing\n\n${blocks.join("\n\n")}`).toBe("do the thing\n\n<a>first</a>\n\n<b>second</b>");
+    expect(blocks.join("\n\n")).toBe("<a>first</a>\n\n<b>second</b>");
 });

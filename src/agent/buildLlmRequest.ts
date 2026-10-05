@@ -50,29 +50,13 @@ export default async function (
     // the way OUT, for whichever dialect — means such an agent answers again
     // instead of 400-ing forever on history it cannot edit.
     const { messages: base, repaired } = ctx.fns.session.repairToolPairs({ messages: raw });
-    const functionRag = await ctx.fns.agent.functionRag({ agent, messages: base }).catch((error: any) => {
-        ctx.fns.procs.log.warn({ event: "agent.function-rag.failed", msg: String(error?.message ?? error), agentId: agent.id });
-        return null;
-    });
-    if (functionRag) {
-        const at = [...base].map((message: any, index: number) => ({ message, index })).reverse()
-            .find(({ message }) => message?.role === "user" && typeof message.content === "string")?.index;
-        if (at != null) {
-            const message = base[at];
-            // A run that retrieved nothing — or was stopped by the gate before it
-            // retrieved — changes no prompt, but is still recorded, so the UI can
-            // show that the decision happened and why.
-            let injected = "";
-            if (functionRag.functions.length) {
-                const block = functionRag.functions.map((fn: any) => `- #${fn.rank} ${fn.name} [${fn.jev == null ? `RRF ${formatRagScore(fn.score)}` : `jev ${formatRagScore(fn.jev)}`}${fn.bm25 == null ? "" : ` · BM25 ${formatRagScore(fn.bm25)}`}${fn.similarity == null ? "" : ` · cos ${formatRagScore(fn.similarity)}`}]: ${fn.summary}\n  ${fn.signature}`).join("\n");
-                injected = `<relevant_runtime_functions>\n${block}\n</relevant_runtime_functions>\nUse these only if relevant; inspect one with runtime.docs.get before calling when details are needed.`;
-                base[at] = { ...message, content: `${message.content}\n\n${injected}` };
-            }
-            agent.scratchpad ??= {};
-            agent.scratchpad.functionRag = { messageIdx: functionRag.messageIdx, functions: functionRag.functions.map((fn: any) => fn.name), reranked: functionRag.reranked === true, gate: functionRag.gate, rerankStatus: functionRag.rerankStatus, needsTool: functionRag.needsTool, retrieved: functionRag.retrieved, updatedAt: Date.now() };
-            queueMicrotask(() => ctx.fns.agent.markFunctionRag({ agent, messageIdx: functionRag.messageIdx, functions: functionRag.functions, injected, reranked: functionRag.reranked === true, gate: functionRag.gate, rerankStatus: functionRag.rerankStatus, needsTool: functionRag.needsTool, retrieved: functionRag.retrieved }).catch(() => undefined));
-        }
-    }
+    // The retrieved function catalogue USED to be spliced into the last user
+    // message from here, and was never persisted: the transcript disagreed with
+    // what the model saw, and a catalogue that changed between requests
+    // invalidated the prompt cache from that message onwards. It is a
+    // `world_state` transcript row now — see agent.syncWorldState, called once
+    // per turn by agent.run. This function only reads history; it no longer
+    // rewrites it.
     if (repaired.length) {
         ctx.fns.procs.log.warn({
             event: "transcript.repair",
@@ -81,27 +65,11 @@ export default async function (
         });
     }
 
-    // The function catalogue above is the framework's own, so it is injected by
-    // name. Everything else with something to say about this turn answers a
-    // point instead — procedural memory, project conventions — because none of
-    // them should need an edit here to get a word in. Silence is the normal
-    // answer, and a handler that throws or hangs loses its turn, not the turn.
-    const lastUser = [...base].map((message: any, index: number) => ({ message, index })).reverse()
-        .find(({ message }) => message?.role === "user" && typeof message.content === "string")?.index;
-    if (lastUser != null) {
-        const augmented = await ctx.fns.procs.hooks.run({
-            name: "agent.promptAugment",
-            opts: { agentId: agent.id, text: String(base[lastUser].content) },
-        }).catch((error: any) => {
-            ctx.fns.procs.log.warn({ event: "agent.prompt-augment.failed", msg: String(error?.message ?? error), agentId: agent.id });
-            return [];
-        });
-        const blocks = (augmented ?? []).map((block: any) => String(block ?? "").trim()).filter(Boolean);
-        if (blocks.length) {
-            base[lastUser] = { ...base[lastUser], content: `${base[lastUser].content}\n\n${blocks.join("\n\n")}` };
-        }
-    }
-
+    // Plugin blocks for this turn (`agent.promptAugment`) used to be spliced
+    // into the last user message from here. They are collected by
+    // agent.syncWorldState now and travel as a persisted tail row, for the same
+    // reason as the function catalogue: a block that changes between requests
+    // must not rewrite history the provider has already cached.
     const ep = await ctx.fns.llm.resolveEndpoint({ model: agent.model });
     const claudeCodeHeader = "You are Claude Code, Anthropic's official CLI for Claude.";
 
@@ -188,9 +156,3 @@ export default async function (
     };
 }
 
-
-function formatRagScore(value: any): string {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return "—";
-    return Math.abs(n) < 0.1 ? n.toFixed(5) : n.toFixed(3);
-}

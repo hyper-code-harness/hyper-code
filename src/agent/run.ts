@@ -84,6 +84,15 @@ export default async function (
             await ctx.fns.session.syncAgentState({ agent });
         }
     }
+    // Volatile model-visible context (bound tab, retrieved functions, plugin
+    // blocks) is appended as its own cursor-excluded row, for the same reason as
+    // the status line: it must not rewrite the cached bootstrap prefix. One call
+    // per turn, before the first provider request. A turn still happens if it
+    // fails: context the model would have liked is worth less than an answer.
+    await ctx.fns.agent.syncWorldState?.({ agent })?.catch?.((error: any) => {
+        ctx.fns.procs.log?.warn?.({ event: "agent.world-state.failed", msg: String(error?.message ?? error), agentId: agent.id });
+        return null;
+    });
     let consumedUserIdx = -1;
     const MAX_TURNS = 300;
     let turns = 0;

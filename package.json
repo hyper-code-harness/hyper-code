@@ -39,6 +39,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "htmx.org": "4.0.0",
     "marked": "^18.0.7",
+    "parse5": "^8.0.1",
     "shiki": "^4.0.2",
     "tailwindcss": "^4.3.3",
     "telegram": "^2.26.22"

@@ -123,20 +123,47 @@ describe("agent.renderEventHtml", () => {
     expect(out).not.toContain('<pre class="text-xs whitespace-pre-wrap');
   });
 
-  test("assistant: unbalanced rendered html falls back to escaped <pre> (one bad bubble cannot break the page)", async () => {
-    // This is the exact pattern that broke the chat page: model emitted
-    // `prose.§bash` mid-line + Python heredoc content; markdown.render
-    // produced an extra </div>. Without the balance-check fallback, every
-    // bubble below this one renders inside the broken div tree.
+  // Balance of the whole rendered bubble: every <div> opened must be closed,
+  // otherwise the bubble's markup leaked into the rest of the page.
+  const divBalance = (html: string) => (html.match(/<div[\s>]/g) ?? []).length - (html.match(/<\/div>/g) ?? []).length;
+
+  test("assistant: a stray close tag is dropped by the spec parser (one bad bubble cannot break the page)", async () => {
+    // The pattern that once broke the chat page: markdown.render produced an
+    // extra </div>, closing the bubble early.
     const broken = '<p>good prefix</p><div class="x">stuff</div></div>';
-    const text = 'Plain prose with <<\'PY\'\nfrom pathlib import Path\nPY\n';
-    const out = await renderEventHtml(ctx, { type: "assistant", html: broken, text, messageIdx: 42 });
-    // The original broken html must NOT appear in the output.
-    expect(out).not.toContain(broken);
-    // Instead, plain text wrapped in <pre> with HTML-escaped content.
+    const out = await renderEventHtml(ctx, { type: "assistant", html: broken, text: 'x', messageIdx: 42 });
+    expect(out).toContain('<p>good prefix</p><div class="x">stuff</div>');
+    expect(divBalance(out)).toBe(0);
+  });
+
+  test("assistant: unclosed elements are closed inside the bubble", async () => {
+    const out = await renderEventHtml(ctx, { type: "assistant", html: '<p>a</p><div><span><strong>x', text: 'x', messageIdx: 1 });
+    expect(out).toContain('<div><span><strong>x</strong></span></div>');
+    expect(divBalance(out)).toBe(0);
+  });
+
+  test("assistant: a tag without '>' falls back to escaped <pre> instead of eating the text", async () => {
+    // Real model output: `<strong Почему это лучше:` — the browser turned the prose
+    // into attributes and left <strong> open for the whole chat below.
+    const html = '<p>ok</p>\n<strong Почему это лучше: blah</p>\n<p>after</p>';
+    const text = 'ok\n<strong Почему это лучше: blah';
+    const out = await renderEventHtml(ctx, { type: "assistant", html, text, messageIdx: 2 });
     expect(out).toContain('<pre class="text-xs whitespace-pre-wrap');
-    expect(out).toContain('&lt;&lt;&#39;PY&#39;');
-    expect(out).toContain('from pathlib import Path');
+    expect(out).toContain('&lt;strong Почему это лучше');
+    expect(out).not.toContain('<strong Почему');
+    expect(divBalance(out)).toBe(0);
+  });
+
+  test("assistant: an unterminated comment falls back to <pre>", async () => {
+    const out = await renderEventHtml(ctx, { type: "assistant", html: '<p>a</p><!-- open', text: 'a', messageIdx: 3 });
+    expect(out).toContain('<pre class="text-xs whitespace-pre-wrap');
+  });
+
+  test("assistant: ordinary markdown output passes through unchanged", async () => {
+    const html = '<h2>T</h2><p><strong class="a">b</strong> <a href="/y">l</a> <code>a&lt;b</code><br></p><pre><code class="language-ts">const x = a &lt; b;</code></pre><table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table><details><summary>s</summary>x</details>';
+    const out = await renderEventHtml(ctx, { type: "assistant", html, text: 'x', messageIdx: 4 });
+    expect(out).toContain(html);
+    expect(out).not.toContain('<pre class="text-xs whitespace-pre-wrap');
   });
 
   test("assistant: missing html falls back to escaped <p> (existing behaviour)", async () => {

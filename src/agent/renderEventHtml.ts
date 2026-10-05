@@ -1,24 +1,33 @@
+import { parseFragment, serialize } from "parse5";
+
 function esc(s: any): string {
     return String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch]!));
 }
 
-// Tags whose imbalance would shred the page layout when injected into
-// the chat stream. We don't try to balance every tag — just the ones
-// that markdown.render or assistant prose tends to produce. If even one
-// of these is mis-counted we fall back to a plain <pre> wrapper so a
-// single bad bubble can't break everything below it. Catches the
-// "heredoc / shell `>` / unclosed code block" class of bug.
-const BALANCE_TAGS = ['div', 'p', 'span', 'pre', 'code', 'details', 'ul', 'ol', 'li', 'table', 'tbody', 'thead', 'tr', 'td', 'th'];
-function isHtmlBalanced(html: string): boolean {
-    for (const tag of BALANCE_TAGS) {
-        const opens = html.match(new RegExp(`<${tag}(?:\\s|>|/)`, 'g')) ?? [];
-        const closes = html.match(new RegExp(`</${tag}\\s*>`, 'g')) ?? [];
-        // Treat self-closed (<tag/>) as both open and close — they cancel out.
-        const selfClose = html.match(new RegExp(`<${tag}(?:\\s[^>]*)?/>`, 'g')) ?? [];
-        const open = opens.length - selfClose.length;
-        if (open !== closes.length) return false;
-    }
-    return true;
+// Assistant html is model/markdown output and may be malformed. We parse it
+// with parse5 — the WHATWG-spec parser, the same algorithm the browser uses —
+// and inject the re-serialized tree, so every element opened inside a bubble
+// is closed inside that bubble and stray close tags are dropped. One bad
+// bubble can no longer swallow the rest of the chat.
+//
+// Some tokenizer errors mean the tag itself is garbage, e.g. the model wrote
+// `<strong Почему это лучше: …` without '>': the browser (and parse5) turn the
+// following prose into attributes and the text silently disappears. For those
+// we show the plain text in <pre> instead of the mangled tree.
+const FATAL_PARSE_ERRORS = new Set([
+    'unexpected-character-in-attribute-name',
+    'unexpected-equals-sign-before-attribute-name',
+    'unexpected-character-in-unquoted-attribute-value',
+    'missing-whitespace-between-attributes',
+    'unexpected-solidus-in-tag',
+    'eof-in-tag',
+    'eof-in-comment',
+    'eof-in-script-html-comment-like-text',
+]);
+function safeAssistantHtml(html: string): string | null {
+    let fatal = false;
+    const fragment = parseFragment(html, { onParseError: (err) => { if (FATAL_PARSE_ERRORS.has(err.code)) fatal = true; } });
+    return fatal ? null : serialize(fragment);
 }
 
 function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true, allowFrom = true, placement: 'overlay' | 'side' = 'overlay'): string {
@@ -188,9 +197,8 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         // back to a plain escaped <pre>. One bad bubble must not break the
         // whole page layout below it.
         const rawHtml = ev.html || ('<p>' + esc(ev.text || '') + '</p>');
-        const safeHtml = isHtmlBalanced(rawHtml)
-            ? rawHtml
-            : '<pre class="text-xs whitespace-pre-wrap break-words">' + esc(ev.text || '') + '</pre>';
+        const safeHtml = safeAssistantHtml(rawHtml)
+            ?? '<pre class="text-xs whitespace-pre-wrap break-words">' + esc(ev.text || '') + '</pre>';
         return '<div class="group relative flex justify-start">'
             + '<div class="assistant chat-glass w-full rounded-2xl px-4 py-3 text-base-content shadow-sm border border-ui-border">'
             + '<div class="prose prose-sm max-w-none text-base-content prose-headings:text-base-content prose-p:text-base-content prose-li:text-base-content prose-strong:text-base-content prose-code:text-base-content prose-a:text-muted prose-p:my-1 prose-headings:my-2 prose-pre:my-2">'

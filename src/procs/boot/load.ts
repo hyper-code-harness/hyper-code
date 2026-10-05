@@ -63,7 +63,12 @@ export async function apply(ctx: Context, entries: any[], mounted: any[], opts: 
     for (const entry of entries) {
         if (entry.kind === "type" || entry.kind === "skip" || !entry.abs?.endsWith(".ts")) continue;
         try {
-            (entry as any).fn = (await import(entry.abs + `?t=${Date.now()}`)).default;
+            // The whole module, not just the default: a loader may read a named
+            // export too (a fence's `hint`), and re-importing to get it would
+            // run the file twice.
+            const imported = await import(entry.abs + `?t=${Date.now()}`);
+            (entry as any).mod = imported;
+            (entry as any).fn = imported.default;
         } catch (error: any) {
             const message = `[load] ${entry.rel}: ${error?.message ?? error}`;
             importErrors.push(message);

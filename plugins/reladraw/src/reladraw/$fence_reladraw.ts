@@ -1,6 +1,9 @@
 // ```reladraw fences in Markdown (chat, docs, notes) render as inline diagrams.
 // The fence info string may name a theme: ```reladraw light
 
+/** One line in the system prompt's fence index. */
+export const hint = "diagrams placed by hand \u2014 right of, below, level with \u2014 when the arrangement carries meaning; info string names a theme";
+
 /**
  * Renders a ```reladraw fence as an inline, responsive SVG diagram.
  * @param opts.source Reladraw source inside the fence.

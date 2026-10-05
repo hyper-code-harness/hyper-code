@@ -2,7 +2,8 @@
 // imports each file dynamically — un-bundleable by design, which is what powers
 // hot reload. This freezes the same list into an EXPLICIT static import graph a
 // bundler can follow: every entry keeps the fields the scan gave it, plus `fn`,
-// the module already imported.
+// the default export, and `mod`, the whole module — a loader that reads a named
+// export (such as a fence's `hint`) has no dynamic import to fall back on here.
 //
 // What it does NOT do any more is decide what any of those files MEAN — that is
 // `boot.apply`, the same code the dev boot runs. One implementation, two worlds.
@@ -33,13 +34,15 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
         // the build sees the same list, just without a function.
         const runnable = entry.kind !== "type" && entry.kind !== "skip" && entry.abs.endsWith(".ts");
         let fn = "undefined";
+        let mod = "undefined";
         if (runnable) {
-            const local = "f" + (n++);
-            imports.push(`import ${local} from "${rel(entry.abs)}";`);
-            fn = local;
+            const local = "m" + (n++);
+            imports.push(`import * as ${local} from "${rel(entry.abs)}";`);
+            fn = `${local}.default`;
+            mod = local;
         }
         const { fn: _drop, ...fields } = entry as any;
-        literals.push(`  { ...${JSON.stringify(fields)}, fn: ${fn} },`);
+        literals.push(`  { ...${JSON.stringify(fields)}, fn: ${fn}, mod: ${mod} },`);
     }
 
     const src = `// AUTO-GENERATED build manifest - do not edit

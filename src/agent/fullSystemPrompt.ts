@@ -8,6 +8,8 @@
 //   2. the tool section       — ASSEMBLED from the $tool_ declarations that are
 //                               actually loaded (index + guidelines), so an
 //                               unmounted or narrowed-away tool costs no tokens
+//   2b. the fence section      — likewise from the $fence_<lang>.ts files that
+//                               are loaded: what an answer may draw inline
 //   3. agent.systemPrompt     — per-agent additive override (if any)
 //   4. runtime context block  — workspace, agent id, storage
 //
@@ -26,6 +28,12 @@ agent: types.agent.Agent }): Promise<string> {
     const { agent } = opts;
     const core = await Bun.file(CORE_PATH).text();
     const tools = ctx.fns.tools.promptSection({ protocol: "json", only: agent.tools });
+    // Fences are an output channel, not a tool: the model writes one into its
+    // own reply and the renderer turns it into a chart or a diagram. Nothing
+    // else in the prompt says they exist, and a capability nobody mentions is
+    // a capability nobody uses.
+    const fenceSection = await ctx.fns.markdown.promptSection({});
+    const fenceBlock = fenceSection ? `\n\n${fenceSection}` : "";
     // Executable plugins are ordinary procs functions, not necessarily native
     // tools. Advertise only a compact index plus the public discovery API; the
     // agent reads SKILL.md on demand instead of paying for every plugin's docs
@@ -93,5 +101,5 @@ agent: types.agent.Agent }): Promise<string> {
             }
         }
     }
-    return core + "\n\n" + tools + pluginBlock + sharedAgentBlock + perAgentBlock + runtime + browserContext;
+    return core + "\n\n" + tools + fenceBlock + pluginBlock + sharedAgentBlock + perAgentBlock + runtime + browserContext;
 }

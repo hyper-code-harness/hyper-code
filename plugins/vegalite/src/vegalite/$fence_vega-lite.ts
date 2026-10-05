@@ -4,6 +4,19 @@
 // A block that fails to compile stays visible as code.
 
 /**
+ * One line in the system prompt's fence index, naming the data sources that are
+ * actually open right now — advertising `data: { sql }` while allowSqlData is
+ * off would send the agent at an error.
+ */
+export const hint = async (ctx: Context): Promise<string> => {
+    const sql = (await ctx.fns.settings.get({ module: "vegalite", scopeType: "global", key: "allowSqlData" })) === true;
+    return "charts from a Vega-Lite JSON spec: bar, line, area, point, arc, layered and faceted; data is inline `values`"
+        + ", a local CSV/JSON/NDJSON file as `data: { url }`"
+        + (sql ? ", or `data: { sql }` run through DuckDB" : "")
+        + "; info string takes width=, height=, theme=off; static SVG, so no tooltips or zoom";
+};
+
+/**
  * Renders a ```vega-lite fence as a static inline SVG chart.
  * @param opts.source JSON Vega-Lite spec inside the fence.
  * @param opts.info Rest of the fence line; `width=`, `height=` and `theme=off` are read from it.

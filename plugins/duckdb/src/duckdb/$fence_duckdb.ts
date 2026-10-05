@@ -4,6 +4,19 @@
 // on: DuckDB reads any file the server can.
 
 /**
+ * One line in the system prompt's fence index, or null while the fence is off.
+ *
+ * Running a query is a side effect, so the fence is disabled by default and
+ * telling an agent about it then would only earn an error.
+ */
+export const hint = async (ctx: Context): Promise<string | null> => {
+    const allowed = (await ctx.fns.settings.get({ module: "duckdb", scopeType: "global", key: "allowFence" })) === true;
+    return allowed
+        ? "read-only SQL over local NDJSON/CSV/Parquet or the attached Postgres, rendered as a table, or as a chart with chart=bar x=col y=col"
+        : null;
+};
+
+/**
  * Renders a ```duckdb fence by running its SQL and showing the result as a table or a chart.
  *
  * The fence body is read-only SQL; the info string chooses the output —

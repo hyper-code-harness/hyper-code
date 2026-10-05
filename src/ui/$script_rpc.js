@@ -7,6 +7,11 @@
     const install = () => {
         if (!window.htmx || window.__hyperRpcInstalled) return false;
         window.__hyperRpcInstalled = true;
+        document.body.addEventListener('htmx:configRequest', event => {
+            if (!event.detail?.path?.startsWith('/rpc')) return;
+            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (token) event.detail.headers['X-CSRF-Token'] = token;
+        });
         document.addEventListener('click', event => {
             const elt = event.target.closest?.('[hx-popup]');
             if (!elt) return;

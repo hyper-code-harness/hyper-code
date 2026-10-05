@@ -7,26 +7,10 @@ const BLOCKED = new Set(['__proto__', 'prototype', 'constructor']);
 
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
     const req = opts.req;
-    const origin = req.headers.get('origin');
-    const target = new URL(req.url);
-    // Behind a reverse proxy (Traefik on the hub / hyperlet forward) the backend sees http://<host>/rpc while the browser's
-    // Origin is the public https://<host>. The public origin comes from X-Forwarded-Proto/-Host, believed ONLY when the
-    // immediate peer is loopback (the local hyperlet forward); any other peer is compared with req.url as before.
-    const peer = (() => { try { return (ctx.state as any)?.procs?.http?.server?.server?.requestIP?.(req)?.address as string | undefined; } catch { return undefined; } })();
-    const proto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
-    const fhost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
-    const trusted = !!peer && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(peer);
-    const publicOrigin = trusted && (proto === 'https' || proto === 'http') && fhost && /^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(fhost) ? `${proto}://${fhost}` : null;
-    const sameOrigin = (o: string | null) => !!o && (o === target.origin || o === publicOrigin);
-    const fetchSite = req.headers.get('sec-fetch-site');
-    if (origin && !sameOrigin(origin)) return Response.json({ error: 'cross-origin rpc refused' }, { status: 403 });
-    if (fetchSite === 'cross-site') return Response.json({ error: 'cross-site rpc refused' }, { status: 403 });
-    // The app itself can run without login. In that mode, permit only a real
-    // same-origin browser request; scripts/curl on the LAN still need a signed
-    // session because they do not carry the browser's Origin + Fetch Metadata.
     const user = await ctx.fns.procs.auth.authenticate({ req });
-    const sameOriginBrowser = sameOrigin(origin) && fetchSite === 'same-origin';
-    if (!user && !sameOriginBrowser) return Response.json({ error: 'authentication required' }, { status: 401 });
+    if (!user) return Response.json({ error: 'authentication required' }, { status: 401 });
+    const csrf = req.headers.get('x-csrf-token') ?? '';
+    if (!await ctx.fns.auth.verifyCsrf({ req, token: csrf })) return Response.json({ error: 'invalid csrf token' }, { status: 403 });
     const length = Number(req.headers.get('content-length') ?? 0);
     if (length > 256_000) return Response.json({ error: 'rpc body too large' }, { status: 413 });
 

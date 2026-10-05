@@ -1,7 +1,6 @@
 /** POST /whisper/live — raw 16 kHz mono WAV body (?model=&language=&prompt=) → fast JSON transcription via the resident whisper-server. */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const req = opts.req;
-    if (req.headers.get("sec-fetch-site") === "cross-site") return new Response("same-origin only", { status: 403 });
     try {
         const q = new URL(req.url).searchParams;
         const srv = await ctx.fns.whisper.ensureServer({ model: q.get("model") || undefined });

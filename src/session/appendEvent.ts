@@ -37,7 +37,12 @@ ts?: number }): Promise<{ idx: number }> {
             await new Promise(r => setTimeout(r, 3 + Math.random() * 20 * (attempt + 1)));
         }
     }
-    await ctx.fns.procs.db.run({ sql: 'UPDATE agents SET updated_at = ? WHERE id = ?', params: [ts, id] });
+    const notifiable = (event.type === 'assistant' && typeof event.text === 'string' && event.text.trim().length > 0)
+        || (event.type === 'error' && typeof event.error === 'string' && event.error.startsWith('stopped by user'));
+    await ctx.fns.procs.db.run({
+        sql: `UPDATE agents SET updated_at = ?, last_notifiable_at = CASE WHEN ? = 1 THEN GREATEST(COALESCE(last_notifiable_at, -1), ?) ELSE last_notifiable_at END WHERE id = ?`,
+        params: [ts, notifiable ? 1 : 0, ts, id],
+    });
     // Wake any in-process waiters AND broadcast over SSE so browser tabs
     // showing this agent fetch the delta with a short hx-get instead of
     // holding a long-poll connection per tab.

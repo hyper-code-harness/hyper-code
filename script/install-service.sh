@@ -55,6 +55,12 @@ mkdir -p "$HOME/Library/LaunchAgents" "$ROOT/.runtime"
 # is stopped through launchd; the old tmux process is only removed when its cwd
 # and command identify this checkout.
 launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+# bootout returns before the old server has released the port; a process caught
+# mid-exit shows up as "(bun)" and would be mistaken for a foreign listener.
+for _ in $(seq 1 40); do
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t >/dev/null 2>&1 || break
+    sleep 0.25
+done
 existing="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -1 || true)"
 if [ -n "$existing" ]; then
     cwd="$(lsof -a -p "$existing" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"

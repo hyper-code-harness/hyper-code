@@ -36,6 +36,12 @@
 		10000000000000000000001B /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* FileBrowserView.swift */; };
 		10000000000000000000001C /* MarkdownImageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* MarkdownImageProvider.swift */; };
 		10000000000000000000001D /* InlineHTMLView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* InlineHTMLView.swift */; };
+		10000000000000000000001E /* MobileSSO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001F /* MobileSSO.swift */; };
+		10000000000000000000001F /* ServerProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* ServerProfiles.swift */; };
+		100000000000000000000020 /* ServerSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* ServerSessionPool.swift */; };
+		100000000000000000000021 /* MultiServerSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* MultiServerSessionCoordinator.swift */; };
+		100000000000000000000022 /* MobileStateCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* MobileStateCache.swift */; };
+		100000000000000000000023 /* HyperMeshDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* HyperMeshDiscovery.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +75,12 @@
 		20000000000000000000001C /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		20000000000000000000001D /* MarkdownImageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownImageProvider.swift; sourceTree = "<group>"; };
 		20000000000000000000001E /* InlineHTMLView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineHTMLView.swift; sourceTree = "<group>"; };
+		20000000000000000000001F /* MobileSSO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSSO.swift; sourceTree = "<group>"; };
+		200000000000000000000020 /* ServerProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerProfiles.swift; sourceTree = "<group>"; };
+		200000000000000000000021 /* ServerSessionPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSessionPool.swift; sourceTree = "<group>"; };
+		200000000000000000000022 /* MultiServerSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiServerSessionCoordinator.swift; sourceTree = "<group>"; };
+		200000000000000000000023 /* MobileStateCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileStateCache.swift; sourceTree = "<group>"; };
+		200000000000000000000024 /* HyperMeshDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyperMeshDiscovery.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +135,12 @@
 				20000000000000000000001C /* FileBrowserView.swift */,
 				20000000000000000000001D /* MarkdownImageProvider.swift */,
 				20000000000000000000001E /* InlineHTMLView.swift */,
+				20000000000000000000001F /* MobileSSO.swift */,
+				200000000000000000000020 /* ServerProfiles.swift */,
+				200000000000000000000021 /* ServerSessionPool.swift */,
+				200000000000000000000022 /* MultiServerSessionCoordinator.swift */,
+				200000000000000000000023 /* MobileStateCache.swift */,
+				200000000000000000000024 /* HyperMeshDiscovery.swift */,
 				200000000000000000000004 /* Info.plist */,
 			);
 			path = HyperMobile;
@@ -239,6 +257,12 @@
 				10000000000000000000001B /* FileBrowserView.swift in Sources */,
 				10000000000000000000001C /* MarkdownImageProvider.swift in Sources */,
 				10000000000000000000001D /* InlineHTMLView.swift in Sources */,
+				10000000000000000000001E /* MobileSSO.swift in Sources */,
+				10000000000000000000001F /* ServerProfiles.swift in Sources */,
+				100000000000000000000020 /* ServerSessionPool.swift in Sources */,
+				100000000000000000000021 /* MultiServerSessionCoordinator.swift in Sources */,
+				100000000000000000000022 /* MobileStateCache.swift in Sources */,
+				100000000000000000000023 /* HyperMeshDiscovery.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,7 +277,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = HyperMobile/HyperMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = A4332S5P69;
 				ENABLE_PREVIEWS = YES;
@@ -286,7 +310,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = HyperMobile/HyperMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = A4332S5P69;
 				GENERATE_INFOPLIST_FILE = NO;

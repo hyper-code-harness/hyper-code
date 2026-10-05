@@ -15,15 +15,19 @@ struct APIClient {
 
     private struct LoginBody: Encodable { let password: String }
     private struct LoginResponse: Decodable { let ok: Bool }
-    private struct AuthSessionResponse: Decodable { let authenticated: Bool }
-    private let session: URLSession
+    struct AuthUser: Decodable { let id: String?; let name: String; let email: String?; let role: String
+        init(id: String?, name: String, email: String?, role: String) { self.id = id; self.name = name; self.email = email; self.role = role }
+    }
+    struct AuthSession: Decodable { let authenticated: Bool; let required: Bool?; let multiuser: Bool?; let user: AuthUser? }
+    private struct MobileExchangeBody: Encodable { let code: String }
+    private struct MobileExchangeResponse: Decodable { let ok: Bool; let user: AuthUser }
+    private struct LogoutResponse: Decodable { let ok: Bool }
     private struct CreateAgentBody: Encodable { let title: String; let workspaceDir: String; let model: String; let systemPrompt: String; let createWorkspaceDir: Bool }
 
     private struct ModelBody: Encodable { let model: String }
     private struct InjectBody: Encodable { let text: String; let every: Int }
-    init(baseURL: URL, session: URLSession = .shared) {
+    init(baseURL: URL) {
         self.baseURL = baseURL
-        self.session = session
     }
 
     func login(password: String) async throws {
@@ -31,9 +35,23 @@ struct APIClient {
         guard response.ok else { throw APIClientError.server("Login failed") }
     }
 
+    func authSession() async throws -> AuthSession {
+        try await request(path: "auth/session")
+    }
+
     func sessionIsAuthenticated() async -> Bool {
-        do { let response: AuthSessionResponse = try await request(path: "auth/session"); return response.authenticated }
+        do { return try await authSession().authenticated }
         catch { return false }
+    }
+
+    func exchangeMobileSession(code: String) async throws {
+        let response: MobileExchangeResponse = try await request(path: "auth/mobile/exchange", method: "POST", body: MobileExchangeBody(code: code))
+        guard response.ok else { throw APIClientError.server("Sign-in failed") }
+    }
+
+    func logout() async throws {
+        let response: LogoutResponse = try await request(path: "auth/logout", method: "POST", body: [String: String]())
+        guard response.ok else { throw APIClientError.server("Sign out failed") }
     }
 
 
@@ -188,12 +206,12 @@ struct APIClient {
             request.httpBody = try encoder.encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await ServerSessionPool.shared.data(for: request, baseURL: baseURL)
         return try decode(data: data, response: response)
     }
 
     private func decode<T: Decodable>(_ request: URLRequest) async throws -> T {
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await ServerSessionPool.shared.data(for: request, baseURL: baseURL)
         return try decode(data: data, response: response)
     }
 
@@ -201,7 +219,9 @@ struct APIClient {
         guard let http = response as? HTTPURLResponse else { throw APIClientError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
             let api = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw APIClientError.server(api?.message ?? api?.error ?? "HTTP \(http.statusCode)")
+            let message = api?.message ?? api?.error ?? "HTTP \(http.statusCode)"
+            if http.statusCode == 401 { throw APIClientError.unauthorized(message) }
+            throw APIClientError.server(message)
         }
         do {
             let decoder = JSONDecoder()
@@ -213,10 +233,11 @@ struct APIClient {
 }
 
 enum APIClientError: LocalizedError {
-    case invalidResponse, server(String), decoding(String)
+    case invalidResponse, unauthorized(String), server(String), decoding(String)
     var errorDescription: String? {
         switch self {
         case .invalidResponse: "Invalid server response"
+        case .unauthorized(let message): message
         case .server(let message): message
         case .decoding(let message): "Could not read Hyper response: \(message)"
         }

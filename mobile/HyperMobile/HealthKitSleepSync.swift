@@ -56,6 +56,8 @@ final class HealthKitSleepSync: ObservableObject {
     private let historyPrefix = "hyper.health.history.before."
     private let currentSyncVersion = 4
     private let syncVersionKey = "hyper.health.sync.version"
+    private let trustedDestinationKey = "hyper.health.trusted.destination.v1"
+    private var activeDestination = "legacy"
 
     private let quantities: [QuantityDefinition] = [
         .init(key: "heart_rate", kind: "heart_rate", identifier: .heartRate, unit: HKUnit.count().unitDivided(by: .minute()), valueKey: "bpm"),
@@ -78,8 +80,8 @@ final class HealthKitSleepSync: ObservableObject {
         status.syncing = false
         if UserDefaults.standard.integer(forKey: syncVersionKey) < currentSyncVersion {
             allCursorKeys.forEach {
-                UserDefaults.standard.removeObject(forKey: anchorPrefix + $0)
-                UserDefaults.standard.removeObject(forKey: historyPrefix + $0)
+                UserDefaults.standard.removeObject(forKey: anchorPrefix + activeDestination + "." + $0)
+                UserDefaults.standard.removeObject(forKey: historyPrefix + activeDestination + "." + $0)
             }
             status.historyCompleteByKind = [:]
             UserDefaults.standard.set(currentSyncVersion, forKey: syncVersionKey)
@@ -88,6 +90,7 @@ final class HealthKitSleepSync: ObservableObject {
     }
 
     func requestAndSync(baseURL: URL) async {
+        activateDestination(baseURL)
         guard HKHealthStore.isHealthDataAvailable() else { setMessage("Health data unavailable"); return }
         do {
             try await store.requestAuthorization(toShare: [], read: healthTypes)
@@ -98,11 +101,13 @@ final class HealthKitSleepSync: ObservableObject {
     }
 
     func syncIfAuthorized(baseURL: URL) async {
+        activateDestination(baseURL)
         guard status.authorized else { await refreshServerStatus(baseURL); return }
         await sync(baseURL: baseURL)
     }
 
     func sync(baseURL: URL) async {
+        activateDestination(baseURL)
         guard !status.syncing else { return }
         status.syncing = true
         status.message = "Checking fresh data…"
@@ -130,6 +135,7 @@ final class HealthKitSleepSync: ObservableObject {
     }
 
     func refreshServerStatus(_ baseURL: URL) async {
+        activateDestination(baseURL)
         do {
             let server = try await APIClient(baseURL: baseURL).healthStatus()
             status.serverMetrics = server.metrics
@@ -162,7 +168,7 @@ final class HealthKitSleepSync: ObservableObject {
     }
 
     private func historyPage(type: HKSampleType, key: String, kind: String, transform: (HKSample) -> HealthSampleUpload?, baseURL: URL) async throws {
-        let before = UserDefaults.standard.object(forKey: historyPrefix + key) as? Date ?? Date().addingTimeInterval(-3 * 86400)
+        let before = UserDefaults.standard.object(forKey: historyPrefix + activeDestination + "." + key) as? Date ?? Date().addingTimeInterval(-3 * 86400)
         let predicate = HKQuery.predicateForSamples(withStart: nil, end: before, options: [.strictEndDate])
         let descriptor = HKSampleQueryDescriptor(predicates: [.sample(type: type, predicate: predicate)], sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)], limit: 500)
         let results = try await descriptor.result(for: store)
@@ -170,7 +176,7 @@ final class HealthKitSleepSync: ObservableObject {
         _ = try await upload(kind: kind, samples: results.compactMap(transform), baseURL: baseURL)
         if let oldest = results.map(\.startDate).min() {
             let cursor = oldest.addingTimeInterval(-0.001)
-            UserDefaults.standard.set(cursor, forKey: historyPrefix + key)
+            UserDefaults.standard.set(cursor, forKey: historyPrefix + activeDestination + "." + key)
             status.historyBeforeByKind[key] = cursor
             save()
         }
@@ -216,6 +222,29 @@ final class HealthKitSleepSync: ObservableObject {
         return total
     }
 
+    private func activateDestination(_ baseURL: URL) {
+        let destination = Self.destinationKey(baseURL)
+        guard activeDestination != destination else { return }
+        activeDestination = destination
+        let persistedDestination = UserDefaults.standard.string(forKey: trustedDestinationKey)
+        if persistedDestination != destination {
+            status.lastChanges = [:]
+            status.latestByKind = [:]
+            status.historyBeforeByKind = [:]
+            status.historyCompleteByKind = [:]
+            status.serverMetrics = []
+            status.canonicalSleep = nil
+            status.message = "Trusted destination changed"
+            UserDefaults.standard.set(destination, forKey: trustedDestinationKey)
+            save()
+        }
+    }
+
+    private static func destinationKey(_ url: URL) -> String {
+        Data(url.absoluteString.lowercased().utf8).base64EncodedString().replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "+", with: "-")
+    }
+
+
     private var healthTypes: Set<HKObjectType> {
         var result = Set<HKObjectType>()
         result.insert(HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!)
@@ -226,8 +255,8 @@ final class HealthKitSleepSync: ObservableObject {
         return result
     }
     private var allCursorKeys: [String] { ["sleep", "blood_pressure", "workout"] + quantities.map(\.key) }
-    private func loadAnchor(_ key: String) -> HKQueryAnchor? { guard let data = UserDefaults.standard.data(forKey: anchorPrefix + key) else { return nil }; return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data) }
-    private func saveAnchor(_ anchor: HKQueryAnchor, _ key: String) { if let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true) { UserDefaults.standard.set(data, forKey: anchorPrefix + key) } }
+    private func loadAnchor(_ key: String) -> HKQueryAnchor? { guard let data = UserDefaults.standard.data(forKey: anchorPrefix + activeDestination + "." + key) else { return nil }; return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data) }
+    private func saveAnchor(_ anchor: HKQueryAnchor, _ key: String) { if let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true) { UserDefaults.standard.set(data, forKey: anchorPrefix + activeDestination + "." + key) } }
     private func setMessage(_ message: String) { status.message = message; save() }
     private func save() { var persisted = status; persisted.syncing = false; if let data = try? JSONEncoder().encode(persisted) { UserDefaults.standard.set(data, forKey: defaultsKey) } }
 }

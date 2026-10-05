@@ -14,7 +14,8 @@ final class AuthenticatedImageLoader: ObservableObject {
                 request.cachePolicy = .returnCacheDataElseLoad
                 request.timeoutInterval = 30
                 request.setValue("image/*", forHTTPHeaderField: "Accept")
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let baseURL = URL(string: "\(url.scheme ?? "https")://\(url.host ?? "")") ?? url
+                let (data, response) = try await ServerSessionPool.shared.data(for: request, baseURL: baseURL)
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200, let decoded = UIImage(data: data) else { throw URLError(.cannotDecodeContentData) }
                 image = decoded
             } catch { failed = true }

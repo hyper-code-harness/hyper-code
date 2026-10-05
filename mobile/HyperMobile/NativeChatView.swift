@@ -15,6 +15,7 @@ private enum ChatItem: Identifiable {
 struct NativeChatView: View {
     let agent: AgentSummary
     let baseURL: URL
+    let profileID: String?
     let onRead: () -> Void
     let onNextUnread: (() -> Void)?
     @StateObject private var store = ChatStore()
@@ -37,9 +38,10 @@ struct NativeChatView: View {
     @State private var injectText = ""
     @State private var injectEvery = 1
 
-    init(agent: AgentSummary, baseURL: URL, onRead: @escaping () -> Void, onNextUnread: (() -> Void)? = nil) {
+    init(agent: AgentSummary, baseURL: URL, profileID: String? = nil, onRead: @escaping () -> Void, onNextUnread: (() -> Void)? = nil) {
         self.agent = agent
         self.baseURL = baseURL
+        self.profileID = profileID
         self.onRead = onRead
         self.onNextUnread = onNextUnread
         _currentModel = State(initialValue: agent.model)
@@ -124,8 +126,13 @@ struct NativeChatView: View {
                 }
         )
         .toolbar { chatToolbar }
-        .task { await store.start(baseURL: baseURL, agentID: agent.id) }
-        .onDisappear { store.stopPolling(); onRead() }
+        .task {
+            let resolvedProfileID = profileID ?? MobileStateCache.fallbackProfileID(for: baseURL)
+            draft = MobileStateCache.shared.draft(profileID: resolvedProfileID, agentID: agent.id)
+            await store.start(baseURL: baseURL, agentID: agent.id, profileID: resolvedProfileID)
+        }
+        .onChange(of: draft) { _, value in MobileStateCache.shared.updateDraft(value, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id) }
+        .onDisappear { MobileStateCache.shared.flush(); store.stopPolling(); onRead() }
         .sheet(item: $selectedToolGroup) { group in ToolListSheet(events: group.events) { event in selectedToolGroup = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { selectedTool = event } } }
         .sheet(item: $selectedTool) { event in ToolDetailSheet(baseURL: baseURL, agentID: agent.id, event: event) }
         .sheet(isPresented: $showingModelPicker) { ModelPickerSheet(baseURL: baseURL, agentID: agent.id, selection: $currentModel) }
@@ -169,12 +176,14 @@ struct NativeChatView: View {
         // otherwise write its final transcript back after Send was tapped.
         focused = false
         draft = ""
+        MobileStateCache.shared.updateDraft("", profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
         attachments = []
         composerResetID = UUID()
         Task {
             let sent = await store.send(value, attachments: selected, baseURL: baseURL, agentID: agent.id)
             if !sent {
                 draft = value
+                MobileStateCache.shared.updateDraft(value, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
                 attachments = selected
                 composerResetID = UUID()
             }
@@ -366,6 +375,11 @@ private struct EventBubble: View {
         HStack(alignment: .bottom) {
             if isUser { Spacer(minLength: 54) }
             VStack(alignment: .leading, spacing: 7) {
+                if isUser, let author = event.author {
+                    Text(author.name)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(userTextColor.opacity(0.9))
+                }
                 if !isUser, let html = event.html, html.contains("<svg") || html.contains("<img") {
                     InlineHTMLView(html: html, height: $htmlHeight).frame(height: htmlHeight)
                 } else if let text = event.text, !text.isEmpty {
@@ -395,6 +409,9 @@ private struct EventBubble: View {
             .padding(.horizontal, isUser ? 12 : 0).padding(.vertical, isUser ? 9 : 7)
             .background(isUser ? userBubbleColor : Color.clear, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
             .foregroundStyle(isUser ? userTextColor : (event.type == "error" ? Color.red : Color.primary)).textSelection(.enabled)
+            if isUser, let author = event.author {
+                AuthorAvatar(author: author)
+            }
             if !isUser { Spacer(minLength: 0) }
         }
         .sheet(item: $preview) { item in ImagePreviewSheet(item: item) }
@@ -415,6 +432,38 @@ private struct EventBubble: View {
         return baseURL.appending(path: "attachments/\(agentID)/\(id)")
     }
 }
+
+private struct AuthorAvatar: View {
+    let author: EventAuthor
+
+    var body: some View {
+        Group {
+            if let value = author.picture, let url = URL(string: value), url.scheme == "https" {
+                AuthenticatedRemoteImage(url: url) { image, failed in
+                    if let image {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        initials
+                    }
+                }
+            } else {
+                initials
+            }
+        }
+        .frame(width: 32, height: 32)
+        .clipShape(Circle())
+        .accessibilityLabel(author.name)
+    }
+
+    private var initials: some View {
+        Text(author.initials)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(hue: Double(author.hue) / 360, saturation: 0.58, brightness: 0.72))
+    }
+}
+
 private struct ImagePreview: Identifiable { let id = UUID(); let url: URL; let name: String }
 private struct ImagePreviewSheet: View {
     let item: ImagePreview

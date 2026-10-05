@@ -54,12 +54,24 @@ struct MobileEvent: Codable, Identifiable, Hashable {
     let type: String
     let text: String?
     let html: String?
+    let author: EventAuthor?
     let name: String?
     let preview: String?
     let isError: Bool
     let attachments: [EventAttachment]
     var id: Int { idx }
 }
+
+struct EventAuthor: Codable, Hashable {
+    let id: String
+    let name: String
+    let initials: String
+    let hue: Int
+    let picture: String?
+    let kind: String?
+    let agentId: String?
+}
+
 
 struct EventAttachment: Codable, Hashable {
     let id: String?
@@ -89,7 +101,7 @@ struct PartialAssistant: Codable, Equatable {
 struct SendResponse: Codable { let version: Int; let ok: Bool; let messageIdx: Int; let eventIdx: Int; let sendAt: Double; let attachments: [EventAttachment]? }
 extension MobileEvent {
     init(idx: Int, ts: Double, type: String, text: String?, name: String?, preview: String?, isError: Bool, attachments: [EventAttachment]) {
-        self.init(idx: idx, ts: ts, type: type, text: text, html: nil, name: name, preview: preview, isError: isError, attachments: attachments)
+        self.init(idx: idx, ts: ts, type: type, text: text, html: nil, author: nil, name: name, preview: preview, isError: isError, attachments: attachments)
     }
 }
 struct PendingAttachment: Identifiable, Hashable {

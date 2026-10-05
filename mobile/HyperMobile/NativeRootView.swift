@@ -1,10 +1,12 @@
 import SwiftUI
+import AuthenticationServices
 
 struct NativeRootView: View {
-    @AppStorage("hyper.serverURL") private var serverURL = "https://hyper.tunnel.apki.dev"
-    @AppStorage("hyper.tunnelDefault.v1") private var tunnelDefaultApplied = false
+    @EnvironmentObject private var servers: ServerProfileStore
+    @EnvironmentObject private var sessions: MultiServerSessionCoordinator
     @StateObject private var store = AgentListStore()
     @State private var showingSettings = false
+    @State private var showingServers = false
     @State private var showingHealth = false
     @State private var showingWeb = false
     @State private var showingNewAgent = false
@@ -15,13 +17,17 @@ struct NativeRootView: View {
     @State private var loginPassword = ""
     @State private var loginError: String?
     @State private var isLoggingIn = false
+    @State private var sso = MobileSSO()
+    @State private var authUser: APIClient.AuthUser?
+    @State private var showingLogoutConfirmation = false
 
     @State private var pendingDelete: AgentSummary?
-    private var baseURL: URL? { URL(string: serverURL) }
-    private var folders: [String] { Array(Set(store.agents.map { folderName($0.workspaceDir) })).sorted() }
+    private var baseURL: URL? { servers.selectedURL }
+    private var selectedWorkspace: ServerWorkspaceSnapshot { sessions.workspace(for: servers.selectedID) }
+    private var folders: [String] { Array(Set(selectedWorkspace.agents.map { folderName($0.workspaceDir) })).sorted() }
     private var filtered: [AgentSummary] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return store.agents.filter {
+        return selectedWorkspace.agents.filter {
             (q.isEmpty || $0.title.lowercased().contains(q) || $0.id.lowercased().contains(q) || $0.workspaceDir.lowercased().contains(q)) &&
             (selectedFolder == nil || folderName($0.workspaceDir) == selectedFolder)
         }.sorted {
@@ -36,9 +42,9 @@ struct NativeRootView: View {
         NavigationStack {
             ZStack {
                 Color(.systemBackground).ignoresSafeArea()
-                if store.isLoading && store.agents.isEmpty {
+                if selectedWorkspace.isLoading && selectedWorkspace.agents.isEmpty {
                     ProgressView("Connecting…")
-                } else if let error = store.error, store.agents.isEmpty {
+                } else if let error = selectedWorkspace.error, selectedWorkspace.agents.isEmpty {
                     ContentUnavailableView("Can’t connect", systemImage: "wifi.exclamationmark", description: Text(error))
                 } else {
                     VStack(spacing: 0) {
@@ -50,7 +56,7 @@ struct NativeRootView: View {
                         .listStyle(.plain)
                         .safeAreaPadding(.bottom, 12)
                         .scrollContentBackground(.hidden)
-                        .refreshable { await reload() }
+                        .refreshable { await refreshSelected() }
                     }
                     .overlay(alignment: .bottom) {
                         Button { showingNewAgent = true } label: {
@@ -89,32 +95,50 @@ struct NativeRootView: View {
                 ToolbarItem(placement: .topBarLeading) { EmptyView() }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     NavigationLink { if let baseURL { NewsReaderView(baseURL: baseURL) } } label: { Image(systemName: "newspaper") }.accessibilityLabel("News")
+                    ServerSwitcherMenu { showingServers = true }
                     Button { showingWeb = true } label: { Image(systemName: "safari") }
                     Button { showingHealth = true } label: { Image(systemName: "heart.text.square") }.accessibilityLabel("Health Sync")
                     Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                    Menu {
+                        if let authUser { Text(authUser.name) }
+                        Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { showingLogoutConfirmation = true }
+                    } label: { Image(systemName: "person.crop.circle") }
+                    .accessibilityLabel("Account")
                 }
             }
             .navigationDestination(for: AgentSummary.self) { agent in
                 if let baseURL {
-                    NativeChatView(agent: agent, baseURL: baseURL, onRead: { Task { await reload() } }, onNextUnread: { openNextUnread(after: agent.id) })
+                    NativeChatView(agent: agent, baseURL: baseURL, profileID: servers.selectedID, onRead: { Task { await refreshSelected() } }, onNextUnread: { openNextUnread(after: agent.id) })
                         .id(agent.id)
                 }
             }
         }
-        .task {
-            if !tunnelDefaultApplied { serverURL = "https://hyper.tunnel.apki.dev"; tunnelDefaultApplied = true }
-            await reload()
-            if let baseURL { store.startRefreshing(baseURL: baseURL) }
-        }
+        .task { sessions.activate(profiles: servers.profiles, serverStore: servers); switchServer() }
+        .onChange(of: servers.profiles) { _, profiles in sessions.activate(profiles: profiles, serverStore: servers) }
+        .onChange(of: selectedWorkspace.agents) { _, agents in store.agents = agents }
+        .onChange(of: selectedWorkspace.error) { _, error in store.error = error }
+        .onChange(of: selectedFolder) { _, value in MobileStateCache.shared.updateListState(profileID: servers.selectedID, folder: value, query: query) }
+        .onChange(of: query) { _, value in MobileStateCache.shared.updateListState(profileID: servers.selectedID, folder: selectedFolder, query: value) }
+        .onChange(of: createdAgentToOpen?.id) { _, value in MobileStateCache.shared.updateSelection(profileID: servers.selectedID, agentID: value) }
         .onDisappear { store.stopRefreshing() }
+        .onChange(of: servers.selectedID) { _, _ in needsLogin = false; switchServer() }
+        .onChange(of: servers.auth(for: servers.selectedID).status) { _, status in needsLogin = status == .signInRequired }
         .navigationDestination(item: $createdAgentToOpen) { agent in
-            if let baseURL { NativeChatView(agent: agent, baseURL: baseURL, onRead: { Task { await reload() } }, onNextUnread: { openNextUnread(after: agent.id) }).id(agent.id) }
+            if let baseURL { NativeChatView(agent: agent, baseURL: baseURL, profileID: servers.selectedID, onRead: { Task { await refreshSelected() } }, onNextUnread: { openNextUnread(after: agent.id) }).id(agent.id) }
         }
         .sheet(isPresented: $showingNewAgent) { if let baseURL { NewAgentView(baseURL: baseURL) { created in showingNewAgent = false; openCreatedAgent(created) } } }
-        .sheet(isPresented: $showingHealth) { if let baseURL { HealthSyncView(baseURL: baseURL) } }
-        .sheet(isPresented: $showingSettings) { NativeSettingsView(serverURL: $serverURL) { Task { await reload() } } }
-        .sheet(isPresented: $showingWeb) { NavigationStack { HyperWebViewScreen(urlString: serverURL) } }
-        .sheet(isPresented: $needsLogin) { NativeLoginView(password: $loginPassword, error: loginError, isLoading: isLoggingIn) { login() } }
+        .sheet(isPresented: $showingHealth) { if let healthURL = servers.trustedHealthURL { HealthSyncView(baseURL: healthURL, serverName: servers.trustedHealthProfile.name) } }
+        .sheet(isPresented: $showingSettings) { ServerProfilesView() }
+        .sheet(isPresented: $showingServers) { ServerProfilesView() }
+        .sheet(isPresented: $showingWeb) { NavigationStack { HyperWebViewScreen(urlString: servers.selectedProfile.url) } }
+        .sheet(isPresented: $needsLogin) {
+            NativeLoginView(password: $loginPassword, error: loginError, isLoading: isLoggingIn, sso: { signInWithSSO() }) { login() }
+        }
+        .confirmationDialog("Sign out of Hyper?", isPresented: $showingLogoutConfirmation, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { logout() }
+            Button("Cancel", role: .cancel) { }
+        }
+
         .alert("Delete this chat?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
             Button("Cancel", role: .cancel) { pendingDelete = nil }
             Button("Delete", role: .destructive) { if let agent = pendingDelete { delete(agent) }; pendingDelete = nil }
@@ -152,7 +176,7 @@ struct NativeRootView: View {
 
     private func openNextUnread(after currentID: String) {
         Task {
-            await reload()
+            await refreshSelected()
             let unread = filtered.filter { $0.unread > 0 && $0.id != currentID }
             guard let next = unread.first else { UINotificationFeedbackGenerator().notificationOccurred(.warning); return }
             createdAgentToOpen = next
@@ -161,24 +185,31 @@ struct NativeRootView: View {
 
     private func openCreatedAgent(_ created: CreatedAgent) {
         Task {
-            await reload()
+            await refreshSelected()
             if let agent = store.agents.first(where: { $0.id == created.id }) { createdAgentToOpen = agent }
         }
     }
 
-    private func reload() async {
-        guard let baseURL else { store.error = "Invalid server URL"; return }
-        await store.load(baseURL: baseURL)
-        if store.error?.localizedCaseInsensitiveContains("authentication") == true || store.error?.localizedCaseInsensitiveContains("unauthorized") == true { needsLogin = true }
+    private func refreshSelected() async {
+        await sessions.refresh(profile: servers.selectedProfile, serverStore: servers)
+        let snapshot = sessions.workspace(for: servers.selectedID)
+        store.agents = snapshot.agents
+        store.error = snapshot.error
+        authUser = authUserFromSnapshot()
+        needsLogin = servers.auth(for: servers.selectedID).status == .signInRequired
     }
     private func login() {
         guard let baseURL, !loginPassword.isEmpty else { return }
         isLoggingIn = true; loginError = nil
-        Task { do { try await APIClient(baseURL: baseURL).login(password: loginPassword); loginPassword = ""; needsLogin = false; await reload() } catch { loginError = error.localizedDescription }; isLoggingIn = false }
+        Task { do { try await APIClient(baseURL: baseURL).login(password: loginPassword); loginPassword = ""; needsLogin = false; await refreshSelected() } catch { loginError = error.localizedDescription }; isLoggingIn = false }
     }
-    private func pin(_ agent: AgentSummary, _ pinned: Bool) { guard let baseURL else { return }; Task { await store.setPinned(agent, pinned: pinned, baseURL: baseURL) } }
-    private func archive(_ agent: AgentSummary) { guard let baseURL else { return }; Task { do { _ = try await APIClient(baseURL: baseURL).archiveAgent(agentID: agent.id); await reload() } catch { store.error = error.localizedDescription } } }
-    private func delete(_ agent: AgentSummary) { guard let baseURL else { return }; Task { do { _ = try await APIClient(baseURL: baseURL).deleteAgent(agentID: agent.id); await reload() } catch { store.error = error.localizedDescription } } }
+    private func signInWithSSO() { guard let baseURL else { return }; isLoggingIn = true; loginError = nil; Task { do { try await sso.signIn(baseURL: baseURL); needsLogin = false; await refreshSelected() } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin { } catch { loginError = error.localizedDescription }; isLoggingIn = false } }
+    private func logout() { guard let baseURL else { return }; let profileID = servers.selectedID; Task { do { try await APIClient(baseURL: baseURL).logout(); ServerSessionPool.shared.clear(baseURL: baseURL); servers.markSignedOut(profileID); sessions.remove(profileID: profileID); sessions.activate(profiles: servers.profiles, serverStore: servers); store.stopRefreshing(); store.agents = []; authUser = nil; loginPassword = ""; loginError = nil; needsLogin = true } catch { loginError = error.localizedDescription } } }
+    private func switchServer() { store.stopRefreshing(); let cached = MobileStateCache.shared.server(servers.selectedID); selectedFolder = cached.selectedFolder; query = cached.query; createdAgentToOpen = cached.selectedAgentID.flatMap { id in sessions.workspace(for: servers.selectedID).agents.first { $0.id == id } }; loginPassword = ""; loginError = nil; let snapshot = sessions.workspace(for: servers.selectedID); store.agents = snapshot.agents; store.error = snapshot.error; authUser = authUserFromSnapshot(); needsLogin = servers.auth(for: servers.selectedID).status == .signInRequired; Task { await sessions.refresh(profile: servers.selectedProfile, serverStore: servers, showLoading: snapshot.agents.isEmpty) } }
+    private func authUserFromSnapshot() -> APIClient.AuthUser? { let auth = servers.auth(for: servers.selectedID); guard auth.status == .authenticated else { return nil }; return APIClient.AuthUser(id: auth.userID, name: auth.userName ?? "Signed in", email: auth.userEmail, role: auth.role ?? "user") }
+    private func pin(_ agent: AgentSummary, _ pinned: Bool) { guard let baseURL else { return }; Task { await store.setPinned(agent, pinned: pinned, baseURL: baseURL); await refreshSelected() } }
+    private func archive(_ agent: AgentSummary) { guard let baseURL else { return }; Task { do { _ = try await APIClient(baseURL: baseURL).archiveAgent(agentID: agent.id); await refreshSelected() } catch { store.error = error.localizedDescription } } }
+    private func delete(_ agent: AgentSummary) { guard let baseURL else { return }; Task { do { _ = try await APIClient(baseURL: baseURL).deleteAgent(agentID: agent.id); await refreshSelected() } catch { store.error = error.localizedDescription } } }
     private func folderName(_ path: String) -> String { URL(fileURLWithPath: path).lastPathComponent.isEmpty ? "No workspace" : URL(fileURLWithPath: path).lastPathComponent }
 }
 
@@ -222,8 +253,8 @@ private enum ProjectColor {
 }
 
 struct NativeLoginView: View {
-    @Binding var password: String; let error: String?; let isLoading: Bool; let submit: () -> Void; @FocusState private var focused: Bool
-    var body: some View { VStack(spacing: 18) { Spacer(); Image(systemName: "lock.shield.fill").font(.system(size: 46)).foregroundStyle(.indigo); Text("Sign in").font(.title2.bold()); SecureField("Password", text: $password).onSubmit(submit).focused($focused).padding(14).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14)); if let error { Text(error).font(.caption).foregroundStyle(.red) }; Button("Sign in", action: submit).buttonStyle(.borderedProminent).controlSize(.large).disabled(password.isEmpty || isLoading); Spacer() }.padding(24).background(DotLoginBackground()).task { focused = true } }
+    @Binding var password: String; let error: String?; let isLoading: Bool; var sso: (() -> Void)? = nil; let submit: () -> Void; @FocusState private var focused: Bool
+    var body: some View { VStack(spacing: 18) { Spacer(); Image(systemName: "lock.shield.fill").font(.system(size: 46)).foregroundStyle(.indigo); Text("Sign in").font(.title2.bold()); if let sso { Button("Sign in with SSO", action: sso).buttonStyle(.borderedProminent).controlSize(.large).disabled(isLoading); Text("or").font(.caption).foregroundStyle(.secondary) }; SecureField("Password", text: $password).onSubmit(submit).focused($focused).padding(14).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14)); if let error { Text(error).font(.caption).foregroundStyle(.red) }; Button("Sign in with password", action: submit).buttonStyle(.bordered).controlSize(.large).disabled(password.isEmpty || isLoading); Spacer() }.padding(24).background(DotLoginBackground()).task { if sso == nil { focused = true } } }
 }
 struct DotLoginBackground: View { var body: some View { Color(.systemGroupedBackground).overlay(Canvas { context, size in var path = Path(); for y in stride(from: 8.0, to: size.height, by: 16) { for x in stride(from: 8.0, to: size.width, by: 16) { path.addEllipse(in: .init(x: x-1, y: y-1, width: 2, height: 2)) } }; context.fill(path, with: .color(.secondary.opacity(0.13))) }).ignoresSafeArea() } }
 struct NativeSettingsView: View { @Binding var serverURL: String; let connected: () -> Void; @State private var draft: String; @Environment(\.dismiss) private var dismiss; init(serverURL: Binding<String>, connected: @escaping () -> Void) { _serverURL = serverURL; self.connected = connected; _draft = State(initialValue: serverURL.wrappedValue) }; var body: some View { NavigationStack { Form { TextField("Server", text: $draft).textInputAutocapitalization(.never).autocorrectionDisabled(); Button("Connect") { serverURL = draft; connected(); dismiss() } }.navigationTitle("Connection").toolbar { Button("Cancel") { dismiss() } } } } }

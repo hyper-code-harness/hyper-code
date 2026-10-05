@@ -41,6 +41,12 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         }
     };
 
+    const authors = new Map<string, Awaited<ReturnType<typeof ctx.fns.auth.author>>>();
+    for (const event of events) {
+        if (event.type !== "user" || typeof event.actor !== "string" || authors.has(event.actor)) continue;
+        authors.set(event.actor, await ctx.fns.auth.author({ userId: event.actor }));
+    }
+
     const mobileEvents = events
         .filter((event: any) => ["user", "assistant", "error", "tool_call", "tool_result", "stop"].includes(String(event.type)))
         .map((event: any) => ({
@@ -49,6 +55,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
             type: String(event.type),
             text: typeof event.text === "string" ? event.text : (typeof event.error === "string" ? event.error : null),
             html: typeof event.html === "string" ? event.html : null,
+            author: typeof event.actor === "string" ? authors.get(event.actor) ?? null : null,
             name: typeof event.name === "string" ? event.name : null,
             preview: event.type === "tool_call"
                 ? toolPreview(String(event.name || "Tool"), event.args)

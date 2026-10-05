@@ -52,10 +52,23 @@ final class ChatStore: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var pollInFlight = false
     private var olderBefore: Int?
+    private var cacheProfileID: String?
+    private var cacheAgentID: String?
 
-    func start(baseURL: URL, agentID: String) async {
+    func start(baseURL: URL, agentID: String, profileID: String? = nil) async {
         pollTask?.cancel()
-        isLoading = true
+        let resolvedProfileID = profileID ?? MobileStateCache.fallbackProfileID(for: baseURL)
+        cacheProfileID = resolvedProfileID
+        cacheAgentID = agentID
+        if let cached = MobileStateCache.shared.chat(profileID: resolvedProfileID, agentID: agentID), !cached.events.isEmpty {
+            events = cached.events
+            olderBefore = cached.olderBefore
+            hasOlder = cached.hasOlder
+            nextAfter = cached.nextAfter
+            isRunning = cached.isRunning
+            partial = cached.partial
+        }
+        isLoading = events.isEmpty
         do {
             let page = try await APIClient(baseURL: baseURL).events(agentID: agentID, limit: 100)
             _ = try? await APIClient(baseURL: baseURL).markRead(agentID: agentID)
@@ -66,6 +79,7 @@ final class ChatStore: ObservableObject {
             isRunning = page.isRunning
             error = nil
             partial = page.partial
+            persistCache()
         } catch { self.error = error.localizedDescription }
         isLoading = false
         pollTask = Task { [weak self] in
@@ -88,6 +102,7 @@ final class ChatStore: ObservableObject {
             hasOlder = page.hasOlder
             historyAnchorID = previousFirst
             historyRevision += 1
+            persistCache()
         } catch { self.error = error.localizedDescription }
     }
 
@@ -109,6 +124,7 @@ final class ChatStore: ObservableObject {
             nextAfter = max(nextAfter, response.eventIdx + 1)
             partial = nil
             error = nil
+            persistCache()
             return true
         } catch {
             pendingUserEvent = nil
@@ -119,7 +135,7 @@ final class ChatStore: ObservableObject {
     }
 
     func stop(baseURL: URL, agentID: String) async {
-        do { _ = try await APIClient(baseURL: baseURL).stop(agentID: agentID); isRunning = false; await poll(baseURL: baseURL, agentID: agentID) }
+        do { _ = try await APIClient(baseURL: baseURL).stop(agentID: agentID); isRunning = false; await poll(baseURL: baseURL, agentID: agentID); persistCache() }
         catch { self.error = error.localizedDescription }
     }
 
@@ -134,7 +150,13 @@ final class ChatStore: ObservableObject {
             isRunning = page.isRunning
             error = nil
             partial = page.partial
+            persistCache()
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func persistCache() {
+        guard let profileID = cacheProfileID, let agentID = cacheAgentID else { return }
+        MobileStateCache.shared.updateChat(CachedChatState(events: events, nextAfter: nextAfter, olderBefore: olderBefore, hasOlder: hasOlder, isRunning: isRunning, partial: partial, updatedAt: Date()), profileID: profileID, agentID: agentID)
     }
 
     private func merge(_ incoming: [MobileEvent]) {

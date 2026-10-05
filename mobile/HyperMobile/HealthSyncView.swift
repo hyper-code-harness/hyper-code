@@ -2,12 +2,17 @@ import SwiftUI
 
 struct HealthSyncView: View {
     let baseURL: URL
+    let serverName: String?
     @StateObject private var sync = HealthKitSleepSync.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
+                Section("Destination") {
+                    Label(serverName ?? baseURL.host ?? baseURL.absoluteString, systemImage: "lock.shield.fill")
+                    Text("Health uploads stay pinned to this trusted Hyper even while you switch workspaces.").font(.caption).foregroundStyle(.secondary)
+                }
                 Section("Sync") {
                     HStack { Label(sync.status.authorized ? "Health access enabled" : "Health access required", systemImage: sync.status.authorized ? "checkmark.shield.fill" : "heart.text.square"); Spacer(); if sync.status.syncing { ProgressView() } }
                     LabeledContent("State", value: sync.status.message)

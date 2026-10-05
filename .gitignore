@@ -47,6 +47,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .hyper/_test_*
 .hyper/_tmp_*
 .hyper/tmp_*
+# browser.screenshot scratch output
+.hyper/browser-*.png
 .kimi-results
 .claude/
 

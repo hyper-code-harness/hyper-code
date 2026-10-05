@@ -2,8 +2,11 @@
 export default async function (ctx: Context, _session: Session | null, _opts: {}): Promise<string> {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
     const last = ((await ctx.fns.procs.db.select({ sql: "SELECT value FROM kv WHERE key = 'last-model'" }).catch(() => [])) as any[])[0]?.value;
-    const model = last ?? (await ctx.fns.settings.modelDefault({})) ?? ctx.env.MODEL ?? '';
     const groups = await ctx.fns.llm.listModels({});
+    const usable = new Set(Object.values(groups).flat());
+    const configured = (await ctx.fns.settings.modelDefault({})) ?? ctx.env.MODEL ?? '';
+    // Preference is useful only while that route is callable on this instance.
+    const model = usable.has(last) ? last : usable.has(configured) ? configured : usable.values().next().value ?? '';
     const base = await ctx.fns.agent.getBasePromptParts({});
     const presets = await ctx.fns.agent.listPromptPresets({});
     const options = Object.entries(groups).map(([provider, ids]) => `<optgroup label="${esc(provider)}">${(ids as string[]).map(id => `<option value="${esc(id)}" ${id === model ? 'selected' : ''}>${esc(id)}</option>`).join('')}</optgroup>`).join('');

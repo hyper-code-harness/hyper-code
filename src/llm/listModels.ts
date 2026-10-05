@@ -19,8 +19,13 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
         }
     } catch { /* unreachable — skip */ }
 
-    // Remote curated defaults (prefixed with provider: so you copy-paste the model string directly)
-    out.kimi = [
+    // Remote curated defaults are exposed only when their endpoint has usable
+    // credentials. Static catalogues describe capabilities, not availability.
+    const configured = async (model: string) => {
+        try { const endpoint = await ctx.fns.llm.resolveEndpoint({ model }); return endpoint.kind === "local" || !!endpoint.apiKey; }
+        catch { return false; }
+    };
+    if (await configured("kimi:kimi-k3")) out.kimi = [
         "kimi:kimi-k3",
         "kimi:kimi-k2.5",
         "kimi:kimi-k2-thinking-turbo",
@@ -28,13 +33,13 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
     ];
     // Kimi CLI subscription models. These use the Anthropic-compatible coding
     // endpoint and OAuth token managed by `kimi-cli` under ~/.kimi.
-    out["kimi-coding"] = [
+    if (await configured("kimi-coding:k3")) out["kimi-coding"] = [
         "kimi-coding:k3",
         "kimi-coding:k3-256k",
         "kimi-coding:kimi-for-coding",
         "kimi-coding:kimi-for-coding-highspeed",
     ];
-    out.openai = [
+    if (await configured("openai:gpt-5-codex")) out.openai = [
         "openai:gpt-5-codex",
         "openai:gpt-5.1-mini",
         "openai:gpt-4o-mini",
@@ -59,16 +64,8 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
                 if (ids.length) out.groq = ids;
             }
         }
-    } catch { /* missing/invalid key or unreachable — use fallback */ }
-    if (!out.groq) {
-        out.groq = [
-            "groq:openai/gpt-oss-120b",
-            "groq:openai/gpt-oss-20b",
-            "groq:llama-3.3-70b-versatile",
-            "groq:llama-3.1-8b-instant",
-        ];
-    }
-    out.openrouter = [
+    } catch { /* missing/invalid key or unreachable — omit */ }
+    if (await configured("openrouter:anthropic/claude-sonnet-4.6")) out.openrouter = [
         "openrouter:anthropic/claude-sonnet-4.6",
         "openrouter:google/gemini-2.5-pro",
     ];
@@ -147,8 +144,11 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
     if (!opts?.skipNodes) try {
         for (const node of await ctx.fns.node.list({})) {
             if (!node.enabled) continue;
-            const fresh = await ctx.fns.node.refresh({ name: node.name, maxAgeMs: 5 * 60_000 }).catch(() => node);
-            const catalog = fresh?.catalog ?? node.catalog ?? [];
+            const fresh = await ctx.fns.node.refresh({ name: node.name, maxAgeMs: 5 * 60_000 }).catch(() => null);
+            // A failed refresh must not resurrect a stale cached catalogue in a
+            // creation picker: only a recent successful snapshot is callable.
+            if (!fresh || fresh.lastError || !fresh.catalogAt || Date.now() - fresh.catalogAt > 5 * 60_000) continue;
+            const catalog = fresh.catalog ?? [];
             if (catalog.length) out[`hyper/${node.name}`] = catalog.map((e) => `hyper/${node.name}:${e.id}`);
         }
     } catch { /* node tables absent (fresh db) — omit */ }

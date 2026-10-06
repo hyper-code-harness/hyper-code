@@ -60,7 +60,7 @@ export default async function (
     // Entry points are called by the framework, never from code: a route is hit
     // over HTTP, a cron by the scheduler, a tool by the model. They have zero
     // in-edges by nature and must never be mistaken for dead code.
-    const ENTRY = new Set(["route", "cron", "tool", "lifecycle", "app", "middleware", "compaction", "gap", "point", "hook"]);
+    const ENTRY = new Set(["route", "ws", "cron", "tool", "lifecycle", "app", "middleware", "compaction", "gap", "point", "hook"]);
     const wanted = (e: ScanEntry) => (e.kind === "fn" || ENTRY.has(e.kind)) && e.abs.endsWith(".ts") && !e.abs.endsWith(".test.ts");
 
     // A third kind of entry point, invisible in the call graph: functions the

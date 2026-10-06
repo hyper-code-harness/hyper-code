@@ -244,6 +244,7 @@ export const CORE_LOADERS = [
     "cli",        // commands for the registry-only boot
     "route",      // the route table…
     "middleware", // …and what runs before it
+    "ws",         // WebSocket endpoints, in the same table under method WS
     "script",     // browser assets, bundled on request
     "style",      // Tailwind inputs, compiled and cached
 ] as const;
@@ -254,7 +255,7 @@ async function loadCoreLoaders(ctx: Context, entries: any[]): Promise<void> {
     const at: Record<string, string> = {
         fn: "$loader_fn.ts", config: "config/$loader_config.ts", hook: "hooks/$loader_hook.ts",
         migration: "migrate/$loader_migration.ts", cli: "cli/$loader_cli.ts",
-        route: "http/$loader_route.ts", middleware: "http/$loader_middleware.ts",
+        route: "http/$loader_route.ts", middleware: "http/$loader_middleware.ts", ws: "http/$loader_ws.ts",
         script: "http/$loader_script.ts", style: "styles/$loader_style.ts",
     };
     for (const kind of CORE_LOADERS) {
@@ -269,7 +270,7 @@ async function loadCoreLoaders(ctx: Context, entries: any[]): Promise<void> {
 // assembled — nobody may claim them.
 export const RESERVED_KINDS = new Set([
     'route', 'middleware', 'state', 'config', 'hook', 'migration', 'cli',
-    'type', 'script', 'style', 'main', 'test', 'start', 'stop', 'loader',
+    'type', 'script', 'style', 'main', 'test', 'start', 'stop', 'loader', 'ws',
 ]);
 
 // Does anybody load this kind? Asked instead of a fixed list, so a kind a module

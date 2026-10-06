@@ -45,7 +45,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
     try {
         if (entry.kind === 'fn') {
             await ctx.fns.procs.repl.load({ name: dottedName(entry) });
-        } else if (entry.kind === 'route' || entry.kind === 'script') {
+        } else if (entry.kind === 'route' || entry.kind === 'ws' || entry.kind === 'script') {
             await ctx.fns.procs.http.loadRoutes({});
         } else if (isLoaded(ctx, entry.kind)) {
             await collectStateFile(ctx, entry, abs);

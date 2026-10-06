@@ -25,7 +25,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         await ctx.fns.procs.styles.rebuild({});
         return { synced: opts.rel, as: 'ctx.fns.' + name };
     }
-    if (entry.kind === 'route' || entry.kind === 'script' || entry.kind === 'style') {
+    if (entry.kind === 'route' || entry.kind === 'ws' || entry.kind === 'script' || entry.kind === 'style') {
         await ctx.fns.procs.http.loadRoutes({});
         await ctx.fns.procs.styles.rebuild({});
         const as = entry.kind === 'route' ? `${entry.method} ${entry.routePath}` : `GET ${entry.routePath}`;

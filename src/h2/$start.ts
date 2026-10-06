@@ -103,6 +103,8 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             if (!res.headersSent) { res.writeHead(502); res.end(String(e?.message ?? e)); } else res.destroy();
         }
     });
+    // WebSockets arrive as HTTP/1.1 upgrades (no RFC 8441 over h2); see h2/wsProxy.
+    server.on("upgrade", (req: any, socket: any, head: any) => ctx.fns.h2.wsProxy({ req, socket, head }));
     await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, cfg.host || "0.0.0.0", () => ok()); });
     ctx.fns.procs.log.info({ event: "h2.started", msg: `https://${tsName && hasTsCert ? tsName : "localhost"}:${port} (HTTP/2${on(cfg.http1) ? " + HTTP/1.1" : " only"}, experimental)` });
     return { server, port, tsName: hasTsCert ? tsName : null, redirect: on(cfg.redirect) };

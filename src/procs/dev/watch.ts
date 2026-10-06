@@ -69,7 +69,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
                     await ctx.fns.procs.repl.load({ name: dottedName(entry) });
                     needTypes = true;
                     needReload = true;
-                } else if (entry.kind === 'route' || entry.kind === 'script' || entry.kind === 'style') {
+                } else if (entry.kind === 'route' || entry.kind === 'ws' || entry.kind === 'script' || entry.kind === 'style') {
                     needRoutes = true;
                     needReload = true;
                 } else if (entry.kind === 'type') {

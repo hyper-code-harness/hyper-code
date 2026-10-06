@@ -101,6 +101,16 @@ export default function (_ctx: Context, _session: Session | null, opts: { rel: s
         return { kind: 'route', rel, moduleDir, fileName, routePath: toPath(moduleDir, pathParts), method };
     }
 
+    // $ws_<path>.ts → a WebSocket endpoint at the same address grammar as a
+    // route (`_` → `/`, `$id` → `:id`); bare `$ws.ts` is the module path itself.
+    // It default-exports { upgrade?, open?, message?, close?, drain? } and is
+    // reached through the same middleware (auth, cookies) as any request.
+    if (stem === '$ws' || stem.startsWith('$ws_')) {
+        const rest = stem === '$ws' ? '' : stem.slice('$ws_'.length);
+        const pathParts = rest === '' ? [] : rest.split('_');
+        return { kind: 'ws', rel, moduleDir, fileName, routePath: toPath(moduleDir, pathParts), method: 'WS' };
+    }
+
     // $middleware[_<path>].ts → runs before handlers under its path prefix; may
     // mutate the session. Bare $middleware.ts → the whole module path; the _<path>
     // suffix extends it (_ → /, $id → :id wildcard segment).

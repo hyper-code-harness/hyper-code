@@ -23,7 +23,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { s
         procs: { ...ctx.state.procs, http: { ...ctx.state.procs.http, routes: {}, middleware: [] }, styles: [] },
     };
 
-    for (const kind of ["route", "middleware", "script", "style"]) {
+    for (const kind of ["route", "ws", "middleware", "script", "style"]) {
         const loader = loaders[kind];
         const mine = entries.filter((e: any) => e.kind === kind);
         if (!loader || !mine.length) continue;

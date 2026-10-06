@@ -30,7 +30,8 @@ struct ServerAuthSnapshot: Codable, Hashable {
 
 @MainActor
 final class ServerProfileStore: ObservableObject {
-    static let defaultURL = "https://hyper.tunnel.apki.dev"
+    /// Shared team Hyper every hypermesh account can reach; a personal server is added by hand or found by hypermesh discovery.
+    static let defaultURL = "https://hyper.all.in.hn.hyper-mesh.xyz"
 
     @Published private(set) var profiles: [ServerProfile]
     @Published private(set) var selectedID: String
@@ -206,7 +207,6 @@ final class ServerProfileStore: ObservableObject {
 
     private static func suggestedName(for url: String) -> String {
         guard let host = URL(string: url)?.host else { return "Hyper" }
-        if host == "hyper.tunnel.apki.dev" { return "My Hyper" }
         return host.replacingOccurrences(of: ".local", with: "")
     }
 }

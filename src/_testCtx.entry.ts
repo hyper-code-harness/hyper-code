@@ -35,6 +35,12 @@ export async function mkTestCtx(opts: { db?: string | false; env?: Record<string
         ...opts.env,
     };
 
+    // The product default of the global status line injects an extra user row into every turn; tests that
+    // count transcript rows must not depend on it. Tests of the status line set it explicitly.
+    const settingsRegistry = ctx.state.settings?.registry;
+    const statusLine = settingsRegistry?.get("agent.globalStatusLine");
+    if (statusLine) settingsRegistry.set("agent.globalStatusLine", { ...statusLine, default: "" });
+
     const reg = ctx.state.registry;
     reg.markdown.highlight = async (_c: any, _s: any, o: any) =>
         String(o?.code ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

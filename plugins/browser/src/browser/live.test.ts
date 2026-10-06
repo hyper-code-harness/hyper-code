@@ -51,13 +51,13 @@ test("liveCdp: default endpoint, allow-list, refusal", async () => {
 });
 
 test("liveProfile: high = viewer device pixels at the configured quality, low = half box at 30, auto follows the level", () => {
-    expect(liveProfile(noCtx, null, { mode: "high", width: 1000, height: 600, dpr: 2, baseQuality: 80 })).toEqual({ level: 0, quality: 80, maxWidth: 2000, maxHeight: 1200 });
-    expect(liveProfile(noCtx, null, { mode: "low", width: 1000, height: 600, dpr: 2 })).toEqual({ level: 3, quality: 30, maxWidth: 500, maxHeight: 300 });
-    expect(liveProfile(noCtx, null, { width: 1000, height: 600, dpr: 2 })).toEqual({ level: 1, quality: 60, maxWidth: 1000, maxHeight: 600 });
+    expect(liveProfile(noCtx, null, { mode: "high", width: 1000, height: 600, dpr: 2, baseQuality: 80 })).toEqual({ level: 0, quality: 80, lowDensity: false, maxWidth: 2000, maxHeight: 1200 });
+    expect(liveProfile(noCtx, null, { mode: "low", width: 1000, height: 600, dpr: 2 })).toEqual({ level: 3, quality: 30, lowDensity: true, maxWidth: 500, maxHeight: 300 });
+    expect(liveProfile(noCtx, null, { width: 1000, height: 600, dpr: 2 })).toEqual({ level: 1, quality: 60, lowDensity: true, maxWidth: 1000, maxHeight: 600 });
     expect(liveProfile(noCtx, null, { level: 2, width: 1000, height: 600 })).toMatchObject({ level: 2, quality: 45, maxWidth: 750 });
     expect(liveProfile(noCtx, null, { level: 9 }).level).toBe(3);
     expect(liveProfile(noCtx, null, { level: 1, baseQuality: 40 }).quality).toBe(40);   // never above the configured quality
-    expect(liveProfile(noCtx, null, { mode: "high" })).toEqual({ level: 0, quality: 70 }); // box unknown: no size limit
+    expect(liveProfile(noCtx, null, { mode: "high" })).toEqual({ level: 0, quality: 70, lowDensity: false }); // box unknown: no size limit
 });
 
 // A fake Chrome: /json/version over HTTP and a browser-level CDP socket that
@@ -114,6 +114,10 @@ test("liveConnect: screencast frames reach the viewer as header+JPEG and are ack
         await Bun.sleep(250);
         expect(commands.filter((c) => c.method === "Page.startScreencast").at(-1)).toMatchObject({ params: { quality: 55, maxWidth: 2400, maxHeight: 1600 } });
         expect(conn.stats()).toMatchObject({ mode: "high", level: 0 });
+        expect(commands.filter((c) => c.method === "Emulation.clearDeviceMetricsOverride").at(-1)).toMatchObject({ sessionId: "S-T2" });
+        // Auto starts below its top level: the tab renders at device scale 1, window size kept.
+        expect(commands.find((c) => c.method === "Emulation.setDeviceMetricsOverride")).toMatchObject({ sessionId: "S-T2", params: { width: 0, height: 0, deviceScaleFactor: 1, mobile: false } });
+        expect(names.indexOf("Emulation.setDeviceMetricsOverride")).toBeLessThan(names.indexOf("Page.startScreencast"));
         // Nothing that would run code inside the page.
         expect(names.some((n) => /^Runtime\.|addScriptToEvaluateOnNewDocument/.test(n))).toBe(false);
 
@@ -139,6 +143,8 @@ test("liveConnect: screencast frames reach the viewer as header+JPEG and are ack
         expect(after("Page.navigate")[0]).toMatchObject({ params: { url: "https://example.org" } });
         expect(after("Page.navigateToHistoryEntry")[0]).toMatchObject({ params: { entryId: 7 } });
         expect(after("Page.stopScreencast")[0]).toMatchObject({ sessionId: "S-T2" });
+        // High on the old tab: no override there, so leaving it clears nothing more; the new tab gets none either.
+        expect(after("Emulation.setDeviceMetricsOverride").filter((c) => c.sessionId === "S-T1")).toHaveLength(0);
         expect(conn.targetId()).toBe("T1");
         expect(after("Page.startScreencast").at(-1)).toMatchObject({ sessionId: "S-T1" });
         expect(conn.stats().inputs).toBe(3);
@@ -194,6 +200,9 @@ test("liveConnect: auto quality steps down when frames are dropped", async () =>
         expect(conn.stats()).toMatchObject({ level: 2, quality: 45, maxWidth: 750 });
         await Bun.sleep(200);
         expect(commands.filter((c) => c.method === "Page.startScreencast").at(-1)).toMatchObject({ params: { quality: 45, maxWidth: 750, maxHeight: 450 } });
+        expect(commands.filter((c) => c.method === "Emulation.setDeviceMetricsOverride")).toHaveLength(1);  // set once, kept across levels
         await conn.close();
+        // Leaving gives the tab its own pixel density back.
+        expect(commands.filter((c) => c.method === "Emulation.clearDeviceMetricsOverride")).toMatchObject([{ sessionId: "S1" }]);
     } finally { globalThis.fetch = realFetch; fake.stop(true); }
 }, 10000);

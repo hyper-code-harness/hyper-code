@@ -22,7 +22,9 @@ const CALM_WINDOWS = 3;
  * as one binary message (4-byte big-endian JSON header length, JSON metadata, JPEG bytes). A frame is
  * acknowledged to Chrome only once it was handed to the socket; while the socket is congested only the
  * newest frame is kept. Frame size and quality follow the viewer (`view` message: mode auto/high/low and
- * canvas box); in `auto` the level drops when frames pile up and climbs back after a calm stretch.
+ * canvas box); in `auto` the level drops when frames pile up and climbs back after a calm stretch. In
+ * `auto` below its top level and in `low` the tab renders at device scale factor 1 (same layout, fewer
+ * pixels); the override belongs to this CDP session and is cleared when the viewer leaves.
  * Viewer messages: mouse, key, insert, navigate, back, forward, reload, switch, view.
  * No script is evaluated in the page.
  * @param opts.viewer Viewer socket: send, getBufferedAmount and close.
@@ -92,10 +94,20 @@ export default async function (
     const view = { mode: "auto" as "auto" | "high" | "low", width: 0, height: 0, dpr: 1, level: 1 };
     let profile = ctx.fns.browser.liveProfile({ mode: view.mode, level: view.level, baseQuality: quality });
     let restartTimer: ReturnType<typeof setTimeout> | null = null;
+    // Device scale 1 while watching in auto/low: same CSS layout, a quarter of
+    // the pixels to paint and encode on a Retina screen. width/height 0 keep the
+    // window's own size, so the page does not re-layout.
+    let lowDensityOn = false;
+    const setDensity = async (s: string, low: boolean) => {
+        if (low === lowDensityOn) return;
+        lowDensityOn = low;
+        if (low) await call("Emulation.setDeviceMetricsOverride", { width: 0, height: 0, deviceScaleFactor: 1, mobile: false }, s);
+        else await call("Emulation.clearDeviceMetricsOverride", {}, s);
+    };
     const screencastParams = () => ({ format: "jpeg", everyNthFrame: 1, quality: profile.quality, ...(profile.maxWidth ? { maxWidth: profile.maxWidth, maxHeight: profile.maxHeight } : {}) });
     const applyProfile = () => {
         const next = ctx.fns.browser.liveProfile({ ...view, baseQuality: quality });
-        const changed = next.quality !== profile.quality || next.maxWidth !== profile.maxWidth || next.maxHeight !== profile.maxHeight;
+        const changed = next.quality !== profile.quality || next.maxWidth !== profile.maxWidth || next.maxHeight !== profile.maxHeight || next.lowDensity !== profile.lowDensity;
         profile = next;
         sendJson({ t: "profile", mode: view.mode, ...profile });
         if (!changed || !sessionId) return;
@@ -107,6 +119,7 @@ export default async function (
             if (!s || closed) return;
             held = null;
             void call("Page.stopScreencast", {}, s)
+                .then(() => s === sessionId && !closed ? setDensity(s, profile.lowDensity) : undefined)
                 .then(() => s === sessionId && !closed ? call("Page.startScreencast", screencastParams(), s) : undefined)
                 .catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.profile", msg: e.message }));
         }, 150);
@@ -206,6 +219,7 @@ export default async function (
         sessionId = "";
         held = null;
         await call("Page.stopScreencast", {}, old).catch(() => {});
+        await setDensity(old, false).catch(() => {});
         if (focusEmulation) await call("Emulation.setFocusEmulationEnabled", { enabled: false }, old).catch(() => {});
         await call("Target.detachFromTarget", { sessionId: old }).catch(() => {});
     };
@@ -216,6 +230,8 @@ export default async function (
         sessionId = attached.sessionId;
         await call("Page.enable", {}, sessionId);
         if (focusEmulation) await call("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId).catch(() => {});
+        lowDensityOn = false;
+        await setDensity(sessionId, profile.lowDensity).catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.density", msg: e.message }));
         await call("Page.startScreencast", screencastParams(), sessionId);
         const info = targets.get(id);
         sendJson({ t: "target", id, url: info?.url ?? "", title: info?.title ?? "" });

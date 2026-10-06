@@ -2,6 +2,8 @@
 // should encode, from the viewer's mode, its canvas box and an adaptive level.
 // Chrome scales the frame down before encoding (Page.startScreencast maxWidth /
 // maxHeight), so a smaller level means fewer pixels to encode, send and decode.
+// Below level 0 the tab is also rendered at device scale 1 instead of Retina 2:
+// the layout stays the same, Chrome just paints a quarter of the pixels.
 
 const LEVELS = [
     { quality: 0, scale: 0 },      // 0: the configured quality, viewer device pixels (box × DPR)
@@ -15,7 +17,9 @@ const LEVELS = [
  *
  * Use when starting or restarting `Page.startScreencast` for the live view. Mode `high` is level 0
  * (configured quality, viewer device pixels), `low` is level 3 (quality 30, half the viewer box), `auto`
- * uses the given adaptive level 0–3. Without a known viewer box no size limit is set.
+ * uses the given adaptive level 0–3. Without a known viewer box no size limit is set. `lowDensity` is true
+ * below level 0: the caller should render the tab at device scale factor 1 (same CSS layout, a quarter of the
+ * pixels on a Retina screen) while the viewer watches.
  * @param opts.mode Viewer choice: `auto`, `high` or `low`. @default "auto"
  * @param opts.level Adaptive level for `auto`, 0 best to 3 lowest. @default 1 @minimum 0 @maximum 3
  * @param opts.width Viewer canvas box width in CSS pixels; 0 when unknown. @default 0
@@ -40,7 +44,7 @@ export default function (
         /** Configured JPEG quality used at level 0. @default 70 @minimum 10 @maximum 100 */
         baseQuality?: number;
     },
-): { level: number; quality: number; maxWidth?: number; maxHeight?: number } {
+): { level: number; quality: number; lowDensity: boolean; maxWidth?: number; maxHeight?: number } {
     const mode = opts.mode ?? "auto";
     const level = mode === "high" ? 0 : mode === "low" ? 3 : Math.max(0, Math.min(3, Math.trunc(opts.level ?? 1)));
     const base = Math.max(10, Math.min(100, Math.trunc(opts.baseQuality ?? 70)));
@@ -48,7 +52,8 @@ export default function (
     const quality = level === 0 ? base : Math.min(base, spec.quality);
     const scale = level === 0 ? Math.max(1, Math.min(3, opts.dpr ?? 1)) : spec.scale;
     const w = Number(opts.width) || 0, h = Number(opts.height) || 0;
-    if (w <= 0 || h <= 0) return { level, quality };
+    const lowDensity = level > 0;
+    if (w <= 0 || h <= 0) return { level, quality, lowDensity };
     const side = (v: number) => Math.max(160, Math.min(4096, Math.round(v * scale)));
-    return { level, quality, maxWidth: side(w), maxHeight: side(h) };
+    return { level, quality, lowDensity, maxWidth: side(w), maxHeight: side(h) };
 }

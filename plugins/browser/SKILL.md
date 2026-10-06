@@ -98,6 +98,13 @@ tab sends no frames without focus emulation; `probe-bg-scroll.ts`: wheel input a
 | `browser.liveQuality` / `BROWSER_LIVE_QUALITY` | JPEG quality 10–100 | 70 |
 | `BROWSER_LIVE_BASE_URL` | public base of links (e.g. the Hyperlet address) | tailnet HTTPS when reachable, else `http://localhost:<port>` |
 
+Picture quality: the viewer's toolbar has Auto / High / Low. Chrome scales frames to the viewer's
+window before encoding. High is the configured quality at the viewer's device pixels; Low is quality 30 at
+half the window; Auto starts at 60 and steps down when frames pile up, back up after a calm stretch. In
+Auto and Low the shown tab renders at device scale 1 instead of Retina 2 (same layout, a quarter of the
+pixels) — the agent's screenshots of that tab are lower-resolution while a viewer watches; the tab gets
+its own density back when the viewer leaves or picks High.
+
 Limits: one tab at a time per viewer (switch in the toolbar); the picture is the tab's viewport, not
 browser UI (no permission prompts, file pickers or extension popups); native `<select>` popups and
 `alert()` dialogs render outside the page and are not visible.

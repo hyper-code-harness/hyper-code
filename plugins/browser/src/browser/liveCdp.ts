@@ -5,8 +5,8 @@
 /**
  * Resolves the Chrome DevTools endpoint a live-view request may use.
  *
- * Without `requested` returns the default: setting browser.liveCdpUrl, then CDP_BROWSER_URL, then
- * http://127.0.0.1:9222. A requested endpoint is accepted only when it equals the default or is listed
+ * Without `requested` returns the Chrome every browser.* function drives: CDP_BROWSER_URL, else
+ * http://127.0.0.1:9222 — the live view never shows a different browser by default. A requested endpoint is accepted only when it equals the default or is listed
  * in setting browser.liveCdpAllow (BROWSER_LIVE_CDP_ALLOW); otherwise this throws.
  * @param opts.requested Endpoint named by a link (`?cdp=`), such as `http://127.0.0.1:9230`.
  */
@@ -19,8 +19,7 @@ export default async function (
     } = {},
 ): Promise<{ browserUrl: string; isDefault: boolean }> {
     const norm = (u: string) => u.trim().replace(/\/+$/, "");
-    const configured = await ctx.fns.settings.getString({ module: "browser", scopeType: "global", key: "liveCdpUrl" });
-    const fallback = norm(configured || ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222");
+    const fallback = norm(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222");
     const requested = norm(opts.requested ?? "");
     if (!requested || requested === fallback) return { browserUrl: fallback, isDefault: true };
     const allowList = await ctx.fns.settings.getString({ module: "browser", scopeType: "global", key: "liveCdpAllow" });

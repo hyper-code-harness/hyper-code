@@ -84,9 +84,16 @@ evaluated in the page (no `Runtime.evaluate`, no `addScriptToEvaluateOnNewDocume
 profiles watched by anti-bot checks. Paste in the viewer and the "Insert text" button type text through
 `Input.insertText`; copying out of the page is not supported.
 
+Why not VNC: an RFB server plus noVNC was the first plan and was dropped. noVNC translates keysyms back to
+DOM keys and re-frames JPEG tiles; a web viewer already has DOM `key`/`code`, coalesced pointer events and
+the clipboard, and Chrome already produces JPEG frames, so the page draws `Page.screencastFrame` on a canvas
+and sends DOM input back as `Input.*` — the same approach as Browserless, Steel and the DevTools screencast.
+Manual probes and an isolated test Chrome (CDP 9230) are in `probes/` (`probe-screencast.ts`: a background
+tab sends no frames without focus emulation; `probe-bg-scroll.ts`: wheel input and frames keep working).
+
 | setting / env | meaning | default |
 |---|---|---|
-| `browser.liveCdpUrl` / `BROWSER_LIVE_CDP_URL` | Chrome shown by default | `CDP_BROWSER_URL`, then `http://127.0.0.1:9222` |
+| `CDP_BROWSER_URL` | Chrome shown by default — the same one every `browser.*` function drives | `http://127.0.0.1:9222` |
 | `browser.liveCdpAllow` / `BROWSER_LIVE_CDP_ALLOW` | other endpoints a link may name with `?cdp=` (comma-separated) | none |
 | `browser.liveQuality` / `BROWSER_LIVE_QUALITY` | JPEG quality 10–100 | 70 |
 | `BROWSER_LIVE_BASE_URL` | public base of links (e.g. the Hyperlet address) | tailnet HTTPS when reachable, else `http://localhost:<port>` |

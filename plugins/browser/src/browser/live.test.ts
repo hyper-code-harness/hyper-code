@@ -39,13 +39,13 @@ test("liveMouse: moves keep the held button, presses count clicks, wheel passes 
 });
 
 test("liveCdp: default endpoint, allow-list, refusal", async () => {
-    const settings: Record<string, string | undefined> = { liveCdpUrl: undefined, liveCdpAllow: "http://127.0.0.1:9230/, http://127.0.0.1:9225" };
+    const settings: Record<string, string | undefined> = { liveCdpAllow: "http://127.0.0.1:9230/, http://127.0.0.1:9225" };
     const ctx = { env: { CDP_BROWSER_URL: "http://127.0.0.1:9222/" }, fns: { settings: { getString: async (o: any) => settings[o.key] } } } as unknown as Context;
     expect(await liveCdp(ctx, null, {})).toEqual({ browserUrl: "http://127.0.0.1:9222", isDefault: true });
     expect(await liveCdp(ctx, null, { requested: "http://127.0.0.1:9222" })).toEqual({ browserUrl: "http://127.0.0.1:9222", isDefault: true });
     expect(await liveCdp(ctx, null, { requested: "http://127.0.0.1:9230" })).toEqual({ browserUrl: "http://127.0.0.1:9230", isDefault: false });
     await expect(liveCdp(ctx, null, { requested: "http://10.0.0.1:9222" })).rejects.toThrow(/not allowed/);
-    settings.liveCdpUrl = "http://127.0.0.1:29222";
+    (ctx.env as any).CDP_BROWSER_URL = "http://127.0.0.1:29222";
     expect((await liveCdp(ctx, null, {})).browserUrl).toBe("http://127.0.0.1:29222");
 });
 

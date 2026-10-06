@@ -7,6 +7,6 @@
     "label": "browser",
     "icon": "ph-browser",
     "optional": true,
-    "description": "Basic automation of a real Chrome over CDP on :9222: tabs, navigation, page evaluation, text, clicks and screenshots."
+    "description": "Basic automation of a real Chrome over CDP on :9222: tabs, navigation, page evaluation, text, clicks, screenshots and a live-view link that hands a tab to a human."
   }
 }

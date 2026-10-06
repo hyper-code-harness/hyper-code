@@ -1,6 +1,6 @@
 ---
 name: browser
-description: "Browser automation over Chrome DevTools Protocol (CDP) on :9222. Use to inspect and navigate named tabs, capture compact accessibility or readable-content snapshots, interact with pages, run Google workflows, and take screenshots in the user's real Chrome."
+description: "Browser automation over Chrome DevTools Protocol (CDP) on :9222. Use to inspect and navigate named tabs, capture compact accessibility or readable-content snapshots, interact with pages, run Google workflows, take screenshots in the user's real Chrome, and hand a tab to a human through a live-view link (CAPTCHA, 2FA, sign-in)."
 ---
 
 # browser
@@ -51,6 +51,49 @@ browser and drop the sessions the profile exists to keep.
 | `CDP_LOAD_EXTENSION` | unpacked extension, `""` to disable | bundled `arc-sidebar` when present |
 | `CDP_TMUX_SESSION` | session Chrome runs in | `chrome-cdp` |
 | `CHROME_BIN` | Chrome binary | platform default |
+
+## Live view: hand a tab to a human
+
+`browser.liveView({ tab })` returns `{ url }` — a page of this Hyper that shows one Chrome tab and lets a
+person click, type, scroll and switch tabs in it. Give that link to the human when the page needs a
+person, not the agent:
+
+- a CAPTCHA, "are you human" check or bot wall;
+- a two-factor prompt, SMS/app code, passkey or security question;
+- signing in, re-entering a password, choosing an account, consent that requires the account owner;
+- anything the user must confirm personally (payment, sending, deleting).
+
+Then stop driving that tab: say what you need the person to do, wait for them to tell you they are done,
+and only then continue (`browser.snapshot` first — the page has changed). `browser.liveViewStatus({})`
+shows whether a viewer is connected; `browser.liveViewStop({})` disconnects viewers when the hand-off is
+over or the link must be revoked.
+
+```ts
+const { url } = await ctx.fns.browser.liveView({ tab: "main" });     // named session or targetId
+await ctx.fns.browser.liveView({});                                  // the most recent page
+await ctx.fns.browser.liveView({ tab, cdp: "http://127.0.0.1:9230" }); // another Chrome, if allowed
+```
+
+How it works: `/browser/live` (page) and `/browser/live/socket` (`$ws_` WebSocket route) are ordinary
+Hyper routes behind the same sign-in. Per viewer the socket opens its own CDP connection, attaches to
+the target, enables `Emulation.setFocusEmulationEnabled` (so a background tab keeps painting) and starts
+`Page.startScreencast`; the JPEG frames go to the viewer unchanged, the viewer's every pointer move,
+button, wheel and key comes back as `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` /
+`Input.insertText` — real, `isTrusted` input with the human's own timing. Nothing is injected into or
+evaluated in the page (no `Runtime.evaluate`, no `addScriptToEvaluateOnNewDocument`), which matters on
+profiles watched by anti-bot checks. Paste in the viewer and the "Insert text" button type text through
+`Input.insertText`; copying out of the page is not supported.
+
+| setting / env | meaning | default |
+|---|---|---|
+| `browser.liveCdpUrl` / `BROWSER_LIVE_CDP_URL` | Chrome shown by default | `CDP_BROWSER_URL`, then `http://127.0.0.1:9222` |
+| `browser.liveCdpAllow` / `BROWSER_LIVE_CDP_ALLOW` | other endpoints a link may name with `?cdp=` (comma-separated) | none |
+| `browser.liveQuality` / `BROWSER_LIVE_QUALITY` | JPEG quality 10–100 | 70 |
+| `BROWSER_LIVE_BASE_URL` | public base of links (e.g. the Hyperlet address) | tailnet HTTPS when reachable, else `http://localhost:<port>` |
+
+Limits: one tab at a time per viewer (switch in the toolbar); the picture is the tab's viewport, not
+browser UI (no permission prompts, file pickers or extension popups); native `<select>` popups and
+`alert()` dialogs render outside the page and are not visible.
 
 ## Observe before acting
 

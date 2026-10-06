@@ -21,13 +21,14 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
   header { display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--bar); border-bottom: 1px solid var(--line); }
   header button { min-width: 30px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font-size: 14px; }
   header button:hover { background: rgba(127,127,127,.15); }
+  #lv-quality { height: 28px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: inherit; }
   #lv-tabs { max-width: 260px; height: 28px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: inherit; }
   #lv-address { flex: 1; min-width: 120px; height: 26px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(127,127,127,.08); color: inherit; }
   #lv-status { font-size: 12px; white-space: nowrap; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; }
   #lv-status[data-state="ok"]::before { content: "● "; color: #d33; }
   #lv-status[data-state="bad"] { color: #d33; }
   main { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  #lv-screen { max-width: 100%; max-height: 100%; background: #fff; outline: none; cursor: default; box-shadow: 0 2px 12px rgba(0,0,0,.35); }
+  #lv-screen { background: #fff; outline: none; cursor: default; box-shadow: 0 2px 12px rgba(0,0,0,.35); }
   #lv-paste { position: absolute; top: 44px; right: 8px; padding: 8px; background: var(--bar); border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
   #lv-paste[hidden] { display: none; }
   #lv-paste textarea { width: 320px; height: 90px; }
@@ -40,6 +41,9 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
   <button id="lv-reload" title="Reload">↻</button>
   <input id="lv-address" placeholder="Address or search" spellcheck="false" autocomplete="off">
   <button id="lv-insert" title="Insert text into the focused field">Insert text</button>
+  <select id="lv-quality" title="Picture quality: Auto lowers it when frames lag">
+    <option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option>
+  </select>
   <span id="lv-status"></span>
 </header>
 <div id="lv-paste" hidden>

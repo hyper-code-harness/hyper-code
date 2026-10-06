@@ -10,5 +10,5 @@ export type LiveConn = {
     /** Stop the screencast, undo focus emulation, detach and close the CDP socket. */
     close: () => Promise<void>;
     /** Counters for liveViewStatus. */
-    stats: () => { frames: number; dropped: number; inputs: number; since: number };
+    stats: () => { frames: number; dropped: number; inputs: number; since: number; mode: "auto" | "high" | "low"; level: number; quality: number; maxWidth: number; maxHeight: number };
 };

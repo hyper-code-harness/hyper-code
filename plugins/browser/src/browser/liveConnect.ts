@@ -9,6 +9,10 @@ type Viewer = { send: (data: string | Uint8Array) => number; getBufferedAmount: 
 type Target = { targetId: string; type: string; title: string; url: string; attached?: boolean };
 
 const MAX_BUFFERED = 1 << 20;
+// Auto quality: look at dropped frames every WINDOW_MS; drop a level when frames
+// were dropped, climb one back after CALM_WINDOWS calm windows in a row.
+const WINDOW_MS = 2000;
+const CALM_WINDOWS = 3;
 
 /**
  * Opens the CDP side of one live-view viewer and returns a handle that bridges it to the viewer socket.
@@ -17,7 +21,9 @@ const MAX_BUFFERED = 1 << 20;
  * emulation so a background tab keeps producing frames, starts a JPEG screencast and forwards each frame
  * as one binary message (4-byte big-endian JSON header length, JSON metadata, JPEG bytes). A frame is
  * acknowledged to Chrome only once it was handed to the socket; while the socket is congested only the
- * newest frame is kept. Viewer messages: mouse, key, insert, navigate, back, forward, reload, switch.
+ * newest frame is kept. Frame size and quality follow the viewer (`view` message: mode auto/high/low and
+ * canvas box); in `auto` the level drops when frames pile up and climbs back after a calm stretch.
+ * Viewer messages: mouse, key, insert, navigate, back, forward, reload, switch, view.
  * No script is evaluated in the page.
  * @param opts.viewer Viewer socket: send, getBufferedAmount and close.
  * @param opts.browserUrl Chrome DevTools HTTP endpoint, such as `http://127.0.0.1:9222`.
@@ -81,6 +87,39 @@ export default async function (
     let closed = false;
     let held: { bytes: Uint8Array; ack: number; session: string } | null = null;
     const stats = { frames: 0, dropped: 0, inputs: 0, since: Date.now() };
+
+    // Picture profile: what the viewer asked for and the adaptive level in auto.
+    const view = { mode: "auto" as "auto" | "high" | "low", width: 0, height: 0, dpr: 1, level: 1 };
+    let profile = ctx.fns.browser.liveProfile({ mode: view.mode, level: view.level, baseQuality: quality });
+    let restartTimer: ReturnType<typeof setTimeout> | null = null;
+    const screencastParams = () => ({ format: "jpeg", everyNthFrame: 1, quality: profile.quality, ...(profile.maxWidth ? { maxWidth: profile.maxWidth, maxHeight: profile.maxHeight } : {}) });
+    const applyProfile = () => {
+        const next = ctx.fns.browser.liveProfile({ ...view, baseQuality: quality });
+        const changed = next.quality !== profile.quality || next.maxWidth !== profile.maxWidth || next.maxHeight !== profile.maxHeight;
+        profile = next;
+        sendJson({ t: "profile", mode: view.mode, ...profile });
+        if (!changed || !sessionId) return;
+        // Coalesce bursts (window resizing) into one screencast restart.
+        if (restartTimer) clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+            restartTimer = null;
+            const s = sessionId;
+            if (!s || closed) return;
+            held = null;
+            void call("Page.stopScreencast", {}, s)
+                .then(() => s === sessionId && !closed ? call("Page.startScreencast", screencastParams(), s) : undefined)
+                .catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.profile", msg: e.message }));
+        }, 150);
+    };
+    let lastDropped = 0, calm = 0;
+    const adaptTimer = setInterval(() => {
+        if (closed || view.mode !== "auto") return;
+        const dropped = stats.dropped - lastDropped;
+        lastDropped = stats.dropped;
+        if (dropped > 0 && view.level < 3) { view.level++; calm = 0; applyProfile(); }
+        else if (dropped === 0 && view.level > 0 && ++calm >= CALM_WINDOWS) { view.level--; calm = 0; applyProfile(); }
+        else if (dropped > 0) calm = 0;
+    }, WINDOW_MS);
 
     const sendJson = (value: unknown) => { if (!closed) viewer.send(JSON.stringify(value)); };
     const pages = () => [...targets.values()].filter((t) => t.type === "page" && !t.url.startsWith("devtools://"));
@@ -155,6 +194,7 @@ export default async function (
         }
     };
     cdp.onclose = () => {
+        clearInterval(adaptTimer);
         for (const w of pending.values()) w.fail(new Error("CDP socket closed"));
         pending.clear();
         if (!closed) { closed = true; try { viewer.close(1011, "Chrome connection lost"); } catch { /* gone */ } }
@@ -176,7 +216,7 @@ export default async function (
         sessionId = attached.sessionId;
         await call("Page.enable", {}, sessionId);
         if (focusEmulation) await call("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId).catch(() => {});
-        await call("Page.startScreencast", { format: "jpeg", quality, everyNthFrame: 1 }, sessionId);
+        await call("Page.startScreencast", screencastParams(), sessionId);
         const info = targets.get(id);
         sendJson({ t: "target", id, url: info?.url ?? "", title: info?.title ?? "" });
         pushTabs();
@@ -198,7 +238,7 @@ export default async function (
 
     return {
         targetId: () => targetId,
-        stats: () => ({ ...stats }),
+        stats: () => ({ ...stats, mode: view.mode, level: profile.level, quality: profile.quality, maxWidth: profile.maxWidth ?? 0, maxHeight: profile.maxHeight ?? 0 }),
         drain: () => {
             if (!held || viewer.getBufferedAmount() > MAX_BUFFERED) return;
             const h = held;
@@ -239,6 +279,18 @@ export default async function (
                     case "switch":
                         if (typeof m.id === "string" && targets.has(m.id)) await show(m.id);
                         return;
+                    case "view": {
+                        if (m.mode === "auto" || m.mode === "high" || m.mode === "low") {
+                            if (m.mode === "auto" && view.mode !== "auto") { view.level = 1; calm = 0; }
+                            view.mode = m.mode;
+                        }
+                        const num = (v: unknown, lo: number, hi: number) => Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Number(v))) : undefined;
+                        view.width = num(m.width, 0, 8192) ?? view.width;
+                        view.height = num(m.height, 0, 8192) ?? view.height;
+                        view.dpr = num(m.dpr, 1, 3) ?? view.dpr;
+                        applyProfile();
+                        return;
+                    }
                 }
             } catch (e: any) {
                 sendJson({ t: "error", message: e.message });
@@ -249,6 +301,8 @@ export default async function (
             await leave().catch(() => {});
             closed = true;
             if (tabsTimer) clearTimeout(tabsTimer);
+            if (restartTimer) clearTimeout(restartTimer);
+            clearInterval(adaptTimer);
             try { cdp.close(); } catch { /* gone */ }
         },
     };

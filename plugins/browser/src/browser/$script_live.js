@@ -20,7 +20,7 @@
         ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/browser/live/socket?${q}`);
         ws.binaryType = "arraybuffer";
         setStatus("connecting…", "wait");
-        ws.onopen = () => { retry = 500; setStatus("live", "ok"); };
+        ws.onopen = () => { retry = 500; setStatus("live", "ok"); sendView(); };
         ws.onclose = (e) => {
             if (e.code === 4000) { setStatus("stopped — reload the page to view again", "bad"); return; }
             setStatus(`disconnected${e.reason ? ": " + e.reason : ""} — retrying`, "bad");
@@ -37,6 +37,7 @@
                 document.title = (m.title || m.url || "Live view") + " — live";
                 const u = new URL(location.href); u.searchParams.set("target", m.id); history.replaceState(null, "", u);
             } else if (m.t === "nav") { if (document.activeElement !== address) address.value = m.url || ""; }
+            else if (m.t === "profile") quality.title = `${m.mode} · JPEG ${m.quality}${m.maxWidth ? ` · ≤${m.maxWidth}×${m.maxHeight}` : ""}`;
             else if (m.t === "error") setStatus(m.message, "bad");
         };
     }
@@ -51,12 +52,21 @@
             meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, len)));
             try {
                 const bmp = await createImageBitmap(new Blob([new Uint8Array(buf, 4 + len)], { type: "image/jpeg" }));
-                if (canvas.width !== bmp.width || canvas.height !== bmp.height) { canvas.width = bmp.width; canvas.height = bmp.height; }
+                if (canvas.width !== bmp.width || canvas.height !== bmp.height) { canvas.width = bmp.width; canvas.height = bmp.height; fit(); }
                 g.drawImage(bmp, 0, 0);
                 bmp.close();
             } catch { /* a broken frame: wait for the next */ }
         }
         decoding = false;
+    }
+
+    // Show the frame as large as the box allows, keeping its aspect: a frame
+    // Chrome scaled down for speed is stretched back up here.
+    function fit() {
+        const main = canvas.parentElement;
+        const k = Math.min(main.clientWidth / canvas.width, main.clientHeight / canvas.height);
+        canvas.style.width = `${Math.floor(canvas.width * k)}px`;
+        canvas.style.height = `${Math.floor(canvas.height * k)}px`;
     }
 
     function renderTabs(list, current) {
@@ -112,6 +122,15 @@
     canvas.addEventListener("compositionend", (e) => { if (e.data) send({ t: "insert", text: e.data }); });
     // Paste from the viewer's clipboard arrives as typed text (Input.insertText).
     canvas.addEventListener("paste", (e) => { const text = e.clipboardData?.getData("text/plain"); if (text) { e.preventDefault(); send({ t: "insert", text }); } });
+
+    // Picture profile: the box the picture is shown in (Chrome scales frames to
+    // it before encoding) and the viewer's quality choice, remembered locally.
+    const quality = $("lv-quality"), main = canvas.parentElement;
+    quality.value = localStorage.getItem("browser.live.quality") || "auto";
+    const sendView = () => send({ t: "view", mode: quality.value, width: Math.round(main.clientWidth), height: Math.round(main.clientHeight), dpr: window.devicePixelRatio || 1 });
+    quality.onchange = () => { localStorage.setItem("browser.live.quality", quality.value); sendView(); canvas.focus(); };
+    let resizeTimer = null;
+    new ResizeObserver(() => { fit(); clearTimeout(resizeTimer); resizeTimer = setTimeout(sendView, 250); }).observe(main);
 
     $("lv-back").onclick = () => send({ t: "back" });
     $("lv-forward").onclick = () => send({ t: "forward" });

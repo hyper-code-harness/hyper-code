@@ -4,6 +4,7 @@ import liveKey from "./liveKey";
 import liveMouse from "./liveMouse";
 import liveCdp from "./liveCdp";
 import liveConnect from "./liveConnect";
+import liveProfile from "./liveProfile";
 
 const noCtx = {} as Context;
 
@@ -49,6 +50,16 @@ test("liveCdp: default endpoint, allow-list, refusal", async () => {
     expect((await liveCdp(ctx, null, {})).browserUrl).toBe("http://127.0.0.1:29222");
 });
 
+test("liveProfile: high = viewer device pixels at the configured quality, low = half box at 30, auto follows the level", () => {
+    expect(liveProfile(noCtx, null, { mode: "high", width: 1000, height: 600, dpr: 2, baseQuality: 80 })).toEqual({ level: 0, quality: 80, maxWidth: 2000, maxHeight: 1200 });
+    expect(liveProfile(noCtx, null, { mode: "low", width: 1000, height: 600, dpr: 2 })).toEqual({ level: 3, quality: 30, maxWidth: 500, maxHeight: 300 });
+    expect(liveProfile(noCtx, null, { width: 1000, height: 600, dpr: 2 })).toEqual({ level: 1, quality: 60, maxWidth: 1000, maxHeight: 600 });
+    expect(liveProfile(noCtx, null, { level: 2, width: 1000, height: 600 })).toMatchObject({ level: 2, quality: 45, maxWidth: 750 });
+    expect(liveProfile(noCtx, null, { level: 9 }).level).toBe(3);
+    expect(liveProfile(noCtx, null, { level: 1, baseQuality: 40 }).quality).toBe(40);   // never above the configured quality
+    expect(liveProfile(noCtx, null, { mode: "high" })).toEqual({ level: 0, quality: 70 }); // box unknown: no size limit
+});
+
 // A fake Chrome: /json/version over HTTP and a browser-level CDP socket that
 // records every command and answers the few liveConnect waits on.
 test("liveConnect: screencast frames reach the viewer as header+JPEG and are acked; input and navigation map to CDP", async () => {
@@ -79,7 +90,7 @@ test("liveConnect: screencast frames reach the viewer as header+JPEG and are ack
     const viewer = { send: (d: any) => { sent.push(d); return 1; }, getBufferedAmount: () => 0, close: () => {} };
     const logged: any[] = [];
     const ctx = { fns: {
-        browser: { liveMouse: (o: any) => liveMouse(noCtx, null, o), liveKey: (o: any) => liveKey(noCtx, null, o) },
+        browser: { liveMouse: (o: any) => liveMouse(noCtx, null, o), liveKey: (o: any) => liveKey(noCtx, null, o), liveProfile: (o: any) => liveProfile(noCtx, null, o) },
         procs: { log: { debug: (o: any) => logged.push(o) } },
     } } as unknown as Context;
     // Other test files in the same process swap globalThis.fetch for mocks.
@@ -93,6 +104,16 @@ test("liveConnect: screencast frames reach the viewer as header+JPEG and are ack
         const names = commands.map((c) => c.method);
         expect(names).toEqual(expect.arrayContaining(["Target.getTargets", "Target.setDiscoverTargets", "Target.attachToTarget", "Page.enable", "Emulation.setFocusEmulationEnabled", "Page.startScreencast"]));
         expect(commands.find((c) => c.method === "Page.startScreencast")).toMatchObject({ sessionId: "S-T2", params: { format: "jpeg", quality: 55 } });
+
+        // The viewer reports its box and picks Low: the screencast restarts smaller and cheaper.
+        await conn.handle(JSON.stringify({ t: "view", mode: "low", width: 1200, height: 800, dpr: 2 }));
+        await Bun.sleep(250);
+        expect(commands.filter((c) => c.method === "Page.startScreencast").at(-1)).toMatchObject({ sessionId: "S-T2", params: { quality: 30, maxWidth: 600, maxHeight: 400 } });
+        expect(sent.filter((d) => typeof d === "string").map((d) => JSON.parse(d as string)).find((m) => m.t === "profile")).toMatchObject({ mode: "low", quality: 30 });
+        await conn.handle(JSON.stringify({ t: "view", mode: "high" }));
+        await Bun.sleep(250);
+        expect(commands.filter((c) => c.method === "Page.startScreencast").at(-1)).toMatchObject({ params: { quality: 55, maxWidth: 2400, maxHeight: 1600 } });
+        expect(conn.stats()).toMatchObject({ mode: "high", level: 0 });
         // Nothing that would run code inside the page.
         expect(names.some((n) => /^Runtime\.|addScriptToEvaluateOnNewDocument/.test(n))).toBe(false);
 
@@ -121,8 +142,58 @@ test("liveConnect: screencast frames reach the viewer as header+JPEG and are ack
         expect(conn.targetId()).toBe("T1");
         expect(after("Page.startScreencast").at(-1)).toMatchObject({ sessionId: "S-T1" });
         expect(conn.stats().inputs).toBe(3);
+        expect(after("Page.startScreencast").at(-1)).toMatchObject({ params: { maxWidth: 2400 } });  // the profile survives a tab switch
 
         await conn.close();
         expect(after("Target.detachFromTarget").length).toBeGreaterThan(0);
     } finally { globalThis.fetch = realFetch; fake.stop(true); }
 });
+
+// Auto mode: a congested viewer socket makes frames drop, and the next check
+// lowers the level (smaller, cheaper frames) without the viewer doing anything.
+test("liveConnect: auto quality steps down when frames are dropped", async () => {
+    const commands: any[] = [];
+    let chrome: any = null;
+    const fake = Bun.serve({
+        port: 0, hostname: "127.0.0.1",
+        fetch(req, srv) {
+            if (new URL(req.url).pathname === "/json/version") return Response.json({ webSocketDebuggerUrl: `ws://localhost:1/devtools/browser/x` });
+            return srv.upgrade(req) ? undefined : new Response("no", { status: 400 });
+        },
+        websocket: {
+            open(ws) { chrome = ws; },
+            message(ws, raw) {
+                const m = JSON.parse(String(raw));
+                commands.push(m);
+                const result: any = m.method === "Target.getTargets" ? { targetInfos: [{ targetId: "T1", type: "page", title: "One", url: "https://one.test/" }] }
+                    : m.method === "Target.attachToTarget" ? { sessionId: "S1" } : {};
+                ws.send(JSON.stringify({ id: m.id, result }));
+            },
+        },
+    });
+    let buffered = 0;
+    const viewer = { send: () => 1, getBufferedAmount: () => buffered, close: () => {} };
+    const ctx = { fns: {
+        browser: { liveMouse: (o: any) => liveMouse(noCtx, null, o), liveKey: (o: any) => liveKey(noCtx, null, o), liveProfile: (o: any) => liveProfile(noCtx, null, o) },
+        procs: { log: { debug: () => {} } },
+    } } as unknown as Context;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((u: any) => new Promise<Response>((resolve, reject) => {
+        http.get(String(u), (res) => { let body = ""; res.on("data", (c) => body += c); res.on("end", () => resolve(new Response(body))); }).on("error", reject);
+    })) as any;
+    try {
+        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}` });
+        await conn.handle(JSON.stringify({ t: "view", width: 1000, height: 600, dpr: 2 }));
+        expect(conn.stats()).toMatchObject({ mode: "auto", level: 1, quality: 60, maxWidth: 1000 });
+        buffered = 2 << 20;
+        const frame = (n: number) => chrome.send(JSON.stringify({ method: "Page.screencastFrame", sessionId: "S1", params: { sessionId: n, data: "AA==", metadata: {} } }));
+        frame(1); frame(2); frame(3);
+        await Bun.sleep(100);
+        expect(conn.stats().dropped).toBe(2);
+        await Bun.sleep(2200);
+        expect(conn.stats()).toMatchObject({ level: 2, quality: 45, maxWidth: 750 });
+        await Bun.sleep(200);
+        expect(commands.filter((c) => c.method === "Page.startScreencast").at(-1)).toMatchObject({ params: { quality: 45, maxWidth: 750, maxHeight: 450 } });
+        await conn.close();
+    } finally { globalThis.fetch = realFetch; fake.stop(true); }
+}, 10000);

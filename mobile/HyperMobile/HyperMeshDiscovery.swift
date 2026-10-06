@@ -44,7 +44,7 @@ final class HyperMeshDiscovery: ObservableObject {
         isRefreshing = true
         defer { isRefreshing = false }
         var request = URLRequest(url: Self.catalogURL)
-        request.timeoutInterval = 4
+        request.timeoutInterval = 12
         request.cachePolicy = .reloadIgnoringLocalCacheData
         if let revision = UserDefaults.standard.string(forKey: revisionKey) { request.setValue("\"\(revision)\"", forHTTPHeaderField: "If-None-Match") }
         do {
@@ -59,7 +59,11 @@ final class HyperMeshDiscovery: ObservableObject {
             for service in catalog.services { serverStore.upsertDiscovered(name: service.title, url: service.url) }
             message = nil
         } catch {
-            message = services.isEmpty ? "Turn on Hypermesh VPN to discover workspaces." : "Showing saved Hypermesh workspaces."
+            let reason: String
+            if case DiscoveryError.http(403) = error { reason = "Hypermesh did not recognise this device — is the VPN on and signed in?" }
+            else if let urlError = error as? URLError, [.timedOut, .cannotConnectToHost, .cannotFindHost, .notConnectedToInternet, .networkConnectionLost].contains(urlError.code) { reason = "Can’t reach Hypermesh — turn on the Hypermesh VPN and try again." }
+            else { reason = error.localizedDescription }
+            message = services.isEmpty ? reason : "\(reason) Showing saved workspaces."
         }
     }
 }

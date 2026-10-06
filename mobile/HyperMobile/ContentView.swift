@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("hyper.serverURL") private var serverURL = "https://hyper.all.in.hn.hyper-mesh.xyz"
+    @AppStorage("hyper.serverURL") private var serverURL = ""
     @State private var showingSettings = false
     @State private var reloadID = UUID()
     @State private var isLoading = true

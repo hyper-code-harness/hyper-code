@@ -30,8 +30,8 @@ struct ServerAuthSnapshot: Codable, Hashable {
 
 @MainActor
 final class ServerProfileStore: ObservableObject {
-    /// Shared team Hyper every hypermesh account can reach; a personal server is added by hand or found by hypermesh discovery.
-    static let defaultURL = "https://hyper.all.in.hn.hyper-mesh.xyz"
+    /// Placeholder while no server is known yet: there is NO built-in default — servers come from Hypermesh discovery (VPN on) or are added by hand.
+    static let none = ServerProfile(id: "", name: "No server", url: "", createdAt: .distantPast, updatedAt: .distantPast)
 
     @Published private(set) var profiles: [ServerProfile]
     @Published private(set) var selectedID: String
@@ -55,15 +55,16 @@ final class ServerProfileStore: ObservableObject {
            let decoded = try? decoder.decode([ServerProfile].self, from: data),
            !decoded.isEmpty {
             loadedProfiles = decoded
-        } else {
-            let legacy = Self.normalizedURL(defaults.string(forKey: legacyURLKey) ?? Self.defaultURL) ?? Self.defaultURL
+        } else if let raw = defaults.string(forKey: legacyURLKey), let legacy = Self.normalizedURL(raw) {
             let now = Date()
             loadedProfiles = [ServerProfile(id: UUID().uuidString, name: Self.suggestedName(for: legacy), url: legacy, createdAt: now, updatedAt: now)]
+        } else {
+            loadedProfiles = []
         }
         profiles = loadedProfiles
 
         let requested = defaults.string(forKey: selectedKey)
-        let initialSelectedID = loadedProfiles.contains(where: { $0.id == requested }) ? requested! : loadedProfiles[0].id
+        let initialSelectedID = loadedProfiles.contains(where: { $0.id == requested }) ? requested! : (loadedProfiles.first?.id ?? "")
         selectedID = initialSelectedID
         let requestedHealth = defaults.string(forKey: healthKey)
         trustedHealthProfileID = loadedProfiles.contains(where: { $0.id == requestedHealth }) ? requestedHealth! : initialSelectedID
@@ -75,9 +76,10 @@ final class ServerProfileStore: ObservableObject {
         persist()
     }
 
-    var selectedProfile: ServerProfile { profiles.first(where: { $0.id == selectedID }) ?? profiles[0] }
+    var hasServers: Bool { !profiles.isEmpty }
+    var selectedProfile: ServerProfile { profiles.first(where: { $0.id == selectedID }) ?? profiles.first ?? Self.none }
     var selectedURL: URL? { selectedProfile.baseURL }
-    var trustedHealthProfile: ServerProfile { profiles.first(where: { $0.id == trustedHealthProfileID }) ?? profiles[0] }
+    var trustedHealthProfile: ServerProfile { profiles.first(where: { $0.id == trustedHealthProfileID }) ?? profiles.first ?? Self.none }
     var trustedHealthURL: URL? { trustedHealthProfile.baseURL }
 
     func auth(for profileID: String) -> ServerAuthSnapshot {
@@ -108,6 +110,7 @@ final class ServerProfileStore: ObservableObject {
         let profile = ServerProfile(id: UUID().uuidString, name: cleanName.isEmpty ? Self.suggestedName(for: normalized) : cleanName, url: normalized, createdAt: now, updatedAt: now)
         profiles.append(profile)
         selectedID = profile.id
+        if !profiles.contains(where: { $0.id == trustedHealthProfileID }) { trustedHealthProfileID = profile.id }
         authByProfile[profile.id] = .unknown
         persist()
         return profile
@@ -129,6 +132,8 @@ final class ServerProfileStore: ObservableObject {
         let profile = ServerProfile(id: UUID().uuidString, name: cleanName.isEmpty ? Self.suggestedName(for: normalized) : cleanName, url: normalized, createdAt: now, updatedAt: now)
         profiles.append(profile)
         authByProfile[profile.id] = .unknown
+        if !profiles.contains(where: { $0.id == selectedID }) { selectedID = profile.id }
+        if !profiles.contains(where: { $0.id == trustedHealthProfileID }) { trustedHealthProfileID = selectedID }
         persist()
     }
 
@@ -189,7 +194,7 @@ final class ServerProfileStore: ObservableObject {
         if let data = try? encoder.encode(authByProfile) { defaults.set(data, forKey: authKey) }
         defaults.set(selectedID, forKey: selectedKey)
         defaults.set(trustedHealthProfileID, forKey: healthKey)
-        defaults.set(selectedProfile.url, forKey: legacyURLKey)
+        if selectedProfile.url.isEmpty { defaults.removeObject(forKey: legacyURLKey) } else { defaults.set(selectedProfile.url, forKey: legacyURLKey) }
     }
 
     private static func normalizedURL(_ raw: String) -> String? {

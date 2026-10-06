@@ -2,10 +2,9 @@ import { expect, test } from 'bun:test';
 import route from './$route__POST';
 
 const ctx: any = { fns: {
-    auth: { verifyCsrf: ({ token }: any) => token === 'valid' },
+    auth: { verifyCsrf: ({ token }: any) => token === 'valid', currentUser: async () => ({ user: { id: 'test', name: 'Test' }, required: true }) },
     demo: { hello: ({ name }: any) => `<b>Hello ${name}</b>` },
     procs: {
-        auth: { authenticate: () => ({ sub: 'test', name: 'Test' }) },
         log: { info: () => {}, warn: () => {} },
         http: { toResponse: ({ value }: any) => new Response(value, { headers: { 'content-type': 'text/html' } }) },
     },
@@ -18,10 +17,10 @@ test('authenticated csrf-protected rpc dispatches ctx.fns with an opts object', 
     expect(await res.text()).toBe('<b>Hello Ada</b>');
 });
 test('rpc requires authentication and a valid cookie-bound csrf token', async () => {
-    const authenticate = ctx.fns.procs.auth.authenticate;
-    ctx.fns.procs.auth.authenticate = () => null;
+    const currentUser = ctx.fns.auth.currentUser;
+    ctx.fns.auth.currentUser = async () => ({ user: null, required: true });
     try { expect((await call({ method: 'demo.hello', params: {} })).status).toBe(401); }
-    finally { ctx.fns.procs.auth.authenticate = authenticate; }
+    finally { ctx.fns.auth.currentUser = currentUser; }
     expect((await call({ method: 'demo.hello', params: {} }, { 'x-csrf-token': 'forged' })).status).toBe(403);
     expect((await call({ method: 'demo.hello', params: {} }, { 'x-csrf-token': '' })).status).toBe(403);
 });

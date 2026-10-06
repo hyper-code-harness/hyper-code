@@ -18,8 +18,8 @@ export default async function (
     const transportHeaders=new Headers(opts.req.headers);if(!transportHeaders.has('origin'))transportHeaders.set('origin',u.origin);
     await ctx.fns.sidebar.requestOrigin({req:new Request(opts.req,{headers:transportHeaders}),extension:false});
     if(opts.req.method==='POST'&&!opts.req.headers.get('origin'))return new Response('Origin rejected',{status:403,headers});
-    if(await ctx.fns.auth.oidcOnly({})){if(!(await ctx.fns.auth.currentUser({req:opts.req})).user)return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
-    else if(await ctx.fns.auth.password({})){if(!await ctx.fns.procs.auth.authenticate({req:opts.req}))return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
+    // Same gate as every page: cookies, OIDC sessions, portal trust, open instance (auth.currentUser).
+    {const who=await ctx.fns.auth.currentUser({req:opts.req});if(who.required&&!who.user&&!who.legacy)return new Response(null,{status:303,headers:{location:'/auth/login?next='+encodeURIComponent(u.pathname),'cache-control':'no-store'}});}
     if(!/^[a-f0-9-]{36}$/.test(id))return new Response('Not found',{status:404,headers});
     await ctx.fns.sidebar.ensureSchema({});const[pair]=await ctx.fns.procs.db.select({sql:'SELECT * FROM sidebar_pairs WHERE id=?',params:[id]});if(!pair||pair.revoked||Number(pair.expires_at)<Date.now())return new Response('Pair request expired',{status:410,headers});
     if(opts.req.method==='POST'){

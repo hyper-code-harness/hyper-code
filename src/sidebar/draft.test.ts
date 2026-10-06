@@ -30,8 +30,8 @@ test('draft bind/context/reopen creates nothing; concurrent first submit binds o
  const page=await ctx.fns.sidebar.draft({req:request()});expect(page.status).toBe(200);const html=await page.text();expect(html).toContain('id="chat-panel"');expect(html).toContain('id="form"');expect(html).toContain('Before navigation');expect(html).toContain('mock:first');expect(html).not.toContain('Browser:');expect(starts).toBe(0);
  expect((await ctx.fns.sidebar.draft({req:request('POST','https://evil.test')})).status).toBe(403);
  expect((await ctx.fns.sidebar.draft({req:request('POST','http://localhost:3010',{authorization:'Bearer '+pair.token})})).status).toBe(403);
- reg.auth.password=async()=>'configured';reg.procs.auth.authenticate=async()=>null;
- expect((await ctx.fns.sidebar.draft({req:request('POST')})).status).toBe(303);expect(starts).toBe(0);reg.auth.password=async()=>null;
+ const realCurrentUser=reg.auth.currentUser;reg.auth.currentUser=async()=>({user:null,required:true});
+ expect((await ctx.fns.sidebar.draft({req:request('POST')})).status).toBe(303);expect(starts).toBe(0);reg.auth.currentUser=realCurrentUser;
  title='Current title';model='mock:current';
  const replies=await Promise.all([ctx.fns.sidebar.draft({req:request('POST')}),ctx.fns.sidebar.draft({req:request('POST')})]);
  expect(replies.map(r=>r.status)).toEqual([200,200]);expect(replies[0].headers.get('HX-Redirect')).toBe(replies[1].headers.get('HX-Redirect'));expect(starts).toBe(1);expect(sends).toBe(1);

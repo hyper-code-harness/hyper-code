@@ -5,10 +5,19 @@ const BLOCKED = new Set(['__proto__', 'prototype', 'constructor']);
  * @param opts.req Incoming RPC request.
  */
 
-export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
+export default async function (ctx: Context, session: Session | null, opts: { req: Request }) {
     const req = opts.req;
-    const user = await ctx.fns.procs.auth.authenticate({ req });
-    if (!user) return Response.json({ error: 'authentication required' }, { status: 401 });
+    // Same gate as every page: the global middleware already ran auth.currentUser (password and Google
+    // cookies, server-side OIDC sessions with silent renewal, portal trust, the open instance) and put the
+    // user and any renewed cookie on the session. Without it (a direct call) ask currentUser here.
+    if ((session as any)?.user) return dispatch(ctx, req);
+    const who = await ctx.fns.auth.currentUser({ req });
+    const withCookie = (res: Response) => { if (who.setCookie) res.headers.append('set-cookie', who.setCookie); return res; };
+    if (who.required && !who.user && !who.legacy) return withCookie(Response.json({ error: 'authentication required' }, { status: 401 }));
+    return withCookie(await dispatch(ctx, req));
+}
+
+async function dispatch(ctx: Context, req: Request): Promise<Response> {
     const length = Number(req.headers.get('content-length') ?? 0);
     if (length > 256_000) return Response.json({ error: 'rpc body too large' }, { status: 413 });
     const csrf = req.headers.get('x-csrf-token') ?? '';

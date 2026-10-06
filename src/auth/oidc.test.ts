@@ -162,3 +162,29 @@ test.skipIf(!available)("concurrent requests renew one session once: no refresh-
     const again = await Promise.all(Array.from({ length: 3 }, () => ctx.fns.procs.http.dispatch({ method: "GET", url: "/auth/session", headers: { cookie: expired } })));
     expect(again.map((r: Response) => r.status)).toEqual([200, 200, 200]);
 });
+
+// Popups (Files, previews…) post to /rpc. It used its own cookie-only check, so on an OIDC-only Hyper a popup
+// answered 401 as soon as the 15-minute access cookie expired, while pages renewed it and opened fine.
+test.skipIf(!available)("OIDC-only: /rpc accepts the session, renews an expired access cookie, keeps the page's csrf token", async () => {
+    const ctx = await mkTestCtx({ env: { HYPER_OIDC_ISSUER: cp.issuer, HYPER_OIDC_CLIENT_ID: cp.clientId, HYPER_OIDC_CLIENT_SECRET: cp.clientSecret, HYPER_OIDC_ONLY: "true" } });
+    const name = ctx.fns.procs.auth.cookieName({});
+    const res = await signIn(ctx, { sub: "g-rpc", email: "rpc@health-samurai.io", name: "Rita", hd: "health-samurai.io" });
+    const cookie = cookieOf(res, name);
+    const csrf = await ctx.fns.auth.csrfToken({ req: new Request(`${ORIGIN}/agent/ab`, { headers: { cookie } }) });
+    const rpc = (c: string, token = csrf) => ctx.fns.procs.http.dispatch({
+        method: "POST", url: `${ORIGIN}/rpc`,
+        headers: { "content-type": "application/json", cookie: c, "x-csrf-token": token },
+        body: JSON.stringify({ method: "auth.slug", params: { name: "Rita" } }),
+    });
+    expect((await rpc(cookie)).status).toBe(200);
+    // 15 minutes later the access cookie has expired; the popup still works and gets a fresh cookie.
+    const claims = JSON.parse(Buffer.from(cookie.split("=")[1]!.split(".")[1]!, "base64url").toString());
+    const expired = `${name}=` + await ctx.fns.procs.auth.sign({ sub: claims.sub, name: claims.name, email: claims.email, role: claims.role, jti: claims.jti, seconds: -60 });
+    await ctx.fns.procs.db.run({ sql: "UPDATE auth_sessions SET refreshed_at = refreshed_at - 3600000 WHERE id = ?", params: [claims.jti] });
+    const renewed = await rpc(expired);
+    expect(renewed.status).toBe(200);
+    expect(cookieOf(renewed, name)).toBeTruthy();
+    // Still refused: no session, a forged csrf token.
+    expect((await rpc("")).status).toBe(401);
+    expect((await rpc(cookie, "forged")).status).toBe(403);
+});

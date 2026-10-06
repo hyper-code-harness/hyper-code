@@ -137,3 +137,27 @@ test("mode off (default): a valid assertion changes nothing", async () => {
     expect(who.user).toBeNull();
     expect(await ctx.fns.auth.listUsers({ includeDisabled: true })).toHaveLength(1);
 });
+
+// Popups (Files, previews…) post to /rpc. It used its own cookie-only check, so on a portal-trust Hyper every
+// popup answered 401 while the pages around it opened fine.
+test("portal trust: /rpc works with the assertion and the page's csrf token, no cookie", async () => {
+    const ctx = await hyper();
+    const assertion = await sign({});
+    const csrf = await ctx.fns.auth.csrfToken({ req: req(assertion) });
+    expect(csrf.length).toBeGreaterThan(20);
+    const rpc = (headers: Record<string, string>) => ctx.fns.procs.http.dispatch({
+        method: "POST", url: "https://hyper.example/rpc",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify({ method: "auth.slug", params: { name: "Anna Petrova" } }),
+    });
+    const ok = await rpc({ "x-hn-assertion": assertion, "x-csrf-token": csrf });
+    expect(ok.status).toBe(200);
+    // CSRF still applies: a cross-site page cannot know the token.
+    expect((await rpc({ "x-hn-assertion": assertion, "x-csrf-token": "forged" })).status).toBe(403);
+    // A token minted for one person does not work for another.
+    const other = await sign({ sub: "p-boris", email: "boris@health-samurai.io", name: "Boris" });
+    expect((await rpc({ "x-hn-assertion": other, "x-csrf-token": csrf })).status).toBe(403);
+    // Without a valid assertion: 401, as before.
+    expect((await rpc({ "x-csrf-token": csrf })).status).toBe(401);
+    expect((await rpc({ "x-hn-assertion": await sign({}, { key: attacker.privateKey }), "x-csrf-token": csrf })).status).toBe(401);
+});

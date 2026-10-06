@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import approval from './approval';
 
 test('approval requires existing Hyper session when password configured',async()=>{
- const ctx:any={state:{procs:{http:{server:{server:{requestIP:()=>({address:'127.0.0.1'})}}}}},fns:{sidebar:{requestOrigin:async()=> 'http://localhost:3010'},auth:{oidcOnly:async()=>false,password:async()=> 'configured'},procs:{auth:{authenticate:async()=>null}}}};
+ const ctx:any={state:{procs:{http:{server:{server:{requestIP:()=>({address:'127.0.0.1'})}}}}},fns:{sidebar:{requestOrigin:async()=> 'http://localhost:3010'},auth:{currentUser:async()=>({user:null,required:true})}}};
  const r=await approval(ctx,null,{req:new Request('http://localhost:3010/sidebar/approve/123')});
  expect(r.status).toBe(303);expect(r.headers.get('location')).toStartWith('/auth/login?next=');
 });

@@ -107,11 +107,11 @@ describe("agent.renderEventHtml", () => {
   test("puts time in the final text line instead of a separate row", async () => {
     const ts = new Date(2025, 0, 1, 12, 34).getTime();
     const user = await renderEventHtml(ctx, { type: "user", text: "one line", ts, messageIdx: 1 });
-    expect(user).toContain('one line<span class="inline-block ml-2');
+    expect(user).toContain('one line<span data-no-copy class="inline-block ml-2');
     expect(user).not.toContain('class="mt-1 text-[10px]');
 
     const assistant = await renderEventHtml(ctx, { type: "assistant", html: "<p>one line</p>", text: "one line", ts, messageIdx: 2 });
-    expect(assistant).toMatch(/one line<span class="inline-block ml-2[^>]*>[^<]+<\/span><\/p>/);
+    expect(assistant).toMatch(/one line<span data-no-copy class="inline-block ml-2[^>]*>[^<]+<\/span><\/p>/);
     expect(assistant).not.toContain('class="mt-1 text-[10px]');
   });
 

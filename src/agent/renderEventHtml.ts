@@ -69,7 +69,8 @@ function timeHtml(ts: any, tone: 'dark' | 'light', suffix = ''): string {
     // Telegram-style: an inline stamp consumes only the tail of the final line.
     // It stays beside a one-liner and naturally lands at the lower-right when
     // text wraps.
-    return '<span class="inline-block ml-2 whitespace-nowrap text-3xs leading-none '
+    // data-no-copy: a copied piece of chat is the words, not their timestamps.
+    return '<span data-no-copy class="inline-block ml-2 whitespace-nowrap text-3xs leading-none '
         + (tone === 'dark' ? 'text-white/70' : 'text-muted')
         + '">' + esc(time) + suffix + '</span>';
 }

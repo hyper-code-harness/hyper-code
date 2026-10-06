@@ -46,6 +46,10 @@
                     this.form.requestSubmit();
                 }
             }, { signal });
+            // Copying a piece of the chat copies what was said, not the controls
+            // around it: message buttons (Delete message, Delete from here…),
+            // their screen-reader labels, icons and tool chips stay out.
+            this.messages.addEventListener('copy', event => this.copyClean(event), { signal });
             this.attachButton?.addEventListener('click', () => this.fileInput?.click(), { signal });
             this.fileInput?.addEventListener('change', () => this.renderAttachments(), { signal });
             this.input.addEventListener('paste', event => {
@@ -296,6 +300,25 @@
             }
         }
 
+
+        copyClean(event) {
+            const selection = window.getSelection();
+            if (!selection || selection.isCollapsed || !event.clipboardData) return;
+            const holder = document.createElement('div');
+            for (let i = 0; i < selection.rangeCount; i++) holder.append(selection.getRangeAt(i).cloneContents());
+            const noise = 'button, [role="button"], .sr-only, i.ph, svg, input, select, textarea, form, [data-no-copy]';
+            if (!holder.querySelector(noise)) return; // nothing to strip: let the browser copy as usual
+            holder.querySelectorAll(noise).forEach(el => el.remove());
+            // innerText needs layout to keep line breaks between blocks.
+            holder.style.cssText = 'position:fixed;left:-99999px;top:0;white-space:pre-wrap';
+            document.body.append(holder);
+            const text = holder.innerText.replace(/\n{3,}/g, '\n\n').trim();
+            const html = holder.innerHTML;
+            holder.remove();
+            event.preventDefault();
+            event.clipboardData.setData('text/plain', text);
+            event.clipboardData.setData('text/html', html);
+        }
 
         destroy() {
             this.abort.abort();

@@ -2,7 +2,6 @@ import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 import MarkdownUI
-import MessagingUI
 
 private enum ChatItem: Identifiable {
     case event(MobileEvent)

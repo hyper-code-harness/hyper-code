@@ -30,7 +30,6 @@
 		100000000000000000000015 /* NativePadRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NativePadRootView.swift */; };
 		100000000000000000000016 /* HealthKitSleepSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* HealthKitSleepSync.swift */; };
 		100000000000000000000017 /* HealthSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* HealthSyncView.swift */; };
-		100000000000000000000018 /* MessagingUI in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000004 /* MessagingUI */; };
 		100000000000000000000019 /* ChatTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* ChatTimelineView.swift */; };
 		10000000000000000000001A /* HealthSyncScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* HealthSyncScheduler.swift */; };
 		10000000000000000000001B /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* FileBrowserView.swift */; };
@@ -89,7 +88,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				100000000000000000000011 /* MarkdownUI in Frameworks */,
-				100000000000000000000018 /* MessagingUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,7 +170,6 @@
 			name = HyperMobile;
 			packageProductDependencies = (
 				A00000000000000000000002 /* MarkdownUI */,
-				A00000000000000000000004 /* MessagingUI */,
 			);
 			productName = Hyper;
 			productReference = 200000000000000000000005 /* Hyper.app */;
@@ -204,7 +201,6 @@
 			mainGroup = 400000000000000000000001;
 			packageReferences = (
 				A00000000000000000000001 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
-				A00000000000000000000003 /* XCRemoteSwiftPackageReference "swiftui-messaging-ui" */,
 			);
 			productRefGroup = 400000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -394,11 +390,6 @@
 				version = 2.4.1;
 			};
 		};
-		A00000000000000000000003 /* XCRemoteSwiftPackageReference "swiftui-messaging-ui" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/FluidGroup/swiftui-messaging-ui.git";
-			requirement = { kind = upToNextMajorVersion; minimumVersion = 1.0.0; };
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -406,11 +397,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A00000000000000000000001 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
-		};
-		A00000000000000000000004 /* MessagingUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A00000000000000000000003 /* XCRemoteSwiftPackageReference "swiftui-messaging-ui" */;
-			productName = MessagingUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -29,5 +29,7 @@ export default async function (
     if (!userId || (await ctx.fns.auth.listUsers({})).length <= 1) {
         await db.run({ sql: "INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", params: [`seen-at:${opts.agentId}`, String(seenAt)] });
     }
+    // Opening a chat reads the viewer's @mentions in it.
+    if (userId) await ctx.fns.mentions.markRead({ agentId: opts.agentId, userId }).catch(() => undefined);
     return seenAt;
 }

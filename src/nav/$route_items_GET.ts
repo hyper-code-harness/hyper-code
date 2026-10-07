@@ -88,12 +88,18 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
 
     const sharedAgentRows = () => sharedAgents.map((card: any) => `<a href="/agent/${encodeURIComponent(card.agentId)}" class="nav-row flex min-h-10 items-start gap-2 rounded px-2 py-1.5 text-left outline-none hover:bg-base-200/60"><i class="ph ph-brain mt-0.5 shrink-0 text-primary"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium text-muted">${esc(card.name)}</span><span class="block truncate text-3xs text-faint">${esc((card.capabilities ?? []).join(" · ") || card.description)}</span></span><span class="font-mono text-micro text-faint">${esc(card.agentId)}</span></a>`).join("");
 
+    // Unread @mentions of the viewer sit right under "New agent": they are what is waiting for them.
+    const unreadMentions = await ctx.fns.mentions.list({ unreadOnly: true, limit: 10 }).catch(() => []);
+    const mentionsSection = unreadMentions.length
+        ? `<section class="mb-3 border-b border-ui-border pb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-primary">Mentions · ${unreadMentions.length}</h4>${await ctx.fns.mentions.rowsHtml({ items: unreadMentions, navRow: true })}</section>`
+        : "";
+
     if (q) {
         const agentItems = agents.map((agent: any) => ({ href: `/agent/${encodeURIComponent(agent.id)}`, label: agent.title || agent.id, hint: "agent", group: "Chats" }));
         html = `<div class="p-2">${sharedAgentRows()}${[...agentItems, ...items].map(row).join("")}</div>`;
     } else {
         const newAgent = `<a href="/agent/new" data-nav-default class="nav-row mb-1 flex min-h-10 items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-2 text-left text-primary shadow-sm outline-none transition hover:bg-primary/15 focus:bg-primary/15"><i class="ph ph-plus-circle shrink-0 text-lg" aria-hidden="true"></i><span class="min-w-0 flex-1 text-xs font-medium">New agent</span></a>`;
-        const quick = `<section class="mb-3 border-b border-ui-border pb-2">${newAgent}</section>`;
+        const quick = `<section class="mb-3 border-b border-ui-border pb-2">${newAgent}</section>${mentionsSection}`;
         const columns = [
             { title: "Chats", content: `${multi ? scopeToggle() : ""}${quick}${chats()}` },
             { title: "Shared Agents", content: `${pinned()}${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },

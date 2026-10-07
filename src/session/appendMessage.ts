@@ -67,5 +67,13 @@ export default async function (
         }
     }
     await ctx.fns.procs.db.run({ sql: 'UPDATE agents SET updated_at = ? WHERE id = ?', params: [ts, id] });
+    // Words a person or an agent said may @mention people; context rows (status line, world state…) never do.
+    const said = (message.role === 'user' || message.role === 'assistant')
+        && typeof message.content === 'string' && message.content.includes('@')
+        && (message.message_type == null || message.message_type === 'message' || message.message_type === 'agent_message');
+    if (said) {
+        await ctx.fns.mentions.record({ agentId: id, messageIdx: idx, text: message.content, from: message.role === 'assistant' ? `agent:${id}` : message.author ?? null })
+            .catch((error: any) => ctx.fns.procs.log.warn({ event: 'mentions.record.failed', msg: String(error?.message ?? error), agentId: id }));
+    }
     return { idx };
 }

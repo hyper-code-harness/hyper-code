@@ -38,8 +38,12 @@
                 if (!this.isNearBottom()) this.shouldStick = false;
                 if (this.messages.scrollTop < 80) this.loadOlder();
             }, { passive: true, signal });
+            // @mentions: typing @ suggests people; the list owns arrows/Enter/Tab/Esc while open.
+            this.input.addEventListener('input', () => this.mentionUpdate(), { signal });
+            this.input.addEventListener('blur', () => setTimeout(() => this.mentionClose(), 150), { signal });
             this.input.addEventListener('keydown', (event) => {
                 if (event.isComposing || event.key === 'Process') return;
+                if (this.mentionKey(event)) return;
                 if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
                     if (!this.input.value.trim() && !this.fileInput?.files?.length) return;
@@ -88,6 +92,7 @@
             document.body.dataset.agentId = this.agentId;
             requestAnimationFrame(() => {
                 if (!this.alive()) return;
+                if (this.jumpToHash()) return;
                 this.scrollBottom();
                 this.shouldStick = this.isNearBottom();
                 this.input.focus();
@@ -95,6 +100,96 @@
             return true;
         }
 
+
+        async mentionPeople() {
+            if (!this.peoplePromise) this.peoplePromise = fetch('/mentions/people', { cache: 'no-store' }).then(r => r.ok ? r.json() : []).catch(() => []);
+            return this.peoplePromise;
+        }
+
+        // The @word being typed right before the caret, or null.
+        mentionQuery() {
+            const caret = this.input.selectionStart;
+            if (caret !== this.input.selectionEnd) return null;
+            const m = /(^|[^\w@.\/-])@([a-z0-9-]{0,64})$/i.exec(this.input.value.slice(0, caret));
+            return m ? { start: caret - m[2].length - 1, query: m[2].toLowerCase() } : null;
+        }
+
+        async mentionUpdate() {
+            const at = this.mentionQuery();
+            if (!at) return this.mentionClose();
+            const people = await this.mentionPeople();
+            if (this.mentionQuery()?.start !== at.start) return;
+            const q = at.query;
+            const words = p => [p.id, p.name, p.email || ''].join(' ').toLowerCase();
+            const list = people
+                .filter(p => !q || words(p).split(/[\s@.-]+/).some(w => w.startsWith(q)) || p.id.startsWith(q))
+                .slice(0, 8);
+            if (!list.length) return this.mentionClose();
+            this.mention = { start: at.start, list, sel: Math.min(this.mention?.sel ?? 0, list.length - 1) };
+            this.mentionRender();
+        }
+
+        mentionRender() {
+            let box = this.mentionBox;
+            if (!box) {
+                box = this.mentionBox = document.createElement('div');
+                box.setAttribute('role', 'listbox');
+                box.setAttribute('aria-label', 'Mention someone');
+                box.dataset.mentionList = '';
+                box.className = 'absolute bottom-full left-0 z-30 mb-2 w-72 max-w-full overflow-hidden rounded-xl border border-ui-border bg-base-100 p-1 text-base-content shadow-xl';
+                box.addEventListener('mousedown', event => {
+                    const row = event.target.closest('[data-mention-id]');
+                    if (!row) return;
+                    event.preventDefault();
+                    this.mentionPick(row.dataset.mentionId);
+                });
+                (this.input.parentElement || this.form).append(box);
+            }
+            const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+            box.innerHTML = this.mention.list.map((p, i) => {
+                const face = p.picture
+                    ? `<img src="${esc(p.picture)}" alt="" class="size-6 shrink-0 rounded-full object-cover" referrerpolicy="no-referrer">`
+                    : `<span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-3xs font-semibold">${esc((p.name || p.id).slice(0, 1).toUpperCase())}</span>`;
+                return `<div role="option" aria-selected="${i === this.mention.sel}" data-mention-id="${esc(p.id)}" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 ${i === this.mention.sel ? 'bg-base-200' : 'hover:bg-base-200/60'}">${face}<span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium">${esc(p.name)}</span><span class="block truncate text-3xs text-faint">@${esc(p.id)}${p.email ? ' · ' + esc(p.email) : ''}</span></span></div>`;
+            }).join('');
+            box.hidden = false;
+        }
+
+        mentionKey(event) {
+            if (!this.mention || !this.mentionBox || this.mentionBox.hidden) return false;
+            const n = this.mention.list.length;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.mention.sel = (this.mention.sel + (event.key === 'ArrowDown' ? 1 : -1) + n) % n;
+                this.mentionRender();
+                return true;
+            }
+            if ((event.key === 'Enter' && !event.shiftKey) || event.key === 'Tab') {
+                event.preventDefault();
+                this.mentionPick(this.mention.list[this.mention.sel].id);
+                return true;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                this.mentionClose();
+                return true;
+            }
+            return false;
+        }
+
+        mentionPick(id) {
+            if (!this.mention) return;
+            const start = this.mention.start, end = this.input.selectionStart;
+            this.input.setRangeText('@' + id + ' ', start, end, 'end');
+            this.mentionClose();
+            this.input.focus();
+            this.input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        mentionClose() {
+            this.mention = null;
+            if (this.mentionBox) this.mentionBox.hidden = true;
+        }
 
         insertText(text) {
             const start = this.input.selectionStart, end = this.input.selectionEnd;
@@ -157,6 +252,31 @@
             this.messages.prepend(note);
         }
 
+        // /agent/<id>#m-<idx> (a mention link) opens the chat at that message: older pages are loaded
+        // until it is in the DOM, then it is scrolled to the middle and flashed.
+        jumpToHash() {
+            const m = /^#m-(\d+)$/.exec(location.hash);
+            if (!m) { this.jumpTarget = null; return false; }
+            const el = this.messages.querySelector('#m-' + m[1]);
+            if (el) {
+                this.jumpTarget = null;
+                this.shouldStick = false;
+                el.scrollIntoView({ block: 'center' });
+                el.classList.add('ring-2', 'ring-primary/60', 'rounded-2xl');
+                setTimeout(() => el.classList.remove('ring-2', 'ring-primary/60', 'rounded-2xl'), 2500);
+                history.replaceState(history.state, '', location.pathname + location.search);
+                return true;
+            }
+            if (this.jumpTarget === m[1] && !this.messages.querySelector('#msg-head')) { this.jumpTarget = null; return false; }
+            this.jumpTarget = m[1];
+            const head = this.messages.querySelector('#msg-head');
+            if (!head) { this.jumpTarget = null; return false; }
+            this.shouldStick = false;
+            this.loadingOlder = true;
+            htmx.trigger(head, 'load-older');
+            return true;
+        }
+
         loadOlder() {
             const head = this.messages.querySelector('#msg-head');
             if (!head || this.loadingOlder) return;
@@ -208,6 +328,7 @@
                 this.historyAnchor = null;
                 this.historyAnchorTop = null;
                 this.loadingOlder = false;
+                if (this.jumpTarget) this.jumpToHash();
             }
             if (target === this.messages || this.messages.contains(target) || target?.id === 'msg-tail' || target?.id === 'msg-head') {
                 this.arrangeTools(this.messages);
@@ -321,6 +442,7 @@
         }
 
         destroy() {
+            this.mentionBox?.remove();
             this.abort.abort();
         }
     }

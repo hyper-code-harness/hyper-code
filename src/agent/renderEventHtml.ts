@@ -63,6 +63,12 @@ function messageTime(ts: any): string {
     }).format(new Date(value));
 }
 
+// @mentions of known people become chips; a renderer without the mentions module keeps the plain text.
+async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'): Promise<string> {
+    const highlight = (ctx.fns as any).mentions?.highlight;
+    return highlight ? await highlight({ html, tone }).catch(() => html) : html;
+}
+
 function timeHtml(ts: any, tone: 'dark' | 'light', suffix = ''): string {
     const time = messageTime(ts);
     if (!time) return '';
@@ -114,7 +120,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             const body = String(am.body ?? ev.text ?? '');
             const ownerName = am.onBehalfOf ? await (ctx as any).fns.auth?.getUser?.({ id: String(am.onBehalfOf) }).then((u: any) => u?.name ?? null).catch(() => null) : null;
             const meta = [am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
-            return '<div class="group relative flex items-end justify-start gap-2 pb-0" data-agent-message="' + esc(fromId) + '">'
+            return '<div id="m-' + idx + '" class="group relative flex items-end justify-start gap-2 pb-0" data-agent-message="' + esc(fromId) + '">'
                 + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white no-underline" style="background:hsl(' + hue + ' 55% 40%)" title="' + esc(name) + '"><i class="ph ph-robot" aria-hidden="true"></i></a>'
                 + '<div class="relative mr-auto max-w-[80%]">'
                 + '<div class="rounded-2xl rounded-bl-md border px-3.5 py-2 whitespace-pre-wrap break-words shadow-sm bg-base-200 text-base-content" style="border-color:hsl(' + hue + ' 55% 45% / .5)">'
@@ -174,12 +180,12 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
                 ? '<img src="' + esc(author.picture) + '" alt="' + esc(author.name) + '" title="' + esc(author.name) + '" class="size-8 shrink-0 rounded-full object-cover" referrerpolicy="no-referrer" loading="lazy">'
                 : '<span class="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style="background:hsl(' + author.hue + ' 55% 45%)" title="' + esc(author.name) + '" aria-hidden="true">' + esc(author.initials) + '</span>')
             : '';
-        return '<div class="group relative flex items-end justify-end gap-2 pb-0">'
+        return '<div id="m-' + idx + '" class="group relative flex items-end justify-end gap-2 pb-0">'
             + '<div class="relative ml-auto max-w-[80%]">'
             + '<div class="chat-glass-primary ' + (author ? 'rounded-2xl rounded-br-md px-3.5 py-2' : 'rounded-xl px-4 py-3') + ' text-white whitespace-pre-wrap break-words shadow-sm border border-black/20">'
             + authorName
             + attachmentHtml
-            + appendTime((ev.text ? esc(ev.text) : '') + ragIcon, ev.ts, 'dark')
+            + appendTime((ev.text ? await mentionChips(ctx, esc(ev.text), 'dark') : '') + ragIcon, ev.ts, 'dark')
             + '</div>'
             + '<div class="absolute right-full top-1/2 z-10 mr-2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
             + '</div>' + avatar + '</div>';
@@ -198,9 +204,9 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         // back to a plain escaped <pre>. One bad bubble must not break the
         // whole page layout below it.
         const rawHtml = ev.html || ('<p>' + esc(ev.text || '') + '</p>');
-        const safeHtml = safeAssistantHtml(rawHtml)
-            ?? '<pre class="text-xs whitespace-pre-wrap break-words">' + esc(ev.text || '') + '</pre>';
-        return '<div class="group relative flex justify-start">'
+        const safeHtml = await mentionChips(ctx, safeAssistantHtml(rawHtml)
+            ?? '<pre class="text-xs whitespace-pre-wrap break-words">' + esc(ev.text || '') + '</pre>', 'light');
+        return '<div id="m-' + idx + '" class="group relative flex justify-start">'
             + '<div class="assistant chat-glass w-full rounded-2xl px-4 py-3 text-base-content shadow-sm border border-ui-border">'
             + '<div class="prose prose-sm max-w-none text-base-content prose-headings:text-base-content prose-p:text-base-content prose-li:text-base-content prose-strong:text-base-content prose-code:text-base-content prose-a:text-muted prose-p:my-1 prose-headings:my-2 prose-pre:my-2">'
             + appendTime(safeHtml, ev.ts, 'light', instructionMarks)

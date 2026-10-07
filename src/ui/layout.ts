@@ -291,6 +291,7 @@ ${opts.headExtra ?? ""}
     ${ctx.fns.procs.ui.button({ action: "open-global-menu", html: '<i class="ph ph-squares-four text-base" aria-hidden="true"></i>', appearance: "plain", title: "Global menu — ⌘/", ariaLabel: "Open global menu", class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { onclick: "window.__navOpen?.()" } })}
     ${ctx.fns.procs.ui.button({ action: "toggle-theme", html: '<i class="ph ph-moon" aria-hidden="true"></i>', appearance: "plain", title: "Switch color theme", ariaLabel: "Switch color theme", class: "mt-1 flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { id: "theme-toggle", "aria-pressed": "false" } })}
     ${await ctx.fns.ui.gapBadge({})}
+    ${await ctx.fns.mentions.badge({}).catch(() => "")}
      ${await ctx.fns.ui.updateBadge({})}
     <div id="quick-items" class="mt-2 flex min-h-0 flex-1 flex-col items-center gap-1" aria-label="Pinned pages"></div>
     <!-- Subscription quota, loaded by itself so the shell never waits on it.
@@ -300,6 +301,7 @@ ${opts.headExtra ?? ""}
     <script>(function(){var button=document.getElementById('theme-toggle');function paint(){var dark=document.documentElement.dataset.theme==='dark';button.setAttribute('aria-pressed',String(dark));button.title=dark?'Use light theme':'Use dark theme';button.querySelector('i').className='ph '+(dark?'ph-sun':'ph-moon')}paint();button.addEventListener('click',function(){var next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;document.documentElement.style.colorScheme=next;try{localStorage.setItem('hyper-theme',next)}catch(_){}paint()})})()</script>
   </nav>`}
     <script src="/ui/gap-count.js" defer></script>
+    <script src="/mentions/live.js" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

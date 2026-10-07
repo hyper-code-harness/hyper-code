@@ -1,0 +1,12 @@
+{
+  "name": "excalidraw",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Excalidraw",
+    "icon": "ph-pencil-simple-line",
+    "optional": true,
+    "description": "Hand-drawn Excalidraw sketches: agents write scenes (full elements, simple skeletons or Mermaid), people edit them in a browser editor at /excalidraw/<name>, and ```excalidraw fences show the saved drawing inline."
+  }
+}

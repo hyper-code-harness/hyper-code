@@ -1,0 +1,7 @@
+.excalidraw-fence { margin: 0.75rem 0; }
+.excalidraw-fence svg { max-width: 100%; height: auto; border-radius: 8px; background: #fff; }
+.excalidraw-fence figcaption { font-size: 12px; margin-top: 4px; opacity: .75; }
+/* Live editor bleeds a little past the text column on both sides. */
+.excalidraw-live { --excalidraw-bleed: 80px; margin-left: calc(-1 * var(--excalidraw-bleed)); margin-right: calc(-1 * var(--excalidraw-bleed)); }
+.excalidraw-live iframe { display: block; width: 100%; border: 1px solid rgba(127,127,127,.3); border-radius: 8px; background: #fff; }
+.excalidraw-live figcaption { padding-left: var(--excalidraw-bleed); }

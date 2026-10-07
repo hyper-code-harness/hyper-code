@@ -74,3 +74,6 @@ plugins/*/.secrets
 
 # local scratch: db dumps, throwaway scripts (never commit transcripts)
 tmp/
+
+# Excalidraw drawings (local user content)
+drawings/

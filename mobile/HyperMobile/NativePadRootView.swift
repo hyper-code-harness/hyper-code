@@ -37,23 +37,11 @@ struct NativePadRootView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            VStack(spacing: 0) {
-                List(filtered, selection: $selection) { agent in
-                    AgentRow(agent: agent).tag(agent)
-                        .contextMenu { Button { pin(agent, !agent.pinned) } label: { Label(agent.pinned ? "Unpin" : "Pin", systemImage: "pin") } }
-                }
-                .refreshable { await refreshSelected() }
-
-                Button { showingNewAgent = true } label: {
-                    Label("New chat", systemImage: "square.and.pencil")
-                        .font(.headline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+            List(filtered, selection: $selection) { agent in
+                AgentRow(agent: agent).tag(agent)
+                    .contextMenu { Button { pin(agent, !agent.pinned) } label: { Label(agent.pinned ? "Unpin" : "Pin", systemImage: "pin") } }
             }
+            .refreshable { await refreshSelected() }
             .navigationTitle(servers.selectedProfile.name)
             .searchable(text: $query, prompt: "Search chats")
             .overlay { if selectedWorkspace.isLoading && selectedWorkspace.agents.isEmpty { ProgressView("Connecting…") } }
@@ -61,16 +49,21 @@ struct NativePadRootView: View {
                 ToolbarItemGroup(placement: .topBarLeading) {
                     ServerSwitcherMenu { showingServers = true }
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { showingNews = true } label: { Image(systemName: "newspaper") }.accessibilityLabel("News")
-                    Button { showingHealth = true } label: { Image(systemName: "heart.text.square") }.accessibilityLabel("Health Sync")
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         if let authUser { Text(authUser.name) }
+                        Button("News", systemImage: "newspaper") { showingNews = true }
+                        Button("Health Sync", systemImage: "heart.text.square") { showingHealth = true }
+                        Divider()
                         Button("Manage servers", systemImage: "server.rack") { showingServers = true }
                         Button("Connection", systemImage: "gearshape") { showingSettings = true }
                         Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { showingLogoutConfirmation = true }
-                    } label: { Image(systemName: "person.crop.circle") }
-                    .accessibilityLabel("Account")
+                    } label: { Image(systemName: "ellipsis.circle") }
+                    .accessibilityLabel("More")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingNewAgent = true } label: { Image(systemName: "square.and.pencil") }
+                        .accessibilityLabel("New chat")
                 }
             }
         } detail: {

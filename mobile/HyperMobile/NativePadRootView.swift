@@ -37,13 +37,25 @@ struct NativePadRootView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            List(filtered, selection: $selection) { agent in
-                AgentRow(agent: agent).tag(agent)
-                    .contextMenu { Button { pin(agent, !agent.pinned) } label: { Label(agent.pinned ? "Unpin" : "Pin", systemImage: "pin") } }
+            VStack(spacing: 0) {
+                List(filtered, selection: $selection) { agent in
+                    AgentRow(agent: agent).tag(agent)
+                        .contextMenu { Button { pin(agent, !agent.pinned) } label: { Label(agent.pinned ? "Unpin" : "Pin", systemImage: "pin") } }
+                }
+                .refreshable { await refreshSelected() }
+
+                Button { showingNewAgent = true } label: {
+                    Label("New chat", systemImage: "square.and.pencil")
+                        .font(.headline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
             }
             .navigationTitle(servers.selectedProfile.name)
             .searchable(text: $query, prompt: "Search chats")
-            .refreshable { await refreshSelected() }
             .overlay { if selectedWorkspace.isLoading && selectedWorkspace.agents.isEmpty { ProgressView("Connecting…") } }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -59,7 +71,6 @@ struct NativePadRootView: View {
                         Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { showingLogoutConfirmation = true }
                     } label: { Image(systemName: "person.crop.circle") }
                     .accessibilityLabel("Account")
-                    Button { showingNewAgent = true } label: { Image(systemName: "square.and.pencil") }.accessibilityLabel("New chat")
                 }
             }
         } detail: {

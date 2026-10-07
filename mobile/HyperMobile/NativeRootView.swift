@@ -54,22 +54,8 @@ struct NativeRootView: View {
                             agentSection("Recent", filtered.filter { !$0.pinned && $0.unread == 0 })
                         }
                         .listStyle(.plain)
-                        .safeAreaPadding(.bottom, 12)
                         .scrollContentBackground(.hidden)
                         .refreshable { await refreshSelected() }
-                    }
-                    .overlay(alignment: .bottom) {
-                        Button { showingNewAgent = true } label: {
-                            Label("New chat", systemImage: "plus").font(.headline.weight(.semibold))
-                                .padding(.horizontal, 22).frame(height: 52)
-                                .foregroundStyle(Color(.systemBackground))
-                                .background(Color.primary.opacity(0.94), in: Capsule())
-                                .overlay(Capsule().stroke(Color(.systemBackground).opacity(0.16), lineWidth: 0.5))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("New chat")
-                        .padding(.bottom, 10)
-                        .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
                     }
                 }
             }
@@ -92,18 +78,27 @@ struct NativeRootView: View {
                     }
                     .accessibilityLabel("Filter chats by folder")
                 }
-                ToolbarItem(placement: .topBarLeading) { EmptyView() }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    NavigationLink { if let baseURL { NewsReaderView(baseURL: baseURL) } } label: { Image(systemName: "newspaper") }.accessibilityLabel("News")
+                ToolbarItem(placement: .topBarLeading) {
                     ServerSwitcherMenu { showingServers = true }
-                    Button { showingWeb = true } label: { Image(systemName: "safari") }
-                    Button { showingHealth = true } label: { Image(systemName: "heart.text.square") }.accessibilityLabel("Health Sync")
-                    Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        if let baseURL {
+                            NavigationLink { NewsReaderView(baseURL: baseURL) } label: { Label("News", systemImage: "newspaper") }
+                        }
+                        Button("Open Hyper", systemImage: "safari") { showingWeb = true }
+                        Button("Health Sync", systemImage: "heart.text.square") { showingHealth = true }
+                        Divider()
+                        Button("Manage servers", systemImage: "server.rack") { showingServers = true }
+                        Button("Connection", systemImage: "gearshape") { showingSettings = true }
                         if let authUser { Text(authUser.name) }
                         Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { showingLogoutConfirmation = true }
-                    } label: { Image(systemName: "person.crop.circle") }
-                    .accessibilityLabel("Account")
+                    } label: { Image(systemName: "ellipsis.circle") }
+                    .accessibilityLabel("More")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingNewAgent = true } label: { Image(systemName: "square.and.pencil") }
+                        .accessibilityLabel("New chat")
                 }
             }
             .navigationDestination(for: AgentSummary.self) { agent in

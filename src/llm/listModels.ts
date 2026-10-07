@@ -83,15 +83,21 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
         "openrouter:google/gemini-2.5-pro",
     ];
 
-    // xAI subscription catalogue. Device OAuth currently exposes the current
-    // Grok Responses models; actual availability remains account/plan-specific.
+    // xAI subscription catalogue. Emit account-qualified routes for named
+    // credential slots so new agents do not silently fall back to "default".
     try {
         const status = await ctx.fns.llm.xaiOAuthStatus?.({});
-        if (status?.connected) out.xai = [
-            "xai:grok-4.6",
-            "xai:grok-4.5",
-            "xai:grok-4.3",
-        ];
+        if (status?.connected) {
+            const models = ["grok-4.6", "grok-4.5", "grok-4.3"];
+            const accounts = Array.isArray(status.accounts)
+                ? status.accounts.filter((entry: any) => !entry.needsReconnect)
+                : [{ account: "default" }];
+            out.xai = accounts.flatMap((entry: any) => {
+                const account = String(entry.account ?? "default");
+                const prefix = account === "default" ? "xai" : `xai/${account}`;
+                return models.map(id => `${prefix}:${id}`);
+            });
+        }
     } catch { /* OAuth migration unavailable / not connected — omit */ }
 
     // Cursor subscription catalogue, asked live: the key's plan decides what it

@@ -6,6 +6,7 @@ extension Theme {
         .text { ForegroundColor(.primary); FontSize(15) }
         .strong { FontWeight(.semibold) }
         .code { FontFamilyVariant(.monospaced); FontSize(.em(0.88)); ForegroundColor(.primary) }
+        .link { ForegroundColor(.accentColor); UnderlineStyle(.single) }
         .heading1 { config in config.label.markdownTextStyle { FontWeight(.bold); FontSize(.em(1.55)) }.markdownMargin(top: 14, bottom: 8) }
         .heading2 { config in config.label.markdownTextStyle { FontWeight(.bold); FontSize(.em(1.32)) }.markdownMargin(top: 12, bottom: 7) }
         .heading3 { config in config.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.15)) }.markdownMargin(top: 10, bottom: 6) }

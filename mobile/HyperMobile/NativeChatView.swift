@@ -488,13 +488,43 @@ private struct ZoomableRemoteImage: View {
 }
 
 
+private func linkifiedMarkdown(_ source: String) -> String {
+    guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return source }
+    let fullRange = NSRange(source.startIndex..<source.endIndex, in: source)
+    let protectedPatterns = [
+        #"(?ms)^\s*(```|~~~)[^\n]*\n.*?^\s*\1\s*$"#,
+        #"`+[^`\n]*`+"#,
+        #"!?\[[^\]\n]*\]\([^\n)]*\)"#,
+        #"<https?://[^>]+>"#,
+        #"(?i)(?:href|src)\s*=\s*[\"'][^\"']+[\"']"#,
+    ]
+    let protectedRanges = protectedPatterns.flatMap { pattern -> [NSRange] in
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        return regex.matches(in: source, range: fullRange).map(\.range)
+    }
+    var replacements: [(NSRange, String)] = []
+    detector.enumerateMatches(in: source, range: fullRange) { match, _, _ in
+        guard let match, let url = match.url,
+              let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              !protectedRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
+              let range = Range(match.range, in: source) else { return }
+        let label = String(source[range])
+        replacements.append((match.range, "[\(label)](<\(url.absoluteString)>)"))
+    }
+    guard !replacements.isEmpty else { return source }
+    let result = NSMutableString(string: source)
+    for (range, replacement) in replacements.reversed() { result.replaceCharacters(in: range, with: replacement) }
+    return result as String
+}
+
+
 private struct NativeMessageText: View {
     let text: String
     var foreground: Color? = nil
     var baseURL: URL? = nil
     var workspacePath: String = ""
     var body: some View {
-        Markdown(text, imageBaseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true))
+        Markdown(linkifiedMarkdown(text), imageBaseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true))
             .markdownTheme(.hyperChat)
             .markdownImageProvider(HyperMarkdownImageProvider(baseURL: baseURL ?? URL(string: "https://invalid.local")!, workspacePath: workspacePath))
             .markdownTextStyle { ForegroundColor(foreground ?? .primary) }

@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct AttachmentComposer: View {
     @Binding var text: String
+    let baseURL: URL
     @Binding var attachments: [PendingAttachment]
     var focused: FocusState<Bool>.Binding
     let resetID: UUID
@@ -17,10 +18,40 @@ struct AttachmentComposer: View {
     @State private var showingCamera = false
     @State private var importError: String?
 
+    @State private var mentionPeople: [MentionPerson] = []
+    @State private var mentionResults: [MentionPerson] = []
+    @State private var mentionStart: String.Index?
+    @State private var loadingMentionPeople = false
     private var canSend: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty) && !sending }
 
     var body: some View {
         VStack(spacing: 7) {
+            if !mentionResults.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(mentionResults) { person in
+                        Button { insertMention(person) } label: {
+                            HStack(spacing: 10) {
+                                MentionAvatar(person: person)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(person.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                    Text("@\(person.id)\(person.email.map { " · \($0)" } ?? "")")
+                                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if person.id != mentionResults.last?.id { Divider().padding(.leading, 48) }
+                    }
+                }
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.08)))
+                .padding(.horizontal, 10)
+                .accessibilityLabel("Mention someone")
+            }
+
             if !attachments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -64,6 +95,7 @@ struct AttachmentComposer: View {
         }
         .padding(.vertical, 8).background(.bar)
         .onChange(of: photoItems) { _, items in Task { await loadPhotos(items) } }
+        .onChange(of: text) { _, _ in updateMentionSuggestions() }
         .photosPicker(isPresented: $showingPhotos, selection: $photoItems, maxSelectionCount: max(1, 10 - attachments.count), matching: .images)
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker { result in
@@ -74,6 +106,48 @@ struct AttachmentComposer: View {
             }.ignoresSafeArea()
         }
         .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in loadFiles(result) }
+    }
+
+
+    private func mentionQuery() -> (start: String.Index, query: String)? {
+        guard let regex = try? NSRegularExpression(pattern: #"(^|[^\w@.\/-])@([a-z0-9-]{0,64})$"#, options: [.caseInsensitive]) else { return nil }
+        let ns = text as NSString
+        guard let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: ns.length)) else { return nil }
+        let range = match.range(at: 2)
+        guard range.location != NSNotFound, let swiftRange = Range(range, in: text),
+              let at = text.index(swiftRange.lowerBound, offsetBy: -1, limitedBy: text.startIndex) else { return nil }
+        return (at, String(text[swiftRange]).lowercased())
+    }
+
+
+
+    private func updateMentionSuggestions() {
+        guard let mention = mentionQuery() else { mentionStart = nil; mentionResults = []; return }
+        mentionStart = mention.start
+        if mentionPeople.isEmpty && !loadingMentionPeople {
+            loadingMentionPeople = true
+            Task {
+                mentionPeople = (try? await APIClient(baseURL: baseURL).mentionPeople()) ?? []
+                loadingMentionPeople = false
+                updateMentionSuggestions()
+            }
+            return
+        }
+        let query = mention.query
+        mentionResults = mentionPeople.filter { person in
+            guard !query.isEmpty else { return true }
+            let words = [person.id, person.name, person.email ?? ""]
+                .joined(separator: " ").lowercased().split(whereSeparator: { " @.-".contains($0) })
+            return person.id.lowercased().hasPrefix(query) || words.contains(where: { $0.hasPrefix(query) })
+        }.prefix(8).map { $0 }
+    }
+
+    private func insertMention(_ person: MentionPerson) {
+        guard let start = mentionStart else { return }
+        text.replaceSubrange(start..<text.endIndex, with: "@\(person.id) ")
+        mentionStart = nil
+        mentionResults = []
+        focused.wrappedValue = true
     }
 
     private func loadPhotos(_ items: [PhotosPickerItem]) async {

@@ -27,6 +27,7 @@ test("a person's @id in a message becomes an unread mention for them; opening th
     const { idx } = await rn.fns.session.appendUserMessage({ id: agent.id, text: "@anna look at this, @anna! mail anna@health-samurai.io, cc @nobody and @niquola" });
     expect(await ctx.fns.mentions.unreadCount({ userId: "anna" })).toBe(1);
     expect(await ctx.fns.mentions.unreadCount({ userId: "niquola" })).toBe(0);
+    expect(await ra.fns.mentions.unreadByAgent({})).toEqual({ [agent.id]: 1 });
     const [m] = await ra.fns.mentions.list({ unreadOnly: true });
     expect(m).toMatchObject({ agentId: agent.id, messageIdx: idx, from: "niquola", readAt: null });
     expect(m.excerpt).toStartWith("@anna look at this");
@@ -52,6 +53,7 @@ test("a person's @id in a message becomes an unread mention for them; opening th
     // Opening the chat (markSeen) reads Anna's mentions there — and only hers.
     await ra.fns.auth.markSeen({ agentId: agent.id });
     expect(await ctx.fns.mentions.unreadCount({ userId: "anna" })).toBe(0);
+    expect(await ra.fns.mentions.unreadByAgent({})).toEqual({});
     expect(await ctx.fns.mentions.unreadCount({ userId: "niquola" })).toBe(1);
     expect(await ra.fns.mentions.badge({})).not.toContain("unread");
     // The live refresh route answers the same badge for the signed-in person.

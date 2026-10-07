@@ -108,6 +108,11 @@ struct APIClient {
         return response.agents
     }
 
+    func mentionPeople() async throws -> [MentionPerson] {
+        try await request(path: "mentions/people")
+    }
+
+
     func events(agentID: String, after: Int? = nil, before: Int? = nil, limit: Int = 100) async throws -> EventsResponse {
         var components = URLComponents(url: url("api/mobile/v1/agents/\(escaped(agentID))/events"), resolvingAgainstBaseURL: false)!
         var items = [URLQueryItem(name: "limit", value: String(limit))]

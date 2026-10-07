@@ -47,6 +47,14 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         authors.set(event.actor, await ctx.fns.auth.author({ userId: event.actor }));
     }
 
+    const mentioned = new Map<number, string[]>();
+    for (const event of events) {
+        if ((event.type === "user" || event.type === "assistant") && typeof event.text === "string" && event.text.includes("@")) {
+            mentioned.set(Number(event.idx), await ctx.fns.mentions.parse({ text: event.text }));
+        }
+    }
+
+
     const mobileEvents = events
         .filter((event: any) => ["user", "assistant", "error", "tool_call", "tool_result", "stop"].includes(String(event.type)))
         .map((event: any) => ({
@@ -54,6 +62,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
             ts: Number(event.ts),
             type: String(event.type),
             text: typeof event.text === "string" ? event.text : (typeof event.error === "string" ? event.error : null),
+            mentions: mentioned.get(Number(event.idx)) ?? [],
             html: typeof event.html === "string" ? event.html : null,
             author: typeof event.actor === "string" ? authors.get(event.actor) ?? null : null,
             name: typeof event.name === "string" ? event.name : null,

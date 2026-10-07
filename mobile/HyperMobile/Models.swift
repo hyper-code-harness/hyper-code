@@ -6,6 +6,7 @@ struct AgentSummary: Codable, Identifiable, Hashable {
     let model: String
     let runState: String
     let unread: Int
+    let mentions: Int?
     let turns: Int
     let updatedAt: Double
     let workspaceDir: String
@@ -48,11 +49,20 @@ struct CreatedAgent: Codable { let id: String; let title: String; let model: Str
 
 struct AgentsResponse: Codable { let version: Int; let agents: [AgentSummary] }
 
+
+struct MentionPerson: Codable, Hashable, Identifiable {
+    let id: String
+    let name: String
+    let email: String?
+    let picture: String?
+}
+
 struct MobileEvent: Codable, Identifiable, Hashable {
     let idx: Int
     let ts: Double
     let type: String
     let text: String?
+    let mentions: [String]?
     let html: String?
     let author: EventAuthor?
     let name: String?
@@ -101,7 +111,7 @@ struct PartialAssistant: Codable, Equatable {
 struct SendResponse: Codable { let version: Int; let ok: Bool; let messageIdx: Int; let eventIdx: Int; let sendAt: Double; let attachments: [EventAttachment]? }
 extension MobileEvent {
     init(idx: Int, ts: Double, type: String, text: String?, name: String?, preview: String?, isError: Bool, attachments: [EventAttachment]) {
-        self.init(idx: idx, ts: ts, type: type, text: text, html: nil, author: nil, name: name, preview: preview, isError: isError, attachments: attachments)
+        self.init(idx: idx, ts: ts, type: type, text: text, mentions: nil, html: nil, author: nil, name: name, preview: preview, isError: isError, attachments: attachments)
     }
 }
 struct PendingAttachment: Identifiable, Hashable {

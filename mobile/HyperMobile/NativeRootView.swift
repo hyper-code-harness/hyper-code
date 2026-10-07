@@ -228,7 +228,14 @@ struct AgentRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(agent.title).font(.callout.weight(.semibold)).lineLimit(1)
-                    if agent.unread > 0 { Text("\(agent.unread)").font(.caption2.bold()).foregroundStyle(.white).padding(.horizontal, 6).frame(minHeight: 19).background(.blue, in: Capsule()) }
+                    if (agent.mentions ?? 0) > 0 {
+                        Label("\(agent.mentions ?? 0)", systemImage: "at")
+                            .font(.caption2.bold()).foregroundStyle(.white)
+                            .padding(.horizontal, 6).frame(minHeight: 19).background(.orange, in: Capsule())
+                            .accessibilityLabel("\(agent.mentions ?? 0) unread mentions")
+                    } else if agent.unread > 0 {
+                        Text("\(agent.unread)").font(.caption2.bold()).foregroundStyle(.white).padding(.horizontal, 6).frame(minHeight: 19).background(.blue, in: Capsule())
+                    }
                     Spacer(minLength: 4)
                     if agent.pinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary) }
                 }

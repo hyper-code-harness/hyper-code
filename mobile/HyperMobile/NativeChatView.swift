@@ -92,7 +92,7 @@ struct NativeChatView: View {
                 .padding(.vertical, 5)
             }
             .scrollDismissesKeyboard(.immediately)
-                AttachmentComposer(text: $draft, attachments: $attachments, focused: $focused, resetID: composerResetID, sending: store.isSending, running: store.isRunning, injectText: injectText, injectEvery: injectEvery, send: sendAction, stop: stopAction)
+                AttachmentComposer(text: $draft, baseURL: baseURL, attachments: $attachments, focused: $focused, resetID: composerResetID, sending: store.isSending, running: store.isRunning, injectText: injectText, injectEvery: injectEvery, send: sendAction, stop: stopAction)
                     .frame(maxWidth: 860)
                     .frame(maxWidth: .infinity)
             }
@@ -382,7 +382,7 @@ private struct EventBubble: View {
                 if !isUser, let html = event.html, html.contains("<svg") || html.contains("<img") {
                     InlineHTMLView(html: html, height: $htmlHeight).frame(height: htmlHeight)
                 } else if let text = event.text, !text.isEmpty {
-                    NativeMessageText(text: text, foreground: isUser ? userTextColor : nil, baseURL: baseURL, workspacePath: workspacePath)
+                    NativeMessageText(text: text, foreground: isUser ? userTextColor : nil, baseURL: baseURL, workspacePath: workspacePath, mentions: event.mentions ?? [])
                 }
                 if !imageAttachments.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -603,16 +603,48 @@ private func markdownFilePreview(for url: URL, baseURL: URL, workspacePath: Stri
 }
 
 
+private func mentionLinkedMarkdown(_ source: String, known: Set<String>) -> String {
+    let fullRange = NSRange(source.startIndex..<source.endIndex, in: source)
+    let protectedPatterns = [
+        #"(?ms)^\s*(```|~~~)[^\n]*\n.*?^\s*\1\s*$"#,
+        #"`+[^`\n]*`+"#,
+        #"!?\[[^\]\n]*\]\([^\n)]*\)"#,
+        #"<[^>]+>"#,
+        #"(?i)(?:href|src)\s*=\s*[\"'][^\"']+[\"']"#,
+    ]
+    let protectedRanges = protectedPatterns.flatMap { pattern -> [NSRange] in
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        return regex.matches(in: source, range: fullRange).map(\.range)
+    }
+    guard let regex = try? NSRegularExpression(pattern: #"(^|[^\w@.\/-])@([a-z0-9][a-z0-9-]{0,63})(?![\w-])"#, options: [.caseInsensitive]) else { return source }
+    var replacements: [(NSRange, String)] = []
+    for match in regex.matches(in: source, range: fullRange) {
+        let idRange = match.range(at: 2)
+        let atRange = NSRange(location: idRange.location - 1, length: idRange.length + 1)
+        guard !protectedRanges.contains(where: { NSIntersectionRange($0, atRange).length > 0 }),
+              let range = Range(idRange, in: source) else { continue }
+        let id = String(source[range])
+        guard known.contains(id.lowercased()) else { continue }
+        replacements.append((atRange, "[@\(id)](hyper-mention://\(id))"))
+    }
+    guard !replacements.isEmpty else { return source }
+    let result = NSMutableString(string: source)
+    for (range, replacement) in replacements.reversed() { result.replaceCharacters(in: range, with: replacement) }
+    return result as String
+}
+
+
 private struct NativeMessageText: View {
     let text: String
     var foreground: Color? = nil
     var baseURL: URL? = nil
     var workspacePath: String = ""
+    var mentions: [String] = []
     @State private var markdownFile: MarkdownFilePreview?
 
     var body: some View {
         Markdown(
-            linkifiedMarkdown(text),
+            linkifiedMarkdown(mentionLinkedMarkdown(text, known: Set(mentions.map { $0.lowercased() }))),
             baseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true),
             imageBaseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true)
         )
@@ -622,6 +654,7 @@ private struct NativeMessageText: View {
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
             .environment(\.openURL, OpenURLAction { url in
+                if url.scheme == "hyper-mention" { return .handled }
                 guard let baseURL, let file = markdownFilePreview(for: url, baseURL: baseURL, workspacePath: workspacePath) else { return .systemAction }
                 markdownFile = file
                 return .handled

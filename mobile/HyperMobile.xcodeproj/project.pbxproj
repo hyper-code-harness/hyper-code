@@ -41,6 +41,7 @@
 		100000000000000000000021 /* MultiServerSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* MultiServerSessionCoordinator.swift */; };
 		100000000000000000000022 /* MobileStateCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* MobileStateCache.swift */; };
 		100000000000000000000023 /* HyperMeshDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* HyperMeshDiscovery.swift */; };
+		100000000000000000000024 /* MentionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* MentionViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,6 +81,7 @@
 		200000000000000000000022 /* MultiServerSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiServerSessionCoordinator.swift; sourceTree = "<group>"; };
 		200000000000000000000023 /* MobileStateCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileStateCache.swift; sourceTree = "<group>"; };
 		200000000000000000000024 /* HyperMeshDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyperMeshDiscovery.swift; sourceTree = "<group>"; };
+		200000000000000000000025 /* MentionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,6 +141,7 @@
 				200000000000000000000022 /* MultiServerSessionCoordinator.swift */,
 				200000000000000000000023 /* MobileStateCache.swift */,
 				200000000000000000000024 /* HyperMeshDiscovery.swift */,
+				200000000000000000000025 /* MentionViews.swift */,
 				200000000000000000000004 /* Info.plist */,
 			);
 			path = HyperMobile;
@@ -259,6 +262,7 @@
 				100000000000000000000021 /* MultiServerSessionCoordinator.swift in Sources */,
 				100000000000000000000022 /* MobileStateCache.swift in Sources */,
 				100000000000000000000023 /* HyperMeshDiscovery.swift in Sources */,
+				100000000000000000000024 /* MentionViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

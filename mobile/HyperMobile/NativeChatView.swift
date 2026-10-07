@@ -518,18 +518,117 @@ private func linkifiedMarkdown(_ source: String) -> String {
 }
 
 
+private struct MarkdownFilePreview: Identifiable {
+    let path: String
+    var id: String { path }
+    var title: String { URL(fileURLWithPath: path).lastPathComponent }
+}
+
+private struct MarkdownFilePreviewSheet: View {
+    let file: MarkdownFilePreview
+    let baseURL: URL
+    @Environment(\.dismiss) private var dismiss
+    @State private var content: String?
+    @State private var error: String?
+
+    private var fileBaseURL: URL { URL(fileURLWithPath: file.path).deletingLastPathComponent() }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let content {
+                    ScrollView {
+                        Markdown(content, baseURL: fileBaseURL, imageBaseURL: fileBaseURL)
+                            .markdownTheme(.hyperChat)
+                            .markdownImageProvider(HyperMarkdownImageProvider(baseURL: baseURL, workspacePath: fileBaseURL.path))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                    }
+                } else if let error {
+                    ContentUnavailableView("Couldn’t open file", systemImage: "doc.badge.exclamationmark", description: Text(error))
+                } else {
+                    ProgressView("Opening…")
+                }
+            }
+            .navigationTitle(file.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .task(id: file.path) { await load() }
+    }
+
+    private func load() async {
+        do {
+            var components = URLComponents(url: baseURL.appending(path: "files/raw"), resolvingAgainstBaseURL: false)
+            components?.queryItems = [URLQueryItem(name: "path", value: file.path)]
+            guard let url = components?.url else { throw URLError(.badURL) }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 30
+            request.setValue("text/markdown, text/plain", forHTTPHeaderField: "Accept")
+            let (data, response) = try await ServerSessionPool.shared.data(for: request, baseURL: baseURL)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                throw URLError(.badServerResponse)
+            }
+            guard let text = String(data: data, encoding: .utf8) else { throw URLError(.cannotDecodeContentData) }
+            content = text
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+private func markdownFilePreview(for url: URL, baseURL: URL, workspacePath: String) -> MarkdownFilePreview? {
+    let path: String?
+    if url.isFileURL {
+        path = url.standardizedFileURL.path
+    } else if url.scheme == nil {
+        let raw = url.path.removingPercentEncoding ?? url.path
+        path = raw.hasPrefix("/") ? raw : URL(fileURLWithPath: workspacePath, isDirectory: true).appendingPathComponent(raw).standardized.path
+    } else if ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host == baseURL.host {
+        if url.path == "/files/raw" {
+            path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "path" })?.value
+        } else if let prefix = ["/files/absolute/", "/files/embed/"].first(where: { url.path.hasPrefix($0) }) {
+            path = "/" + String(url.path.dropFirst(prefix.count)).removingPercentEncoding!
+        } else {
+            path = nil
+        }
+    } else {
+        path = nil
+    }
+    guard let path else { return nil }
+    let name = URL(fileURLWithPath: path).lastPathComponent.lowercased()
+    guard ["md", "markdown"].contains(URL(fileURLWithPath: path).pathExtension.lowercased()) || name == "readme" else { return nil }
+    return MarkdownFilePreview(path: path)
+}
+
+
 private struct NativeMessageText: View {
     let text: String
     var foreground: Color? = nil
     var baseURL: URL? = nil
     var workspacePath: String = ""
+    @State private var markdownFile: MarkdownFilePreview?
+
     var body: some View {
-        Markdown(linkifiedMarkdown(text), imageBaseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true))
+        Markdown(
+            linkifiedMarkdown(text),
+            baseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true),
+            imageBaseURL: workspacePath.isEmpty ? nil : URL(fileURLWithPath: workspacePath, isDirectory: true)
+        )
             .markdownTheme(.hyperChat)
             .markdownImageProvider(HyperMarkdownImageProvider(baseURL: baseURL ?? URL(string: "https://invalid.local")!, workspacePath: workspacePath))
             .markdownTextStyle { ForegroundColor(foreground ?? .primary) }
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { url in
+                guard let baseURL, let file = markdownFilePreview(for: url, baseURL: baseURL, workspacePath: workspacePath) else { return .systemAction }
+                markdownFile = file
+                return .handled
+            })
+            .sheet(item: $markdownFile) { file in
+                if let baseURL { MarkdownFilePreviewSheet(file: file, baseURL: baseURL) }
+            }
     }
 }
 private struct ErrorBanner: View { let message: String; var body: some View { Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.white).frame(maxWidth: .infinity).padding(8).background(.red) } }

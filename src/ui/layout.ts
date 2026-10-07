@@ -20,12 +20,10 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const currentId = opts.currentId ?? session?.req?.headers?.get("x-hyper-agent") ?? undefined;
     const pageTitle = opts.title ? `${opts.title} · hyper-code2` : "hyper-code2";
     const embedded = session?.url?.searchParams.get("embed") === "1";
-    // A tiny terminal prompt: dark enough to survive light browser chrome,
     const sidebar = !embedded && session?.url?.searchParams.get("presentation") === "sidebar";
     const hideNavigation = embedded || sidebar;
-    // with a mint chevron and violet cursor that remain legible at 16×16.
-    const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#252a34"/><path d="m8 9 7 7-7 7" fill="none" stroke="#6ee7b7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 23H25" stroke="#a78bfa" stroke-width="3.2" stroke-linecap="round"/><circle cx="25" cy="7" r="2.3" fill="#fb7185"/></svg>`;
-    const favicon = `data:image/svg+xml,${encodeURIComponent(faviconSvg)}`;
+    // The instance can carry its own icon (ui.setFavicon); the built-in one otherwise.
+    const favicon = await ctx.fns.ui.faviconUrl({});
     const csrfToken = session?.req ? await ctx.fns.auth.csrfToken({ req: session.req }) : "";
     return `<!doctype html>
 <html>
@@ -35,7 +33,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <script>(function(){try{var saved=localStorage.getItem('hyper-theme');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch(_){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light'}})()</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${esc(pageTitle)}</title>
-<link rel="icon" href="${favicon}" type="image/svg+xml">
+<link rel="icon" href="${esc(favicon)}">
 <!-- htmx 4 (framework bundle). Inheritance stays explicit (htmx 4 default):
      implicit inheritance let hx-trigger="load" leak into child buttons and loop.
      Default 60 s timeout; long actions opt out with hx-config='{"timeout":0}'.

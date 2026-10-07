@@ -17,7 +17,6 @@ struct NativePadRootView: View {
     @State private var loginError: String?
     @State private var loggingIn = false
     @State private var sso = MobileSSO()
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showingLogoutConfirmation = false
     @State private var authUser: APIClient.AuthUser?
 
@@ -36,7 +35,7 @@ struct NativePadRootView: View {
     }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView {
             List(filtered, selection: $selection) { agent in
                 AgentRow(agent: agent).tag(agent)
                     .contextMenu { Button { pin(agent, !agent.pinned) } label: { Label(agent.pinned ? "Unpin" : "Pin", systemImage: "pin") } }
@@ -49,7 +48,7 @@ struct NativePadRootView: View {
                 ToolbarItemGroup(placement: .topBarLeading) {
                     ServerSwitcherMenu { showingServers = true }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
                         if let authUser { Text(authUser.name) }
                         Button("News", systemImage: "newspaper") { showingNews = true }
@@ -60,8 +59,7 @@ struct NativePadRootView: View {
                         Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { showingLogoutConfirmation = true }
                     } label: { Image(systemName: "ellipsis.circle") }
                     .accessibilityLabel("More")
-                }
-                ToolbarItem(placement: .primaryAction) {
+
                     Button { showingNewAgent = true } label: { Image(systemName: "square.and.pencil") }
                         .accessibilityLabel("New chat")
                 }
@@ -71,11 +69,9 @@ struct NativePadRootView: View {
                 NativeChatView(agent: agent, baseURL: baseURL, profileID: servers.selectedID) { Task { await refreshSelected() } }
                     .id(agent.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .toolbar { panelToggle }
             } else {
                 ContentUnavailableView("Select a chat", systemImage: "bubble.left.and.bubble.right", description: Text("Choose a conversation from the chat list."))
                     .background(DotGridBackground())
-                    .toolbar { panelToggle }
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -102,16 +98,6 @@ struct NativePadRootView: View {
         }
     }
 
-    @ToolbarContentBuilder private var panelToggle: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button {
-                withAnimation(.snappy) { columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly }
-            } label: {
-                Image(systemName: columnVisibility == .detailOnly ? "sidebar.left" : "sidebar.left")
-            }
-            .accessibilityLabel(columnVisibility == .detailOnly ? "Show chat list" : "Hide chat list")
-        }
-    }
 
     private func refreshSelected() async {
         await sessions.refresh(profile: servers.selectedProfile, serverStore: servers)

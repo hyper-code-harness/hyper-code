@@ -1,0 +1,17 @@
+{
+  "name": "inbox",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Inbox",
+    "icon": "ph-envelope-simple",
+    "optional": true,
+    "description": "End-to-end encrypted mail between people, agents and Hyper environments over the Hypermesh relay: addresses, send, reply, inbox, delivery to agents."
+  },
+  "dependencies": {
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "nostr-tools": "^2.25.2"
+  }
+}

@@ -135,6 +135,9 @@
       },
       "telemetry": {
         "path": "plugins/telemetry"
+      },
+      "inbox": {
+        "path": "plugins/inbox"
       }
     }
   }

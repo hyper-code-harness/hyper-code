@@ -1,8 +1,12 @@
-// Single HTTP boundary for Jev. Every other jev.* function composes this one.
+// Thin compatibility wrapper over the engine-neutral decision layer.
 //
 // Jev is not a chat model: it never reaches llm.call, has no messages, and
-// returns typed values instead of text. The wire contract is POST /systemone
-// with { model, state, questions } and answers keyed by the same question ids.
+// returns typed values instead of text. The wire contract (POST /systemone with
+// { model, state, questions }) now lives in decision.engineJev; this function
+// stays so the existing jev.* call sites keep working unchanged.
+//
+// New code should call decision.ask, which can also route to OpenAI Decisions
+// and accepts image evidence.
 
 /** Calls the Jev System One endpoint with one shared state and a map of typed questions. */
 /**
@@ -14,6 +18,9 @@
  * in parallel against the same state in one round trip, so send every question the
  * caller might need — extra questions cost tokens, not latency. Prefer several small
  * questions combined in code over one compound question.
+ *
+ * Pins the Jev backend. Prefer decision.ask when the engine should follow configuration
+ * or the evidence includes images, which Jev cannot read.
  *
  * Not for generating text, arithmetic, date math or counting; keep those in code.
  * Throws on transport or provider failure so each caller can choose its own fallback.
@@ -47,85 +54,20 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     usage: { inputTokens: number; outputTokens: number; cost: number | null };
     latencyMs: number;
 }> {
-    const ids = Object.keys(opts.questions ?? {});
-    if (ids.length === 0) throw new Error("jev.decide: questions must not be empty");
-    for (const id of ids) {
-        const q: any = (opts.questions as any)[id];
-        if (q?.type === "choice") {
-            const n = Object.keys(q.criteria ?? {}).length;
-            if (n < 2) throw new Error(`jev.decide: choice question "${id}" needs at least 2 options`);
-            if (n > 255) throw new Error(`jev.decide: choice question "${id}" has ${n} options, the limit is 255`);
-        }
-    }
-
-    const endpoint = opts.endpoint
-        ?? (await ctx.fns.settings.getString({ module: "jev", scopeType: "global", key: "endpoint" }))
-        ?? "https://openrouter.ai/api/v1/systemone";
-    const model = opts.model
-        ?? (await ctx.fns.settings.getString({ module: "jev", scopeType: "global", key: "model" }))
-        ?? "typesafe/jev-1.13";
-
-    // OpenRouter serves Jev behind the same credential as every other route,
-    // so reuse it rather than asking the user for a second key.
-    const keySetting = endpoint.includes("openrouter.ai")
-        ? { module: "llm", key: "openrouterApiKey" }
-        : { module: "jev", key: "apiKey" };
-    const apiKey = opts.apiKey
-        ?? await ctx.fns.secrets.resolveSetting({ module: keySetting.module, scopeType: "global", key: keySetting.key });
-    if (!apiKey) throw new Error(`jev.decide: no API key; set ${keySetting.module}.${keySetting.key}`);
-
-    const timeoutMs = Math.min(60000, Math.max(500, opts.timeoutMs ?? 8000));
-    const retries = Math.min(5, Math.max(0, opts.retries ?? 2));
-    const body = JSON.stringify({ model, state: opts.state, questions: opts.questions });
-
-    let lastError = "";
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        const startedAt = Date.now();
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const res = await fetch(endpoint, {
-                method: "POST",
-                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-                body,
-                signal: controller.signal,
-            });
-            const latencyMs = Date.now() - startedAt;
-            const text = await res.text();
-            if (!res.ok) {
-                // 4xx other than 429 is our own bad request: retrying cannot fix it.
-                if (res.status !== 429 && res.status < 500) {
-                    throw new Error(`jev.decide: ${res.status} ${text.slice(0, 300)}`);
-                }
-                lastError = `${res.status} ${text.slice(0, 200)}`;
-                if (attempt === retries) break;
-                const after = Number(res.headers.get("retry-after"));
-                await Bun.sleep(Number.isFinite(after) && after > 0 ? after * 1000 : 400 * (attempt + 1));
-                continue;
-            }
-            const json: any = JSON.parse(text);
-            if (json?.error) throw new Error(`jev.decide: ${JSON.stringify(json.error).slice(0, 300)}`);
-            const usage = json?.usage ?? {};
-            return {
-                answers: (json?.answers ?? {}) as Record<string, types.jev.Answer>,
-                model: String(json?.model ?? model),
-                usage: {
-                    inputTokens: Number(usage.input_tokens ?? 0),
-                    outputTokens: Number(usage.output_tokens ?? 0),
-                    cost: typeof usage.cost === "number" ? usage.cost : null,
-                },
-                latencyMs,
-            };
-        } catch (error: any) {
-            if (error?.name === "AbortError") {
-                lastError = `timeout after ${timeoutMs}ms`;
-                if (attempt === retries) break;
-                continue;
-            }
-            throw error;
-        } finally {
-            clearTimeout(timer);
-        }
-    }
-    throw new Error(`jev.decide: giving up after ${retries + 1} attempts: ${lastError}`);
+    const out = await ctx.fns.decision.ask({
+        state: opts.state,
+        questions: opts.questions as Record<string, types.decision.Question>,
+        engine: "jev",
+        ...(opts.model === undefined ? {} : { model: opts.model }),
+        ...(opts.endpoint === undefined ? {} : { endpoint: opts.endpoint }),
+        ...(opts.apiKey === undefined ? {} : { apiKey: opts.apiKey }),
+        ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
+        ...(opts.retries === undefined ? {} : { retries: opts.retries }),
+    });
+    return {
+        answers: out.answers as Record<string, types.jev.Answer>,
+        model: out.model,
+        usage: out.usage,
+        latencyMs: out.latencyMs,
+    };
 }

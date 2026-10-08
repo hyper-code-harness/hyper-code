@@ -65,11 +65,30 @@ script/repl.ts        external REPL client (reads .runtime/port + .runtime/repl-
 
 ## Server, REPL, hot reload
 
-Long-running server in tmux session `hyper` on **PORT 3010** (`bun run start`; :3000 is a different project).
+Long-running server on **PORT 3010** (:3000 is a different project), supervised by **launchd**, not tmux:
 
 ```bash
-tmux new-session -d -s hyper 'cd ~/hyper-code2 && bun run start'
+launchctl list | grep com.niquola.hyper   # pid of script/run-service.ts, which spawns src/$main.ts
+launchctl kickstart -k gui/$(id -u)/com.niquola.hyper   # restart the supervisor and its child
+```
 
+`~/Library/LaunchAgents/com.niquola.hyper.plist` runs `bun script/run-service.ts` with `KeepAlive`, so an
+ordinary crash is restarted automatically (`ThrottleInterval` 10s). `run-service.ts` is also the updater: it
+applies a staged fast-forward from `.runtime/update-pending.json`, health-checks the new child and rolls the
+checkout (and the database) back if it fails.
+
+- A restart boots whatever is in the **working tree**, not at HEAD — check `git status` before restarting on
+  someone else's uncommitted work.
+- `launchctl kickstart -k` kills the supervisor but **not an orphaned child**: if `src/$main.ts` outlives its
+  parent it keeps the port, every relaunch dies with `EADDRINUSE`, and launchd loops on that forever while the
+  stale process still answers requests. When a restart seems to have no effect, check for it:
+  `lsof -nP -iTCP:3010 -sTCP:LISTEN` and `ps -o ppid= -p <pid>` — `ppid=1` means orphaned, `kill` it and launchd
+  gets the port on its next try. `grep -c EADDRINUSE .runtime/server.error.log` counts how long this has been
+  going on.
+- Logs: `.runtime/server.log` and `.runtime/server.error.log` (the child, rotated), `.runtime/service.*.log`
+  (the supervisor).
+
+```bash
 bun script/repl.ts 'ctx.fns.session.list({})'          # eval inside the live process
 bun script/repl.ts -f /tmp/play.js                     # from file; stdin works too
 ```
@@ -77,7 +96,7 @@ bun script/repl.ts -f /tmp/play.js                     # from file; stdin works 
 - `POST /procs/repl` is gated: run-signed JWT in `.runtime/repl-token` (0600) + loopback-only + 403 in production. `script/repl.ts` handles the token automatically.
 - REPL eval is Jupyter-style: `console.log`/`print` captured, last expression returned.
 - Hot reload: `ctx.fns.procs.dev.sync({ rel: "agent/run.ts" })` picks up an edited file (any kind); `ctx.fns.procs.repl.load({ name: "agent.run" })` swaps one fn or a module; `ctx.fns.procs.dev.genTypes({})` regenerates types; `ctx.fns.procs.http.loadRoutes({})` rescans routes; `ctx.fns.procs.migrate.up({})` applies new migrations. The dev **watcher** does sync automatically on save (dev only; `WATCH=0` opts out).
-- Needs a restart: `$main.ts`, any `$start/$stop`, and long-lived closures (notably `workerLoop`) — reload swaps the fn but the old promise keeps spinning.
+- Needs a restart: `$main.ts`, any `$start/$stop`, long-lived closures (notably `workerLoop`) — reload swaps the fn but the old promise keeps spinning — and **any npm/git dependency change**, since `bun install` rewrites `node_modules` but the running process keeps the module it already imported.
 - Introspection: `ctx.fns.procs.dev.doc({ name: "agent.run" })`, `ctx.fns.procs.dev.where({ name })`, `ctx.fns.procs.dev.lint({})`.
 
 ## Database & migrations

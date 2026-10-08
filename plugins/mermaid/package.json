@@ -7,9 +7,9 @@
     "label": "Mermaid",
     "icon": "ph-graph",
     "optional": true,
-    "description": "Mermaid diagrams: render flowcharts, sequence, state and class diagrams to inline SVG and show ```mermaid fences in Markdown."
+    "description": "Render flowcharts, sequence, state, class, ER, gantt, timeline, pie, sankey, radar, kanban, treemap, C4 and other Mermaid diagrams as inline SVG."
   },
   "dependencies": {
-    "beautiful-mermaid": "^1.1.3"
+    "beautiful-mermaid": "github:HealthSamurai/beautiful-mermaid#feat/gantt-timeline"
   }
 }

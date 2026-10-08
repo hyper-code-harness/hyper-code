@@ -34,7 +34,8 @@ From code:
 
 A spec may use inline `data: { values: [...] }`, or `data: { url: "reports/sales.csv" }`. Urls are resolved **before** rendering: every file is read, parsed and inlined, so Vega's own loader never runs and a displayed chart cannot make this server issue a request.
 
-- Relative urls resolve under the **data root** (`vegalite.dataRoot`, empty = project root) and may not escape it. `../`, absolute paths outside it and non-file schemes are refused with the path named.
+- Relative urls resolve under the **data root** and may not escape it. `../`, absolute paths outside it and non-file schemes are refused with the path named.
+- With `vegalite.dataRoot` empty the root is the **calling agent's workspace directory** — the same relative paths its files, bash and git tools use — and the project root when there is no agent (tests, scripts, the HTTP route) or when the workspace lives on an SSH host. Setting `vegalite.dataRoot` pins one tree for everybody and outranks the workspace.
 - CSV, TSV, JSON and NDJSON are inferred from the extension; `format: { type }` overrides.
 - `GET /vegalite/data?path=reports/sales.csv` serves one file for the browser side, `&rows=1` returns parsed rows as JSON, `&limit=N` caps them. Same confinement, same size cap.
 
@@ -54,7 +55,7 @@ It is off by default because DuckDB reads any file this server can, which delibe
 
 | setting | default | meaning |
 |---|---|---|
-| `vegalite.dataRoot` | project root | the only tree charts and the data route may read |
+| `vegalite.dataRoot` | agent workspace, else project root | the only tree charts and the data route may read |
 | `vegalite.allowRemoteData` | `false` | let specs fetch `https://` data; off means a remote url is an error |
 | `vegalite.maxDataBytes` | 8 MiB | largest data file a chart may read |
 | `vegalite.allowSqlData` | `false` | let specs use `data: { sql }` through the duckdb plugin |

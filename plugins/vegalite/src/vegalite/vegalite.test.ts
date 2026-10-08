@@ -118,6 +118,22 @@ describe("data confinement", () => {
         expect(result.sources.map(s => s.rows)).toEqual([3, 3]);
     });
 
+    test("an agent's local workspace becomes the root, and the setting still wins", async () => {
+        // Charts written in chat name the paths the agent's own tools just used.
+        const ws = await mkdtemp(join(tmpdir(), "vegalite-ws-"));
+        const localAgent = { agent: { workspaceDir: ws, workspaceHost: "" } } as unknown as Session;
+        expect(await dataRoot(makeCtx(), localAgent, {})).toBe(ws);
+
+        // A remote workspace is not a readable local path.
+        const remoteAgent = { agent: { workspaceDir: "/srv/data", workspaceHost: "box" } } as unknown as Session;
+        expect(await dataRoot(makeCtx(), remoteAgent, {})).toBe(root);
+
+        // An explicit setting is the deliberate choice and outranks the workspace.
+        expect(await dataRoot(makeCtx({ dataRoot: "." }), localAgent, {})).toBe(root);
+
+        await rm(ws, { recursive: true, force: true });
+    });
+
     test("a path escaping the data root is refused", async () => {
         await expect(resolveDataPath(makeCtx(), null, { path: "../../etc/passwd" })).rejects.toThrow(/escapes the data root/);
         await expect(resolveDataPath(makeCtx(), null, { path: "/etc/passwd" })).rejects.toThrow(/escapes the data root/);

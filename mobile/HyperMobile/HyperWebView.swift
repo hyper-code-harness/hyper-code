@@ -22,7 +22,7 @@ struct HyperWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
+        configuration.websiteDataStore = authenticatedBaseURL == nil ? .default() : .nonPersistent()
         configuration.allowsInlineMediaPlayback = true
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -62,6 +62,7 @@ struct HyperWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         var requestedURL = ""
         var lastCommand: UUID?
+        var authenticatedBaseURL: URL?
 
         init(parent: HyperWebView) { self.parent = parent }
 
@@ -72,6 +73,7 @@ struct HyperWebView: UIViewRepresentable {
                 update(loading: false, webView: webView)
                 return
             }
+            self.authenticatedBaseURL = authenticatedBaseURL
             guard let authenticatedBaseURL else {
                 webView.load(URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData))
                 return
@@ -84,9 +86,37 @@ struct HyperWebView: UIViewRepresentable {
             }
             group.notify(queue: .main) {
                 guard self.requestedURL == value else { return }
-                webView.load(URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData))
+                webView.load(self.authenticatedRequest(url: url, baseURL: authenticatedBaseURL))
             }
         }
+
+        private func authenticatedRequest(url: URL, baseURL: URL) -> URLRequest {
+            var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData)
+            request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
+            request.setValue("1", forHTTPHeaderField: "X-Hyper-Native-Auth")
+            if let cookie = ServerSessionPool.shared.cookieHeader(for: baseURL) {
+                request.setValue(cookie, forHTTPHeaderField: "Cookie")
+            }
+            return request
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            guard let baseURL = authenticatedBaseURL,
+                  let url = navigationAction.request.url,
+                  ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+                  url.host?.lowercased() == baseURL.host?.lowercased(),
+                  navigationAction.request.value(forHTTPHeaderField: "X-Hyper-Native-Auth") != "1",
+                  let cookie = ServerSessionPool.shared.cookieHeader(for: baseURL) else {
+                decisionHandler(.allow)
+                return
+            }
+            var request = navigationAction.request
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+            request.setValue("1", forHTTPHeaderField: "X-Hyper-Native-Auth")
+            decisionHandler(.cancel)
+            webView.load(request)
+        }
+
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             update(loading: true, webView: webView)

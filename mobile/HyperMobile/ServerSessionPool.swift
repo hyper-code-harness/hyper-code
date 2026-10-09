@@ -37,6 +37,13 @@ final class ServerSessionPool: @unchecked Sendable {
         return result
     }
 
+    func cookieHeader(for baseURL: URL) -> String? {
+        let jar = cookies(for: Self.key(for: baseURL), url: baseURL)
+        guard !jar.isEmpty else { return nil }
+        return jar.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+    }
+
+
     func webCookies(for baseURL: URL) -> [HTTPCookie] {
         guard let host = baseURL.host else { return [] }
         let jar = cookies(for: Self.key(for: baseURL), url: baseURL)

@@ -13,19 +13,22 @@ struct NewAgentView: View {
     @State private var loading = false
     @State private var error: String?
     @State private var showingWorkspacePicker = false
+    @State private var showingProviderPicker = false
+    @State private var showingModelPicker = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Agent") {
                     TextField("Name (optional)", text: $title)
-                    Picker("Provider", selection: $provider) {
-                        ForEach(providers, id: \.self) { Text($0).tag($0) }
+                    Button { showingProviderPicker = true } label: {
+                        selectionRow(title: "Provider", value: provider.isEmpty ? "Choose provider" : provider)
                     }
-                    Picker("Model", selection: $model) {
-                        ForEach(modelsForProvider) { item in Text(modelLabel(item.model)).tag(item.model) }
+                    .disabled(providers.isEmpty)
+                    Button { showingModelPicker = true } label: {
+                        selectionRow(title: "Model", value: model.isEmpty ? "Choose model" : modelLabel(model))
                     }
-                    .disabled(provider.isEmpty)
+                    .disabled(provider.isEmpty || modelsForProvider.isEmpty)
                 }
                 Section("Workspace") {
                     Button { showingWorkspacePicker = true } label: {
@@ -58,6 +61,12 @@ struct NewAgentView: View {
         .fullScreenCover(isPresented: $showingWorkspacePicker) {
             WorkspacePickerView(workspaces: options?.workspaces ?? [], selection: $workspace)
         }
+        .sheet(isPresented: $showingProviderPicker) {
+            ScrollableChoicePicker(title: "Choose provider", choices: providers, selection: $provider) { $0 }
+        }
+        .sheet(isPresented: $showingModelPicker) {
+            ScrollableChoicePicker(title: "Choose model", choices: modelsForProvider.map(\.model), selection: $model, label: modelLabel)
+        }
         .task { await loadOptions() }
         .onChange(of: provider) { _, newProvider in
             if !modelsForProvider.contains(where: { $0.model == model }) {
@@ -65,6 +74,17 @@ struct NewAgentView: View {
             }
         }
     }
+
+    private func selectionRow(title: String, value: String) -> some View {
+        HStack {
+            Text(title).foregroundStyle(.primary)
+            Spacer()
+            Text(value).foregroundStyle(.secondary).lineLimit(1)
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+    }
+
 
     private var workspaceLabel: String {
         guard !workspace.isEmpty else { return "Default workspace" }
@@ -107,6 +127,47 @@ struct NewAgentView: View {
         }
     }
 }
+
+private struct ScrollableChoicePicker: View {
+    let title: String
+    let choices: [String]
+    @Binding var selection: String
+    let label: (String) -> String
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var filtered: [String] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return needle.isEmpty ? choices : choices.filter { label($0).lowercased().contains(needle) || $0.lowercased().contains(needle) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(filtered, id: \.self) { value in
+                Button {
+                    selection = value
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(label(value)).foregroundStyle(.primary).lineLimit(2)
+                        Spacer()
+                        if value == selection { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(.tint) }
+                    }
+                    .contentShape(Rectangle())
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query, prompt: "Search")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
 
 private struct WorkspacePickerView: View {
     let workspaces: [String]

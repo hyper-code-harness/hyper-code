@@ -10,7 +10,7 @@
     },
   },
   "packages": {
-    "beautiful-mermaid": ["beautiful-mermaid@github:HealthSamurai/beautiful-mermaid#a56c0b3", { "dependencies": { "elkjs": "^0.11.0", "entities": "^7.0.1" } }, "HealthSamurai-beautiful-mermaid-a56c0b3", "sha512-DUSCmWycRDq0T+DD0scihPJCy9gxcV84ZyFAi5SrWfKGMw67Mf1bVP1M9oU+1D77wAHpC7680goYLk5K3XFcfw=="],
+    "beautiful-mermaid": ["beautiful-mermaid@github:HealthSamurai/beautiful-mermaid#5f17f63", { "dependencies": { "elkjs": "^0.11.0", "entities": "^7.0.1" } }, "HealthSamurai-beautiful-mermaid-5f17f63", "sha512-7NN6o8c6GVMAM4PyB2boWPXD2+eR+y83d6wzTIcNMT8E5XpCiqiQhH+Bg16E012OYDbGzWq7yHiW4grwvMf79Q=="],
 
     "elkjs": ["elkjs@0.11.1", "", {}, "sha512-zxxR9k+rx5ktMwT/FwyLdPCrq7xN6e4VGGHH8hA01vVYKjTFik7nHOxBnAYtrgYUB1RpAiLvA1/U2YraWxyKKg=="],
 

@@ -10,8 +10,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const users = await ctx.fns.auth.listUsers({}).catch(() => [] as any[]);
     const me = (_session as any)?.user?.id as string | undefined;
     const multi = users.length > 1 && !!me;
-    const scope = new Bun.CookieMap(opts.req.headers.get("cookie") ?? "").get("hyper_nav_scope") === "all" ? "all" : "mine";
-    const agents = await ctx.fns.nav.agents({ q, limit: q ? 40 : 500, ...(multi && scope === "mine" ? { owner: me } : {}) }).catch(() => [] as any[]);
+    const agents = await ctx.fns.nav.agents({ q, limit: q ? 40 : 500 }).catch(() => [] as any[]);
     const [items, sharedAgents, pinnedIds] = await Promise.all([
         ctx.fns.nav.items({ q, limit: q ? 40 : 500, includeAgents: false }),
         ctx.fns.sharedAgent.list({ query: q }),
@@ -21,10 +20,6 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const visibleAgents = agents;
     const names = new Map(users.map((u: any) => [u.id, u.name]));
     const agentByHref = new Map(agents.map((agent: any) => [`/agent/${encodeURIComponent(agent.id)}`, agent]));
-    const scopeToggle = () => {
-        const btn = (value: string, label: string) => `<button type="button" onclick="document.cookie='hyper_nav_scope=${value};path=/;max-age=31536000;samesite=lax';htmx.trigger(document.body,'nav-refresh')" class="flex-1 rounded px-2 py-1 text-3xs ${scope === value ? "bg-base-100 font-semibold text-base-content shadow-sm" : "text-faint hover:text-muted"}" aria-pressed="${scope === value}">${label}</button>`;
-        return `<div class="mb-2 flex gap-1 rounded-lg bg-base-200 p-0.5" role="group" aria-label="Show chats">${btn("mine", "Mine")}${btn("all", "All")}</div>`;
-    };
     const group = (item: any) => {
         if (item.group === "Pages") return "Pages";
         if (item.group) {
@@ -100,14 +95,18 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     } else {
         const newAgent = `<a href="/agent/new" data-nav-default class="nav-row mb-1 flex min-h-10 items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-2 text-left text-primary shadow-sm outline-none transition hover:bg-primary/15 focus:bg-primary/15"><i class="ph ph-plus-circle shrink-0 text-lg" aria-hidden="true"></i><span class="min-w-0 flex-1 text-xs font-medium">New agent</span></a>`;
         const quick = `<section class="mb-3 border-b border-ui-border pb-2">${newAgent}</section>${mentionsSection}`;
+        const isAdmin = (item: types.nav.Item) => group(item) === "System" && item.href !== "/search";
+        const pageItems = items.filter(item => ["Pages", "System", "Plugins"].includes(group(item)));
+        const adminItems = pageItems.filter(isAdmin);
+        const pagesContent = pageItems.filter(item => !isAdmin(item)).map(row).join("") +
+            (adminItems.length ? `<details class="mt-3 border-t border-ui-border pt-2"><summary class="cursor-pointer px-2 py-1 text-xs text-subtle">Administration · ${adminItems.length}</summary>${adminItems.map(row).join("")}</details>` : "");
         const columns = [
-            { title: "Chats", content: `${multi ? scopeToggle() : ""}${quick}${chats()}` },
+            { title: "Chats", content: `${quick}${chats()}` },
             { title: "Shared Agents", content: `${pinned()}${items.filter(item => group(item) === "Shared Agents").map(row).join("")}${sharedAgentRows()}` },
-            { title: "Pages", content: items.filter(item => group(item) === "Pages").map(row).join("") },
+            { title: "Pages", content: pagesContent },
             { title: "Projects & files", content: `${projects()}${items.filter(item => group(item) === "Projects & files").map(row).join("")}` },
-            { title: "System", content: `${items.filter(item => group(item) === "System").map(row).join("")}<h4 class="mb-1 mt-3 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">Plugins</h4>${items.filter(item => group(item) === "Plugins").map(row).join("")}` },
         ];
-        html = `<div class="grid grid-cols-1 divide-y divide-base-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">${columns.map(column => `<section class="min-w-0 p-2.5"><h3 class="mb-1 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">${column.title}</h3>${column.content || `<div class="px-2 py-2 text-xs text-faint">empty</div>`}</section>`).join("")}</div>`;
+        html = `<div class="grid grid-cols-1 divide-y divide-base-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">${columns.map(column => `<section class="min-w-0 p-2.5"><h3 class="mb-1 px-2 text-3xs font-semibold uppercase tracking-wider text-faint">${column.title}</h3>${column.content || `<div class="px-2 py-2 text-xs text-faint">empty</div>`}</section>`).join("")}</div>`;
     }
     return new Response(html || `<div class="px-4 py-5 text-sm text-faint">nothing</div>`, {
         headers: { "content-type": "text/html; charset=utf-8" },

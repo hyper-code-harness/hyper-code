@@ -12,6 +12,7 @@ struct WebNavigationCommand: Equatable {
 
 struct HyperWebView: UIViewRepresentable {
     let urlString: String
+    var authenticatedBaseURL: URL? = nil
     let command: WebNavigationCommand?
     @Binding var isLoading: Bool
     @Binding var canGoBack: Bool
@@ -31,14 +32,14 @@ struct HyperWebView: UIViewRepresentable {
         webView.scrollView.keyboardDismissMode = .interactive
         webView.isInspectable = true
         context.coordinator.webView = webView
-        context.coordinator.load(urlString, in: webView)
+        context.coordinator.load(urlString, in: webView, authenticatedBaseURL: authenticatedBaseURL)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.parent = self
         if context.coordinator.requestedURL != urlString {
-            context.coordinator.load(urlString, in: webView)
+            context.coordinator.load(urlString, in: webView, authenticatedBaseURL: authenticatedBaseURL)
         }
         if let command, context.coordinator.lastCommand != command.id {
             context.coordinator.lastCommand = command.id
@@ -64,14 +65,27 @@ struct HyperWebView: UIViewRepresentable {
 
         init(parent: HyperWebView) { self.parent = parent }
 
-        func load(_ value: String, in webView: WKWebView) {
+        func load(_ value: String, in webView: WKWebView, authenticatedBaseURL: URL?) {
             requestedURL = value
             guard let url = URL(string: value), url.scheme != nil else {
                 webView.loadHTMLString(Self.errorPage("Invalid server URL"), baseURL: nil)
                 update(loading: false, webView: webView)
                 return
             }
-            webView.load(URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData))
+            guard let authenticatedBaseURL else {
+                webView.load(URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData))
+                return
+            }
+            let cookies = ServerSessionPool.shared.webCookies(for: authenticatedBaseURL)
+            let group = DispatchGroup()
+            for cookie in cookies {
+                group.enter()
+                webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { group.leave() }
+            }
+            group.notify(queue: .main) {
+                guard self.requestedURL == value else { return }
+                webView.load(URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData))
+            }
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

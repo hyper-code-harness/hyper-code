@@ -543,7 +543,7 @@ private struct LocalFilePreviewSheet: View {
 
     var body: some View {
         NavigationStack {
-            HyperWebView(urlString: urlString, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
                 .navigationTitle(file.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

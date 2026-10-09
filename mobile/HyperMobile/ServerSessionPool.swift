@@ -37,6 +37,21 @@ final class ServerSessionPool: @unchecked Sendable {
         return result
     }
 
+    func webCookies(for baseURL: URL) -> [HTTPCookie] {
+        guard let host = baseURL.host else { return [] }
+        let jar = cookies(for: Self.key(for: baseURL), url: baseURL)
+        return jar.compactMap { name, value in
+            HTTPCookie(properties: [
+                .domain: host,
+                .path: "/",
+                .name: name,
+                .value: value,
+                .secure: baseURL.scheme?.lowercased() == "https" ? "TRUE" : "FALSE",
+            ])
+        }
+    }
+
+
     func clear(baseURL: URL) {
         let key = Self.key(for: baseURL)
         lock.lock()

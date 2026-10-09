@@ -518,67 +518,53 @@ private func linkifiedMarkdown(_ source: String) -> String {
 }
 
 
-private struct MarkdownFilePreview: Identifiable {
+private struct LocalFilePreview: Identifiable {
     let path: String
     var id: String { path }
     var title: String { URL(fileURLWithPath: path).lastPathComponent }
 }
 
-private struct MarkdownFilePreviewSheet: View {
-    let file: MarkdownFilePreview
+private struct LocalFilePreviewSheet: View {
+    let file: LocalFilePreview
     let baseURL: URL
     @Environment(\.dismiss) private var dismiss
-    @State private var content: String?
-    @State private var error: String?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var isLoading = true
+    @State private var canGoBack = false
+    @State private var canGoForward = false
+    @State private var command: WebNavigationCommand?
 
-    private var fileBaseURL: URL { URL(fileURLWithPath: file.path).deletingLastPathComponent() }
+    private var urlString: String {
+        let encoded = file.path.split(separator: "/").map {
+            String($0).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0)
+        }.joined(separator: "/")
+        return baseURL.appending(path: "files/embed/\(encoded)").absoluteString
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let content {
-                    ScrollView {
-                        Markdown(content, baseURL: fileBaseURL, imageBaseURL: fileBaseURL)
-                            .markdownTheme(.hyperChat)
-                            .markdownImageProvider(HyperMarkdownImageProvider(baseURL: baseURL, workspacePath: fileBaseURL.path))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
+            HyperWebView(urlString: urlString, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+                .navigationTitle(file.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Button { command = .init(action: .back) } label: { Image(systemName: "chevron.backward") }.disabled(!canGoBack)
+                        Button { command = .init(action: .forward) } label: { Image(systemName: "chevron.forward") }.disabled(!canGoForward)
+                        Spacer()
+                        if isLoading { ProgressView().controlSize(.small) }
+                        Button { command = .init(action: .reload) } label: { Image(systemName: "arrow.clockwise") }
                     }
-                } else if let error {
-                    ContentUnavailableView("Couldn’t open file", systemImage: "doc.badge.exclamationmark", description: Text(error))
-                } else {
-                    ProgressView("Opening…")
                 }
-            }
-            .navigationTitle(file.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
-        .task(id: file.path) { await load() }
-    }
-
-    private func load() async {
-        do {
-            var components = URLComponents(url: baseURL.appending(path: "files/raw"), resolvingAgainstBaseURL: false)
-            components?.queryItems = [URLQueryItem(name: "path", value: file.path)]
-            guard let url = components?.url else { throw URLError(.badURL) }
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 30
-            request.setValue("text/markdown, text/plain", forHTTPHeaderField: "Accept")
-            let (data, response) = try await ServerSessionPool.shared.data(for: request, baseURL: baseURL)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                throw URLError(.badServerResponse)
-            }
-            guard let text = String(data: data, encoding: .utf8) else { throw URLError(.cannotDecodeContentData) }
-            content = text
-        } catch {
-            self.error = error.localizedDescription
-        }
+        .clipShape(RoundedRectangle(cornerRadius: horizontalSizeClass == .regular ? 20 : 0, style: .continuous))
+        .shadow(color: .black.opacity(horizontalSizeClass == .regular ? 0.22 : 0), radius: 24)
+        .padding(horizontalSizeClass == .regular ? 18 : 0)
+        .background(Color.black.opacity(horizontalSizeClass == .regular ? 0.16 : 0).ignoresSafeArea())
     }
 }
 
-private func markdownFilePreview(for url: URL, baseURL: URL, workspacePath: String) -> MarkdownFilePreview? {
+private func localFilePreview(for url: URL, baseURL: URL, workspacePath: String) -> LocalFilePreview? {
     let path: String?
     if url.isFileURL {
         path = url.standardizedFileURL.path
@@ -597,9 +583,7 @@ private func markdownFilePreview(for url: URL, baseURL: URL, workspacePath: Stri
         path = nil
     }
     guard let path else { return nil }
-    let name = URL(fileURLWithPath: path).lastPathComponent.lowercased()
-    guard ["md", "markdown"].contains(URL(fileURLWithPath: path).pathExtension.lowercased()) || name == "readme" else { return nil }
-    return MarkdownFilePreview(path: path)
+    return LocalFilePreview(path: path)
 }
 
 
@@ -640,7 +624,7 @@ private struct NativeMessageText: View {
     var baseURL: URL? = nil
     var workspacePath: String = ""
     var mentions: [String] = []
-    @State private var markdownFile: MarkdownFilePreview?
+    @State private var localFile: LocalFilePreview?
 
     var body: some View {
         Markdown(
@@ -655,12 +639,12 @@ private struct NativeMessageText: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .environment(\.openURL, OpenURLAction { url in
                 if url.scheme == "hyper-mention" { return .handled }
-                guard let baseURL, let file = markdownFilePreview(for: url, baseURL: baseURL, workspacePath: workspacePath) else { return .systemAction }
-                markdownFile = file
+                guard let baseURL, let file = localFilePreview(for: url, baseURL: baseURL, workspacePath: workspacePath) else { return .systemAction }
+                localFile = file
                 return .handled
             })
-            .sheet(item: $markdownFile) { file in
-                if let baseURL { MarkdownFilePreviewSheet(file: file, baseURL: baseURL) }
+            .fullScreenCover(item: $localFile) { file in
+                if let baseURL { LocalFilePreviewSheet(file: file, baseURL: baseURL) }
             }
     }
 }

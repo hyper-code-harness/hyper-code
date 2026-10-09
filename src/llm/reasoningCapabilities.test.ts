@@ -9,3 +9,15 @@ describe("llm.reasoningCapabilities xAI", () => {
         expect(result.supported).toEqual(["auto", "off", "minimal", "low", "medium", "high", "xhigh"]);
     });
 });
+
+describe("llm.reasoningCapabilities gpt-6", () => {
+    test("gpt-6 never offers off/minimal and off resolves up to low", async () => {
+        const result = await capabilities({} as Context, null, { model: "codex:gpt-6-astra" });
+        expect(result.supported).toEqual(["auto", "low", "medium", "high", "xhigh"]);
+        const resolve = (await import("./resolveReasoningEffort")).default;
+        const ctx = { fns: { llm: { reasoningCapabilities: (o: any) => capabilities({} as Context, null, o) } } } as any;
+        const r = await resolve(ctx, null, { model: "codex:gpt-6-astra", effort: "off" });
+        expect(r.applied).toBe("low");
+        expect(r.downgraded).toBe(true);
+    });
+});

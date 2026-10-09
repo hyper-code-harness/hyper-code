@@ -23,6 +23,9 @@ export default async function (
     const order: Array<Exclude<types.llm.ReasoningEffort, "auto">> = ["off", "minimal", "low", "medium", "high", "xhigh"];
     const start = order.indexOf(requested as any);
     let applied: Exclude<types.llm.ReasoningEffort, "auto"> = caps.defaultEffort;
-    for (let i = start; i >= 0; i--) if (caps.supported.includes(order[i]!)) { applied = order[i]!; break; }
+    let found = false;
+    for (let i = start; i >= 0; i--) if (caps.supported.includes(order[i]!)) { applied = order[i]!; found = true; break; }
+    // Nothing at or below the request (e.g. "off" on a model that always reasons): take the lowest supported level above it.
+    if (!found) for (let i = start + 1; i < order.length; i++) if (caps.supported.includes(order[i]!)) { applied = order[i]!; break; }
     return { requested, applied, mode: caps.mode, downgraded: applied !== requested, reason: `${requested} is unsupported by ${opts.model}; using ${applied}` };
 }

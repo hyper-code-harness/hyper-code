@@ -300,71 +300,84 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     const inflight = new Set<Promise<unknown>>();
 
     while ((ctx.state as any).workerLoopRunning) {
-        // Drain every claimable agent into a parallel promise. The atomic
-        // claim guarantees no two concurrent runs target the same agent.
-        // No artificial concurrency cap — backpressure comes from the LLM
-        // provider (429 / connection errors) and Postgres serialising row writes.
-        let drained = 0;
-        await recoverStaleRuns(ctx, Date.now()).catch(() => undefined);
-        await (ctx.fns.agent as any).recoverOrphanedCompactions({}).catch((error: any) => console.error('compaction recovery failed:', error));
-        await ctx.fns.agent.deliverWakes({ now: Date.now() }).catch((error: any) => console.error('wake delivery failed:', error));
-        await ctx.fns.agent.pollWatches({ now: Date.now() }).catch((error: any) => console.error('watch polling failed:', error));
-        const lastTeamArchiveScan = Number((ctx.state as any).lastTeamArchiveScan ?? 0);
-        await ctx.fns.agent.pollTriggers({ now: Date.now() }).catch((error: any) => console.error('trigger polling failed:', error));
-        if (Date.now() - lastTeamArchiveScan >= 10_000) {
-            (ctx.state as any).lastTeamArchiveScan = Date.now();
-            const archiveAfterMs = await ctx.fns.settings.getNumber({ module: 'agent', scopeType: 'global', key: 'teamArchiveAfterMs', fallback: 60_000 });
-            if (Number(archiveAfterMs) > 0) {
-                await ctx.fns.agent.archiveCompleted({ olderThanMs: Number(archiveAfterMs) }).catch((error: any) => console.error('team archive scan failed:', error));
+        try {
+            // Drain every claimable agent into a parallel promise. The atomic
+            // claim guarantees no two concurrent runs target the same agent.
+            // No artificial concurrency cap — backpressure comes from the LLM
+            // provider (429 / connection errors) and Postgres serialising row writes.
+            let drained = 0;
+            await recoverStaleRuns(ctx, Date.now()).catch(() => undefined);
+            await (ctx.fns.agent as any).recoverOrphanedCompactions({}).catch((error: any) => console.error('compaction recovery failed:', error));
+            await ctx.fns.agent.deliverWakes({ now: Date.now() }).catch((error: any) => console.error('wake delivery failed:', error));
+            await ctx.fns.agent.pollWatches({ now: Date.now() }).catch((error: any) => console.error('watch polling failed:', error));
+            const lastTeamArchiveScan = Number((ctx.state as any).lastTeamArchiveScan ?? 0);
+            await ctx.fns.agent.pollTriggers({ now: Date.now() }).catch((error: any) => console.error('trigger polling failed:', error));
+            if (Date.now() - lastTeamArchiveScan >= 10_000) {
+                (ctx.state as any).lastTeamArchiveScan = Date.now();
+                const archiveAfterMs = await ctx.fns.settings.getNumber({ module: 'agent', scopeType: 'global', key: 'teamArchiveAfterMs', fallback: 60_000 });
+                if (Number(archiveAfterMs) > 0) {
+                    await ctx.fns.agent.archiveCompleted({ olderThanMs: Number(archiveAfterMs) }).catch((error: any) => console.error('team archive scan failed:', error));
+                }
             }
-        }
-        while (true) {
-            const claim = await claimOne(ctx, Date.now());
-            if (!claim) break;
-            drained++;
-            const p = runOne(ctx, claim.id, claim.token).finally(() => {
-                inflight.delete(p);
-                // A completion changes claimability (the agent becomes idle and
-                // may leave pending work). Wake the parked loop immediately;
-                // otherwise another agent can sit scheduled for MAX_IDLE_MS.
-                try { ctx.fns.agent.wakeWorker({}); } catch {}
-            });
-            inflight.add(p);
-        }
+            while (true) {
+                const claim = await claimOne(ctx, Date.now());
+                if (!claim) break;
+                drained++;
+                const p = runOne(ctx, claim.id, claim.token).finally(() => {
+                    inflight.delete(p);
+                    // A completion changes claimability (the agent becomes idle and
+                    // may leave pending work). Wake the parked loop immediately;
+                    // otherwise another agent can sit scheduled for MAX_IDLE_MS.
+                    try { ctx.fns.agent.wakeWorker({}); } catch {}
+                });
+                inflight.add(p);
+            }
 
-        if (inflight.size === 0) {
-            // No work in flight. Sleep until either a wake signal lands or
-            // the soonest scheduled `next_run_at` is due.
-            const next = ((await ctx.fns.procs.db.select({
-                sql: `SELECT LEAST(
-                        COALESCE((SELECT MIN(next_run_at) FROM agents WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL), ?),
-                        COALESCE((SELECT MIN(wake_at) FROM agents WHERE wake_at IS NOT NULL AND archived_at IS NULL), ?),
-                        COALESCE((SELECT MIN(next_check_at) FROM agent_watches WHERE status = 'active'), ?),
-                        COALESCE((SELECT MIN(next_at) FROM agent_triggers WHERE status = 'active'), ?)
-                      ) AS next`,
-                params: ['idle', Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS],
-            })) as any[])[0];
-            const nextMs = next?.next ? Number(next.next) - Date.now() : MAX_IDLE_MS;
-            const wait = Math.max(50, Math.min(MAX_IDLE_MS, nextMs));
-            await waitForWork(ctx, wait);
-        } else if (drained === 0) {
-            // Runs are in flight but no new claims this cycle. A different idle
-            // agent may already be scheduled a few milliseconds ahead, so wait
-            // for the earlier of a wake and the next due time — never a blind
-            // MAX_IDLE_MS sleep that accidentally serialises agents.
-            const next = ((await ctx.fns.procs.db.select({
-                sql: `SELECT LEAST(
-                        COALESCE((SELECT MIN(next_run_at) FROM agents WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL), ?),
-                        COALESCE((SELECT MIN(wake_at) FROM agents WHERE wake_at IS NOT NULL AND archived_at IS NULL), ?),
-                        COALESCE((SELECT MIN(next_check_at) FROM agent_watches WHERE status = 'active'), ?),
-                        COALESCE((SELECT MIN(next_at) FROM agent_triggers WHERE status = 'active'), ?)
-                      ) AS next`,
-                params: ['idle', Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS],
-            })) as any[])[0];
-            const nextMs = next?.next ? Number(next.next) - Date.now() : MAX_IDLE_MS;
-            await waitForWork(ctx, Math.max(50, Math.min(MAX_IDLE_MS, nextMs)));
+            if (inflight.size === 0) {
+                // No work in flight. Sleep until either a wake signal lands or
+                // the soonest scheduled `next_run_at` is due.
+                const next = ((await ctx.fns.procs.db.select({
+                    sql: `SELECT LEAST(
+                            COALESCE((SELECT MIN(next_run_at) FROM agents WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL), ?),
+                            COALESCE((SELECT MIN(wake_at) FROM agents WHERE wake_at IS NOT NULL AND archived_at IS NULL), ?),
+                            COALESCE((SELECT MIN(next_check_at) FROM agent_watches WHERE status = 'active'), ?),
+                            COALESCE((SELECT MIN(next_at) FROM agent_triggers WHERE status = 'active'), ?)
+                          ) AS next`,
+                    params: ['idle', Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS],
+                })) as any[])[0];
+                const nextMs = next?.next ? Number(next.next) - Date.now() : MAX_IDLE_MS;
+                const wait = Math.max(50, Math.min(MAX_IDLE_MS, nextMs));
+                await waitForWork(ctx, wait);
+            } else if (drained === 0) {
+                // Runs are in flight but no new claims this cycle. A different idle
+                // agent may already be scheduled a few milliseconds ahead, so wait
+                // for the earlier of a wake and the next due time — never a blind
+                // MAX_IDLE_MS sleep that accidentally serialises agents.
+                const next = ((await ctx.fns.procs.db.select({
+                    sql: `SELECT LEAST(
+                            COALESCE((SELECT MIN(next_run_at) FROM agents WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL), ?),
+                            COALESCE((SELECT MIN(wake_at) FROM agents WHERE wake_at IS NOT NULL AND archived_at IS NULL), ?),
+                            COALESCE((SELECT MIN(next_check_at) FROM agent_watches WHERE status = 'active'), ?),
+                            COALESCE((SELECT MIN(next_at) FROM agent_triggers WHERE status = 'active'), ?)
+                          ) AS next`,
+                    params: ['idle', Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS],
+                })) as any[])[0];
+                const nextMs = next?.next ? Number(next.next) - Date.now() : MAX_IDLE_MS;
+                await waitForWork(ctx, Math.max(50, Math.min(MAX_IDLE_MS, nextMs)));
+            }
+            // else: drained > 0 — loop back immediately to look for more.
+        } catch (error: any) {
+            // A temporary database outage must not leave HTTP serving while
+            // the queue silently stops. Keep the same worker and in-flight
+            // runs, and retry after a bounded, wakeable wait.
+            ctx.fns.procs.log.error({
+                event: "agent.worker.retry",
+                msg: "worker iteration failed; retrying in 1s",
+                errorType: error?.name ?? "Error",
+                code: error?.code ?? "unknown",
+            });
+            await waitForWork(ctx, 1_000);
         }
-        // else: drained > 0 — loop back immediately to look for more.
     }
 
     // Graceful shutdown: don't return while runOne finalizers still have

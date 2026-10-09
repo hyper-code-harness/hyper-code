@@ -232,26 +232,64 @@ enum ServerProfileError: LocalizedError {
 
 struct ServerSwitcherMenu: View {
     @EnvironmentObject private var servers: ServerProfileStore
+    @State private var isPresented = false
     let manage: () -> Void
 
     var body: some View {
-        Menu {
-            ForEach(servers.profiles) { profile in
-                Button { servers.select(profile.id) } label: {
-                    Label {
-                        Text(profile.name)
-                    } icon: {
-                        Image(systemName: profile.id == servers.selectedID ? "checkmark.circle.fill" : authIcon(profile.id))
-                            .foregroundStyle(profile.id == servers.selectedID ? .blue : authColor(profile.id))
-                    }
-                }
-            }
-            Divider()
-            Button("Manage Servers", systemImage: "server.rack", action: manage)
-        } label: {
+        Button { isPresented.toggle() } label: {
             Image(systemName: "server.rack")
         }
         .accessibilityLabel("Switch Hyper server")
+        .popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            NavigationStack {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(servers.profiles) { profile in
+                                Button {
+                                    servers.select(profile.id)
+                                    isPresented = false
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: profile.id == servers.selectedID ? "checkmark.circle.fill" : authIcon(profile.id))
+                                            .foregroundStyle(profile.id == servers.selectedID ? .blue : authColor(profile.id))
+                                            .frame(width: 22)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(profile.name).foregroundStyle(.primary).lineLimit(1)
+                                            Text(profile.baseURL?.host ?? profile.url).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        }
+                                        Spacer(minLength: 12)
+                                    }
+                                    .contentShape(Rectangle())
+                                    .padding(.horizontal, 16)
+                                    .frame(minHeight: 56)
+                                }
+                                .buttonStyle(.plain)
+                                .id(profile.id)
+                                if profile.id != servers.profiles.last?.id { Divider().padding(.leading, 50) }
+                            }
+                        }
+                    }
+                    .onAppear { proxy.scrollTo(servers.selectedID, anchor: .center) }
+                }
+                .safeAreaInset(edge: .bottom) {
+                    Button {
+                        isPresented = false
+                        manage()
+                    } label: {
+                        Label("Manage Servers", systemImage: "server.rack")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(12)
+                    .background(.bar)
+                }
+                .navigationTitle("Hyper Servers")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .frame(minWidth: 320, idealWidth: 360, minHeight: 320, idealHeight: 520, maxHeight: 620)
+            .presentationCompactAdaptation(.popover)
+        }
     }
     private func authIcon(_ profileID: String) -> String {
         switch servers.auth(for: profileID).status {

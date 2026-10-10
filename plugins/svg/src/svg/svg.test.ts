@@ -849,3 +849,49 @@ describe("svg.theme", () => {
         }
     });
 });
+
+describe("svg.theme figjam", () => {
+    test("the figjam palette is Figma's published sticky colours, verbatim", () => {
+        const t = theme(mkCtx(), null, { name: "figjam" });
+        expect(t.tone("accent").fill).toBe("#A8DAFF");
+        expect(t.tone("good").fill).toBe("#B3EFBD");
+        expect(t.tone("warn").fill).toBe("#FFE299");
+        expect(t.tone("bad").fill).toBe("#FFB8A8");
+    });
+
+    test("text is Charcoal, which their guide names as the default", () => {
+        const t = theme(mkCtx(), null, { name: "figjam" });
+        expect(t.ink).toBe("#1E1E1E");
+        // Their guide warns off mid-greys for body text on a near-white canvas.
+        expect(["#757575", "#B3B3B3", "#D9D9D9"]).not.toContain(t.note);
+    });
+
+    test("saturated tones carry white text, light ones carry charcoal", () => {
+        const t = theme(mkCtx(), null, { name: "figjam" });
+        expect(t.tone("solid").text).toBe("#FFFFFF");
+        expect(t.tone("violet").text).toBe("#FFFFFF");
+        expect(t.tone("accent").text).toBe("#1E1E1E");
+    });
+
+    test("the whiteboard colours are there as tones, not as a second vocabulary", () => {
+        const t = theme(mkCtx(), null, { name: "figjam" });
+        for (const name of ["teal", "violet", "pink", "orange", "black"]) {
+            expect(t.toneNames).toContain(name);
+            expect(t.tone(name).stroke).toMatch(/^#[0-9A-F]{6}$/i);
+        }
+    });
+
+    test("every palette names its font and type scale", () => {
+        for (const name of ["paper", "slate", "warm", "figjam"] as const) {
+            const t = theme(mkCtx(), null, { name });
+            expect(t.font).toContain("Inter");
+            expect(t.size.title).toBeGreaterThan(t.size.label);
+            expect(t.size.note).toBeGreaterThan(t.size.tick);
+        }
+    });
+
+    test("the font stack can be overridden for one drawing", () => {
+        const t = theme(mkCtx(), null, { font: "ui-monospace, monospace" });
+        expect(t.font).toBe("ui-monospace, monospace");
+    });
+});

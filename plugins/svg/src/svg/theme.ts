@@ -52,10 +52,52 @@ const THEMES: Record<string, { tones: Record<string, Tone>; ink: string; note: s
             muted: { fill: "#FBF9F5", stroke: "#F1ECE4", text: "#95889C" },
         },
     },
+    // FigJam's own palette, taken from Figma's published colour reference
+    // (figma/mcp-server-guide, skills/figma-use-figjam/references/figjam-colors.md).
+    // Worth having verbatim for two reasons: a whiteboard look is what a
+    // wireframe or a workshop diagram wants, and FigJam coordinates fill,
+    // stroke and text as one preset for exactly the reason this helper does —
+    // "setting only one will produce an off-palette shape (dark text on a dark
+    // fill, or unmatched stroke)". Their shape presets map onto tones directly.
+    //
+    // Text is Charcoal #1E1E1E, which their guide names as the default and
+    // warns against replacing with a mid-grey: on a near-white canvas those
+    // "read as unfinished". So note/faint here are darker than in `paper`.
+    figjam: {
+        ink: "#1E1E1E", note: "#5E5E5E", faint: "#8F8F8F", line: "#D9D9D9", bg: "#FFFFFF",
+        tones: {
+            // Sticky fills: the light tints, with charcoal text.
+            neutral: { fill: "#E6E6E6", stroke: "#B3B3B3", text: "#1E1E1E" },
+            accent: { fill: "#A8DAFF", stroke: "#007AD2", text: "#1E1E1E" },
+            good: { fill: "#B3EFBD", stroke: "#3E9B4B", text: "#1E1E1E" },
+            warn: { fill: "#FFE299", stroke: "#E8A302", text: "#1E1E1E" },
+            bad: { fill: "#FFB8A8", stroke: "#DC3009", text: "#1E1E1E" },
+            muted: { fill: "#F9F9F9", stroke: "#D9D9D9", text: "#5E5E5E" },
+            // Saturated shape presets, which carry white text.
+            solid: { fill: "#3DADFF", stroke: "#007AD2", text: "#FFFFFF" },
+            teal: { fill: "#5AD8CC", stroke: "#369E94", text: "#FFFFFF" },
+            violet: { fill: "#874FFF", stroke: "#5427B4", text: "#FFFFFF" },
+            pink: { fill: "#F849C1", stroke: "#B42487", text: "#FFFFFF" },
+            orange: { fill: "#FF9E42", stroke: "#EB7500", text: "#FFFFFF" },
+            black: { fill: "#1E1E1E", stroke: "#B3B3B3", text: "#FFFFFF" },
+        },
+    },
 };
 
 /** The 8-point scale, with a half step for the gaps inside a control. */
 const UNIT = 8;
+
+/** Font stacks per palette. FigJam is an Inter board, and saying so beats
+ * hoping the host page's font happens to match the measured widths. */
+const FONTS: Record<string, string> = {
+    paper: "Inter, system-ui, sans-serif",
+    slate: "Inter, system-ui, sans-serif",
+    warm: "Inter, system-ui, sans-serif",
+    figjam: "Inter, system-ui, sans-serif",
+};
+
+/** Type scale, as a diagram actually uses it: a title, a label, a note, a tick. */
+const SIZES = { title: 15, label: 11, note: 9, tick: 7.5 };
 
 /**
  * Gives a drawing one palette and one spacing scale, addressed by role.
@@ -69,21 +111,24 @@ const UNIT = 8;
  * Because `<style>` is stripped from inline SVG, these are plain values meant
  * to be spread onto elements — `<rect {...box} {...t.tone("accent")}/>` works
  * because a tone's keys are already fill and stroke.
- * @param opts.name Which palette: paper (light), slate (dark), warm. @default "paper"
+ * @param opts.name Which palette: paper (light), slate (dark), warm, figjam (Figma's whiteboard palette). @default "paper"
  * @param opts.tones Per-tone overrides, merged over the palette.
  * @param opts.colors Overrides for ink, note, faint, line or bg.
  * @param opts.unit Base spacing unit in pixels. @default 8 @minimum 1
- * @returns The palette's text colours, a tone lookup, a spacing scale and the tone names.
+ * @param opts.font Font stack for the drawing, overriding the palette's own.
+ * @returns The palette's text colours, a tone lookup, a spacing scale, the font stack and type sizes.
  */
 export default function (_ctx: Context, _session: Session | null, opts: {
-    /** Which palette: paper (light), slate (dark), warm. @default "paper" */
-    name?: "paper" | "slate" | "warm";
+    /** Which palette: paper (light), slate (dark), warm, figjam (Figma's whiteboard palette). @default "paper" */
+    name?: "paper" | "slate" | "warm" | "figjam";
     /** Per-tone overrides, merged over the palette. */
     tones?: Record<string, Partial<Tone>>;
     /** Overrides for ink, note, faint, line or bg. */
     colors?: { ink?: string; note?: string; faint?: string; line?: string; bg?: string };
     /** Base spacing unit in pixels. @default 8 @minimum 1 */
     unit?: number;
+    /** Font stack for the drawing, overriding the palette's own. */
+    font?: string;
 }): {
     /** Strongest text colour, for titles and labels that must be read. */
     ink: string;
@@ -99,6 +144,10 @@ export default function (_ctx: Context, _session: Session | null, opts: {
     tone: (name: string) => Tone;
     /** Multiples of the base unit: space(2) is 16 with the default 8. */
     space: (steps: number) => number;
+    /** Font stack to put on the root <svg>, matching what measureText assumes. */
+    font: string;
+    /** Type sizes a diagram uses: title, label, note, tick. */
+    size: { title: number; label: number; note: number; tick: number };
     /** The tone names available, for a legend. */
     toneNames: string[];
 } {
@@ -127,6 +176,8 @@ export default function (_ctx: Context, _session: Session | null, opts: {
         // Halves are allowed because the gap inside a control is genuinely 4px;
         // anything finer than that is a decision to make by hand.
         space: (steps: number) => Math.round(unit * Number(steps) * 2) / 2,
+        font: opts.font ?? FONTS[opts.name ?? "paper"] ?? FONTS.paper!,
+        size: { ...SIZES },
         toneNames: Object.keys(tones),
     };
 }

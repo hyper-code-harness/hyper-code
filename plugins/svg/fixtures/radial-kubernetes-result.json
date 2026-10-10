@@ -1,0 +1,139 @@
+{
+  "files": [
+    "plugins/svg/src/svg/compactLayout.ts",
+    "plugins/svg/src/svg/compactLayout.test.ts",
+    "plugins/svg/SKILL.md",
+    "plugins/svg/fixtures/radial-kubernetes.json",
+    "plugins/svg/fixtures/radial-kubernetes.svg",
+    "plugins/svg/fixtures/radial-kubernetes-before.svg",
+    "plugins/svg/fixtures/radial-kubernetes-after.svg",
+    "plugins/svg/fixtures/radial-kubernetes-routed.svg",
+    "plugins/svg/fixtures/radial-kubernetes.png",
+    "plugins/svg/fixtures/radial-kubernetes-routed.png"
+  ],
+  "coordinates": [
+    {
+      "id": "Deployment",
+      "x": 0,
+      "y": 100,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "ReplicaSet",
+      "x": 300,
+      "y": 100,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "Node",
+      "x": 600,
+      "y": 0,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "Ingress",
+      "x": 1200,
+      "y": 100,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "Service",
+      "x": 900,
+      "y": 100,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "Pod",
+      "x": 600,
+      "y": 100,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "ConfigMap / Secret",
+      "x": 400,
+      "y": 700,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "PVC",
+      "x": 600,
+      "y": 850,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "Container",
+      "x": 300,
+      "y": 500,
+      "w": 220,
+      "h": 64
+    },
+    {
+      "id": "PV",
+      "x": 900,
+      "y": 850,
+      "w": 220,
+      "h": 64
+    }
+  ],
+  "metrics": {
+    "before": {
+      "width": 1986.6592815039876,
+      "height": 1147.1040050344789,
+      "area": 2278904.8184521445,
+      "aspect": 1.7318911561504609,
+      "gapViolations": 0,
+      "minGap": 64,
+      "orderInversions": 0
+    },
+    "after": {
+      "width": 1420,
+      "height": 914,
+      "area": 1297880,
+      "aspect": 1.5536105032822758,
+      "gapViolations": 0,
+      "minGap": 36,
+      "orderInversions": 0
+    }
+  },
+  "areaReductionPercent": 43.04808215371042,
+  "tests": {
+    "passed": 5,
+    "failed": 0,
+    "assertions": 3693,
+    "strictValidation": true,
+    "typecheck": true
+  },
+  "visualReview": {
+    "viewedPNGs": true,
+    "branchesPreserved": true,
+    "recommended": "radial-kubernetes.svg or radial-kubernetes-after.svg with straight routes",
+    "routing": "Separate orthogonal routeEdges output shares lanes near Pod/ReplicaSet and PVC/ConfigMap, creating ambiguity; not recommended as improvement."
+  },
+  "algorithm": {
+    "iterations": 160,
+    "projectionSweeps": 16,
+    "snapSweeps": 8,
+    "focusId": "Pod",
+    "gridSize": 50,
+    "gap": 32,
+    "shelfPacking": false
+  },
+  "limitations": [
+    "Not square: aspect 1.55; preserving the five-card ACA horizontal branch limits width.",
+    "Conservative 20% short-axis attraction leaves substantial whitespace; not globally optimal packing.",
+    "Exact directions and equal-coordinate alignments are not guaranteed on arbitrary mixed-size inputs; no strict center-order inversions.",
+    "Straight routes can cross boxes on other graphs; no topology guarantee.",
+    "Origin resets to zero, so focus is an attraction anchor, not a fixed output coordinate.",
+    "code.slice/callers reported function unindexed; source and tests inspected directly."
+  ],
+  "committed": false,
+  "pushed": false
+}

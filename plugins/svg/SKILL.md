@@ -5,7 +5,7 @@ description: "Draw a picture as inline SVG when it is not a chart: a schema, a t
 
 # svg
 
-Takes SVG markup, strips everything that makes it more than a picture, and returns a figure that behaves in a chat column. No dependencies, no headless browser: the markup you write is the markup that renders.
+Takes SVG markup, strips everything that makes it more than a picture, and returns a figure that behaves in a chat column. Rendering needs no layout engine or headless browser: the markup you write is the markup that renders.
 
 Where it sits between the other drawing plugins:
 
@@ -13,6 +13,62 @@ Where it sits between the other drawing plugins:
 - **mermaid** — a graph whose layout you are happy to leave to an algorithm.
 - **reladraw** — boxes and arrows placed relative to each other, in a language built for it.
 - **svg** — everything else: a timeline with real dates on a real scale, a state board, a shape with annotations, a legend laid out exactly so, a picture in the project's colours.
+
+## Preferred automatic workflow for entity and concept maps
+
+Start with `svg.layoutIncremental({ nodes, edges })` (ACA), then pass its original
+result to `svg.snapLayoutToGrid({ layout: aca })`. This is the preferred starting
+point from the interactive Kubernetes, QBO and agent-storage examples: ACA supplies
+relative positions; a coarse grid and Hungarian assignment make regular rows and
+columns. Do not substitute radial compaction or shelf packing for this workflow.
+
+Use actual card dimensions including subtitles/fields when planning. Keep IDs and
+edges unchanged between comparisons. Inspect the rendered result: assignment does
+not consider edges, so links may cross other cards. Use `svg.connect` for straight
+border-clipped connectors; `svg.routeEdges` can avoid obstacles but independent
+routes may share lanes. Neither guarantees readable connections.
+
+Use a short horizontal coloured rule below card titles, not a vertical side accent.
+Derive the SVG viewBox from actual bounds and reserve space for title and notes.
+Label relationship meanings where needed and distinguish entities from embedded
+structures or actions. For database maps, inspect the live schema; do not imply
+that logical links are enforced foreign keys.
+
+If manually changing coordinates, say so. The older ACA/manual-refinement and
+compaction sections below are optional alternatives, not this automatic default.
+
+## Assign an ACA layout to a near-square grid
+
+`await ctx.fns.svg.snapLayoutToGrid({ layout, gapX: 50, gapY: 50, occupancy: 1, columns? })`
+returns a new `GraphLayoutResult`, without changing `compactLayout` or the input.
+Use original ACA output as `layout`, not an already compacted result.
+
+For N boxes, M = ceil(N / occupancy). Let maxW/maxH be the largest box dimensions.
+For each c = 1..M, r = ceil(M/c), W = c*maxW + (c-1)*gapX and
+H = r*maxH + (r-1)*gapY. Choose minimum abs(log(r/c)), breaking numerical ties
+(within 1e-12) by fewer cells r*c, then smaller c. Square means similar row and
+column counts, NOT square pixel bounds. For 10 cards of 220x64 with gaps 50,
+the default is 4 rows x 3 columns (760x406), not 5 rows x 2 columns (490x520).
+`columns` fixes c instead of searching.
+Cell centers are `(maxW/2 + column*(maxW+gapX), maxH/2 + row*(maxH+gapY))`.
+Affine-normalize original box centers independently along each axis from their
+min/max into the grid-center range; a collapsed axis maps to its midpoint.
+Rectangular Hungarian assignment minimizes the **total squared Euclidean distance**
+from these targets to distinct cells. It is not greedy or independent rounding.
+Input-order rows and row-major cells give deterministic tie-breaking. Original-size
+cards are centered inside their assigned max-size cells; empty cells are allowed.
+
+Defaults: gapX/gapY 50, occupancy 1. Gaps are finite 0..1e6; occupancy is 0.1..1;
+columns is an integer 1..M (absolute maximum 600). Limits: 60 nodes, 300 edges,
+1200 cells after row rounding. Complexity is O(N²*c*r), with no dependencies.
+Empty input gives zero bounds. Actual output bounds enclose occupied cards, not
+unused cells, so may be smaller than W/H. Lower occupancy allows more empty cells;
+large size differences waste space. This favors a square grid and positional
+similarity, **not** ACA ordering, topology, edge length, or readable edges.
+Routes are rebuilt as straight border-clipped segments preserving edge identities:
+they may cross cards and each other. No box overlap is not a readability guarantee.
+If needed, try `svg.routeEdges` separately and inspect crossings; do not describe
+this baseline as obstacle-avoiding.
 
 ## Use
 
@@ -160,3 +216,66 @@ Always, in both modes: `<script>`, `<style>`, `<foreignObject>`, SMIL animation 
 - `class` survives sanitizing and the page's Tailwind stylesheet applies, so `class="fill-sky-500"` works on screen — but a drawing saved to a file or opened on its own then has no colours. Use plain attributes and inline `style` for anything that must stand alone, and treat classes as an in-page convenience only.
 - Before you show it, run `svg.bbox` over the markup. It catches the clipped caption that a preview tool would have hidden from you — and do trust it over an image preview: `qlmanage` and friends crop to their own square and will make you "fix" a drawing that already fitted.
 - A drawing that needs the same shape more than twice wants a local function, not a copied block. See *Write your own vocabulary first*.
+
+## Experimental graph layout helpers
+
+Compute geometry **once in a tool/job**, then save its JSON or finished SVG. Do not run engines inside `svg tsx`: rendering runs again on refresh. Engines run in isolated subprocesses with hard deadlines; layouts do not guarantee crossing-free diagrams.
+
+Input: `nodes: [{id,w,h,x?,y?}]`, `edges: [{id,from,to}]`. Coordinates are top-left; `x/y` are initial hints, not pins. Unique nonempty IDs, positive finite sizes. Simple graphs only (no loops or parallel undirected edges); maximum 500 nodes / 2000 edges. Output: `boxes: [{id,x,y,w,h}]`, `routes: [{id,from,to,points:[{x,y}]}]`, `bounds: {x,y,width,height}`, `metadata: {algorithm,engine,routing,warnings}`. Bounds include routes and can start at negative coordinates. Empty inputs need no engine.
+
+| Helper | Actual engine / routes | Tuning and tradeoffs |
+|---|---|---|
+| `svg.layoutForce` | d3-force 3.0.0; **straight center-to-center** | `seed` (uint32, default 1), `iterations` (1–2000, default 300), `spacing` (0–1000, default 24). Repeatable for identical input order/options. Circular collision envelopes waste space for wide tables; no obstacle routing. Fixed 30s deadline. |
+| `svg.layoutHola` | hola-graph 0.1.5 / HOLA; **native orthogonal** | `timeoutMs` (default 30000). Human-like orthogonal placement; expensive pipeline, possible native failures. No invented seed/direction knobs. |
+| `svg.layoutCompact` | IMCS 1.0.6 `UNIVERSAL`; **native orthogonal** | `timeoutMs` (default 30000). Compact rectangle-aware layout; GWT shims isolated from server. |
+| `svg.layoutIncremental` | hola-graph `_core.ACALayout`; **straight center-to-center** | `timeoutMs` (default 30000). Real ACA aligns edges and avoids overlaps; not a full orthogonal router or persistent interactive editing session. |
+
+```ts
+const graph = {
+  nodes: [{id:'users',w:240,h:64}, {id:'sessions',w:240,h:64}],
+  edges: [{id:'sessions_user',from:'sessions',to:'users'}],
+};
+const geometry = await ctx.fns.svg.layoutForce({...graph,seed:42,iterations:400,spacing:32});
+// Same graph works with layoutHola / layoutCompact / layoutIncremental.
+// Render route points as polylines; never call routeEdges on native routes.
+```
+
+### Dependencies and licenses
+
+- `bun install --cwd plugins/svg`: pinned d3-force **3.0.0** (**ISC**), npm notices and plugin lockfile. Its Bun worker uses plugin-local dependencies.
+- HOLA / ACA: venv `~/.hyper/deps/svg/hola-graph-0.1.5`, `hola-graph==0.1.5`. Wrapper **MIT**, Adaptagrams **LGPL-2.1-or-later**. Preserve licenses and matching sources when redistributing; no native library is vendored here.
+- Compact: full upstream checkout `~/.hyper/deps/svg/imcs_layoutengine`, revision `3bbcefdc5bf25be976f4379ec986bd1db05f47bc` (1.0.6). Preserve sources and full `imcs_layoutengine.COPYING`: **GPLv2-or-later with Classpath exception** (IMCS), **W3C liberal**, **GPLv2 with Classpath exception** (GWT-AWT). Unmodified dist JS runs separately, not vendored.
+
+Python setup: `python3 -m venv ~/.hyper/deps/svg/hola-graph-0.1.5`, then its `bin/python -m pip install hola-graph==0.1.5`. Compact setup: clone `https://github.com/LUMII-Syslab/imcs_layoutengine.git` into the directory above, checkout the pinned revision, retain the complete checkout. Helpers never auto-download code, depend on `/tmp`, or substitute another algorithm when dependencies are missing.
+
+Fixture `fixtures/layout-tables.json` preserves the original 12-table benchmark. Run `bun test plugins/svg/src/svg/layoutGraph.test.ts` with optional native engines installed. Tests cover empty/invalid graphs, finite geometry, identities, native orthogonality and force repeatability. One graph is not a general algorithm ranking.
+
+
+## Human refinement after ACA layout
+
+For small architecture or concept diagrams, use **ACA as a starting composition, then manually compact and align it**. This workflow was preferred in a Kubernetes concept-map comparison over both raw automatic output and the initial composition drawn from scratch. This is a practical preference from that example, not a universal ranking of layout algorithms.
+
+1. Run `svg.layoutIncremental` on the actual nodes and edges. Keep the node/edge set unchanged when comparing alternatives.
+2. Reserve invisible padding around visible cards during layout: pass larger node dimensions, then draw smaller cards at the returned centres. ACA can otherwise leave cards touching. Reclip straight connector endpoints to the visible borders.
+3. Preserve useful adjacency and branches from ACA, identify the main concept, and manually move cards into compact rows and columns around it. Prefer a roughly square composition when it fits the content; do not merely shrink the entire drawing or round coordinates without checking collisions.
+4. Keep the main concept visually prominent (for Kubernetes, Pod). Place related branches nearby, with consistent gaps and enough whitespace to distinguish groups. Preserve every intended relationship when rerouting.
+5. Keep straight connections where readable; use orthogonal detours where they improve clarity. Slightly rounded bends are fine. Avoid shared segments that make independent relationships look joined. Label different relationship meanings rather than implying every edge is the same kind of flow.
+6. Inspect the rendered picture, not just metrics. Check readable labels, gaps, crossings, ambiguous junctions, and excessive empty space. A collision-free result is not necessarily a good composition.
+7. Describe the output honestly as **ACA-seeded, manually refined** when coordinates or routes were adjusted; do not call it native ACA output.
+
+Card styling for this workflow: use a short horizontal coloured line below the title, rather than a vertical accent on the side. In the successful Kubernetes example, the manually refined result made Pod the obvious centre, kept branches easy to follow, and removed unnecessary empty space.
+
+
+## Automatic coarse-grid compaction after ACA
+
+`svg.compactLayout` is a dependency-free radial postprocessor, **not** the unrelated native `svg.layoutCompact` engine. It retains actual card sizes and ACA branches: 160 deterministic attraction steps toward the original center (or `focusId`) apply stronger pressure along the long axis, with 16 collision/order projection sweeps per step. Each pair keeps its original center order on both axes and its ACA-derived separating axis. Coarse snapping uses nearest grid targets constrained by those same orders and separations, with eight relaxation sweeps: no shelves, rows, or branch repacking. The square objective is soft; fixed branches can require a wide composition. Focus anchors attraction before final translation to origin; ties may spread, and exact angles, center alignment, topology, smaller area, or a square are not guaranteed.
+
+```ts
+const aca = await ctx.fns.svg.layoutIncremental({ nodes, edges });
+const compact = await ctx.fns.svg.compactLayout({ layout: aca, gridSize: 50, gap: 32, focusId: 'Pod' });
+// Render compact.boxes and compact.routes, never the old ACA routes.
+```
+
+Input boxes must have finite coordinates within ±1e9 and dimensions in (0, 1e6]; at most 300 uniquely identified routes with valid distinct endpoints. `gridSize` is an integer 1–1e6, `gap` is finite 0–1e6. Empty graphs work without an engine. The origin resets to zero; input bounds and route points are ignored. Output is `GraphLayoutResult`, with `algorithm: "radial-compaction"` and `routing: "straight"`: newly computed border-clipped segments, **not obstacle-avoiding paths**. Segments may cross cards or one another. For fixed-box orthogonal routing, call `svg.routeEdges` separately with clearance smaller than half the packing gap, preserve edge IDs/endpoints and label that routing honestly; crossings and shared lanes remain possible. Always inspect the picture.
+
+Regression tests: `bun test plugins/svg/src/svg/compactLayout.test.ts`. The ACA-original and radial before/after fixture and SVG in `fixtures/radial-kubernetes.*` retain the same 10 cards (220×64), nine edges, and branches around Pod. `radial-kubernetes-routed.svg` demonstrates separate orthogonal routing. The old `compact-kubernetes.*` fixture remains as historical shelf output, not the current expected result. Straight-edge limitations and remaining whitespace are visible, not hidden.

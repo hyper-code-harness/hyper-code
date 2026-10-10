@@ -1,0 +1,150 @@
+{
+  "nodes": [
+    {
+      "id": "users",
+      "x": 848,
+      "y": 272,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "user_identities",
+      "x": 576,
+      "y": 272,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "auth_sessions",
+      "x": 1120,
+      "y": 112,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "agents",
+      "x": 304,
+      "y": 432,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "messages",
+      "x": 32,
+      "y": 432,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "attachments",
+      "x": 32,
+      "y": 112,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "events",
+      "x": 576,
+      "y": 112,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "inputs",
+      "x": 304,
+      "y": 272,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "agent_triggers",
+      "x": 576,
+      "y": 592,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "agent_trigger_runs",
+      "x": 848,
+      "y": 592,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "agent_watches",
+      "x": 848,
+      "y": 112,
+      "w": 240,
+      "h": 64
+    },
+    {
+      "id": "user_agent_state",
+      "x": 576,
+      "y": 432,
+      "w": 240,
+      "h": 64
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "from": "users",
+      "to": "user_identities"
+    },
+    {
+      "id": "e1",
+      "from": "users",
+      "to": "auth_sessions"
+    },
+    {
+      "id": "e2",
+      "from": "users",
+      "to": "agents"
+    },
+    {
+      "id": "e3",
+      "from": "agents",
+      "to": "messages"
+    },
+    {
+      "id": "e4",
+      "from": "messages",
+      "to": "attachments"
+    },
+    {
+      "id": "e5",
+      "from": "agents",
+      "to": "events"
+    },
+    {
+      "id": "e6",
+      "from": "agents",
+      "to": "inputs"
+    },
+    {
+      "id": "e7",
+      "from": "agents",
+      "to": "agent_triggers"
+    },
+    {
+      "id": "e8",
+      "from": "agent_triggers",
+      "to": "agent_trigger_runs"
+    },
+    {
+      "id": "e9",
+      "from": "agents",
+      "to": "agent_watches"
+    },
+    {
+      "id": "e10",
+      "from": "users",
+      "to": "user_agent_state"
+    },
+    {
+      "id": "e11",
+      "from": "user_agent_state",
+      "to": "agents"
+    }
+  ]
+}

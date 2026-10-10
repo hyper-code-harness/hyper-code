@@ -1,0 +1,572 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "id": "Deployment",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "ReplicaSet",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Node",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Ingress",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Service",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Pod",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "ConfigMap / Secret",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "PVC",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Container",
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "PV",
+        "w": 220,
+        "h": 64
+      }
+    ],
+    "edges": [
+      {
+        "id": "e0",
+        "from": "Deployment",
+        "to": "ReplicaSet"
+      },
+      {
+        "id": "e1",
+        "from": "ReplicaSet",
+        "to": "Pod"
+      },
+      {
+        "id": "e2",
+        "from": "Node",
+        "to": "Pod"
+      },
+      {
+        "id": "e3",
+        "from": "Ingress",
+        "to": "Service"
+      },
+      {
+        "id": "e4",
+        "from": "Service",
+        "to": "Pod"
+      },
+      {
+        "id": "e5",
+        "from": "Pod",
+        "to": "Container"
+      },
+      {
+        "id": "e6",
+        "from": "Pod",
+        "to": "PVC"
+      },
+      {
+        "id": "e7",
+        "from": "Pod",
+        "to": "ConfigMap / Secret"
+      },
+      {
+        "id": "e8",
+        "from": "PVC",
+        "to": "PV"
+      }
+    ]
+  },
+  "padding": 32,
+  "before": {
+    "boxes": [
+      {
+        "id": "Deployment",
+        "x": 0,
+        "y": 128,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "ReplicaSet",
+        "x": 392.0053739048651,
+        "y": 128,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Node",
+        "x": 990.3269767042088,
+        "y": 0,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Ingress",
+        "x": 1766.6592815039876,
+        "y": 128,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Service",
+        "x": 1365.544324416302,
+        "y": 128,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Pod",
+        "x": 990.3269767042088,
+        "y": 128,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "ConfigMap / Secret",
+        "x": 684.2976954097516,
+        "y": 906.525457802006,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "PVC",
+        "x": 990.3269767042088,
+        "y": 1083.1040050344789,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Container",
+        "x": 419.3854939855401,
+        "y": 656.8635483855796,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "PV",
+        "x": 1468.0023499172398,
+        "y": 1083.1040050344789,
+        "w": 220,
+        "h": 64
+      }
+    ],
+    "routes": [
+      {
+        "id": "e0",
+        "from": "Deployment",
+        "to": "ReplicaSet",
+        "points": [
+          {
+            "x": 220,
+            "y": 160
+          },
+          {
+            "x": 392.0053739048651,
+            "y": 160
+          }
+        ]
+      },
+      {
+        "id": "e1",
+        "from": "ReplicaSet",
+        "to": "Pod",
+        "points": [
+          {
+            "x": 612.0053739048651,
+            "y": 160
+          },
+          {
+            "x": 990.3269767042088,
+            "y": 160
+          }
+        ]
+      },
+      {
+        "id": "e2",
+        "from": "Node",
+        "to": "Pod",
+        "points": [
+          {
+            "x": 1100.3269767042088,
+            "y": 64
+          },
+          {
+            "x": 1100.3269767042088,
+            "y": 128
+          }
+        ]
+      },
+      {
+        "id": "e3",
+        "from": "Ingress",
+        "to": "Service",
+        "points": [
+          {
+            "x": 1766.6592815039876,
+            "y": 160
+          },
+          {
+            "x": 1585.544324416302,
+            "y": 160
+          }
+        ]
+      },
+      {
+        "id": "e4",
+        "from": "Service",
+        "to": "Pod",
+        "points": [
+          {
+            "x": 1365.544324416302,
+            "y": 160
+          },
+          {
+            "x": 1210.3269767042088,
+            "y": 160
+          }
+        ]
+      },
+      {
+        "id": "e5",
+        "from": "Pod",
+        "to": "Container",
+        "points": [
+          {
+            "x": 1065.7809628925759,
+            "y": 192
+          },
+          {
+            "x": 563.9315077971729,
+            "y": 656.8635483855796
+          }
+        ]
+      },
+      {
+        "id": "e6",
+        "from": "Pod",
+        "to": "PVC",
+        "points": [
+          {
+            "x": 1100.3269767042088,
+            "y": 192
+          },
+          {
+            "x": 1100.3269767042088,
+            "y": 1083.1040050344789
+          }
+        ]
+      },
+      {
+        "id": "e7",
+        "from": "Pod",
+        "to": "ConfigMap / Secret",
+        "points": [
+          {
+            "x": 1087.7481497650476,
+            "y": 192
+          },
+          {
+            "x": 806.8765223489127,
+            "y": 906.525457802006
+          }
+        ]
+      },
+      {
+        "id": "e8",
+        "from": "PVC",
+        "to": "PV",
+        "points": [
+          {
+            "x": 1210.3269767042088,
+            "y": 1115.1040050344789
+          },
+          {
+            "x": 1468.0023499172398,
+            "y": 1115.1040050344789
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "algorithm": "ACA",
+      "engine": "hola-graph@0.1.5/_core.ACALayout",
+      "routing": "straight",
+      "warnings": [
+        "ACA uses invisible 32-unit padding; visible cards and straight routes were border-clipped."
+      ]
+    },
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1986.6592815039876,
+      "height": 1147.1040050344789
+    }
+  },
+  "after": {
+    "boxes": [
+      {
+        "id": "Deployment",
+        "x": 300,
+        "y": 0,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "ReplicaSet",
+        "x": 0,
+        "y": 100,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Node",
+        "x": 0,
+        "y": 0,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Ingress",
+        "x": 300,
+        "y": 200,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Service",
+        "x": 0,
+        "y": 200,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Pod",
+        "x": 300,
+        "y": 100,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "ConfigMap / Secret",
+        "x": 300,
+        "y": 300,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "PVC",
+        "x": 0,
+        "y": 400,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "Container",
+        "x": 0,
+        "y": 300,
+        "w": 220,
+        "h": 64
+      },
+      {
+        "id": "PV",
+        "x": 300,
+        "y": 400,
+        "w": 220,
+        "h": 64
+      }
+    ],
+    "routes": [
+      {
+        "id": "e0",
+        "from": "Deployment",
+        "to": "ReplicaSet",
+        "points": [
+          {
+            "x": 314,
+            "y": 64
+          },
+          {
+            "x": 206,
+            "y": 100
+          }
+        ]
+      },
+      {
+        "id": "e1",
+        "from": "ReplicaSet",
+        "to": "Pod",
+        "points": [
+          {
+            "x": 220,
+            "y": 132
+          },
+          {
+            "x": 300,
+            "y": 132
+          }
+        ]
+      },
+      {
+        "id": "e2",
+        "from": "Node",
+        "to": "Pod",
+        "points": [
+          {
+            "x": 206,
+            "y": 64
+          },
+          {
+            "x": 314,
+            "y": 100
+          }
+        ]
+      },
+      {
+        "id": "e3",
+        "from": "Ingress",
+        "to": "Service",
+        "points": [
+          {
+            "x": 300,
+            "y": 232
+          },
+          {
+            "x": 220,
+            "y": 232
+          }
+        ]
+      },
+      {
+        "id": "e4",
+        "from": "Service",
+        "to": "Pod",
+        "points": [
+          {
+            "x": 206,
+            "y": 200
+          },
+          {
+            "x": 314,
+            "y": 164
+          }
+        ]
+      },
+      {
+        "id": "e5",
+        "from": "Pod",
+        "to": "Container",
+        "points": [
+          {
+            "x": 362,
+            "y": 164
+          },
+          {
+            "x": 158,
+            "y": 300
+          }
+        ]
+      },
+      {
+        "id": "e6",
+        "from": "Pod",
+        "to": "PVC",
+        "points": [
+          {
+            "x": 378,
+            "y": 164
+          },
+          {
+            "x": 142,
+            "y": 400
+          }
+        ]
+      },
+      {
+        "id": "e7",
+        "from": "Pod",
+        "to": "ConfigMap / Secret",
+        "points": [
+          {
+            "x": 410,
+            "y": 164
+          },
+          {
+            "x": 410,
+            "y": 300
+          }
+        ]
+      },
+      {
+        "id": "e8",
+        "from": "PVC",
+        "to": "PV",
+        "points": [
+          {
+            "x": 220,
+            "y": 432
+          },
+          {
+            "x": 300,
+            "y": 432
+          }
+        ]
+      }
+    ],
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 520,
+      "height": 464
+    },
+    "metadata": {
+      "algorithm": "grid-compaction",
+      "engine": "bounded-shelf-search",
+      "routing": "straight",
+      "warnings": [
+        "Heuristic packing may change relative order; square shape and smaller area are not guaranteed.",
+        "Routes were recomputed and border-clipped; straight segments may cross boxes or other edges."
+      ]
+    }
+  },
+  "metrics": {
+    "before": {
+      "x": 0,
+      "y": 0,
+      "width": 1986.6592815039876,
+      "height": 1147.1040050344789
+    },
+    "after": {
+      "x": 0,
+      "y": 0,
+      "width": 520,
+      "height": 464
+    },
+    "areaReduction": 0.8941245821034861,
+    "aspectBefore": 1.7318911561504609,
+    "aspectAfter": 1.1206896551724137
+  }
+}

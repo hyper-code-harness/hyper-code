@@ -13,5 +13,11 @@
     "icon": "ph-pen-nib",
     "optional": true,
     "description": "Draw diagrams and custom graphics as inline SVG, written as literal markup or computed with TSX."
+  },
+  "dependencies": {
+    "d3-force": "3.0.0"
+  },
+  "devDependencies": {
+    "@types/d3-force": "3.0.10"
   }
 }

@@ -13,6 +13,7 @@ import anchor from "./anchor";
 import icon from "./icon";
 import fitText from "./fitText";
 import debugOverlay from "./debug";
+import stack from "./stack";
 import fence from "./$fence_svg";
 import { hint } from "./$fence_svg";
 
@@ -36,6 +37,7 @@ const mkCtx = (settings: Record<string, unknown> = {}) => {
             icon: (o: any) => icon(ctx, null, o),
             fitText: (o: any) => fitText(ctx, null, o),
             debug: (o: any) => debugOverlay(ctx, null, o),
+            stack: (o: any) => stack(ctx, null, o),
         },
         settings: { get: async (o: any) => settings[o.key] },
         procs: { db: { select: async () => [{ k: "a", n: 2 }, { k: "b", n: 1 }] } },
@@ -697,5 +699,87 @@ describe("svg.label exact width", () => {
         const r = fitText(mkCtx(), null, { text: "Длинная подпись карточки", box: { x: 0, y: 0, w: 120, h: 40 }, size: 11 });
         expect(r.node.markup).toContain("textLength");
         expect(r.fits).toBe(true);
+    });
+});
+
+describe("svg.stack", () => {
+    const three = [{ w: 40, h: 20 }, { w: 40, h: 20 }, { w: 40, h: 20 }];
+    const region = { x: 0, y: 0, w: 300, h: 50 };
+
+    test("without a box it is a plain row from a point", () => {
+        const r = stack(mkCtx(), null, { items: three, x: 10, y: 5, gap: 10 });
+        expect(r.boxes.map(b => b.x)).toEqual([10, 60, 110]);
+        expect(r.boxes[0]!.y).toBe(5);
+    });
+
+    test("space-between hands the slack to the gaps, ends stay put", () => {
+        const r = stack(mkCtx(), null, { items: three, box: region, justify: "space-between", gap: 0 });
+        expect(r.boxes[0]!.x).toBe(0);
+        expect(r.boxes.at(-1)!.right).toBe(300);
+        expect(r.boxes[1]!.cx).toBe(150);
+    });
+
+    test("center moves the whole block, keeping the gaps", () => {
+        const r = stack(mkCtx(), null, { items: three, box: region, justify: "center", gap: 10 });
+        const span = r.boxes.at(-1)!.right - r.boxes[0]!.x;
+        expect(span).toBe(140);
+        expect(r.boxes[0]!.x).toBe((300 - 140) / 2);
+    });
+
+    test("end pushes the block against the far edge", () => {
+        const r = stack(mkCtx(), null, { items: three, box: region, justify: "end", gap: 10 });
+        expect(r.boxes.at(-1)!.right).toBe(300);
+    });
+
+    test("space-around leaves a half gap at each end", () => {
+        const r = stack(mkCtx(), null, { items: three, box: region, justify: "space-around", gap: 0 });
+        expect(r.boxes[0]!.x).toBeGreaterThan(0);
+        expect(r.boxes[0]!.x).toBeCloseTo(300 - r.boxes.at(-1)!.right, 5);
+    });
+
+    test("fill makes items share the room equally", () => {
+        const r = stack(mkCtx(), null, { items: three, box: region, fill: true, gap: 10 });
+        expect(r.boxes.map(b => b.w)).toEqual([(300 - 20) / 3, (300 - 20) / 3, (300 - 20) / 3]);
+        expect(r.boxes.at(-1)!.right).toBeCloseTo(300, 5);
+    });
+
+    test("align center centres items across the axis", () => {
+        const r = stack(mkCtx(), null, { items: [{ w: 20, h: 10 }, { w: 20, h: 30 }], box: region, align: "center" });
+        expect(r.boxes[0]!.cy).toBe(r.boxes[1]!.cy);
+    });
+
+    test("stretch gives every item the full cross size", () => {
+        const r = stack(mkCtx(), null, { items: three, box: region, align: "stretch" });
+        expect(r.boxes.every(b => b.h === 50)).toBe(true);
+    });
+
+    test("wrap starts a new line when an item would overflow", () => {
+        const r = stack(mkCtx(), null, { items: Array.from({ length: 5 }, () => ({ w: 80, h: 20 })), box: { x: 0, y: 0, w: 200, h: 100 }, gap: 10, wrap: true });
+        expect(r.boxes.map(b => b.line)).toEqual([0, 0, 1, 1, 2]);
+        expect(r.boxes[2]!.x).toBe(0);
+        expect(r.boxes[2]!.y).toBe(30);
+    });
+
+    test("a column stacks downwards and justifies vertically", () => {
+        const r = stack(mkCtx(), null, { items: three, box: { x: 0, y: 0, w: 60, h: 200 }, direction: "column", justify: "space-between", gap: 0 });
+        expect(r.boxes[0]!.y).toBe(0);
+        expect(r.boxes.at(-1)!.bottom).toBe(200);
+        expect(r.boxes.every(b => b.x === 0)).toBe(true);
+    });
+
+    test("content wider than the region reports not fitting", () => {
+        const r = stack(mkCtx(), null, { items: Array.from({ length: 6 }, () => ({ w: 80, h: 20 })), box: region, gap: 10 });
+        expect(r.fits).toBe(false);
+    });
+
+    test("ids come back so a caller can match boxes to its data", () => {
+        const r = stack(mkCtx(), null, { items: [{ id: "left", w: 20, h: 10 }, { id: "right", w: 20, h: 10 }], box: region, justify: "space-between" });
+        expect(r.boxes.map(b => b.id)).toEqual(["left", "right"]);
+    });
+
+    test("boxes carry both spellings of their size", () => {
+        const r = stack(mkCtx(), null, { items: [{ w: 20, h: 10 }], box: region });
+        expect(r.boxes[0]!.width).toBe(20);
+        expect(r.boxes[0]!.height).toBe(10);
     });
 });

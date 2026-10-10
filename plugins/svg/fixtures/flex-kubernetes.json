@@ -1,0 +1,230 @@
+{
+  "engine": "yoga-layout@3.2.1",
+  "root": {
+    "id": "root",
+    "width": 960,
+    "padding": 24,
+    "gap": 32,
+    "children": [
+      {
+        "id": "group-0",
+        "direction": "row",
+        "gap": 40,
+        "padding": {
+          "top": 48,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        },
+        "children": [
+          {
+            "id": "Deployment",
+            "grow": 1,
+            "height": 72
+          },
+          {
+            "id": "ReplicaSet",
+            "grow": 1,
+            "height": 72
+          },
+          {
+            "id": "Pod",
+            "grow": 1,
+            "height": 72
+          }
+        ]
+      },
+      {
+        "id": "group-1",
+        "direction": "row",
+        "gap": 40,
+        "padding": {
+          "top": 48,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        },
+        "children": [
+          {
+            "id": "Ingress",
+            "grow": 1,
+            "height": 72
+          },
+          {
+            "id": "Service",
+            "grow": 1,
+            "height": 72
+          }
+        ]
+      },
+      {
+        "id": "group-2",
+        "direction": "row",
+        "gap": 40,
+        "padding": {
+          "top": 48,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        },
+        "children": [
+          {
+            "id": "Node",
+            "grow": 1,
+            "height": 72
+          },
+          {
+            "id": "Container",
+            "grow": 1,
+            "height": 72
+          }
+        ]
+      },
+      {
+        "id": "group-3",
+        "direction": "row",
+        "gap": 40,
+        "padding": {
+          "top": 48,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        },
+        "children": [
+          {
+            "id": "ConfigMap / Secret",
+            "grow": 1,
+            "height": 72
+          },
+          {
+            "id": "PVC",
+            "grow": 1,
+            "height": 72
+          },
+          {
+            "id": "PV",
+            "grow": 1,
+            "height": 72
+          }
+        ]
+      }
+    ]
+  },
+  "layout": {
+    "boxes": {
+      "root": {
+        "x": 0,
+        "y": 0,
+        "width": 960,
+        "height": 704
+      },
+      "group-0": {
+        "x": 24,
+        "y": 24,
+        "width": 912,
+        "height": 140
+      },
+      "Deployment": {
+        "x": 44,
+        "y": 72,
+        "width": 264,
+        "height": 72
+      },
+      "ReplicaSet": {
+        "x": 348,
+        "y": 72,
+        "width": 264,
+        "height": 72
+      },
+      "Pod": {
+        "x": 652,
+        "y": 72,
+        "width": 264,
+        "height": 72
+      },
+      "group-1": {
+        "x": 24,
+        "y": 196,
+        "width": 912,
+        "height": 140
+      },
+      "Ingress": {
+        "x": 44,
+        "y": 244,
+        "width": 416,
+        "height": 72
+      },
+      "Service": {
+        "x": 500,
+        "y": 244,
+        "width": 416,
+        "height": 72
+      },
+      "group-2": {
+        "x": 24,
+        "y": 368,
+        "width": 912,
+        "height": 140
+      },
+      "Node": {
+        "x": 44,
+        "y": 416,
+        "width": 416,
+        "height": 72
+      },
+      "Container": {
+        "x": 500,
+        "y": 416,
+        "width": 416,
+        "height": 72
+      },
+      "group-3": {
+        "x": 24,
+        "y": 540,
+        "width": 912,
+        "height": 140
+      },
+      "ConfigMap / Secret": {
+        "x": 44,
+        "y": 588,
+        "width": 264,
+        "height": 72
+      },
+      "PVC": {
+        "x": 348,
+        "y": 588,
+        "width": 264,
+        "height": 72
+      },
+      "PV": {
+        "x": 652,
+        "y": 588,
+        "width": 264,
+        "height": 72
+      }
+    },
+    "order": [
+      "root",
+      "group-0",
+      "Deployment",
+      "ReplicaSet",
+      "Pod",
+      "group-1",
+      "Ingress",
+      "Service",
+      "group-2",
+      "Node",
+      "Container",
+      "group-3",
+      "ConfigMap / Secret",
+      "PVC",
+      "PV"
+    ],
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 960,
+      "height": 704
+    }
+  }
+}

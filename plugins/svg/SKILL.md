@@ -7,6 +7,59 @@ description: "Draw a picture as inline SVG when it is not a chart: a schema, a t
 
 Takes SVG markup, strips everything that makes it more than a picture, and returns a figure that behaves in a chat column. Rendering needs no layout engine or headless browser: the markup you write is the markup that renders.
 
+## Nested rows and columns with Yoga
+
+Use `svg.flexLayout({ root, width?, height? })` for a block hierarchy: panels,
+rows, columns, equal-share cards and wrapping groups. It uses pinned
+`yoga-layout@3.2.1` (MIT), bundled ESM/WASM, entirely in Bun; install dependencies
+with `cd plugins/svg && bun install --frozen-lockfile`. No Python or system
+library is needed. The plugin resolves its own installed package, not a `/tmp`
+experiment. `FlexNode` and `FlexLayoutResult` are available as `types.svg.*`.
+
+Each node has a unique `id`, optional ordered `children`, pixel `width`/`height`,
+`minWidth`/`maxWidth`/`minHeight`/`maxHeight`, `direction: 'row' | 'column'`,
+`gap`, uniform or `{top,right,bottom,left}` padding, `align`, `justify`, `wrap`,
+`grow` and `shrink`. Defaults: column, stretch, start, no wrap, zero spacing and
+zero grow/shrink. Grow shares free space **in addition to the natural item size**;
+use equal widths (or unsized leaves) for equal shares. Wrapping lines align to
+cross-axis start. All numbers are finite and nonnegative, at most 1,000,000;
+min cannot exceed max. Maximum 1000 nodes and 64 levels, counting the root.
+Unknown node fields are rejected. Root `null` is an empty layout.
+
+The result is `{ boxes: Record<id, {x,y,width,height}>, order, bounds }`.
+Containers are included; `order` is depth-first input order. Coordinates are
+absolute from the root, without pixel rounding; bounds include overflowing
+children. An omitted dimension is intrinsic or stretched, not measured text.
+Call `svg.measureText`/`svg.fitText` outside layout and pass card dimensions.
+There is no font measurement, CSS grid, margin, percentage sizing, edge routing
+or SVG rendering in this helper. Nodes/configuration are freed after every call.
+
+```svg tsx
+const layout = await ctx.fns.svg.flexLayout({
+  width: 420,
+  root: { id: 'panel', direction: 'row', padding: 16, gap: 12,
+    children: [{ id: 'Left', grow: 1, height: 80 },
+               { id: 'Right', grow: 1, height: 80 }] }
+});
+const b = layout.bounds;
+return <svg viewBox={`${b.x} ${b.y} ${b.width} ${b.height}`}>
+  {layout.order.map(id => {
+    const box = layout.boxes[id];
+    return <g><rect {...box} rx="8" fill={id === 'panel' ? '#e2e8f0' : '#fff'}
+      stroke="#64748b" />{id !== 'panel' &&
+      <text x={box.x + box.width/2} y={box.y + box.height/2}
+        text-anchor="middle" dominant-baseline="middle" fill="#0f172a">{id}</text>}</g>;
+  })}
+</svg>
+```
+
+Choose **Yoga** when nesting and item order define the layout; **ACA** plus
+`snapLayoutToGrid` when graph relationships should determine placement;
+**svg.grid** when explicit two-dimensional tracks and spans define the structure.
+Yoga does not optimize graph crossings. Connect the resulting boxes separately.
+The four-group Kubernetes fixture is `fixtures/flex-kubernetes.json` with its
+rendered `fixtures/flex-kubernetes.svg`; equal-share cards stay in semantic groups.
+
 Where it sits between the other drawing plugins:
 
 - **vega-lite** — data has a shape and the chart is standard: bars, lines, areas, points. Do not hand-draw a bar chart.

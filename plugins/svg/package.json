@@ -15,7 +15,8 @@
     "description": "Draw diagrams and custom graphics as inline SVG, written as literal markup or computed with TSX."
   },
   "dependencies": {
-    "d3-force": "3.0.0"
+    "d3-force": "3.0.0",
+    "yoga-layout": "3.2.1"
   },
   "devDependencies": {
     "@types/d3-force": "3.0.10"

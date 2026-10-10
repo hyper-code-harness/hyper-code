@@ -85,6 +85,43 @@ return <svg viewBox="0 0 400 180" fontFamily="Inter, system-ui, sans-serif">
 ```
 ````
 
+## Write your own vocabulary first
+
+The single biggest speed-up is not a plugin function: it is the three or four local helpers at the top of the fence. A drawing written as raw elements repeats the same offsets in every branch, and the repetition is where the mistakes live. Name the repeated shape once and the rest of the drawing reads as content.
+
+````markdown
+```svg tsx
+const { label, layout, connect, measureText } = ctx.fns.svg;
+
+// vocabulary — one line each, defined once
+const TONE = {
+  lead:  { fill: "#EEF3FC", stroke: "#B9CBEC", dot: "#7DA1EF" },
+  plain: { fill: "#F6F9FE", stroke: "#DCE6F7", dot: "#8FAEE8" },
+};
+const box  = (b, fill, stroke) => <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={8} fill={fill} stroke={stroke}/>;
+const bar  = (x, y, w, h, fill) => <rect x={x} y={y} width={w} height={h} rx={h / 2} fill={fill}/>;
+const card = (b, title, subtitle, tone) => <g>
+  {box(b, TONE[tone].fill, TONE[tone].stroke)}
+  <circle cx={b.x + 14} cy={b.y + 15} r={4.5} fill={TONE[tone].dot}/>
+  {label({ text: title, x: b.x + 25, y: b.y + 18, size: 11, weight: 600 }).node}
+  {label({ text: subtitle, x: b.x + 14, y: b.y + 33, size: 8.5, fill: "#9aa3b2" }).node}
+</g>;
+
+const col = layout({ items: rows, x: 20, y: 40, gap: 12, itemWidth: 160, itemHeight: 44 });
+return <svg viewBox={`0 0 200 ${col.height + 60}`} fontFamily="Inter, system-ui, sans-serif">
+  {col.boxes.map((b, i) => card(b, rows[i].name, rows[i].role, i ? "plain" : "lead"))}
+</svg>;
+```
+````
+
+A local function beats a CSS class here, and the reason is worth remembering: a class can only set colours, while `card(b, title, subtitle, tone)` carries the geometry, the text and the colours together — the part that actually takes time. `<style>` is removed anyway (see below), so this is the only vocabulary available.
+
+Three habits that make a drawing survive editing:
+
+- **Never write a coordinate twice.** Derive it: `b.cx`, `b.right`, `col.height`, `measureText(...).width + 28`. A literal that appears in two places will disagree with itself after the first change.
+- **Size the container from its content, not the other way round.** Compute the boxes first, then `const W = Math.max(...boxes.map(b => b.right)) + PAD` and build the `viewBox` from it. Then nothing can be clipped by construction.
+- **Draw connectors before the boxes.** They are then under the cards instead of across their labels, with no z-order to manage.
+
 ## What sanitizing removes
 
 Always, in both modes: `<script>`, `<style>`, `<foreignObject>`, SMIL animation elements, every `on*` handler, and any `href` or `url()` pointing outside the drawing. References inside the drawing (`#marker`, `url(#grad)`) and inline `data:image/...` survive, so gradients, markers and clip paths work normally. A missing `xmlns` is added — without it a browser silently renders nothing — and a drawing sized in pixels with no `viewBox` gets one, so it scales down in a narrow column instead of being clipped.
@@ -95,4 +132,5 @@ Always, in both modes: `<script>`, `<style>`, `<foreignObject>`, SMIL animation 
 - Text has no layout engine here: a label is placed where you put it. Leave room between elements, and use `text-anchor="middle"` with the centre coordinate rather than guessing the left edge.
 - For a non-ASCII drawing set `font-family` on the root (`Inter, system-ui, sans-serif`) so it matches the host UI.
 - `class` survives sanitizing and the page's Tailwind stylesheet applies, so `class="fill-sky-500"` works on screen — but a drawing saved to a file or opened on its own then has no colours. Use plain attributes and inline `style` for anything that must stand alone, and treat classes as an in-page convenience only.
-- Before you show it, run `svg.bbox` over the markup. It catches the clipped caption that a preview tool would have hidden from you.
+- Before you show it, run `svg.bbox` over the markup. It catches the clipped caption that a preview tool would have hidden from you — and do trust it over an image preview: `qlmanage` and friends crop to their own square and will make you "fix" a drawing that already fitted.
+- A drawing that needs the same shape more than twice wants a local function, not a copied block. See *Write your own vocabulary first*.

@@ -1,0 +1,17 @@
+{
+  "name": "svg",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "configuration": {
+      "settings": [
+        "svg.allowEval"
+      ]
+    },
+    "src": "src",
+    "label": "SVG",
+    "icon": "ph-pen-nib",
+    "optional": true,
+    "description": "Draw diagrams and custom graphics as inline SVG, written as literal markup or computed with TSX."
+  }
+}

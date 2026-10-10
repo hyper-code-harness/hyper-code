@@ -1,0 +1,6 @@
+/* Layout for inline drawings rendered by svg.render. Mounted with the plugin
+ * and linked by the host layout; turn the plugin off and it goes too.
+ * The drawing keeps its intrinsic size as attributes and is scaled down here,
+ * so it never widens a chat column but still renders full size when it fits. */
+.svg-figure { display: block; width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; }
+.svg-figure svg { display: block; max-width: 100%; height: auto; }

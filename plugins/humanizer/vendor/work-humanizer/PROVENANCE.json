@@ -1,0 +1,15 @@
+{
+  "upstream": "https://github.com/phuryn/work-humanizer",
+  "author": "Pawel Huryn",
+  "authorPost": "https://x.com/PawelHuryn/status/2108511822445674638",
+  "license": "MIT",
+  "commit": "819ac9925fffc20f12931cdf7a447db69163cbb2",
+  "fetchedAt": "2026-10-10T07:59:21.067967+00:00",
+  "files": [
+    "SKILL.md",
+    "tells.md",
+    "check.py",
+    "LICENSE",
+    "UPSTREAM-README.md"
+  ]
+}

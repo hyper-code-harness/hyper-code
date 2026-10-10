@@ -1,0 +1,15 @@
+{
+  "name": "humanizer",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Humanizer",
+    "icon": "ph-pen-nib",
+    "optional": true,
+    "description": "Rewrite AI-sounding work text in a plain human voice without changing its facts or commitments, using the MIT-licensed work-humanizer skill by Pawel Huryn."
+  },
+  "dependencies": {
+    "marked": "^18.1.0"
+  }
+}

@@ -138,6 +138,9 @@
       },
       "inbox": {
         "path": "plugins/inbox"
+      },
+      "humanizer": {
+        "path": "plugins/humanizer"
       }
     }
   }

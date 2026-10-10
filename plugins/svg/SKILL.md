@@ -59,6 +59,32 @@ What differs from React:
 
 **Security and lifecycle:** `svg.allowEval` is off by default. This is server-side code execution with full `ctx`, not a sandbox, and read-only behaviour is not enforced. Enable only when every rendered document is trusted. The code runs again on every render, including when history is reopened, so a drawing is a view of data now and not a saved snapshot — never write, send or mutate anything in one.
 
+## Helpers for placing things
+
+Five functions, callable from `svg tsx` (and from any runtime code), that replace the arithmetic that makes hand-drawn SVG slow and wrong. All of them return plain data or a node you can drop straight into JSX.
+
+- **`svg.measureText({ text, size, weight?, mono? })`** → `{ width, height, em }`. How wide a string will be, from Helvetica's advance widths — within a few percent for Inter, Arial and the system sans stacks. Use it before placing anything next to a label; a guessed width is where overlap comes from.
+- **`svg.label({ text, x, y, maxWidth?, size?, anchor?, fill?, ... })`** → `{ node, lines, width, height }`. A `<text>` that wraps. SVG has no wrapping of its own: this breaks on spaces, emits one `<tspan>` per line with the x repeated, and reports the box it took.
+- **`svg.layout({ items, x, y, direction?, gap?, align? })`** → `{ boxes, width, height }`. Turns a list of sizes into placed boxes, each with `x/y/w/h` plus `cx/cy/right/bottom`. Write `b.cx`, not `y + i * 62` — insert an item and everything after it still lands correctly. Nest a row of columns freely.
+- **`svg.connect({ from, to, style?, label?, head?, ... })`** → `{ node, start, end, mid }`. An arrow between two boxes, clipped to their borders rather than their centres, `straight` / `orthogonal` / `curve`. The head is a polygon, not a `<marker>` definition, so a loop producing fifty connectors never collides on ids. Boxes from `svg.layout` go straight in.
+- **`svg.bbox({ svg, padding? })`** → `{ content, viewBox, fits, overflow, suggestedViewBox }`. What the drawing actually covers, and whether it sticks out of its `viewBox`. **Call this before showing a drawing** — it is the check that replaces squinting at a preview, and it names the side and the number of pixels. Known limits: `transform` is ignored, text width is estimated, stroke width is not counted — so one pixel of overflow is noise and twenty is real.
+
+A drawing that uses them reads as layout rather than coordinates:
+
+````markdown
+```svg tsx
+const { layout, label, connect } = ctx.fns.svg;
+const col = layout({ items: [{ id: "parse" }, { id: "plan" }, { id: "run" }], x: 20, y: 20, gap: 24, itemWidth: 120, itemHeight: 40 });
+return <svg viewBox="0 0 400 180" fontFamily="Inter, system-ui, sans-serif">
+  {col.boxes.map(b => <g>
+    <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={6} fill="#EEF3FC" stroke="#DBE5F7"/>
+    {label({ text: b.id, x: b.cx, y: b.cy + 4, anchor: "middle", size: 11 }).node}
+  </g>)}
+  {connect({ from: col.boxes[0], to: col.boxes[2], style: "curve", label: "retry" }).node}
+</svg>;
+```
+````
+
 ## What sanitizing removes
 
 Always, in both modes: `<script>`, `<style>`, `<foreignObject>`, SMIL animation elements, every `on*` handler, and any `href` or `url()` pointing outside the drawing. References inside the drawing (`#marker`, `url(#grad)`) and inline `data:image/...` survive, so gradients, markers and clip paths work normally. A missing `xmlns` is added — without it a browser silently renders nothing — and a drawing sized in pixels with no `viewBox` gets one, so it scales down in a narrow column instead of being clipped.
@@ -68,3 +94,5 @@ Always, in both modes: `<script>`, `<style>`, `<foreignObject>`, SMIL animation 
 - Give the root a `viewBox` and leave `width`/`height` to the fence info string; the figure then scales to the column.
 - Text has no layout engine here: a label is placed where you put it. Leave room between elements, and use `text-anchor="middle"` with the centre coordinate rather than guessing the left edge.
 - For a non-ASCII drawing set `font-family` on the root (`Inter, system-ui, sans-serif`) so it matches the host UI.
+- `class` survives sanitizing and the page's Tailwind stylesheet applies, so `class="fill-sky-500"` works on screen — but a drawing saved to a file or opened on its own then has no colours. Use plain attributes and inline `style` for anything that must stand alone, and treat classes as an in-page convenience only.
+- Before you show it, run `svg.bbox` over the markup. It catches the clipped caption that a preview tool would have hidden from you.

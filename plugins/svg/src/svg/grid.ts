@@ -11,7 +11,19 @@
 // so `auto` cannot mean what it means in CSS and is honest about it.
 
 /** One placed cell, carrying every edge and centre a caller would recompute. */
-type Cell = { x: number; y: number; w: number; h: number; cx: number; cy: number; right: number; bottom: number };
+type Cell = {
+    x: number; y: number; w: number; h: number;
+    /** Alias of w, so a cell can be spread straight onto a <rect>. */
+    width: number;
+    /** Alias of h, so a cell can be spread straight onto a <rect>. */
+    height: number;
+    cx: number; cy: number; right: number; bottom: number;
+};
+
+/** Build a cell from its edges, with both spellings of its size. */
+function cellOf(x: number, y: number, w: number, h: number): Cell {
+    return { x, y, w, h, width: w, height: h, cx: x + w / 2, cy: y + h / 2, right: x + w, bottom: y + h };
+}
 
 /** Resolve a track list — numbers, "1fr", "auto", "25%" — against a total size. */
 function resolve(tracks: Array<number | string>, total: number, gap: number): number[] {
@@ -111,17 +123,27 @@ export default function (_ctx: Context, _session: Session | null, opts: {
     const rowAt = offsets(rowSizes, gapY);
 
     const make = (col: number, row: number, colSpan: number, rowSpan: number, pad: number): Cell => {
-        const c = Math.max(0, Math.min(col, colSizes.length - 1));
-        const r = Math.max(0, Math.min(row, rowSizes.length - 1));
-        const cs = Math.max(1, Math.min(colSpan, colSizes.length - c));
-        const rs = Math.max(1, Math.min(rowSpan, rowSizes.length - r));
+        // Clamping a bad index hides a typo: `col: 9` in a three-column grid
+        // used to quietly draw in the last column, and the drawing looked
+        // plausible. An error naming the mistake is cheaper than finding it by
+        // eye later.
+        if (!Number.isInteger(col) || col < 0 || col >= colSizes.length) {
+            throw new Error(`svg: grid has ${colSizes.length} columns (0..${colSizes.length - 1}), asked for col ${col}`);
+        }
+        if (!Number.isInteger(row) || row < 0 || row >= rowSizes.length) {
+            throw new Error(`svg: grid has ${rowSizes.length} rows (0..${rowSizes.length - 1}), asked for row ${row}`);
+        }
+        if (!Number.isInteger(colSpan) || colSpan < 1 || col + colSpan > colSizes.length) {
+            throw new Error(`svg: colSpan ${colSpan} from col ${col} runs past the last column (${colSizes.length - 1})`);
+        }
+        if (!Number.isInteger(rowSpan) || rowSpan < 1 || row + rowSpan > rowSizes.length) {
+            throw new Error(`svg: rowSpan ${rowSpan} from row ${row} runs past the last row (${rowSizes.length - 1})`);
+        }
+        const c = col, r = row, cs = colSpan, rs = rowSpan;
         let w = 0, h = 0;
         for (let i = 0; i < cs; i++) w += colSizes[c + i]! + (i ? gapX : 0);
         for (let i = 0; i < rs; i++) h += rowSizes[r + i]! + (i ? gapY : 0);
-        const x = x0 + colAt[c]! + pad, y = y0 + rowAt[r]! + pad;
-        w = Math.max(0, w - pad * 2);
-        h = Math.max(0, h - pad * 2);
-        return { x, y, w, h, cx: x + w / 2, cy: y + h / 2, right: x + w, bottom: y + h };
+        return cellOf(x0 + colAt[c]! + pad, y0 + rowAt[r]! + pad, Math.max(0, w - pad * 2), Math.max(0, h - pad * 2));
     };
 
     // A named area is the bounding box of every cell carrying that name, which
@@ -129,17 +151,24 @@ export default function (_ctx: Context, _session: Session | null, opts: {
     const named: Record<string, Cell> = {};
     const rowNames = (opts.areas ?? []).map(line => String(line).trim().split(/\s+/));
     for (let r = 0; r < rowNames.length; r++) {
+        // An areas block that disagrees with the tracks is always a mistake, and
+        // silently ignoring the extra names produces a drawing missing a panel.
+        if (r >= rowSizes.length) throw new Error(`svg: areas describe ${rowNames.length} rows but the grid has ${rowSizes.length}`);
+        if (rowNames[r]!.length !== colSizes.length) {
+            throw new Error(`svg: areas row ${r} names ${rowNames[r]!.length} cells but the grid has ${colSizes.length} columns`);
+        }
         for (let c = 0; c < rowNames[r]!.length; c++) {
             const name = rowNames[r]![c]!;
             if (name === "." || !name) continue;
             const span = make(c, r, 1, 1, 0);
             const seen = named[name];
             named[name] = seen
-                ? (() => {
-                    const x = Math.min(seen.x, span.x), y = Math.min(seen.y, span.y);
-                    const right = Math.max(seen.right, span.right), bottom = Math.max(seen.bottom, span.bottom);
-                    return { x, y, w: right - x, h: bottom - y, cx: (x + right) / 2, cy: (y + bottom) / 2, right, bottom };
-                })()
+                ? cellOf(
+                    Math.min(seen.x, span.x),
+                    Math.min(seen.y, span.y),
+                    Math.max(seen.right, span.right) - Math.min(seen.x, span.x),
+                    Math.max(seen.bottom, span.bottom) - Math.min(seen.y, span.y),
+                )
                 : span;
         }
     }
@@ -148,10 +177,12 @@ export default function (_ctx: Context, _session: Session | null, opts: {
         cell: (at) => make(Number(at?.col ?? 0), Number(at?.row ?? 0), Number(at?.colSpan ?? 1), Number(at?.rowSpan ?? 1), Number(at?.pad ?? 0)),
         area: (name, pad = 0) => {
             const box = named[name];
-            if (!box) throw new Error(`svg: no grid area named "${name}"`);
+            if (!box) {
+                const known = Object.keys(named).sort().join(", ") || "none declared";
+                throw new Error(`svg: no grid area named "${name}" (have: ${known})`);
+            }
             if (!pad) return box;
-            const w = Math.max(0, box.w - pad * 2), h = Math.max(0, box.h - pad * 2);
-            return { x: box.x + pad, y: box.y + pad, w, h, cx: box.x + pad + w / 2, cy: box.y + pad + h / 2, right: box.x + pad + w, bottom: box.y + pad + h };
+            return cellOf(box.x + pad, box.y + pad, Math.max(0, box.w - pad * 2), Math.max(0, box.h - pad * 2));
         },
         areas: named,
         colSizes,

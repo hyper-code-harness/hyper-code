@@ -54,7 +54,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     color?: string;
     /** Opacity of the icon, 0 to 1. @maximum 1 */
     opacity?: number;
-}): Promise<{ node: types.svg.Node; box: { x: number; y: number; w: number; h: number; cx: number; cy: number; right: number; bottom: number } }> {
+}): Promise<{ node: types.svg.Node; box: { x: number; y: number; w: number; h: number; width: number; height: number; cx: number; cy: number; right: number; bottom: number } }> {
     const raw = String(opts.name ?? "").trim();
     if (!raw) throw new Error("svg: icon needs a name");
     // "tabler:database" carries its own set, which is how Iconify names icons
@@ -113,5 +113,5 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         children: [{ markup: body }],
     });
 
-    return { node, box: { x, y, w: size, h: size, cx: x + size / 2, cy: y + size / 2, right: x + size, bottom: y + size } };
+    return { node, box: { x, y, w: size, h: size, width: size, height: size, cx: x + size / 2, cy: y + size / 2, right: x + size, bottom: y + size } };
 }

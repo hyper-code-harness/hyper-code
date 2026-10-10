@@ -55,7 +55,7 @@ export default function (_ctx: Context, _session: Session | null, opts: {
     size?: { w: number; h: number };
     /** Cross-axis alignment of the placed box against the source. @default "start" */
     align?: "start" | "center" | "end";
-}): { x: number; y: number; box: { x: number; y: number; w: number; h: number; cx: number; cy: number; right: number; bottom: number } | null } {
+}): { x: number; y: number; box: { x: number; y: number; w: number; h: number; width: number; height: number; cx: number; cy: number; right: number; bottom: number } | null } {
     const of = opts.of;
     const at = opts.at ?? "center";
     const place = opts.place ?? "inside";
@@ -87,5 +87,6 @@ export default function (_ctx: Context, _session: Session | null, opts: {
         : place === "below" ? moved.y
             : moved.y + (at.includes("bottom") ? -h : at === "left" || at === "right" || at === "center" ? lead(h) : 0);
 
-    return { x: moved.x, y: moved.y, box: { x, y, w, h, cx: x + w / 2, cy: y + h / 2, right: x + w, bottom: y + h } };
+    // Both spellings of the size, so the box spreads straight onto a <rect>.
+    return { x: moved.x, y: moved.y, box: { x, y, w, h, width: w, height: h, cx: x + w / 2, cy: y + h / 2, right: x + w, bottom: y + h } };
 }

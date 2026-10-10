@@ -86,6 +86,8 @@ return <svg viewBox="0 0 400 180" fontFamily="Inter, system-ui, sans-serif">
 ````
 
 - **`svg.grid({ cols, rows, width, height, gap?, areas? })`** → `{ cell, area, areas, colSizes, rowSizes }`. A CSS grid for a drawing, and the best way to think about a wireframe. Tracks are pixels, `"1fr"`, `"auto"` or `"25%"`; `cell({ col, row, colSpan, pad })` and `area("header")` return boxes with `cx/right/bottom`. Named `areas` describe a whole screen in one string per row — `["status", "header", "feed", "composer"]` — and a grid nests inside a cell of another one, which is how a phone screen sits inside a page.
+- **`svg.fitText({ text, box, size?, minSize?, maxLines?, overflow? })`** → `{ node, size, lines, fits, overflowBy }`. The end of "will this caption fit": the text is wrapped to the box and checked against its height, then `overflow` decides — `shrink` steps the font down to `minSize`, `ellipsis` cuts the last kept line, `ellipsis-middle` keeps both ends (what a file path needs), `clip` drops the extra lines, `none` only reports. Use it for any text whose length comes from data, and read `fits` instead of hoping.
+- **`svg.debug({ grid?, boxes?, points? })`** → `{ node }`. Add it as the last child of the `<svg>` while building, delete it when done. Outlines every grid cell with its index and size, outlines boxes, marks anchors with a cross — the shortest path from "the picture looks wrong" to "that column is 12px narrow".
 - **`svg.anchor({ of, at, place?, gap?, size? })`** → `{ x, y, box }`. "Under the left edge of that box, 8px down", as a call rather than four lines of arithmetic: `at` names one of the nine points of a box, `place` pushes away from it (`above`/`below`/`left-of`/`right-of`), `inside` turns the gap into padding. With `size` you get a whole box placed there, so a badge or a caption attaches and stays correct when the source moves.
 
 ## Write your own vocabulary first
@@ -131,6 +133,8 @@ const screen = ctx.fns.svg.grid({
 const header = screen.area("header"), feed = screen.area("feed");
 ```
 ````
+
+**Call `svg.bbox` before showing a drawing, every time.** It catches real mistakes, and a preview tool will not: `qlmanage` and friends crop to their own square and report an overflow that is not there. Trust `bbox`, not the thumbnail.
 
 Three habits that make a drawing survive editing:
 

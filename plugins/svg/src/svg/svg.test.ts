@@ -11,6 +11,8 @@ import connect from "./connect";
 import grid from "./grid";
 import anchor from "./anchor";
 import icon from "./icon";
+import fitText from "./fitText";
+import debugOverlay from "./debug";
 import fence from "./$fence_svg";
 import { hint } from "./$fence_svg";
 
@@ -32,6 +34,8 @@ const mkCtx = (settings: Record<string, unknown> = {}) => {
             grid: (o: any) => grid(ctx, null, o),
             anchor: (o: any) => anchor(ctx, null, o),
             icon: (o: any) => icon(ctx, null, o),
+            fitText: (o: any) => fitText(ctx, null, o),
+            debug: (o: any) => debugOverlay(ctx, null, o),
         },
         settings: { get: async (o: any) => settings[o.key] },
         procs: { db: { select: async () => [{ k: "a", n: 2 }, { k: "b", n: 1 }] } },
@@ -407,10 +411,9 @@ describe("svg.grid", () => {
         expect(() => g.area("b")).toThrow(/no grid area/);
     });
 
-    test("a cell out of range is clamped instead of landing outside the region", () => {
+    test("a full-width span reaches the last column exactly", () => {
         const g = grid(mkCtx(), null, { cols: ["1fr", "1fr"], rows: ["1fr"], width: 100, height: 10 });
-        expect(g.cell({ col: 9 }).right).toBeLessThanOrEqual(100);
-        expect(g.cell({ col: 0, colSpan: 99 }).right).toBe(100);
+        expect(g.cell({ col: 0, colSpan: 2 }).right).toBe(100);
     });
 
     test("a grid nests inside a cell of another one", () => {
@@ -533,5 +536,127 @@ describe("svg.bbox and transforms", () => {
     test("nested transforms compose", () => {
         const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 400 400"><g transform="translate(100 0)"><g transform="translate(50 20)"><rect x="0" y="0" width="10" height="10"/></g></g></svg>' });
         expect(r.content).toMatchObject({ minX: 150, minY: 20 });
+    });
+});
+
+describe("svg.fitText", () => {
+    const box = { x: 10, y: 20, w: 120, h: 40 };
+
+    test("text that already fits keeps its size and says so", () => {
+        const r = fitText(mkCtx(), null, { text: "ok", box, size: 12 });
+        expect(r.size).toBe(12);
+        expect(r.fits).toBe(true);
+        expect(r.lines).toEqual(["ok"]);
+    });
+
+    test("shrink steps the font down until the lines fit the height", () => {
+        const r = fitText(mkCtx(), null, { text: "a long caption that will need several lines to fit inside this narrow card", box, size: 12, minSize: 6 });
+        expect(r.size).toBeLessThan(12);
+        expect(r.fits).toBe(true);
+    });
+
+    test("shrink stops at minSize and reports what still does not fit", () => {
+        const r = fitText(mkCtx(), null, { text: "word ".repeat(80), box: { x: 0, y: 0, w: 60, h: 20 }, size: 12, minSize: 11 });
+        expect(r.size).toBe(11);
+        expect(r.fits).toBe(false);
+        expect(r.overflowBy.y).toBeGreaterThan(0);
+    });
+
+    test("ellipsis cuts the last kept line, not the end of the string", () => {
+        const r = fitText(mkCtx(), null, { text: "one two three four five six seven eight nine", box: { x: 0, y: 0, w: 70, h: 30 }, size: 10, overflow: "ellipsis" });
+        expect(r.lines.at(-1)!.endsWith("…")).toBe(true);
+        expect(r.lines.length).toBeLessThanOrEqual(3);
+    });
+
+    test("ellipsis-middle keeps both ends, which is what a path needs", () => {
+        const r = fitText(mkCtx(), null, { text: "plugins/svg/src/svg/measureText.ts", box: { x: 0, y: 0, w: 90, h: 14 }, size: 10, overflow: "ellipsis-middle" });
+        expect(r.lines[0]).toContain("…");
+        expect(r.lines[0]!.startsWith("p")).toBe(true);
+        expect(r.lines[0]!.endsWith(".ts")).toBe(true);
+    });
+
+    test("maxLines caps the line count whatever the box allows", () => {
+        const r = fitText(mkCtx(), null, { text: "one two three four five six seven eight", box: { x: 0, y: 0, w: 60, h: 400 }, size: 10, maxLines: 2, overflow: "clip" });
+        expect(r.lines.length).toBe(2);
+    });
+
+    test("none draws as asked and only reports the overflow", () => {
+        const r = fitText(mkCtx(), null, { text: "word ".repeat(40), box: { x: 0, y: 0, w: 60, h: 20 }, size: 12, overflow: "none" });
+        expect(r.size).toBe(12);
+        expect(r.fits).toBe(false);
+    });
+
+    test("width/height spellings are accepted like w/h", () => {
+        const r = fitText(mkCtx(), null, { text: "ok", box: { x: 0, y: 0, width: 100, height: 30 }, size: 10 });
+        expect(r.fits).toBe(true);
+    });
+
+    test("a box with no width is an error, not a division by zero", () => {
+        expect(() => fitText(mkCtx(), null, { text: "x", box: { x: 0, y: 0, w: 0, h: 10 } })).toThrow(/positive width/);
+    });
+
+    test("valign center places the text in the middle of the box", () => {
+        const r = fitText(mkCtx(), null, { text: "ok", box: { x: 0, y: 0, w: 100, h: 50 }, size: 10, valign: "center" });
+        expect(r.box.y).toBeGreaterThan(10);
+        expect(r.box.y).toBeLessThan(30);
+    });
+});
+
+describe("svg.grid validation", () => {
+    const g = () => grid(mkCtx(), null, { cols: ["1fr", "1fr", "1fr"], rows: ["1fr", "1fr"], width: 300, height: 100 });
+
+    test("a column past the last one is an error naming the range", () => {
+        expect(() => g().cell({ col: 9 })).toThrow(/3 columns \(0\.\.2\), asked for col 9/);
+    });
+
+    test("a row past the last one is an error too", () => {
+        expect(() => g().cell({ row: 5 })).toThrow(/2 rows/);
+    });
+
+    test("a span running off the edge is an error, not a clamp", () => {
+        expect(() => g().cell({ col: 2, colSpan: 2 })).toThrow(/runs past the last column/);
+    });
+
+    test("an areas row that disagrees with the columns is an error", () => {
+        expect(() => grid(mkCtx(), null, { cols: ["1fr", "1fr"], rows: ["1fr"], width: 100, height: 10, areas: ["a b c"] }))
+            .toThrow(/names 3 cells but the grid has 2 columns/);
+    });
+
+    test("an unknown area name lists the ones that exist", () => {
+        const withAreas = grid(mkCtx(), null, { cols: ["1fr"], rows: ["1fr"], width: 10, height: 10, areas: ["head"] });
+        expect(() => withAreas.area("foot")).toThrow(/have: head/);
+    });
+
+    test("a cell carries both spellings of its size, so it spreads onto a rect", () => {
+        const c = g().cell({ col: 1 });
+        expect(c.width).toBe(c.w);
+        expect(c.height).toBe(c.h);
+    });
+});
+
+describe("svg.debug", () => {
+    test("a grid overlay outlines every cell and numbers it", () => {
+        const g = grid(mkCtx(), null, { cols: ["1fr", "1fr"], rows: ["1fr"], width: 200, height: 50 });
+        const r = debugOverlay(mkCtx(), null, { grid: g });
+        // One outline for the region plus one per cell.
+        expect(r.node.markup.match(/<rect/g)!.length).toBe(3);
+        expect(r.node.markup).toContain("0,0 100×50");
+        expect(r.node.markup).toContain("1,0");
+    });
+
+    test("boxes are outlined with their size, or a given label", () => {
+        const r = debugOverlay(mkCtx(), null, { boxes: [{ x: 0, y: 0, w: 40, h: 20 }, { x: 0, y: 0, width: 10, height: 10, label: "card" }] });
+        expect(r.node.markup).toContain("40×20");
+        expect(r.node.markup).toContain("card");
+    });
+
+    test("points are marked with a cross", () => {
+        const r = debugOverlay(mkCtx(), null, { points: [{ x: 50, y: 60, label: "a" }] });
+        expect(r.node.markup).toContain("M 46 60 H 54 M 50 56 V 64");
+    });
+
+    test("labels can be turned off for a clean overlay", () => {
+        const r = debugOverlay(mkCtx(), null, { boxes: [{ x: 0, y: 0, w: 10, h: 10 }], labels: false });
+        expect(r.node.markup).not.toContain("<text");
     });
 });

@@ -6,7 +6,14 @@
 // arithmetic. Nest it — a column of rows — and a whole panel lays itself out.
 
 /** One placed box, with everything a caller would otherwise recompute. */
-type Placed = { id: string; x: number; y: number; w: number; h: number; cx: number; cy: number; right: number; bottom: number };
+type Placed = {
+    id: string; x: number; y: number; w: number; h: number;
+    /** Alias of w, so a box can be spread straight onto a <rect>. */
+    width: number;
+    /** Alias of h, so a box can be spread straight onto a <rect>. */
+    height: number;
+    cx: number; cy: number; right: number; bottom: number;
+};
 
 /**
  * Lays out a row or a column of boxes, returning the position of each one.
@@ -72,7 +79,7 @@ export default function (_ctx: Context, _session: Session | null, opts: {
         const w = row ? s.w : span;
         const h = row ? span : s.h;
         cursor += (row ? s.w : s.h) + gap;
-        return { id: s.id, x, y, w, h, cx: x + w / 2, cy: y + h / 2, right: x + w, bottom: y + h };
+        return { id: s.id, x, y, w, h, width: w, height: h, cx: x + w / 2, cy: y + h / 2, right: x + w, bottom: y + h };
     });
 
     const main = Math.max(0, cursor - (row ? x0 : y0) - (boxes.length ? gap : 0));

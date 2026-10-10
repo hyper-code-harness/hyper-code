@@ -16,9 +16,38 @@
 
 /** Pull every number out of a path's `d` and read them as alternating x/y. */
 function pathPoints(d: string): Array<[number, number]> {
-    const numbers = (d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).map(Number);
+    // Reading a path as a flat list of x/y pairs is wrong twice over: a relative
+    // command (l, c, m…) carries offsets, not positions, and H/V carry a single
+    // coordinate. Both shift every later pair by one and invent points far
+    // outside the drawing — a false "it does not fit", which is worse than no
+    // check at all. So walk the commands and keep a pen position.
     const points: Array<[number, number]> = [];
-    for (let i = 0; i + 1 < numbers.length; i += 2) points.push([numbers[i]!, numbers[i + 1]!]);
+    let x = 0, y = 0, startX = 0, startY = 0;
+    for (const [, letter, rest] of d.matchAll(/([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]*)/g)) {
+        const n = (rest!.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).map(Number);
+        const cmd = letter!, rel = cmd === cmd.toLowerCase();
+        const up = cmd.toUpperCase();
+        // Arcs put flags and radii before the endpoint, so only the last pair of
+        // each 7-number group is a coordinate.
+        const stride = up === "A" ? 7 : up === "C" ? 6 : up === "S" || up === "Q" ? 4 : up === "H" || up === "V" ? 1 : 2;
+        if (up === "Z") { x = startX; y = startY; points.push([x, y]); continue; }
+        for (let i = 0; i + stride <= n.length; i += stride) {
+            if (up === "H") { x = rel ? x + n[i]! : n[i]!; }
+            else if (up === "V") { y = rel ? y + n[i]! : n[i]!; }
+            else {
+                // Control points count too: a curve can bulge past its endpoints,
+                // and over-reporting the bounds is the safe direction to be wrong.
+                for (let k = 0; k + 1 < stride; k += 2) {
+                    const px = rel ? x + n[i + k]! : n[i + k]!;
+                    const py = rel ? y + n[i + k + 1]! : n[i + k + 1]!;
+                    points.push([px, py]);
+                    if (k + 2 >= stride) { x = px; y = py; }
+                }
+            }
+            if (up === "H" || up === "V") points.push([x, y]);
+            if (up === "M" && i === 0) { startX = x; startY = y; }
+        }
+    }
     return points;
 }
 

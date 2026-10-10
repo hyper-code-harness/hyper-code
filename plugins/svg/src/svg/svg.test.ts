@@ -338,3 +338,19 @@ describe("svg.bbox and wrapped text", () => {
         expect(r.content!.maxX).toBeLessThanOrEqual(201);
     });
 });
+
+describe("svg.bbox and path commands", () => {
+    test("a relative path is followed, not read as a list of absolute pairs", () => {
+        // "l -5 6" is an offset from (30,30); read naively it looks like a point
+        // at (-5,6) and invents an overflow off the left edge.
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 100 100"><path d="M 30 30 l -5 6 l 5 6"/></svg>' });
+        expect(r.content!.minX).toBe(25);
+        expect(r.fits).toBe(true);
+    });
+
+    test("H and V carry one coordinate each and do not shift the pairs after them", () => {
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 100 100"><path d="M 10 10 V 40 H 60 L 20 20"/></svg>' });
+        expect(r.content).toMatchObject({ minX: 10, minY: 10, maxX: 60, maxY: 40 });
+        expect(r.fits).toBe(true);
+    });
+});

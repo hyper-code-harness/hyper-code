@@ -14,6 +14,7 @@ import icon from "./icon";
 import fitText from "./fitText";
 import debugOverlay from "./debug";
 import stack from "./stack";
+import theme from "./theme";
 import fence from "./$fence_svg";
 import { hint } from "./$fence_svg";
 
@@ -38,6 +39,7 @@ const mkCtx = (settings: Record<string, unknown> = {}) => {
             fitText: (o: any) => fitText(ctx, null, o),
             debug: (o: any) => debugOverlay(ctx, null, o),
             stack: (o: any) => stack(ctx, null, o),
+            theme: (o: any) => theme(ctx, null, o),
         },
         settings: { get: async (o: any) => settings[o.key] },
         procs: { db: { select: async () => [{ k: "a", n: 2 }, { k: "b", n: 1 }] } },
@@ -781,5 +783,69 @@ describe("svg.stack", () => {
         const r = stack(mkCtx(), null, { items: [{ w: 20, h: 10 }], box: region });
         expect(r.boxes[0]!.width).toBe(20);
         expect(r.boxes[0]!.height).toBe(10);
+    });
+});
+
+describe("svg.theme", () => {
+    test("a tone hands out fill, stroke and readable text together", () => {
+        const t = theme(mkCtx(), null, {});
+        const tone = t.tone("accent");
+        expect(Object.keys(tone).sort()).toEqual(["fill", "stroke", "text"]);
+        expect(tone.fill).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    });
+
+    test("a tone spreads straight onto a rect, because its keys are attributes", () => {
+        const t = theme(mkCtx(), null, {});
+        const node = element(mkCtx(), null, { tag: "rect", props: { x: 0, y: 0, width: 10, height: 10, ...t.tone("solid") } });
+        expect(node.markup).toContain(`fill="${t.tone("solid").fill}"`);
+        expect(node.markup).toContain(`stroke="${t.tone("solid").stroke}"`);
+    });
+
+    test("space is the 8-point scale, with halves allowed", () => {
+        const t = theme(mkCtx(), null, {});
+        expect([t.space(1), t.space(2), t.space(0.5)]).toEqual([8, 16, 4]);
+    });
+
+    test("a custom unit rescales the whole drawing's spacing", () => {
+        const t = theme(mkCtx(), null, { unit: 10 });
+        expect(t.space(3)).toBe(30);
+    });
+
+    test("the dark palette inverts ink against the background", () => {
+        const light = theme(mkCtx(), null, { name: "paper" });
+        const dark = theme(mkCtx(), null, { name: "slate" });
+        expect(dark.ink).not.toBe(light.ink);
+        expect(dark.tone("neutral").text).toBe(dark.ink);
+    });
+
+    test("overriding one colour of a tone keeps the other two", () => {
+        const t = theme(mkCtx(), null, { tones: { accent: { fill: "#123456" } } });
+        expect(t.tone("accent").fill).toBe("#123456");
+        expect(t.tone("accent").stroke).toBe(theme(mkCtx(), null, {}).tone("accent").stroke);
+    });
+
+    test("a new tone can be declared, not just patched", () => {
+        const t = theme(mkCtx(), null, { tones: { brand: { fill: "#fff0f0", stroke: "#ffd0d0", text: "#330000" } } });
+        expect(t.tone("brand").text).toBe("#330000");
+        expect(t.toneNames).toContain("brand");
+    });
+
+    test("text colours override without restating the tones", () => {
+        const t = theme(mkCtx(), null, { colors: { ink: "#000000" } });
+        expect(t.ink).toBe("#000000");
+        expect(t.note).toBe(theme(mkCtx(), null, {}).note);
+    });
+
+    test("an unknown tone lists the ones that exist", () => {
+        expect(() => theme(mkCtx(), null, {}).tone("nope")).toThrow(/have: accent/);
+    });
+
+    test("every tone keeps its text distinct from its fill, or a card is unreadable", () => {
+        for (const name of ["paper", "slate", "warm"] as const) {
+            const t = theme(mkCtx(), null, { name });
+            for (const tone of t.toneNames) {
+                expect(t.tone(tone).text).not.toBe(t.tone(tone).fill);
+            }
+        }
     });
 });

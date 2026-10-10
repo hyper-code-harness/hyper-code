@@ -28,5 +28,9 @@ describe("agent reasoning effort", () => {
         expect(html).toContain('value="high"');
         expect(html).not.toContain('value="xhigh"');
         expect(html).toContain(`/agent/${agent.id}/effort`);
+        const auto = /<form[^>]*><input[^>]*value="auto"[^>]*>([\s\S]*?)<\/form>/.exec(html)?.[1] ?? "";
+        expect(auto).toContain('aria-current="true"');
+        expect(auto).toContain("ui-button--active");
+        expect(auto).not.toContain("disabled");
     });
 });

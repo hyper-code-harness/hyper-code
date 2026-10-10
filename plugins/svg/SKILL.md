@@ -85,6 +85,9 @@ return <svg viewBox="0 0 400 180" fontFamily="Inter, system-ui, sans-serif">
 ```
 ````
 
+- **`svg.grid({ cols, rows, width, height, gap?, areas? })`** → `{ cell, area, areas, colSizes, rowSizes }`. A CSS grid for a drawing, and the best way to think about a wireframe. Tracks are pixels, `"1fr"`, `"auto"` or `"25%"`; `cell({ col, row, colSpan, pad })` and `area("header")` return boxes with `cx/right/bottom`. Named `areas` describe a whole screen in one string per row — `["status", "header", "feed", "composer"]` — and a grid nests inside a cell of another one, which is how a phone screen sits inside a page.
+- **`svg.anchor({ of, at, place?, gap?, size? })`** → `{ x, y, box }`. "Under the left edge of that box, 8px down", as a call rather than four lines of arithmetic: `at` names one of the nine points of a box, `place` pushes away from it (`above`/`below`/`left-of`/`right-of`), `inside` turns the gap into padding. With `size` you get a whole box placed there, so a badge or a caption attaches and stays correct when the source moves.
+
 ## Write your own vocabulary first
 
 The single biggest speed-up is not a plugin function: it is the three or four local helpers at the top of the fence. A drawing written as raw elements repeats the same offsets in every branch, and the repetition is where the mistakes live. Name the repeated shape once and the rest of the drawing reads as content.
@@ -115,6 +118,19 @@ return <svg viewBox={`0 0 200 ${col.height + 60}`} fontFamily="Inter, system-ui,
 ````
 
 A local function beats a CSS class here, and the reason is worth remembering: a class can only set colours, while `card(b, title, subtitle, tone)` carries the geometry, the text and the colours together — the part that actually takes time. `<style>` is removed anyway (see below), so this is the only vocabulary available.
+
+**Reach for `svg.grid` before coordinates.** A wireframe is a grid; written as tracks it edits like one. Change `rows: [18, 44, "1fr", 46, 20]` to `[18, 52, "1fr", 46, 20]` and the header grows while everything below slides down on its own — no other number in the drawing moves.
+
+````markdown
+```svg tsx
+const screen = ctx.fns.svg.grid({
+  cols: ["1fr"], rows: [18, 44, "1fr", 46, 20],
+  x: 20, y: 20, width: 250, height: 520,
+  areas: ["status", "header", "feed", "composer", "home"],
+});
+const header = screen.area("header"), feed = screen.area("feed");
+```
+````
 
 Three habits that make a drawing survive editing:
 

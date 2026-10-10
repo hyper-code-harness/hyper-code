@@ -8,6 +8,8 @@ import label from "./label";
 import layout from "./layout";
 import bbox from "./bbox";
 import connect from "./connect";
+import grid from "./grid";
+import anchor from "./anchor";
 import fence from "./$fence_svg";
 import { hint } from "./$fence_svg";
 
@@ -26,6 +28,8 @@ const mkCtx = (settings: Record<string, unknown> = {}) => {
             layout: (o: any) => layout(ctx, null, o),
             bbox: (o: any) => bbox(ctx, null, o),
             connect: (o: any) => connect(ctx, null, o),
+            grid: (o: any) => grid(ctx, null, o),
+            anchor: (o: any) => anchor(ctx, null, o),
         },
         settings: { get: async (o: any) => settings[o.key] },
         procs: { db: { select: async () => [{ k: "a", n: 2 }, { k: "b", n: 1 }] } },
@@ -352,5 +356,102 @@ describe("svg.bbox and path commands", () => {
         const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 100 100"><path d="M 10 10 V 40 H 60 L 20 20"/></svg>' });
         expect(r.content).toMatchObject({ minX: 10, minY: 10, maxX: 60, maxY: 40 });
         expect(r.fits).toBe(true);
+    });
+});
+
+describe("svg.grid", () => {
+    test("fr tracks split what fixed tracks leave", () => {
+        const g = grid(mkCtx(), null, { cols: [40, "1fr", "2fr"], rows: ["1fr"], width: 340, height: 100, gap: 0 });
+        expect(g.colSizes).toEqual([40, 100, 200]);
+    });
+
+    test("gaps come out of the free space, not out of the region", () => {
+        const g = grid(mkCtx(), null, { cols: ["1fr", "1fr"], rows: ["1fr"], width: 100, height: 10, gap: 20 });
+        expect(g.colSizes).toEqual([40, 40]);
+        expect(g.cell({ col: 1 }).x).toBe(60);
+    });
+
+    test("a span swallows the gap inside it, the way CSS grid does", () => {
+        const g = grid(mkCtx(), null, { cols: ["1fr", "1fr", "1fr"], rows: ["1fr"], width: 100 + 2 * 10, height: 10, gap: 10 });
+        const two = g.cell({ col: 0, colSpan: 2 });
+        expect(two.w).toBe(100 / 3 * 2 + 10);
+    });
+
+    test("percentages and auto resolve against the same free space", () => {
+        const g = grid(mkCtx(), null, { cols: ["25%", "auto", "auto"], rows: ["1fr"], width: 200, height: 10 });
+        expect(g.colSizes[0]).toBe(50);
+        expect(g.colSizes[1]).toBe(75);
+    });
+
+    test("pad insets a cell on every side, which is a card's margin", () => {
+        const g = grid(mkCtx(), null, { cols: ["1fr"], rows: ["1fr"], width: 100, height: 100 });
+        const c = g.cell({ pad: 10 });
+        expect([c.x, c.y, c.w, c.h]).toEqual([10, 10, 80, 80]);
+    });
+
+    test("a named area is the bounding box of every cell that carries the name", () => {
+        const g = grid(mkCtx(), null, {
+            cols: ["1fr", "1fr", "1fr"], rows: [20, 60],
+            width: 300, height: 80,
+            areas: ["head head head", "nav main main"],
+        });
+        expect(g.area("head")).toMatchObject({ x: 0, y: 0, w: 300, h: 20 });
+        expect(g.area("main")).toMatchObject({ x: 100, y: 20, w: 200, h: 60 });
+        expect(g.area("nav").w).toBe(100);
+    });
+
+    test("an unknown area is an error, not a silent box at the origin", () => {
+        const g = grid(mkCtx(), null, { cols: ["1fr"], rows: ["1fr"], width: 10, height: 10, areas: ["a"] });
+        expect(() => g.area("b")).toThrow(/no grid area/);
+    });
+
+    test("a cell out of range is clamped instead of landing outside the region", () => {
+        const g = grid(mkCtx(), null, { cols: ["1fr", "1fr"], rows: ["1fr"], width: 100, height: 10 });
+        expect(g.cell({ col: 9 }).right).toBeLessThanOrEqual(100);
+        expect(g.cell({ col: 0, colSpan: 99 }).right).toBe(100);
+    });
+
+    test("a grid nests inside a cell of another one", () => {
+        const outer = grid(mkCtx(), null, { cols: ["1fr", "1fr"], rows: ["1fr"], width: 200, height: 100 });
+        const right = outer.cell({ col: 1 });
+        const inner = grid(mkCtx(), null, { cols: ["1fr"], rows: ["1fr", "1fr"], x: right.x, y: right.y, width: right.w, height: right.h });
+        expect(inner.cell({ row: 1 }).y).toBe(50);
+        expect(inner.cell({ row: 1 }).x).toBe(100);
+    });
+});
+
+describe("svg.anchor", () => {
+    const card = { x: 100, y: 100, w: 80, h: 40 };
+
+    test("a named point is the point of the box it names", () => {
+        expect(anchor(mkCtx(), null, { of: card, at: "bottom-left" })).toMatchObject({ x: 100, y: 140 });
+        expect(anchor(mkCtx(), null, { of: card, at: "center" })).toMatchObject({ x: 140, y: 120 });
+    });
+
+    test("below pushes down by the gap, above pushes up", () => {
+        expect(anchor(mkCtx(), null, { of: card, at: "bottom-left", place: "below", gap: 8 }).y).toBe(148);
+        expect(anchor(mkCtx(), null, { of: card, at: "top", place: "above", gap: 8 }).y).toBe(92);
+    });
+
+    test("inside turns the gap into padding towards the middle", () => {
+        const p = anchor(mkCtx(), null, { of: card, at: "top-left", place: "inside", gap: 6 });
+        expect(p).toMatchObject({ x: 106, y: 106 });
+    });
+
+    test("a sized box is placed beside the source and never covers it", () => {
+        const b = anchor(mkCtx(), null, { of: card, at: "right", place: "right-of", gap: 12, size: { w: 50, h: 20 }, align: "center" }).box!;
+        expect(b.x).toBe(192);
+        expect(b.cy).toBe(120);
+        expect(b.x).toBeGreaterThanOrEqual(card.x + card.w);
+    });
+
+    test("a box placed below starts at the edge and spans downwards", () => {
+        const b = anchor(mkCtx(), null, { of: card, at: "bottom-left", place: "below", gap: 4, size: { w: 80, h: 16 } }).box!;
+        expect(b.y).toBe(144);
+        expect(b.bottom).toBe(160);
+    });
+
+    test("without a size there is no box, only the point", () => {
+        expect(anchor(mkCtx(), null, { of: card, at: "top" }).box).toBeNull();
     });
 });

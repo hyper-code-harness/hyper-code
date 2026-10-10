@@ -10,6 +10,7 @@ import bbox from "./bbox";
 import connect from "./connect";
 import grid from "./grid";
 import anchor from "./anchor";
+import icon from "./icon";
 import fence from "./$fence_svg";
 import { hint } from "./$fence_svg";
 
@@ -30,6 +31,7 @@ const mkCtx = (settings: Record<string, unknown> = {}) => {
             connect: (o: any) => connect(ctx, null, o),
             grid: (o: any) => grid(ctx, null, o),
             anchor: (o: any) => anchor(ctx, null, o),
+            icon: (o: any) => icon(ctx, null, o),
         },
         settings: { get: async (o: any) => settings[o.key] },
         procs: { db: { select: async () => [{ k: "a", n: 2 }, { k: "b", n: 1 }] } },
@@ -453,5 +455,83 @@ describe("svg.anchor", () => {
 
     test("without a size there is no box, only the point", () => {
         expect(anchor(mkCtx(), null, { of: card, at: "top" }).box).toBeNull();
+    });
+});
+
+describe("svg.icon", () => {
+    // A ctx whose db already holds the icon, so the test never touches the network.
+    const iconCtx = (rows: any[] = [{ body: '<path fill="currentColor" d="M1 1"/>', width: 256, height: 256 }]) => {
+        const ctx: any = { state: {} };
+        ctx.queries = [];
+        ctx.fns = {
+            svg: { element: (o: any) => element(ctx, null, o), icon: (o: any) => icon(ctx, null, o) },
+            procs: { db: { select: async (o: any) => (ctx.queries.push(o), rows), run: async (o: any) => ctx.queries.push(o) } },
+        };
+        return ctx as Context;
+    };
+
+    test("a cached icon is scaled from its own grid to the asked size", async () => {
+        const r = await icon(iconCtx(), null, { name: "paperclip", size: 16, x: 10, y: 20 });
+        // 256-unit grid drawn at 16px is a scale of 1/16.
+        expect(r.node.markup).toContain('transform="translate(10 20) scale(0.0625)"');
+        expect(r.box).toMatchObject({ x: 10, y: 20, w: 16, h: 16, cx: 18 });
+    });
+
+    test("colour is set through `color`, or currentColor stays black", async () => {
+        const r = await icon(iconCtx(), null, { name: "paperclip", color: "#888" });
+        expect(r.node.markup).toContain('color="#888"');
+    });
+
+    test("the body is inlined as markup, not escaped into visible text", async () => {
+        const r = await icon(iconCtx(), null, { name: "paperclip" });
+        expect(r.node.markup).toContain("<path");
+        expect(r.node.markup).not.toContain("&lt;path");
+    });
+
+    test("a prefixed name carries its own set, like everywhere else in Iconify", async () => {
+        const ctx = iconCtx();
+        await icon(ctx, null, { name: "tabler:database" });
+        expect((ctx as any).queries[0].params).toEqual(["tabler", "database"]);
+    });
+
+    test("an empty name is an error rather than an empty drawing", async () => {
+        await expect(icon(iconCtx(), null, { name: "  " })).rejects.toThrow(/needs a name/);
+    });
+
+    test("a missing icon says which set it looked in", async () => {
+        const ctx: any = { state: {} };
+        ctx.fns = {
+            svg: { element: (o: any) => element(ctx, null, o) },
+            procs: { db: { select: async () => [], run: async () => {} } },
+        };
+        const original = globalThis.fetch;
+        globalThis.fetch = (async () => new Response(JSON.stringify({ icons: {} }), { status: 200 })) as any;
+        try {
+            await expect(icon(ctx as Context, null, { name: "nope", set: "ph" })).rejects.toThrow(/no icon "nope" in set "ph"/);
+        } finally { globalThis.fetch = original; }
+    });
+});
+
+describe("svg.bbox and transforms", () => {
+    test("a translated group is measured where it lands, not where it was written", () => {
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 200 200"><g transform="translate(100 50)"><rect x="0" y="0" width="20" height="20"/></g></svg>' });
+        expect(r.content).toMatchObject({ minX: 100, minY: 50, maxX: 120, maxY: 70 });
+    });
+
+    test("a scaled icon body is measured at its drawn size, not its own grid", () => {
+        // 256-unit icon drawn at 16px, the exact case that reported a false overflow.
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 100 100"><g transform="translate(10 10) scale(0.0625)"><path d="M 0 0 L 256 256"/></g></svg>' });
+        expect(r.content).toMatchObject({ minX: 10, minY: 10, maxX: 26, maxY: 26 });
+        expect(r.fits).toBe(true);
+    });
+
+    test("a transform stops applying after its group closes", () => {
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 200 200"><g transform="translate(100 100)"><rect x="0" y="0" width="10" height="10"/></g><rect x="0" y="0" width="5" height="5"/></svg>' });
+        expect(r.content).toMatchObject({ minX: 0, minY: 0, maxX: 110 });
+    });
+
+    test("nested transforms compose", () => {
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 400 400"><g transform="translate(100 0)"><g transform="translate(50 20)"><rect x="0" y="0" width="10" height="10"/></g></g></svg>' });
+        expect(r.content).toMatchObject({ minX: 150, minY: 20 });
     });
 });

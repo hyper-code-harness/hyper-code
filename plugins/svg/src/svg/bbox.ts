@@ -82,25 +82,75 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const pad = Number(opts.padding ?? 8);
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const add = (x: number, y: number) => {
-        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
+    const body = svg.slice(svg.indexOf(">") + 1);
+    // A <g transform="translate(x y) scale(s)"> moves everything inside it, and
+    // ignoring that is how an icon placed at the right edge was reported at the
+    // origin — a loud overflow that was not real. Only translate and scale are
+    // followed (rotate and matrix are left alone, and a rotated group is still
+    // measured where its own coordinates say), because those two are what
+    // placement actually uses.
+    const stack: Array<{ tx: number; ty: number; sx: number; sy: number; depth: number }> = [];
+    let depth = 0;
+    const mapped = (x: number, y: number): [number, number] => {
+        let px = x, py = y;
+        for (let i = stack.length - 1; i >= 0; i--) {
+            const t = stack[i]!;
+            px = px * t.sx + t.tx;
+            py = py * t.sy + t.ty;
+        }
+        return [px, py];
+    };
+    const parseTransform = (attrs: string) => {
+        const value = /\btransform\s*=\s*"([^"]*)"/.exec(attrs)?.[1];
+        if (!value) return null;
+        let tx = 0, ty = 0, sx = 1, sy = 1, seen = false;
+        for (const [, name, args] of value.matchAll(/(translate|scale)\s*\(([^)]*)\)/g)) {
+            const n = (args!.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).map(Number);
+            if (name === "translate") { tx += n[0] ?? 0; ty += n[1] ?? 0; seen = true; }
+            else { sx *= n[0] ?? 1; sy *= n[1] ?? n[0] ?? 1; seen = true; }
+        }
+        return seen ? { tx, ty, sx, sy } : null;
     };
 
-    const body = svg.slice(svg.indexOf(">") + 1);
+    const add = (x: number, y: number) => {
+        const [px, py] = mapped(x, y);
+        if (!Number.isFinite(px) || !Number.isFinite(py)) return;
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px > maxX) maxX = px;
+        if (py > maxY) maxY = py;
+    };
+
     // A <tspan> carries almost nothing of its own: size and anchor come from the
     // enclosing <text>, and a wrapped line gives only `dy`, an offset from the
     // previous baseline. So the open <text> is remembered and its baseline walks
     // down line by line — without this every wrapped label is measured at y=0,
     // which reads as a huge overflow off the top of the drawing.
     let open: { size: number; anchor?: string; y: number } | null = null;
-    for (const match of body.matchAll(/<([a-zA-Z]+)\b([^>]*)>([^<]*)/g)) {
-        const tag = match[1]!.toLowerCase();
-        const attrs = match[2]!;
-        const text = match[3] ?? "";
+    for (const match of body.matchAll(/<(\/?)([a-zA-Z]+)\b([^>]*)>([^<]*)/g)) {
+        const closing = match[1] === "/";
+        const tag = match[2]!.toLowerCase();
+        const attrs = match[3]!;
+        const text = match[4] ?? "";
+        if (closing) {
+            depth--;
+            while (stack.length && stack[stack.length - 1]!.depth > depth) stack.pop();
+            continue;
+        }
+        const selfClosing = /\/\s*$/.test(attrs);
+        const transform = parseTransform(attrs);
+        if (!selfClosing) {
+            // Recorded at the depth of the group's CONTENT, not of the group
+            // itself: the closing tag decrements first, so a transform stored
+            // at the outer depth would survive its own </g> and shift every
+            // sibling after it.
+            if (transform) stack.push({ ...transform, depth: depth + 1 });
+            depth++;
+        }
+        // A self-closing element with a transform still moves itself.
+        const local = selfClosing && transform ? { ...transform, depth } : null;
+        if (local) stack.push(local);
+        const pop = () => { if (local) stack.pop(); };
         const num = (name: string) => {
             const m = new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`).exec(attrs);
             return m ? Number.parseFloat(m[1]!) : NaN;
@@ -132,6 +182,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
                 add(left + w, y + size * 0.25);
             }
         }
+        pop();
     }
 
     const content = Number.isFinite(minX)

@@ -134,6 +134,8 @@ const header = screen.area("header"), feed = screen.area("feed");
 ```
 ````
 
+**`measureText` is an estimate; `exact: true` makes it true.** Widths come from Helvetica metrics, and anything outside ASCII — every Cyrillic label — is approximated at 0.55em per character. Passing `exact: true` to `svg.label` emits `textLength` on each line, which tells the renderer to draw it at exactly the width we computed. The estimate stops being a guess about the drawing and becomes a property of it, so a label cannot overrun the box it was measured into whatever font the reader has. `svg.fitText` does this by default, since otherwise its `fits` would only hold for the font we guessed with.
+
 **Call `svg.bbox` before showing a drawing, every time.** It catches real mistakes, and a preview tool will not: `qlmanage` and friends crop to their own square and report an overflow that is not there. Trust `bbox`, not the thumbnail.
 
 Three habits that make a drawing survive editing:

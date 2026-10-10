@@ -40,6 +40,7 @@ const ELLIPSIS = "…";
  * @param opts.weight Font weight. @default 400
  * @param opts.lineHeight Line spacing as a multiple of the font size. @default 1.3
  * @param opts.font Font family for the text element. @default "Inter, system-ui, sans-serif"
+ * @param opts.exact Pin every line to its measured width with textLength, so the drawn text cannot exceed the box. @default true
  * @returns The node, the size and lines it settled on, whether it fits and the overflow in pixels.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
@@ -69,6 +70,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     lineHeight?: number;
     /** Font family for the text element. @default "Inter, system-ui, sans-serif" */
     font?: string;
+    /** Pin every line to its measured width with textLength, so the drawn text cannot exceed the box. @default true */
+    exact?: boolean;
 }): { node: types.svg.Node; size: number; lines: string[]; fits: boolean; overflowBy: { x: number; y: number }; box: { x: number; y: number; w: number; h: number } } {
     const text = String(opts.text ?? "");
     const pad = Number(opts.pad ?? 0);
@@ -162,6 +165,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
         font: opts.font,
         lineHeight,
         anchor: opts.align === "center" ? "middle" : opts.align === "end" ? "end" : "start",
+        // On by default here, unlike in label: the whole point of fitText is
+        // that `fits` is true, and without textLength that promise holds only
+        // for the font we guessed with.
+        exact: opts.exact !== false,
     }).node;
 
     return {

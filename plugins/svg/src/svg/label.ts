@@ -25,6 +25,7 @@
  * @param opts.lineHeight Line spacing as a multiple of the font size. @default 1.3
  * @param opts.font Font family for the text element. @default "Inter, system-ui, sans-serif"
  * @param opts.opacity Opacity of the whole label, 0 to 1. @maximum 1
+ * @param opts.exact Pin each line to its measured width with textLength, so the drawn text cannot disagree with the estimate. @default false
  * @returns The text node and the box it occupies, so neighbours can be placed around it.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
@@ -50,6 +51,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     font?: string;
     /** Opacity of the whole label, 0 to 1. @maximum 1 */
     opacity?: number;
+    /** Pin each line to its measured width with textLength, so the drawn text cannot disagree with the estimate. @default false */
+    exact?: boolean;
 }): { node: types.svg.Node; lines: string[]; width: number; height: number } {
     const size = Number(opts.size ?? 12);
     const weight = Number(opts.weight ?? 400);
@@ -71,11 +74,25 @@ export default function (ctx: Context, _session: Session | null, opts: {
     }
 
     const width = Math.max(0, ...lines.map(measure));
+    // measureText is an estimate — Helvetica metrics standing in for whatever
+    // font the reader has, and a flat 0.55em for anything outside ASCII, which
+    // is every Cyrillic label. `exact` closes that gap from the other side:
+    // textLength tells the renderer the width we computed and it adjusts letter
+    // spacing to match, so the estimate stops being a guess about the drawing
+    // and becomes a fact of it. A label can no longer overrun the box it was
+    // measured into, whatever font is installed.
     const children = lines.map((line, i) => ctx.fns.svg.element({
         tag: "tspan",
         // x must be repeated on every tspan, otherwise lines after the first
         // continue where the previous one ended instead of starting over.
-        props: { x: opts.x, dy: i === 0 ? 0 : step },
+        props: {
+            x: opts.x,
+            dy: i === 0 ? 0 : step,
+            // Per line, not per label: one textLength on the <text> would
+            // stretch every line to the width of the longest.
+            textLength: opts.exact && line ? Math.round(measure(line) * 100) / 100 : null,
+            lengthAdjust: opts.exact && line ? "spacing" : null,
+        },
         children: [line],
     }));
 

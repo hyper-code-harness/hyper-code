@@ -660,3 +660,42 @@ describe("svg.debug", () => {
         expect(r.node.markup).not.toContain("<text");
     });
 });
+
+describe("svg.label exact width", () => {
+    test("exact pins each line to its measured width", () => {
+        const r = label(mkCtx(), null, { text: "Сообщение агенту", x: 10, y: 20, size: 12, exact: true });
+        expect(r.node.markup).toMatch(/textLength="[\d.]+"/);
+        expect(r.node.markup).toContain('lengthAdjust="spacing"');
+    });
+
+    test("every wrapped line gets its own length, not the longest one", () => {
+        const r = label(mkCtx(), null, { text: "длинная строка которая переносится", x: 0, y: 12, size: 10, maxWidth: 90, exact: true });
+        const lengths = [...r.node.markup.matchAll(/textLength="([\d.]+)"/g)].map(m => Number(m[1]));
+        expect(lengths.length).toBe(r.lines.length);
+        expect(new Set(lengths).size).toBeGreaterThan(1);
+    });
+
+    test("without exact the markup stays as it was", () => {
+        const r = label(mkCtx(), null, { text: "plain", x: 0, y: 10 });
+        expect(r.node.markup).not.toContain("textLength");
+    });
+
+    test("a pinned width survives sanitizing, or the promise is void", () => {
+        const r = label(mkCtx(), null, { text: "Проверка", x: 0, y: 10, exact: true });
+        const clean = sanitize(mkCtx(), null, { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20">${r.node.markup}</svg>` });
+        expect(clean.svg).toContain("textLength");
+        expect(clean.removed).toEqual([]);
+    });
+
+    test("bbox trusts a pinned width instead of re-estimating it", () => {
+        // A deliberately wrong textLength: bbox must report what will be drawn.
+        const r = bbox(mkCtx(), null, { svg: '<svg viewBox="0 0 400 40"><text x="0" y="20" font-size="12" textLength="300">short</text></svg>' });
+        expect(r.content!.maxX).toBe(300);
+    });
+
+    test("fitText pins by default, so `fits` holds in any font", () => {
+        const r = fitText(mkCtx(), null, { text: "Длинная подпись карточки", box: { x: 0, y: 0, w: 120, h: 40 }, size: 11 });
+        expect(r.node.markup).toContain("textLength");
+        expect(r.fits).toBe(true);
+    });
+});

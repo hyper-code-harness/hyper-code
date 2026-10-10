@@ -175,7 +175,11 @@ export default function (ctx: Context, _session: Session | null, opts: {
             const content = text.trim();
             if (content) {
                 const x = num("x") || 0;
-                const w = ctx.fns.svg.measureText({ text: content, size }).width;
+                // An explicit textLength is not an estimate — the renderer is
+                // being told to make the line exactly that wide, so measuring
+                // it again would only reintroduce the guess.
+                const pinned = num("textLength");
+                const w = Number.isFinite(pinned) ? pinned : ctx.fns.svg.measureText({ text: content, size }).width;
                 const left = anchor === "end" ? x - w : anchor === "middle" ? x - w / 2 : x;
                 // y is the baseline: ascent above it, descent below.
                 add(left, y - size * 0.8);

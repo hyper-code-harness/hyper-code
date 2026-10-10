@@ -1,6 +1,8 @@
-// The JSX factory. `svg.tsx` transpiles a fence with `jsxFactory: "h"` and binds
-// `h` to this function, so <rect x={10}/> becomes markup instead of a React
-// element — there is no virtual DOM here and nothing to reconcile.
+// The JSX factory. `svg.tsx` transpiles a fence with `jsxFactory: "__svgElement"`
+// and binds that name to this function, so <rect x={10}/> becomes markup instead
+// of a React element — there is no virtual DOM here and nothing to reconcile.
+// The name is deliberately ugly: `h` is what anyone drawing calls a height, and
+// a shadowed factory fails with "h is not a function" halfway through.
 //
 // Three rules do all the work of making JSX feel right in SVG:
 //   * camelCase attributes become hyphenated (fontSize → font-size), EXCEPT the
@@ -54,7 +56,7 @@ function styleValue(value: Record<string, unknown>): string {
  * Builds one SVG element as markup; the JSX factory behind ```svg tsx fences.
  *
  * Call it to assemble a drawing from code without JSX syntax, or let svg.tsx
- * bind it as `h`. Attribute names are translated from JSX spelling to SVG
+ * bind it as the JSX factory. Attribute names are translated from JSX spelling to SVG
  * spelling (fontSize → font-size, viewBox kept as is, className → class, a
  * `style` object serialized); null, false and undefined attributes and children
  * are dropped; text children are escaped while nested elements are not.

@@ -546,6 +546,7 @@ private func linkifiedMarkdown(_ source: String) -> String {
 private struct AgentCanvasWebView: View {
     let baseURL: URL
     let agentID: String
+    let event: WebViewEvent?
     @Binding var command: WebNavigationCommand?
     @Binding var isLoading: Bool
     @Binding var canGoBack: Bool
@@ -556,13 +557,14 @@ private struct AgentCanvasWebView: View {
     }
 
     var body: some View {
-        HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+        HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, event: event, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
     }
 }
 
 private struct AgentCanvasSurface: View {
     let baseURL: URL
     let agentID: String
+    @StateObject private var events = CanvasEventBridge()
     @State private var isLoading = true
     @State private var canGoBack = false
     @State private var canGoForward = false
@@ -570,12 +572,14 @@ private struct AgentCanvasSurface: View {
 
     var body: some View {
         ZStack {
-            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, event: events.event, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
             if isLoading {
                 ProgressView().padding(12).background(.ultraThinMaterial, in: Circle())
             }
         }
         .background(Color(.systemBackground))
+        .task { events.start(baseURL: baseURL, agentID: agentID) }
+        .onDisappear { events.stop() }
     }
 }
 
@@ -584,6 +588,7 @@ private struct AgentCanvasView: View {
     let baseURL: URL
     let agentID: String
     let title: String
+    @StateObject private var events = CanvasEventBridge()
     @Environment(\.dismiss) private var dismiss
     @State private var isLoading = true
     @State private var canGoBack = false
@@ -593,7 +598,7 @@ private struct AgentCanvasView: View {
 
     var body: some View {
         NavigationStack {
-            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, event: events.event, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
                 .navigationTitle("Canvas · \(title)")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -607,6 +612,8 @@ private struct AgentCanvasView: View {
                     }
                 }
         }
+        .task { events.start(baseURL: baseURL, agentID: agentID) }
+        .onDisappear { events.stop() }
     }
 }
 

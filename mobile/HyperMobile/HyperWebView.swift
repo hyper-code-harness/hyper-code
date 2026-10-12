@@ -10,10 +10,18 @@ struct WebNavigationCommand: Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
 }
 
+struct WebViewEvent: Equatable {
+    let id = UUID()
+    let payload: [String: String]
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+}
+
 struct HyperWebView: UIViewRepresentable {
     let urlString: String
     var authenticatedBaseURL: URL? = nil
     let command: WebNavigationCommand?
+    var event: WebViewEvent? = nil
     @Binding var isLoading: Bool
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
@@ -49,7 +57,14 @@ struct HyperWebView: UIViewRepresentable {
             case .reload: webView.reload()
             }
         }
+        if let event { context.coordinator.dispatch(event, in: webView) }
     }
+
+    private static func javaScriptJSON(_ value: [String: String]) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: value)) ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.stopLoading()
@@ -62,6 +77,7 @@ struct HyperWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         var requestedURL = ""
         var lastCommand: UUID?
+        var lastEvent: UUID?
         var authenticatedBaseURL: URL?
 
         init(parent: HyperWebView) { self.parent = parent }
@@ -124,6 +140,14 @@ struct HyperWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             update(loading: false, webView: webView)
+            if let event = parent.event { dispatch(event, in: webView, force: true) }
+        }
+
+        func dispatch(_ event: WebViewEvent, in webView: WKWebView, force: Bool = false) {
+            if !force && lastEvent == event.id { return }
+            lastEvent = event.id
+            let json = HyperWebView.javaScriptJSON(event.payload)
+            webView.evaluateJavaScript("document.dispatchEvent(new CustomEvent('hyper-events',{detail:\(json)}))")
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

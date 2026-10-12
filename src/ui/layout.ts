@@ -123,6 +123,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 [data-page="agent"][data-canvas-open][data-canvas-meta-open] > .agent-meta-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; width: 20rem !important; }
 [data-page="agent"][data-canvas-open] { position: relative; }
 [data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
+[data-page="agent"].canvas-resizing iframe { pointer-events: none; }
 /* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */
 @media (max-width: 1023px) {
   [data-page="agent"][data-canvas-open] > .canvas-panel { position: absolute; inset: 0; z-index: 45; margin: .5rem; }

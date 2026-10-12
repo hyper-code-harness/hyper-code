@@ -185,20 +185,32 @@
         event.preventDefault();
         const chat = document.getElementById('chat-panel');
         const right = chat.getBoundingClientRect().right;
-        handle.setPointerCapture(event.pointerId);
+        try { handle.setPointerCapture(event.pointerId); } catch {}
         root.classList.add('canvas-resizing');
         let width = 0;
-        const move = e => { width = clampWidth(root, right - e.clientX); root.style.setProperty('--chat-w', `${width}px`); };
+        // Listen on window, not the handle: the handle can be replaced by a re-render mid-drag, and an
+        // iframe under the cursor swallows events — either way pointerup was lost and the edge stuck to
+        // the cursor. A move with no button pressed also ends the drag.
+        const move = e => {
+            if (!(e.buttons & 1)) return up();
+            width = clampWidth(root, right - e.clientX);
+            root.style.setProperty('--chat-w', `${width}px`);
+        };
         const up = () => {
-            handle.removeEventListener('pointermove', move);
-            handle.removeEventListener('pointerup', up);
-            handle.removeEventListener('pointercancel', up);
+            window.removeEventListener('pointermove', move, true);
+            window.removeEventListener('pointerup', up, true);
+            window.removeEventListener('pointercancel', up, true);
+            window.removeEventListener('blur', up);
+            handle.removeEventListener('lostpointercapture', up);
             root.classList.remove('canvas-resizing');
             if (width) save(root, { chatWidth: width });
+            width = 0;
         };
-        handle.addEventListener('pointermove', move);
-        handle.addEventListener('pointerup', up);
-        handle.addEventListener('pointercancel', up);
+        window.addEventListener('pointermove', move, true);
+        window.addEventListener('pointerup', up, true);
+        window.addEventListener('pointercancel', up, true);
+        window.addEventListener('blur', up);
+        handle.addEventListener('lostpointercapture', up);
     });
     document.addEventListener('keydown', event => {
         const handle = event.target.closest?.('[data-canvas-resizer]');

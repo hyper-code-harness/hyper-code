@@ -15,5 +15,10 @@
 .gd-row{margin:5px 0;word-break:break-word}.gd-row summary{cursor:pointer}.gd-row ul{margin:4px 0 0 20px;padding:0;list-style:none;font-size:12.5px}.gd-row li.declined{text-decoration:line-through;opacity:.6}
 .gd-desc{white-space:pre-wrap;font-size:12.5px;margin-top:4px;padding:8px 10px;background:color-mix(in oklab,currentColor 4%,transparent);border-radius:6px;max-height:260px;overflow:auto}
 .gcal a{color:var(--accent)}
-.gd-acts{display:flex;gap:8px;margin-top:8px}.gd-acts a{border:1px solid var(--line);border-radius:6px;padding:4px 10px;text-decoration:none;font-size:12.5px;color:inherit}.gd-acts a.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.gd-ev{position:relative}.gd-body{padding-right:76px}
+.gd-acts{position:absolute;top:10px;right:10px;display:flex;gap:6px}.gd-acts a{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);color:inherit!important;text-decoration:none;font-size:16px;background:var(--color-base-100,#fff)}.gd-acts a:hover{background:color-mix(in oklab,currentColor 8%,transparent)}.gd-acts a.p{background:var(--accent);border-color:var(--accent);color:#fff!important}.gd-acts a.p:hover{filter:brightness(1.1)}
 .gd-empty{color:var(--soft);text-align:center;padding:40px}.gd-err{color:#c5221f;font-size:12px;margin-bottom:6px}
+.gd-allday{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:12px}.gd-allday>span{color:var(--soft);font-size:12px;margin-right:2px}
+.gd-chip{font-size:12px;padding:2px 9px;border-radius:12px;background:color-mix(in oklab,var(--c) 16%,transparent);border:1px solid color-mix(in oklab,var(--c) 45%,transparent);color:inherit!important;text-decoration:none;white-space:nowrap}.gd-chip small{color:var(--soft)}
+.gd-free{margin:-2px 0 8px 78px;padding:6px 12px;border:1px dashed var(--line);border-radius:8px;color:var(--soft);font-size:12.5px}.gd-free span{font-variant-numeric:tabular-nums;color:inherit;font-weight:500}
+.gd-now{position:relative;height:2px;background:#ea4335;margin:4px 0 12px 78px}.gd-now:before{content:"";position:absolute;left:-6px;top:-5px;width:12px;height:12px;border-radius:50%;background:#ea4335}.gd-now span{position:absolute;left:-74px;top:-8px;font-size:11px;font-weight:600;color:#ea4335;font-variant-numeric:tabular-nums}

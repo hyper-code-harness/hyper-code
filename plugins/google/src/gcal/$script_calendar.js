@@ -26,15 +26,34 @@
         const desc = text(e.description);
         const people = e.attendees || [];
         return '<article class="gd-ev' + state + '" style="--c:' + esc(e.color) + '">' +
-            '<div class="gd-time">' + (e.allDay ? 'весь день' : '<b>' + tm(s) + '</b><span>' + tm(en) + '</span><small>' + dur(en - s) + '</small>') + '</div>' +
+            '<div class="gd-time">' + (e.allDay ? 'весь день' : '<b>' + tm(s) + '</b><small title="до ' + tm(en) + '">' + dur(en - s) + '</small>') + '</div>' +
             '<div class="gd-body"><h2>' + esc(e.summary) + (state === ' now' ? ' <em>идёт сейчас</em>' : '') + '</h2>' +
             '<div class="gd-meta">' + esc(e.calendar) + (e.organizer ? ' · организатор ' + esc(e.organizer) : '') + (e.responseStatus ? ' · ' + esc(answer[e.responseStatus] || e.responseStatus) : '') + '</div>' +
-            (e.location ? '<div class="gd-row">📍 ' + (isUrl(e.location) ? '<a href="' + esc(e.location) + '" target="_blank" rel="noopener">' + esc(e.location.length > 70 ? e.location.slice(0, 70) + '…' : e.location) + '</a>' : esc(e.location)) + '</div>' : '') +
+            (e.location && !(e.meetLink && e.location.includes(e.meetLink)) ? '<div class="gd-row">📍 ' + (isUrl(e.location) ? '<a href="' + esc(e.location) + '" target="_blank" rel="noopener">' + esc(e.location.length > 70 ? e.location.slice(0, 70) + '…' : e.location) + '</a>' : esc(e.location)) + '</div>' : '') +
             (people.length ? '<details class="gd-row"><summary>👥 ' + people.length + ' участн. — ' + esc(people.slice(0, 4).map(a => a.name || a.email.split('@')[0]).join(', ')) + (people.length > 4 ? '…' : '') + '</summary><ul>' +
                 people.map(a => '<li class="' + esc(a.responseStatus) + '">' + (mark[a.responseStatus] || '') + ' ' + esc(a.name ? a.name + ' <' + a.email + '>' : a.email) + (a.organizer ? ' (орг.)' : '') + '</li>').join('') + '</ul></details>' : '') +
-            (desc ? '<details class="gd-row"' + (desc.length < 300 ? ' open' : '') + '><summary>📝 Описание</summary><div class="gd-desc">' + linkify(desc.slice(0, 4000)) + '</div></details>' : '') +
-            '<div class="gd-acts">' + (e.meetLink ? '<a class="p" href="' + esc(e.meetLink) + '" target="_blank" rel="noopener">Подключиться</a>' : '') +
-            (e.htmlLink ? '<a href="' + esc(e.htmlLink) + '" target="_blank" rel="noopener">Открыть в Google</a>' : '') + '</div></div></article>';
+            (desc ? '<div class="gd-desc">' + linkify(desc.slice(0, 4000)) + '</div>' : '') +
+            '</div><div class="gd-acts">' + (e.meetLink ? '<a class="p" href="' + esc(e.meetLink) + '" target="_blank" rel="noopener" title="Подключиться (' + esc(/zoom/i.test(e.meetLink) ? 'Zoom' : /teams/i.test(e.meetLink) ? 'Teams' : /webex/i.test(e.meetLink) ? 'Webex' : 'Google Meet') + ')" aria-label="Подключиться"><i class="ph ph-video-camera"></i></a>' : '') +
+            (e.htmlLink ? '<a href="' + esc(e.htmlLink) + '" target="_blank" rel="noopener" title="Открыть в Google Calendar" aria-label="Открыть в Google Calendar"><i class="ph ph-calendar-blank"></i></a>' : '') + '</div></article>';
+    }
+
+    // Meeting cards in order, with a "free" block wherever the time after the latest end so far and the
+    // next start is more than 30 minutes (overlapping meetings count as one busy stretch).
+    function withGaps(timed) {
+        let out = '', busyUntil = null;
+        // On today, a red "now" line sits before the first meeting that has not started yet.
+        const now = new Date(), isToday = ymd(cur) === ymd(today());
+        let nowDone = !isToday;
+        const nowLine = () => '<div class="gd-now"><span>' + tm(now) + '</span></div>';
+        for (const e of timed) {
+            const s = new Date(e.start);
+            if (!nowDone && s > now) { out += nowLine(); nowDone = true; }
+            if (busyUntil && s - busyUntil > 30 * 60000) out += '<div class="gd-free"><span>' + tm(busyUntil) + ' – ' + tm(s) + '</span> свободно · ' + dur(s - busyUntil) + '</div>';
+            out += card(e);
+            const en = new Date(e.end);
+            if (!busyUntil || en > busyUntil) busyUntil = en;
+        }
+        return out + (nowDone ? '' : nowLine());
     }
 
     function render() {
@@ -44,7 +63,12 @@
         const evs = data.events.filter(e => e.calendarPrimary || e.calendarOwn);
         const errs = (data.errors || []).map(e => '<div class="gd-err">' + esc(e.account + (e.calendar ? ' / ' + e.calendar : '') + ': ' + e.error) + '</div>').join('');
         const busy = evs.filter(e => !e.allDay).reduce((n, e) => n + (new Date(e.end) - new Date(e.start)), 0);
-        $('gc-main').innerHTML = errs + (evs.length ? '<div class="gd-sum">' + evs.length + ' событ. · занято ' + dur(busy) + '</div>' + evs.map(card).join('') : '<div class="gd-empty">Нет событий</div>');
+        // All-day events (days off, holidays, trips) are context, not meetings: one compact line of chips.
+        const allDay = evs.filter(e => e.allDay), timed = evs.filter(e => !e.allDay);
+        const chip = e => { const name = e.summary.replace(/\s*\(@[^)]*\)/, '').replace(/,?\s*\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}\s*$/, ''), last = addDays(parseYmd(e.end), -1);
+            return '<a class="gd-chip" style="--c:' + esc(e.color) + '" href="' + esc(e.htmlLink || '#') + '" target="_blank" rel="noopener" title="' + esc(e.summary + ' · ' + e.calendar) + '">' + esc(name) + (e.end && ymd(last) !== k ? ' <small>до ' + last.getDate() + '.' + pad(last.getMonth() + 1) + '</small>' : '') + '</a>'; };
+        const strip = allDay.length ? '<div class="gd-allday"><span>Весь день</span>' + allDay.map(chip).join('') + '</div>' : '';
+        $('gc-main').innerHTML = errs + (evs.length ? '<div class="gd-sum">' + timed.length + ' встреч · занято ' + dur(busy) + '</div>' + strip + withGaps(timed) : '<div class="gd-empty">Нет событий</div>');
     }
 
     async function load() {
@@ -72,5 +96,6 @@
         if (ev.key === 'ArrowRight') go(addDays(cur, 1)); else if (ev.key === 'ArrowLeft') go(addDays(cur, -1)); else if (ev.key === 't') go(today());
     });
     setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
+    setInterval(() => { if (!document.hidden && data && ymd(cur) === ymd(today())) render(); }, 60_000);
     load(); report();
 })();

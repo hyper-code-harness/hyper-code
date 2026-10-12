@@ -1,5 +1,8 @@
 // Merged multi-account, multi-calendar event feed for the calendar page and canvas tab.
 const EVENT_COLORS: Record<string, string> = { "1": "#7986cb", "2": "#33b679", "3": "#8e24aa", "4": "#e67c73", "5": "#f6bf26", "6": "#f4511e", "7": "#039be5", "8": "#616161", "9": "#3f51b5", "10": "#0b8043", "11": "#d50000" };
+// Zoom, Meet, Teams or Webex join links pasted into the location or description (no conferenceData).
+const VIDEO = /https?:\/\/[\w.-]*(zoom\.us|zoom\.com|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com)\/[^\s"'<>)\]]*/i;
+const videoLink = (text?: string) => text ? text.replace(/&amp;/g, "&").match(VIDEO)?.[0] : undefined;
 const calCache = new Map<string, { at: number; list: any[] }>();
 
 /**
@@ -51,7 +54,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                             color: (e.colorId && EVENT_COLORS[e.colorId]) || color,
                             summary: e.summary || "(без названия)", start: e.start?.dateTime || e.start?.date, end: e.end?.dateTime || e.end?.date,
                             allDay: !!e.start?.date, location: e.location, description: e.description, htmlLink: e.htmlLink,
-                            meetLink: e.hangoutLink || e.conferenceData?.entryPoints?.find((p: any) => p.entryPointType === "video")?.uri,
+                            meetLink: e.hangoutLink || e.conferenceData?.entryPoints?.find((p: any) => p.entryPointType === "video")?.uri || videoLink(e.location) || videoLink(e.description),
                             organizer: e.organizer?.displayName || e.organizer?.email, responseStatus: self?.responseStatus,
                             attendees: e.attendees?.map((a: any) => ({ email: a.email, name: a.displayName, responseStatus: a.responseStatus, ...(a.organizer ? { organizer: true } : {}) })),
                         });

@@ -17,6 +17,7 @@ struct CachedServerUIState: Codable {
     var selectedAgentID: String?
     var selectedFolder: String?
     var query = ""
+    var hiddenCanvasAgentIDs: Set<String> = []
     var updatedAt = Date()
 }
 
@@ -43,6 +44,15 @@ final class MobileStateCache {
     func server(_ profileID: String) -> CachedServerUIState { servers[profileID] ?? CachedServerUIState() }
     func chat(profileID: String, agentID: String) -> CachedChatState? { servers[profileID]?.chats[agentID] }
     func draft(profileID: String, agentID: String) -> String { servers[profileID]?.drafts[agentID] ?? "" }
+
+    func isCanvasHidden(profileID: String, agentID: String) -> Bool { servers[profileID]?.hiddenCanvasAgentIDs.contains(agentID) ?? false }
+
+    func updateCanvasHidden(_ hidden: Bool, profileID: String, agentID: String) {
+        mutate(profileID) { state in
+            if hidden { state.hiddenCanvasAgentIDs.insert(agentID) }
+            else { state.hiddenCanvasAgentIDs.remove(agentID) }
+        }
+    }
 
     func updateAgents(_ agents: [AgentSummary], profileID: String) {
         mutate(profileID) { $0.agents = agents }

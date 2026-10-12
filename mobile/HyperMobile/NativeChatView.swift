@@ -19,6 +19,7 @@ struct NativeChatView: View {
     let onNextUnread: (() -> Void)?
     let onShowChats: (() -> Void)?
     @StateObject private var store = ChatStore()
+    @StateObject private var canvasEvents = CanvasEventBridge()
     @State private var draft = ""
     @State private var composerResetID = UUID()
     @State private var attachments: [PendingAttachment] = []
@@ -37,7 +38,8 @@ struct NativeChatView: View {
     @State private var showingInjectEditor = false
     @State private var showingFiles = false
     @State private var showingCanvas = false
-    @State private var canvasVisible = true
+    @State private var canvasVisible = false
+    @State private var canvasDismissed = false
     @State private var injectText = ""
     @State private var injectEvery = 1
 
@@ -138,10 +140,16 @@ struct NativeChatView: View {
         .task {
             let resolvedProfileID = profileID ?? MobileStateCache.fallbackProfileID(for: baseURL)
             draft = MobileStateCache.shared.draft(profileID: resolvedProfileID, agentID: agent.id)
+            canvasDismissed = MobileStateCache.shared.isCanvasHidden(profileID: resolvedProfileID, agentID: agent.id)
             await store.start(baseURL: baseURL, agentID: agent.id, profileID: resolvedProfileID)
+            canvasEvents.start(baseURL: baseURL, agentID: agent.id)
         }
         .onChange(of: draft) { _, value in MobileStateCache.shared.updateDraft(value, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id) }
-        .onDisappear { MobileStateCache.shared.flush(); store.stopPolling(); onRead() }
+        .onDisappear { MobileStateCache.shared.flush(); store.stopPolling(); canvasEvents.stop(); onRead() }
+        .onChange(of: canvasEvents.tabs.isEmpty) { _, isEmpty in
+            if isEmpty { canvasVisible = false }
+            else if !canvasDismissed { canvasVisible = true }
+        }
         .sheet(item: $selectedToolGroup) { group in ToolListSheet(events: group.events) { event in selectedToolGroup = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { selectedTool = event } } }
         .sheet(item: $selectedTool) { event in ToolDetailSheet(baseURL: baseURL, agentID: agent.id, event: event) }
         .sheet(isPresented: $showingModelPicker) { ModelPickerSheet(baseURL: baseURL, agentID: agent.id, selection: $currentModel) }
@@ -164,9 +172,15 @@ struct NativeChatView: View {
                         .buttonStyle(.plain).frame(width: 34, height: 34)
                         .accessibilityLabel("Show chats")
                 }
-                Button { withAnimation(.snappy(duration: 0.2)) { canvasVisible = true } } label: { Image(systemName: "rectangle.split.2x1") }
-                    .buttonStyle(.plain).frame(width: 34, height: 34)
-                    .accessibilityLabel("Show Canvas")
+                if !canvasEvents.tabs.isEmpty {
+                    Button {
+                        canvasDismissed = false
+                        MobileStateCache.shared.updateCanvasHidden(false, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
+                        withAnimation(.snappy(duration: 0.2)) { canvasVisible = true }
+                    } label: { Image(systemName: "rectangle.split.2x1") }
+                        .buttonStyle(.plain).frame(width: 34, height: 34)
+                        .accessibilityLabel("Show Canvas")
+                }
             }
             Text(agent.title).font(.headline).lineLimit(1)
             AgentActivityStatus(running: store.isRunning)
@@ -192,11 +206,13 @@ struct NativeChatView: View {
     var body: some View {
         Group {
             if horizontalSizeClass == .regular {
-                if canvasVisible {
+                if canvasVisible && !canvasEvents.tabs.isEmpty {
                     GeometryReader { proxy in
                         let chatWidth = min(470, max(360, proxy.size.width * 0.38))
                         HStack(spacing: 0) {
-                            AgentCanvasSurface(baseURL: baseURL, agentID: agent.id, onShowChats: onShowChats) {
+                            AgentCanvasSurface(baseURL: baseURL, agentID: agent.id, events: canvasEvents, onShowChats: onShowChats) {
+                                canvasDismissed = true
+                                MobileStateCache.shared.updateCanvasHidden(true, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
                                 withAnimation(.snappy(duration: 0.2)) { canvasVisible = false }
                             }
                             .frame(width: max(0, proxy.size.width - chatWidth - 1))
@@ -230,7 +246,9 @@ struct NativeChatView: View {
                     Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
                     Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
                     Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
-                    Button { showingCanvas = true } label: { Label("Open Canvas", systemImage: "rectangle.split.2x1") }
+                    if !canvasEvents.tabs.isEmpty {
+                        Button { showingCanvas = true } label: { Label("Open Canvas", systemImage: "rectangle.split.2x1") }
+                    }
                     Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
                     Divider()
                     Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)
@@ -615,9 +633,9 @@ private struct AgentCanvasWebView: View {
 private struct AgentCanvasSurface: View {
     let baseURL: URL
     let agentID: String
+    @ObservedObject var events: CanvasEventBridge
     let onShowChats: (() -> Void)?
     let onClose: () -> Void
-    @StateObject private var events = CanvasEventBridge()
     @State private var isLoading = true
     @State private var canGoBack = false
     @State private var canGoForward = false
@@ -645,8 +663,6 @@ private struct AgentCanvasSurface: View {
             }
         }
         .background(Color(.systemBackground))
-        .task { events.start(baseURL: baseURL, agentID: agentID) }
-        .onDisappear { events.stop() }
     }
     private func canvasControl(_ systemName: String, label: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {

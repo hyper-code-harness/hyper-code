@@ -123,7 +123,6 @@ private struct NewsDetailView: View {
     let readChanged: (String) -> Void
     @State private var horizontalDrag: CGFloat = 0
     @State private var showingAgent = false
-    @State private var openedAgent: AgentSummary?
     private var item: NewsItem { items[index] }
 
     init(baseURL: URL, items: [NewsItem], initialID: String, likedChanged: @escaping (String, Bool) -> Void, readChanged: @escaping (String) -> Void = { _ in }) {
@@ -154,13 +153,7 @@ private struct NewsDetailView: View {
             .navigationTitle("\(index + 1) of \(items.count)")
             .navigationBarTitleDisplayMode(.inline)
             .task(id: item.id) { await markCurrentRead() }
-            .sheet(isPresented: $showingAgent) { NewsAgentSheet(baseURL: baseURL, item: item) { id in openAgent(id) } }
-            .fullScreenCover(item: $openedAgent) { agent in
-                NavigationStack {
-                    NativeChatView(agent: agent, baseURL: baseURL) { }
-                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { openedAgent = nil } } }
-                }
-            }
+            .sheet(isPresented: $showingAgent) { NewsAgentSheet(baseURL: baseURL, item: item) }
     }
 
     private func article(_ item: NewsItem) -> some View {
@@ -199,12 +192,6 @@ private struct NewsDetailView: View {
         }.joined(separator: "\n\n")
     }
 
-    private func openAgent(_ id: String) {
-        showingAgent = false
-        Task {
-            if let agent = try? await APIClient(baseURL: baseURL).agents().first(where: { $0.id == id }) { openedAgent = agent }
-        }
-    }
 
     private func turn(next: Bool) {
         guard next ? index + 1 < items.count : index > 0 else { withAnimation(.snappy) { horizontalDrag = 0 }; UINotificationFeedbackGenerator().notificationOccurred(.warning); return }
@@ -229,11 +216,9 @@ private struct NewsDetailView: View {
 private struct NewsAgentSheet: View {
     let baseURL: URL
     let item: NewsItem
-    let started: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var prompt = "Краткий пересказ"
     @State private var starting = false
-    @State private var createdID: String?
     @State private var error: String?
     @FocusState private var focused: Bool
 
@@ -243,9 +228,8 @@ private struct NewsAgentSheet: View {
                 Section("News") { Text(item.title).font(.callout.weight(.semibold)); Text(item.sourceLabel).font(.caption).foregroundStyle(.secondary) }
                 Section("Agent task") {
                     TextField("What should the agent do?", text: $prompt, axis: .vertical).lineLimit(2...6).focused($focused)
-                    Button { start() } label: { HStack { if starting { ProgressView().controlSize(.small) }; Label("Start agent", systemImage: "sparkles") } }.disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || starting || createdID != nil)
+                    Button { start() } label: { HStack { if starting { ProgressView().controlSize(.small) }; Label("Start agent", systemImage: "sparkles") } }.disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || starting)
                 }
-                if let createdID { Section { Label("Agent \(createdID) started", systemImage: "checkmark.circle.fill").foregroundStyle(.green); Text("It will appear in the chat list with the news headline and begin working immediately.").font(.caption).foregroundStyle(.secondary); Button("Done") { dismiss() } } }
                 if let error { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }
             .navigationTitle("Start news agent")
@@ -258,7 +242,7 @@ private struct NewsAgentSheet: View {
 
     private func start() {
         starting = true; error = nil
-        Task { do { let response = try await APIClient(baseURL: baseURL).startNewsAgent(id: item.id, prompt: prompt); createdID = response.id; focused = false; started(response.id) } catch { self.error = error.localizedDescription }; starting = false }
+        Task { do { _ = try await APIClient(baseURL: baseURL).startNewsAgent(id: item.id, prompt: prompt); focused = false; dismiss() } catch { self.error = error.localizedDescription; starting = false } }
     }
 }
 

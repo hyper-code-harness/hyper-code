@@ -17,6 +17,7 @@ struct NativeChatView: View {
     let profileID: String?
     let onRead: () -> Void
     let onNextUnread: (() -> Void)?
+    let onShowChats: (() -> Void)?
     @StateObject private var store = ChatStore()
     @State private var draft = ""
     @State private var composerResetID = UUID()
@@ -36,15 +37,17 @@ struct NativeChatView: View {
     @State private var showingInjectEditor = false
     @State private var showingFiles = false
     @State private var showingCanvas = false
+    @State private var canvasVisible = true
     @State private var injectText = ""
     @State private var injectEvery = 1
 
-    init(agent: AgentSummary, baseURL: URL, profileID: String? = nil, onRead: @escaping () -> Void, onNextUnread: (() -> Void)? = nil) {
+    init(agent: AgentSummary, baseURL: URL, profileID: String? = nil, onRead: @escaping () -> Void, onNextUnread: (() -> Void)? = nil, onShowChats: (() -> Void)? = nil) {
         self.agent = agent
         self.baseURL = baseURL
         self.profileID = profileID
         self.onRead = onRead
         self.onNextUnread = onNextUnread
+        self.onShowChats = onShowChats
         _currentModel = State(initialValue: agent.model)
     }
 
@@ -155,10 +158,18 @@ struct NativeChatView: View {
     }
     private var chatHeader: some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(agent.title).font(.headline).lineLimit(1)
-                AgentActivityStatus(running: store.isRunning)
+            if horizontalSizeClass == .regular && !canvasVisible {
+                if let onShowChats {
+                    Button(action: onShowChats) { Image(systemName: "sidebar.left") }
+                        .buttonStyle(.plain).frame(width: 34, height: 34)
+                        .accessibilityLabel("Show chats")
+                }
+                Button { withAnimation(.snappy(duration: 0.2)) { canvasVisible = true } } label: { Image(systemName: "rectangle.split.2x1") }
+                    .buttonStyle(.plain).frame(width: 34, height: 34)
+                    .accessibilityLabel("Show Canvas")
             }
+            Text(agent.title).font(.headline).lineLimit(1)
+            AgentActivityStatus(running: store.isRunning)
             Spacer()
             Menu {
                 Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
@@ -181,14 +192,29 @@ struct NativeChatView: View {
     var body: some View {
         Group {
             if horizontalSizeClass == .regular {
-                GeometryReader { proxy in
-                    let chatWidth = min(470, max(360, proxy.size.width * 0.38))
-                    HStack(spacing: 0) {
-                        AgentCanvasSurface(baseURL: baseURL, agentID: agent.id)
+                if canvasVisible {
+                    GeometryReader { proxy in
+                        let chatWidth = min(470, max(360, proxy.size.width * 0.38))
+                        HStack(spacing: 0) {
+                            ZStack(alignment: .topLeading) {
+                                AgentCanvasSurface(baseURL: baseURL, agentID: agent.id)
+                                HStack(spacing: 8) {
+                                    if let onShowChats {
+                                        canvasControl("sidebar.left", label: "Show chats", action: onShowChats)
+                                    }
+                                    canvasControl("xmark", label: "Close Canvas") {
+                                        withAnimation(.snappy(duration: 0.2)) { canvasVisible = false }
+                                    }
+                                }
+                                .padding(10)
+                            }
                             .frame(width: max(0, proxy.size.width - chatWidth - 1))
-                        Divider()
-                        chatSurface.frame(width: chatWidth)
+                            Divider()
+                            chatSurface.frame(width: chatWidth)
+                        }
                     }
+                } else {
+                    chatSurface
                 }
             } else {
                 chatSurface
@@ -197,6 +223,19 @@ struct NativeChatView: View {
     }
 
 
+
+
+    private func canvasControl(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .frame(width: 38, height: 38)
+                .background(.ultraThinMaterial, in: Circle())
+                .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
 
 
     @ToolbarContentBuilder private var chatToolbar: some ToolbarContent {

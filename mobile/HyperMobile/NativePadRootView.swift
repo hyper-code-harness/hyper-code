@@ -67,7 +67,7 @@ struct NativePadRootView: View {
             }
         } detail: {
             if let agent = selection, let baseURL {
-                NativeChatView(agent: agent, baseURL: baseURL, profileID: servers.selectedID) { Task { await refreshSelected() } }
+                NativeChatView(agent: agent, baseURL: baseURL, profileID: servers.selectedID, onRead: { Task { await refreshSelected() } }, onShowChats: { withAnimation(.snappy(duration: 0.2)) { columnVisibility = .all } })
                     .id(agent.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

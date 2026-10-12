@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Hyper canvas frames",
+  "version": "0.1.0",
+  "description": "Lets the Hyper canvas show sites that forbid being framed (X-Frame-Options, CSP frame-ancestors) — only inside Hyper tabs.",
+  "permissions": ["declarativeNetRequest", "tabs"],
+  "host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "worker.js" },
+  "content_scripts": [{
+    "matches": ["https://*.hyper-mesh.xyz/*", "http://localhost/*", "http://127.0.0.1/*"],
+    "js": ["content.js"],
+    "run_at": "document_start"
+  }]
+}

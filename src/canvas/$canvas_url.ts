@@ -2,7 +2,7 @@
 // frame-ancestors); the browser then shows an empty frame, so the tab checks the headers when it is opened
 // and shows a plain notice with an "open in a new tab" link instead.
 
-export const hint = "a web page by address — args `{ url }` (http/https), live in a frame; sites that forbid framing (Google, GitHub, most logins) show a notice with a link to open them in a new browser tab instead";
+export const hint = "a web page by address — args `{ url }` (http/https), live in a frame; sites that forbid framing (Google, GitHub, most logins) show a notice with a link to open them in a new browser tab instead, unless the person's Chrome has the Hyper canvas frames extension, which lets them show live too";
 
 /** Reads the response headers of the page and says whether a foreign page may frame it. */
 async function framing(url: string): Promise<{ embeddable: boolean; reason?: string; finalUrl: string }> {
@@ -39,16 +39,23 @@ export default {
         const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
         const a = opts.item.args;
         const url = String(a.url ?? "");
+        // Separate origin, so allow-same-origin only lets the site keep its own cookies and storage; no
+        // allow-top-navigation, so a frame-busting script cannot take the app page away.
+        const frame = (cls: string) => `<iframe src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads" referrerpolicy="no-referrer" allow="fullscreen; clipboard-write" class="${cls} h-full w-full border-0 bg-white"></iframe>`;
         if (a.embeddable === false) {
-            return `<div class="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            // With the canvas-frames extension (extensions/canvas-frames) the browser drops the framing
+            // headers inside Hyper tabs and marks <html data-hyper-frames>; then the frame shows and the
+            // notice hides. Without it only the notice is visible.
+            return `<style>.hyper-url-frame{display:none}html[data-hyper-frames] .hyper-url-frame{display:block}html[data-hyper-frames] .hyper-url-notice{display:none}</style>
+${frame("hyper-url-frame")}
+<div class="hyper-url-notice flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
   <div class="text-base font-medium">${esc(new URL(url).hostname)} не разрешает показывать себя внутри другой страницы</div>
   <div class="max-w-md text-sm text-faint">${esc(String(a.reason ?? ""))}</div>
   <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Открыть в новой вкладке</a>
+  <div class="max-w-md text-xs text-faint">Чтобы такие сайты открывались здесь, поставьте расширение Hyper canvas frames (папка extensions/canvas-frames).</div>
 </div>`;
         }
-        // Separate origin, so allow-same-origin only lets the site keep its own cookies and storage; no
-        // allow-top-navigation, so a frame-busting script cannot take the app page away.
-        return `<iframe src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads" referrerpolicy="no-referrer" allow="fullscreen; clipboard-write" class="block h-full w-full border-0 bg-white"></iframe>`;
+        return frame("block");
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
         const a = opts.item.args;

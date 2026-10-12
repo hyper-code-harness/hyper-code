@@ -104,7 +104,7 @@ struct NativeChatView: View {
         }
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle(agent.title).navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(horizontalSizeClass == .compact ? agent.title : "").navigationBarTitleDisplayMode(.inline)
         .offset(x: swipeTranslation)
         .simultaneousGesture(
             DragGesture(minimumDistance: 18)
@@ -131,6 +131,7 @@ struct NativeChatView: View {
                 }
         )
         .toolbar { chatToolbar }
+        .toolbar(horizontalSizeClass == .regular ? .hidden : .visible, for: .navigationBar)
         .task {
             let resolvedProfileID = profileID ?? MobileStateCache.fallbackProfileID(for: baseURL)
             draft = MobileStateCache.shared.draft(profileID: resolvedProfileID, agentID: agent.id)
@@ -172,7 +173,7 @@ struct NativeChatView: View {
             .accessibilityLabel("Chat actions")
         }
         .padding(.horizontal, 14)
-        .frame(height: 52)
+        .frame(height: 44)
         .background(.bar)
     }
 

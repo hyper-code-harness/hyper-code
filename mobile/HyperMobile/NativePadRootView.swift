@@ -76,6 +76,7 @@ struct NativePadRootView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .toolbar(selection == nil ? .visible : .hidden, for: .navigationBar)
         .task { sessions.activate(profiles: servers.profiles, serverStore: servers); switchServer() }
         .onChange(of: servers.profiles) { _, profiles in sessions.activate(profiles: profiles, serverStore: servers) }
         .onChange(of: selectedWorkspace.agents) { _, agents in store.agents = agents }

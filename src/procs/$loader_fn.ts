@@ -61,10 +61,13 @@ function reflectSource(ts: any, entry: any): any {
         const optsType = opts?.type?.getText(sf) ?? "unknown";
         const returnType = decl.type?.getText(sf) ?? "unknown";
         const paramsSchema = opts?.type ? schemaOf(ts, opts.type, sf, paramDocs(decl, sf)) : emptySchema();
+        // `@canvas <kind>`: the function can show its result to the person on that canvas tab kind
+        // (it takes `canvas: true`); canvas.search and the canvas prompt rule are built from it.
+        const canvas = (ts.getJSDocTags(decl) as any[]).filter(t => t.tagName?.text === "canvas").map(t => commentText(t.comment).trim().split(/\s+/)[0]).filter(Boolean)[0];
         return {
             summary: firstLine(doc), doc,
             signature: `(${optsType}) => ${returnType}`,
-            optsType, paramsSchema, returnType,
+            optsType, paramsSchema, returnType, ...(canvas ? { canvas } : {}),
             line: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line + 1,
         };
     } catch {

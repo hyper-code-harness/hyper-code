@@ -71,7 +71,7 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     // The agent sees what is open, active first, with the tab's state.
     await ctx.fns.canvas.setState({ agentId: a.id, itemId: two.id, state: { line: 12 } });
     const block = (await ctx.fns.procs.hooks.run({ name: "agent.promptAugment", opts: { agentId: a.id, text: "" } })).find((b: string) => String(b).includes("## Canvas"));
-    expect(block).toContain(`[${two.id}] "README.md": file `);
+    expect(block).toContain(`[${two.id}] "README.md": live, file `);
     expect(block).toContain('(active) — state {"line":12}');
 
     // Another agent cannot activate this agent's tab.
@@ -206,4 +206,31 @@ test("closing a tab only marks it: it is listed as recently closed and comes bac
     expect(res.status).toBe(200);
     expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ activeItemId: two.id, open: true });
     await expect(ctx.fns.canvas.reopen({ agentId: a.id, itemId: 99_999_999 })).rejects.toThrow();
+});
+
+test("chat links open as file/url tabs, canvas.search lists kinds, tabs say live or snapshot", async () => {
+    const ctx: any = await mkTestCtx();
+    const r: any = reqCtx(ctx);
+    const a = await r.fns.agent.start({ model: "mock:echo" });
+    await r.fns.session.save({ agent: a });
+    const post = (body: any) => ctx.fns.procs.http.dispatch({ method: "POST", url: `http://localhost/canvas/${a.id}`, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+    const file = import.meta.path;
+    const res = await post({ show: { kind: "file", args: { path: file } } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ open: true });
+    expect((await post({ show: { kind: "url", args: { url: "https://example.com/" } } })).status).toBe(200);
+    // Only file and url: a browser request must not open an html page or a plugin kind.
+    expect((await post({ show: { kind: "html", args: { html: "<p>x</p>" } } })).status).toBe(400);
+    const items = await ctx.fns.canvas.list({ agentId: a.id });
+    expect(items.map((i: any) => i.kind)).toEqual(["url", "file"]);
+
+    const found = await r.fns.canvas.search({ query: "web page address" });
+    expect(found[0]).toMatchObject({ type: "kind", name: "url" });
+
+    const html = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>fixed</p>" } });
+    const handler = ctx.state.procs.hooks.handlers["agent.promptAugment"].get("canvas");
+    const block = await handler(ctx, null, { agentId: a.id, text: "" });
+    expect(block).toContain(`[${html.id}] "${html.title}": snapshot from `);
+    expect(block).toMatch(/: live, web page https:\/\/example\.com\//);
 });

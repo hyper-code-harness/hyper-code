@@ -18,7 +18,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         let what = `${item.kind} ${JSON.stringify(item.args)}`;
         if (kind?.describe) what = await Promise.resolve(kind.describe(ctx, { item })).catch(() => what);
         const state = Object.keys(item.state).length ? ` — state ${JSON.stringify(item.state).slice(0, 1000)}` : "";
-        return `- [${item.id}] "${item.title}": ${what}${item.active ? " (active)" : ""}${state}`;
+        const live = typeof kind?.live === "function" ? kind.live(item) : kind?.live;
+        const mark = live === true ? "live, " : live === false ? `snapshot from ${new Date(item.updatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC, ` : "";
+        return `- [${item.id}] "${item.title}": ${mark}${what}${item.active ? " (active)" : ""}${state}`;
     };
     const ordered = [...items.filter(i => i.active), ...items.filter(i => !i.active)];
     return `## Canvas\n\nThe canvas beside the chat is ${view.open ? "open" : "closed"}; tabs:\n` + (await Promise.all(ordered.map(line))).join("\n");

@@ -22,6 +22,7 @@ async function framing(url: string): Promise<{ embeddable: boolean; reason?: str
 
 export default {
     icon: "globe",
+    live: true,
     async prepare(_ctx: Context, opts: { agentId: string; args: Record<string, any> }) {
         let raw = String(opts.args.url ?? "").trim();
         if (!raw) throw new Error("canvas url: args.url is required");

@@ -1,5 +1,6 @@
 // POST /canvas/:id — open/close an agent's canvas or set the chat width beside it. JSON or form body:
-// { open?: boolean, chatWidth?: number, activeItemId?: number, closeItemId?: number, reopenItemId?: number }. Answers the
+// { open?: boolean, chatWidth?: number, activeItemId?: number, closeItemId?: number, reopenItemId?: number,
+// show?: { kind: "file" | "url", args } } — show opens a link clicked in the chat as a tab. Answers the
 // resulting state with the panel fingerprint (rev).
 /** Changes an agent's canvas state from the browser (canvas.update). */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }): Promise<Response> {
@@ -26,6 +27,16 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (reopenItemId !== undefined) {
         try { await ctx.fns.canvas.reopen({ agentId, itemId: reopenItemId }); }
         catch (error: any) { return new Response(String(error?.message ?? error), { status: 404 }); }
+    }
+    // A link clicked in the chat: only the file and url kinds, whose prepare() checks the target — a
+    // browser request must not open arbitrary kinds (html runs code, plugin kinds may read private data).
+    if (body.show && typeof body.show === "object") {
+        const kind = String(body.show.kind ?? "");
+        if (kind !== "file" && kind !== "url") return new Response("show: only file and url links open from the chat", { status: 400 });
+        const args = kind === "file" ? { path: String(body.show.args?.path ?? "") } : { url: String(body.show.args?.url ?? "") };
+        try { await ctx.fns.canvas.show({ agentId, kind, args }); }
+        catch (error: any) { return new Response(String(error?.message ?? error), { status: 400 }); }
+        body.open = true;
     }
     const open = typeof body.open === "boolean" ? body.open : body.open === "1" || body.open === "true" ? true : body.open === "0" || body.open === "false" ? false : undefined;
     const chatWidth = body.chatWidth == null || body.chatWidth === "" ? undefined : Number(body.chatWidth);

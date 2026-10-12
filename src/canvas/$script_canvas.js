@@ -242,6 +242,31 @@
         // The event follows every committed change (ours too), so it alone drives the refresh.
         if (ev.rev && ev.rev !== shownRev(root)) refreshPanel(root);
     });
+    // Links in the chat open beside it instead of navigating the page away: a file link (/files/absolute/…,
+    // what the markdown renderer makes of a path) becomes a file tab, a web link a url tab. A modifier
+    // or middle click keeps the browser's own behaviour, and so does any link the server refuses.
+    document.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const a = event.target.closest?.('#chat-panel .prose a[href]');
+        const root = page();
+        if (!a || !root || a.hasAttribute('download')) return;
+        const url = new URL(a.getAttribute('href'), location.href);
+        let show = null;
+        if (url.origin === location.origin && url.pathname.startsWith('/files/absolute/')) {
+            let path = '';
+            try { path = '/' + url.pathname.slice('/files/absolute/'.length).split('/').map(decodeURIComponent).join('/'); } catch { return; }
+            show = { kind: 'file', args: { path } };
+        } else if (url.origin !== location.origin && /^https?:$/.test(url.protocol)) {
+            show = { kind: 'url', args: { url: url.href } };
+        }
+        if (!show) return;
+        event.preventDefault();
+        fetch(`/canvas/${encodeURIComponent(agentOf(root))}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ show }) })
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(state => { apply(root, state); if (state.rev && state.rev !== shownRev(root)) refreshPanel(root); })
+            .catch(() => window.open(a.href, '_blank', 'noopener'));
+    });
+
     const init = () => { const root = page(); if (root) paintButtons(root); };
     document.addEventListener('htmx:after:swap', init);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

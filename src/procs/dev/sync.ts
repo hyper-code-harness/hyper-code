@@ -43,7 +43,9 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         // there, and it surfaced much later, as `Cannot find module` from
         // whoever tried to import it.
         const roots = [resolve(ctx.fns.procs.project.projectRoot({}), "src"), resolve(ctx.fns.procs.project.workdir({}), "src")];
-        const abs = roots.map(root => resolve(root, opts.rel)).find(path => existsSync(path));
+        // A plugin's file lives in its own root, which only the scan knows.
+        const abs = roots.map(root => resolve(root, opts.rel)).find(path => existsSync(path))
+            ?? (await ctx.fns.procs.project.scan({})).find((e: any) => e.rel === opts.rel && existsSync(e.abs))?.abs;
         if (!abs) throw new Error(`no such file: ${opts.rel} — looked under ${roots.join(" and ")}` + await didYouMean(roots, opts.rel));
         await collectStateFile(ctx, entry, abs);
         if (entry.kind === 'config') await ctx.fns.procs.dev.genTypes({}); // config types live in CtxState

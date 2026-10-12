@@ -4,8 +4,14 @@
  * Builds the system-prompt block that tells agents how to show things on the canvas beside the chat and lists the loaded kinds.
  */
 export default async function (ctx: Context, _session: Session | null, _opts: {}): Promise<string> {
-    const kinds = (await ctx.fns.canvas.kinds({})).filter(k => k.hint);
-    if (!kinds.length) return "";
+    // Built-in kinds are described in full; plugin kinds and the functions that show their result on the
+    // canvas are only named — canvas.search finds them with their args, so the prompt does not grow
+    // with every mounted plugin.
+    const all = (await ctx.fns.canvas.kinds({})).filter(k => k.hint);
+    if (!all.length) return "";
+    const kinds = all.filter(k => k.module === "canvas");
+    const plugin = all.filter(k => k.module !== "canvas").map(k => k.name);
+    const shows = (await ctx.fns.canvas.search({ limit: 100 })).filter(r => r.type === "function").map(r => r.name);
     return [
         "## Canvas",
         "",
@@ -14,5 +20,9 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
         "When the person asks to open, show or look at a file, a README, a document or a picture, put it on the canvas — not `ui.openFile`, which navigates the whole page away from the chat. Only the canvas region refreshes; the chat, drafts and scroll stay. Showing the same thing again just switches to its tab. Relative paths resolve in your workspace; for another project pass an absolute path.",
         "",
         ...kinds.map(k => `- \`${k.name}\` — ${k.hint!.trim()}`),
+        ...(plugin.length ? [`- plugin kinds: ${plugin.map(n => `\`${n}\``).join(", ")} — their args via \`canvas.search({ query })\``] : []),
+        "",
+        "Some functions return data AND can show the same selection on the canvas (`@canvas <kind>` in their docs; `canvas.search({ query })` finds them). When you answer from such data, call them with `canvas: true` so the person sees exactly what you read; they reuse the tab and return its `itemId`. What the person then changes in that tab (filter, opened record) arrives in the Canvas block — repeat the call without `canvas` to read the same data."
+            + (shows.length ? ` Loaded: ${shows.map(n => `\`${n}\``).join(", ")}.` : ""),
     ].join("\n");
 }

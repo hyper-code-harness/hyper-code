@@ -2,7 +2,7 @@
 //   ctx.fns.procs.repl.load({ name: "project.scan" })  → reload one fn
 //   ctx.fns.procs.repl.load({ name: "project" })       → reload whole module
 //   ctx.fns.procs.repl.load({ name: "genTypes" })      → reload a root $name.ts fn
-import { bindSelf, setPath, source } from "../boot/load";
+import { bindSelf, collectStateFile, isLoaded, setPath, source } from "../boot/load";
 
 /**
  * Load the repl subsystem operation.
@@ -23,15 +23,27 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
     }
 
     const loaded: string[] = [];
+    const others: string[] = [];
     for (const entry of entries) {
-        if (entry.kind !== 'fn') continue;
         if (entry.moduleDir !== target) continue;
+        if (entry.kind !== 'fn') {
+            // The module's declarative kinds ($canvas_, $fence_, $hook_, …) reload with it, through the
+            // same loader table boot uses — otherwise a new canvas kind needed a restart. Only kinds whose
+            // loader just (re)sets a keyed entry; routes have http.loadRoutes, crons and plugins own
+            // schedules and mounts and keep their explicit reloads.
+            if (!HOT_KINDS.has(entry.kind) || !isLoaded(ctx, entry.kind)) continue;
+            await collectStateFile(ctx, entry, (entry as any).abs);
+            others.push((entry as any).rel);
+            continue;
+        }
         await loadFile(ctx, target, entry.runtimeName!);
         if (!loaded.includes(entry.runtimeName!)) loaded.push(entry.runtimeName!);
     }
     scheduleDocsIndex(ctx);
-    return { reloaded: target, count: loaded.length, fns: loaded };
+    return { reloaded: target, count: loaded.length, fns: loaded, ...(others.length ? { files: others } : {}) };
 }
+
+const HOT_KINDS = new Set(['canvas', 'fence', 'input', 'hook', 'point', 'tool', 'setting', 'compaction', 'app']);
 
 function scheduleDocsIndex(ctx: Context): void {
     if (!(ctx.fns as any).runtime?.docs?.index) return;

@@ -20,6 +20,7 @@ const MAX = 300_000;
 export default {
     icon: "browser",
     liveState: true,
+    live: (item: types.canvas.Item) => !!item.args.load,
     async prepare(ctx: Context, opts: { agentId: string; args: Record<string, any> }) {
         const html = typeof opts.args.html === "string" ? opts.args.html : "";
         const load = typeof opts.args.load === "string" ? opts.args.load.trim() : "";

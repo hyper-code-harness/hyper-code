@@ -5,6 +5,7 @@ export const hint = "a file or directory from the workspace (or an SSH host) in 
 
 export default {
     icon: "file-text",
+    live: true,
     async prepare(ctx: Context, opts: { agentId: string; args: Record<string, any> }) {
         const path = String(opts.args.path ?? "").trim();
         if (!path) throw new Error("canvas file: args.path is required");

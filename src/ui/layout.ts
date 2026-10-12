@@ -107,6 +107,28 @@ export default async function (ctx: Context, session: Session | null, opts: {
   -webkit-backdrop-filter: blur(12px) saturate(115%);
 }
 #chat-panel { position: relative; container: chat / inline-size; }
+/* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the
+ * free space on the left, the chat becomes a --chat-w column on the right and the inspector is forced to
+ * its strip (its toggle peeks it open via data-canvas-meta-open without changing the saved state). */
+[data-page="agent"] > .canvas-panel, [data-page="agent"] > .canvas-resizer { display: none; }
+[data-page="agent"][data-canvas-open] > .canvas-panel { display: flex; }
+[data-page="agent"][data-canvas-open] > .canvas-resizer { display: block; flex: 0 0 8px; cursor: col-resize; position: relative; touch-action: none; }
+[data-page="agent"][data-canvas-open] > .canvas-resizer::after { content: ""; position: absolute; inset: 30% 3px; border-radius: 2px; background: var(--color-base-300); transition: background .15s; }
+[data-page="agent"][data-canvas-open] > .canvas-resizer:hover::after, [data-page="agent"][data-canvas-open] > .canvas-resizer:focus-visible::after, [data-page="agent"].canvas-resizing > .canvas-resizer::after { background: var(--color-primary); }
+[data-page="agent"][data-canvas-open] > #chat-panel { flex: 0 0 var(--chat-w, 440px); width: var(--chat-w, 440px); max-width: calc(100% - 400px); }
+[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel { width: 2.5rem !important; min-width: 2.5rem; }
+[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel [data-agent-meta-content],
+[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel [data-agent-meta-label] { display: none; }
+[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel > header { height: 100%; align-items: flex-start; justify-content: center; border-bottom: 0; padding: .5rem 0; background: transparent !important; }
+[data-page="agent"][data-canvas-open][data-canvas-meta-open] > .agent-meta-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; width: 20rem !important; }
+[data-page="agent"][data-canvas-open] { position: relative; }
+[data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
+/* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */
+@media (max-width: 1023px) {
+  [data-page="agent"][data-canvas-open] > .canvas-panel { position: absolute; inset: 0; z-index: 45; margin: .5rem; }
+  [data-page="agent"][data-canvas-open] > .canvas-resizer { display: none; }
+  [data-page="agent"][data-canvas-open] > #chat-panel { flex: 1 1 auto; width: auto; max-width: none; }
+}
 /* The chat header adapts to the CHAT column, not the window: with the Meta
  * panel open a 1000px window leaves the chat ~420px, and the full action row
  * (effort, compact, prompt, share, fork, info, archive, delete) spilled out of
@@ -302,6 +324,7 @@ ${opts.headExtra ?? ""}
   </nav>`}
     <script src="/ui/gap-count.js" defer></script>
     <script src="/mentions/live.js" defer></script>
+    <script src="/canvas/canvas.js" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

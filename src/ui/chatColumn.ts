@@ -83,6 +83,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         html: `<i class="ph ph-brain" aria-hidden="true"></i><span class="hidden sm:inline capitalize">${esc(effortLabel)}</span>`,
         attrs: `class="inline-flex h-7 items-center gap-1 rounded-full border border-ui-border bg-base-100/35 px-2 text-3xs font-medium text-subtle transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary" title="Reasoning effort · ${esc(effortLabel)}" aria-label="Change reasoning effort: ${esc(effortLabel)}"`,
     });
+    // Opens the canvas left of the chat; src/canvas/$script_canvas.js handles the click and paints the state.
+    const canvasToggle = ctx.fns.procs.ui.button({ action: 'toggle-canvas', html: '<i class="ph ph-square-half" aria-hidden="true"></i>', appearance: 'plain', ariaLabel: 'Open canvas', title: 'Open canvas', class: 'canvas-toggle flex size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content aria-pressed:bg-primary/10 aria-pressed:text-primary', attrs: { 'data-canvas-toggle': 'toggle', 'aria-pressed': 'false' } });
     const workspaceDir = String(agent.workspaceDir ?? '').trim();
     const workspaceHost = String(agent.workspaceHost ?? '').trim();
     const workspaceName = workspaceDir.split('/').filter(Boolean).pop() || workspaceDir;
@@ -138,6 +140,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
    ${agent.parentId ? `<a href="/agent/${encodeURIComponent(String(agent.parentId))}" class="rounded border border-warning/30 bg-warning/10 px-1 py-0.5 text-warning hover:bg-warning/10 hover:text-warning" title="forked from ${esc(parent?.title || agent.parentId)} · inherited ${inheritedCount} msgs" aria-label="Back to parent agent ${esc(parent?.title || agent.parentId)}"><i class="ph ph-arrow-bend-up-left mr-0.5"></i>${esc(String(parent?.title || agent.parentId).slice(0, 24))}</a>` : ""}
   ${statusBarHtml}
   <span class="ml-auto flex items-center gap-1">
+    ${canvasToggle}
     ${effortControl}
     ${compactPopup}
 

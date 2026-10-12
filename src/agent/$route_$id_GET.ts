@@ -32,13 +32,17 @@ params: Record<string, string> }) {
         ctx.fns.procs.db.select({ sql: "SELECT value FROM kv WHERE key = ?", params: ["ui:rightPanelCollapsed"] }).catch(() => [] as any[]),
         ctx.fns.ui.agentSettingsBlocks({ agentId: id }),
     ]);
+    const [canvas, canvasPanel] = await Promise.all([ctx.fns.canvas.get({ agentId: id }), ctx.fns.canvas.panelHtml({ agentId: id })]);
     const metaCollapsed = String((metaState as any[])[0]?.value ?? "0") === "1";
     const meta = ctx.fns.ui.agentMetaPanel({ agent, team, archivedTeam, triggers, extraSettings, collapsed: metaCollapsed });
     // id="chat-panel" is the chat client's mount point: /agent/chat.js loads
     // once for the whole app and (re)binds itself to this element after every
     // swap — Enter-to-send, stick-to-bottom, older-message paging and the tool
     // cards all hang off it. Without the id the page renders and does nothing.
-    const main = `<div ${ctx.fns.procs.ui.attr({ page: "agent", id })} class="flex min-h-0 min-w-0 flex-1 bg-base-200">
+    // The canvas panel is always rendered; data-canvas-open shows it and narrows the chat to --chat-w
+    // (src/canvas/$script_canvas.js flips it without re-rendering the chat).
+    const main = `<div ${ctx.fns.procs.ui.attr({ page: "agent", id })} data-canvas-agent="${ctx.fns.procs.ui.escape({ text: id })}"${canvas.open ? " data-canvas-open" : ""} style="--chat-w:${canvas.chatWidth}px" class="flex min-h-0 min-w-0 flex-1 bg-base-200">
+  ${canvasPanel}
   <section id="chat-panel" data-agent-id="${ctx.fns.procs.ui.escape({ text: id })}" class="flex min-w-0 flex-1 flex-col">${chat}</section>
   ${meta}
 </div>`;

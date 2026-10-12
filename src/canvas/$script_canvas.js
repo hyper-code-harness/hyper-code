@@ -37,9 +37,55 @@
     }).then(r => r.ok ? r.json() : null).then(state => state && apply(root, state)).catch(() => {});
     const setOpen = (root, open) => { apply(root, { open }); save(root, { open }); };
 
+    // Tabs changed (opened, switched, closed, retitled, state — here, in another page, or by the agent):
+    // fetch the panel again. Only the latest request may swap, and when the active body is unchanged the
+    // live one is kept (the framed file keeps its scroll and unsaved edits) and only the strip changes.
+    let refreshing = 0;
+    const refreshPanel = async root => {
+        const ticket = ++refreshing;
+        const r = await fetch(`/canvas/${encodeURIComponent(agentOf(root))}/panel`, { headers: { accept: 'text/html' } }).catch(() => null);
+        if (!r?.ok || ticket !== refreshing) return;
+        const html = await r.text();
+        if (ticket !== refreshing) return;
+        const panel = root.querySelector(':scope > [data-canvas-panel]');
+        if (!panel) return;
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        const next = tpl.content.querySelector('[data-canvas-panel]');
+        if (!next || next.getAttribute('data-canvas-rev') === panel.getAttribute('data-canvas-rev')) return;
+        const oldBody = panel.querySelector('[data-canvas-body]');
+        const newBody = next.querySelector('[data-canvas-body]');
+        if (oldBody && newBody && oldBody.getAttribute('data-canvas-body-rev') === newBody.getAttribute('data-canvas-body-rev')) newBody.replaceWith(oldBody);
+        panel.replaceWith(next);
+        window.htmx?.process?.(next);
+    };
+    const shownRev = root => root.querySelector(':scope > [data-canvas-panel]')?.getAttribute('data-canvas-rev') || '';
+    const tabAction = (root, body) => fetch(`/canvas/${encodeURIComponent(agentOf(root))}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    }).then(r => r.ok ? r.json() : null).then(state => {
+        if (!state) return;
+        apply(root, state);
+        // Usually the canvas.changed event already refreshed; this covers a page without the event stream.
+        if (state.rev && state.rev !== shownRev(root)) refreshPanel(root);
+    }).catch(() => {});
+
     document.addEventListener('click', event => {
         const root = page();
         if (!root) return;
+        const select = event.target.closest?.('[data-canvas-select]');
+        if (select && root.contains(select)) {
+            event.preventDefault();
+            const tab = select.closest('[data-canvas-tab]');
+            if (tab?.hasAttribute('aria-current')) return;
+            tabAction(root, { activeItemId: Number(select.getAttribute('data-canvas-select')) });
+            return;
+        }
+        const closeItem = event.target.closest?.('[data-canvas-close-item]');
+        if (closeItem && root.contains(closeItem)) {
+            event.preventDefault();
+            tabAction(root, { closeItemId: Number(closeItem.getAttribute('data-canvas-close-item')) });
+            return;
+        }
         const toggle = event.target.closest?.('[data-canvas-toggle]');
         if (toggle && root.contains(toggle)) {
             event.preventDefault();
@@ -101,7 +147,10 @@
         const ev = event.detail;
         if (ev?.type !== 'canvas.changed') return;
         const root = page();
-        if (root && agentOf(root) === ev.agentId) apply(root, ev);
+        if (!root || agentOf(root) !== ev.agentId) return;
+        apply(root, ev);
+        // The event follows every committed change (ours too), so it alone drives the refresh.
+        if (ev.rev && ev.rev !== shownRev(root)) refreshPanel(root);
     });
     const init = () => { const root = page(); if (root) paintButtons(root); };
     document.addEventListener('htmx:after:swap', init);

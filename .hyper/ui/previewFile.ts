@@ -26,24 +26,8 @@ export default async function (
         host?: string;
     },
 ): Promise<string | { path: string; mode: "auto" | "preview" | "source"; url: string }> {
-    const at = ctx.fns.workspace.target({ host: opts.host, path: opts.path });
-    const host = at.host ?? undefined;
-    let path = host ? at.path : ctx.fns.files.resolveSafe({ path: opts.path });
-    if (host && !path.startsWith("/")) {
-        const q = ctx.fns.remote.quote({ value: path, path: true });
-        const r = await ctx.fns.remote.exec({ host, command: 'f=' + q + '; [ -e "$f" ] || exit 2; if [ -d "$f" ]; then cd -- "$f" && pwd -P; else printf "%s/%s" "$(cd -- "$(dirname -- "$f")" && pwd -P)" "$(basename -- "$f")"; fi', timeout: 30 });
-        if (r.exitCode !== 0) throw new Error(`file not found: ${host}:${opts.path}`);
-        path = r.stdout.trim();
-    }
-    const info = await ctx.fns.files.stat({ path, host });
-    if (!info) throw new Error(`file not found: ${host ? host + ":" : ""}${opts.path}`);
-
     const mode = opts.mode ?? "auto";
-    const baseUrl = (await ctx.fns.files.browserUrl({ path, host })).replace("/files/absolute/", "/files/embed/").replace("/files/remote/", "/files/remote/embed/");
-    const params = new URLSearchParams();
-    if (mode === "preview") params.set("tab", "preview");
-    if (mode === "source") params.set("tab", "code");
-    const url = params.size ? `${baseUrl}?${params}` : baseUrl;
+    const { path, host, url } = await ctx.fns.files.embedUrl({ path: opts.path, host: opts.host, mode });
     const title = opts.title ?? (host ? `${host}:${path}` : path);
     const html = ctx.fns.ui.popupContent({
         title,

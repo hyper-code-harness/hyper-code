@@ -12,7 +12,7 @@ export default async function (
         /** Agent whose canvas to read. */
         agentId: string;
     },
-): Promise<types.canvas.State> {
+): Promise<types.canvas.View> {
     const row = ((await ctx.fns.procs.db.select({ sql: "SELECT open, chat_width, active_item_id FROM canvas_state WHERE agent_id = ?", params: [opts.agentId] }).catch(() => [])) as any[])[0];
     return {
         agentId: opts.agentId,

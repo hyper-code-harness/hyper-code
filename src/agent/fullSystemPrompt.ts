@@ -34,6 +34,10 @@ agent: types.agent.Agent }): Promise<string> {
     // a capability nobody uses.
     const fenceSection = await ctx.fns.markdown.promptSection({});
     const fenceBlock = fenceSection ? `\n\n${fenceSection}` : "";
+    const inputSection = (ctx.fns as any).input?.promptSection ? ctx.fns.input.promptSection({}) : "";
+    const inputBlock = inputSection ? `\n\n${inputSection}` : "";
+    const canvasSection = (ctx.fns as any).canvas?.promptSection ? ctx.fns.canvas.promptSection({}) : "";
+    const canvasBlock = canvasSection ? `\n\n${canvasSection}` : "";
     // Executable plugins are ordinary procs functions, not necessarily native
     // tools. Advertise only a compact index plus the public discovery API; the
     // agent reads SKILL.md on demand instead of paying for every plugin's docs
@@ -84,5 +88,5 @@ agent: types.agent.Agent }): Promise<string> {
     // travels as a `world_state` transcript row at the tail; see
     // agent.syncWorldState. Keep this function a pure function of things that
     // do not change within a session.
-    return core + "\n\n" + tools + fenceBlock + pluginBlock + sharedAgentBlock + perAgentBlock + runtime;
+    return core + "\n\n" + tools + fenceBlock + inputBlock + canvasBlock + pluginBlock + sharedAgentBlock + perAgentBlock + runtime;
 }

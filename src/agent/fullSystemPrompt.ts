@@ -36,7 +36,7 @@ agent: types.agent.Agent }): Promise<string> {
     const fenceBlock = fenceSection ? `\n\n${fenceSection}` : "";
     const inputSection = (ctx.fns as any).input?.promptSection ? ctx.fns.input.promptSection({}) : "";
     const inputBlock = inputSection ? `\n\n${inputSection}` : "";
-    const canvasSection = (ctx.fns as any).canvas?.promptSection ? ctx.fns.canvas.promptSection({}) : "";
+    const canvasSection = (ctx.fns as any).canvas?.promptSection ? await ctx.fns.canvas.promptSection({}) : "";
     const canvasBlock = canvasSection ? `\n\n${canvasSection}` : "";
     // Executable plugins are ordinary procs functions, not necessarily native
     // tools. Advertise only a compact index plus the public discovery API; the

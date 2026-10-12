@@ -45,7 +45,7 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     const r: any = reqCtx(ctx);
     const a = await r.fns.agent.start({ model: "mock:echo" });
     await r.fns.session.save({ agent: a });
-    expect(ctx.fns.canvas.kinds({}).map((k: any) => k.name)).toContain("file");
+    expect((await ctx.fns.canvas.kinds({})).map((k: any) => k.name)).toContain("file");
     await expect(ctx.fns.canvas.show({ agentId: a.id, kind: "evil", args: {} })).rejects.toThrow("unknown kind");
     await expect(ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "no/such/file.ts" } })).rejects.toThrow("file not found");
 

@@ -22,7 +22,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }): Promise<types.canvas.Item> {
     const agentId = String(opts.agentId ?? (await ctx.fns.agent.current({})).id);
     const kind = ((ctx.state as any).canvas?.kinds ?? {})[opts.kind] as types.canvas.Registered | undefined;
-    if (!kind) throw new Error(`canvas.show: unknown kind "${opts.kind}" — loaded: ${ctx.fns.canvas.kinds({}).map(k => k.name).join(", ") || "none"}`);
+    if (!kind) throw new Error(`canvas.show: unknown kind "${opts.kind}" — loaded: ${(await ctx.fns.canvas.kinds({})).map(k => k.name).join(", ") || "none"}`);
     const prepared = kind.prepare ? await kind.prepare(ctx, { agentId, args: opts.args ?? {} }) : { args: opts.args ?? {} };
     const title = String(opts.title ?? prepared.title ?? opts.kind).slice(0, 200);
     const payload = JSON.stringify(prepared.args ?? {});

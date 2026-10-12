@@ -3,8 +3,8 @@
 /**
  * Builds the system-prompt block that tells agents how to show things on the canvas beside the chat and lists the loaded kinds.
  */
-export default function (ctx: Context, _session: Session | null, _opts: {}): string {
-    const kinds = ctx.fns.canvas.kinds({}).filter(k => k.hint);
+export default async function (ctx: Context, _session: Session | null, _opts: {}): Promise<string> {
+    const kinds = (await ctx.fns.canvas.kinds({})).filter(k => k.hint);
     if (!kinds.length) return "";
     return [
         "## Canvas",

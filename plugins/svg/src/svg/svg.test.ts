@@ -17,6 +17,7 @@ import stack from "./stack";
 import theme from "./theme";
 import fence from "./$fence_svg";
 import { hint } from "./$fence_svg";
+import drawing, { hint as drawingHint } from "./$canvas_drawing";
 
 // Hand-built ctx: fns are opts-only (what the injecting Proxy exposes), so a
 // function under test reaches its neighbours exactly as it does in the runtime.
@@ -893,5 +894,33 @@ describe("svg.theme figjam", () => {
     test("the font stack can be overridden for one drawing", () => {
         const t = theme(mkCtx(), null, { font: "ui-monospace, monospace" });
         expect(t.font).toBe("ui-monospace, monospace");
+    });
+});
+
+describe("canvas kind svg.drawing", () => {
+    const item = (args: any) => ({ id: 1, agentId: "x", kind: "svg.drawing", title: "Drawing", args, state: {}, active: true });
+    test("markup tabs keep the source and render it sanitized", async () => {
+        const ctx: any = mkCtx();
+        ctx.fns.procs.ui = { escape: ({ text }: any) => Bun.escapeHTML(text) };
+        const ready = await drawing.prepare!(ctx, { agentId: "x", args: { svg: '<svg viewBox="0 0 4 4"><script>x()</script><rect width="4" height="4"/></svg>' } });
+        const html = await drawing.render(ctx, { agentId: "x", item: item(ready.args) });
+        expect(html).toContain("<rect");
+        expect(html).not.toContain("<script");
+        await expect(drawing.prepare!(ctx, { agentId: "x", args: {} })).rejects.toThrow("exactly one");
+        await expect(drawing.prepare!(ctx, { agentId: "x", args: { svg: "<b>no</b>" } })).rejects.toThrow("<svg>");
+    });
+    test("tsx tabs need svg.allowEval, fail in the agent's turn, and recompute from data on every render", async () => {
+        const off: any = mkCtx();
+        await expect(drawing.prepare!(off, { agentId: "x", args: { tsx: "return <svg/>" } })).rejects.toThrow("allowEval");
+        expect(await drawingHint(off)).not.toContain("tsx");
+        const ctx: any = mkCtx({ allowEval: true });
+        ctx.fns.procs.ui = { escape: ({ text }: any) => Bun.escapeHTML(text) };
+        expect(await drawingHint(ctx)).toContain("tsx");
+        await expect(drawing.prepare!(ctx, { agentId: "x", args: { tsx: "const a = 1;" } })).rejects.toThrow("return");
+        const src = "const rows = await ctx.fns.procs.db.select({ sql: 'x' }); return <svg viewBox='0 0 9 9'>{rows.map((r: any) => <text>{r.k}</text>)}</svg>;";
+        const ready = await drawing.prepare!(ctx, { agentId: "x", args: { tsx: src } });
+        expect(await drawing.render(ctx, { agentId: "x", item: item(ready.args) })).toContain("<text>a</text>");
+        ctx.fns.procs.db.select = async () => [{ k: "fresh" }];
+        expect(await drawing.render(ctx, { agentId: "x", item: item(ready.args) })).toContain("<text>fresh</text>");
     });
 });

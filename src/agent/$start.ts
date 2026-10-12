@@ -14,5 +14,6 @@ export default async function (ctx: Context, _session: Session | null, _config?:
     }
     queueMicrotask(() => {
         ctx.fns.agent.workerLoop({}).catch((e: any) => console.error("[workerLoop] crashed:", e?.message ?? e));
+        ctx.fns.agent.startAttachments({}).catch((e: any) => console.error("[attachments] start failed:", e?.message ?? e));
     });
 }

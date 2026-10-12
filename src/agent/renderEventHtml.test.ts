@@ -26,6 +26,21 @@ const renderEventHtml = (c: any, event: any, opts: { agentId?: string } = {}) =>
     renderEventHtmlFn(c, null, { event, agentId: opts.agentId });
 
 describe("agent.renderEventHtml", () => {
+  test("renders Telegram attachment events as incoming message cards", async () => {
+    const html = await renderEventHtml(ctx, {
+      type: "attachment_event",
+      source: "telegram",
+      eventType: "message.new",
+      payload: { chatTitle: "TODO: work", senderName: "Nikolai", text: "что ты делаешь?", chatId: "-42", messageId: 7 },
+    });
+    expect(html).toContain("TODO: work · новое сообщение");
+    expect(html).toContain("Nikolai");
+    expect(html).toContain("что ты делаешь?");
+    expect(html).toContain("ph-telegram-logo");
+    expect(html).not.toContain("Scheduled wake-up");
+  });
+
+
   test("renders a tool call as a card that names what it acted on", async () => {
     // The card says the verb and the SUBJECT — "eval 1 + 1", not "args 63c".
     const evalHtml = await renderEventHtml(ctx, { type: "tool_call", name: "eval", argsHtml: "<pre>a</pre>", resultHtml: "<pre>b</pre>", result: "b", args: { code: "1 + 1" }, isError: false, ts: Date.now(), idx: 7 }, { agentId: "a" });

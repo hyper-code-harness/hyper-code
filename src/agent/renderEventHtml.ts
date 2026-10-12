@@ -294,6 +294,20 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     }
 
 
+    if (ev.type === "attachment_event") {
+        const source = String(ev.source ?? "external");
+        const payload = ev.payload && typeof ev.payload === "object" ? ev.payload : {};
+        const isTelegram = source === "telegram";
+        const chat = String(payload.chatTitle ?? payload.chatId ?? source);
+        const sender = String(payload.senderName ?? payload.senderId ?? "");
+        const text = String(payload.text ?? payload.summary ?? "");
+        const title = isTelegram ? `${chat} · новое сообщение` : `${source} · ${String(ev.eventType ?? "новое событие")}`;
+        const body = `${sender ? `<div class="mb-1 text-3xs font-medium text-muted">${esc(sender)}</div>` : ""}<div class="whitespace-pre-wrap break-words">${esc(text)}</div>`;
+        const details = `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(JSON.stringify(payload, null, 2))}</pre>`;
+        return eventCard({ title, icon: isTelegram ? "telegram-logo" : "broadcast", tone: "info", badge: badge(source, "info"), body, details });
+    }
+
+
     if (ev.type === "wake_up") {
         const watched = !!ev.watchId;
         const ready = ev.watchStatus === "ready";

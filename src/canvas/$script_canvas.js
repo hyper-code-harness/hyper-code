@@ -155,6 +155,15 @@
             tabAction(root, { closeItemId: Number(closeItem.getAttribute('data-canvas-close-item')) });
             return;
         }
+        const reopen = event.target.closest?.('[data-canvas-reopen]');
+        if (reopen && root.contains(reopen)) {
+            event.preventDefault();
+            reopen.closest('details')?.removeAttribute('open');
+            tabAction(root, { reopenItemId: Number(reopen.getAttribute('data-canvas-reopen')) });
+            return;
+        }
+        // A click elsewhere closes the recently-closed menu.
+        for (const menu of root.querySelectorAll('[data-canvas-history][open]')) if (!menu.contains(event.target)) menu.removeAttribute('open');
         const toggle = event.target.closest?.('[data-canvas-toggle]');
         if (toggle && root.contains(toggle)) {
             event.preventDefault();

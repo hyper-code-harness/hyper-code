@@ -174,3 +174,36 @@ test("html tab runs sandboxed, keeps its state live, and pings wake the agent", 
     expect((await ctx.fns.session.getMessages({ id: a.id })).filter((m: any) => m.message_type === "canvas_ping").length).toBe(6);
     expect((await ctx.fns.procs.http.dispatch({ method: "POST", url: `http://localhost/canvas/${a.id}/item/999999`, headers: { "content-type": "application/json" }, body: JSON.stringify({ state: { x: 1 } }) })).status).toBe(404);
 });
+
+test("closing a tab only marks it: it is listed as recently closed and comes back with its state", async () => {
+    const ctx: any = await mkTestCtx();
+    const r: any = reqCtx(ctx);
+    const a = await r.fns.agent.start({ model: "mock:echo" });
+    await r.fns.session.save({ agent: a });
+    const one = await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "package.json" } });
+    const two = await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "README.md" } });
+    expect(one.createdAt).toBeGreaterThan(0);
+    expect(one.closedAt).toBeNull();
+    await ctx.fns.canvas.setState({ agentId: a.id, itemId: one.id, state: { line: 42 } });
+    await ctx.fns.canvas.close({ agentId: a.id, itemId: one.id });
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => i.id)).toEqual([two.id]);
+    const closed = await ctx.fns.canvas.list({ agentId: a.id, closed: true });
+    expect(closed.map((i: any) => i.id)).toEqual([one.id]);
+    expect(closed[0].closedAt).toBeGreaterThan(0);
+    expect(closed[0].active).toBe(false);
+    // A closed tab cannot be made active directly; it has to be reopened.
+    await expect(ctx.fns.canvas.update({ agentId: a.id, activeItemId: one.id })).rejects.toThrow();
+    expect(await ctx.fns.canvas.panelHtml({ agentId: a.id })).toContain(`data-canvas-reopen="${one.id}"`);
+    // Showing the same thing again brings the old tab back, with its state, at the end of the strip.
+    const again = await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "package.json" } });
+    expect(again.id).toBe(one.id);
+    expect(again.state).toEqual({ line: 42 });
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => [i.id, i.active])).toEqual([[two.id, false], [one.id, true]]);
+    expect((await ctx.fns.canvas.list({ agentId: a.id, closed: true })).length).toBe(0);
+    // reopen by id, also through the route.
+    await ctx.fns.canvas.close({ agentId: a.id, itemId: two.id });
+    const res = await ctx.fns.procs.http.dispatch({ method: "POST", url: `http://localhost/canvas/${a.id}`, headers: { "content-type": "application/json" }, body: JSON.stringify({ reopenItemId: two.id }) });
+    expect(res.status).toBe(200);
+    expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ activeItemId: two.id, open: true });
+    await expect(ctx.fns.canvas.reopen({ agentId: a.id, itemId: 99_999_999 })).rejects.toThrow();
+});

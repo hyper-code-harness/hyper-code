@@ -14,4 +14,10 @@ export type Item = {
     state: Record<string, any>;
     /** This tab is the one shown. */
     active: boolean;
+    /** When the tab was first opened, ms since epoch. */
+    createdAt: number;
+    /** When the tab last changed (opened again, retitled, state saved), ms since epoch. */
+    updatedAt: number;
+    /** When the tab was closed, ms since epoch; null while it is open. */
+    closedAt: number | null;
 };

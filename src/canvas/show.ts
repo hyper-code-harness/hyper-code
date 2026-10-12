@@ -4,7 +4,7 @@
  * Use to put a file, a document or any other catalog kind (canvas.kinds) in front of the person, beside
  * the chat. The kind checks and normalises its args; the tab persists with the agent across reloads, and
  * every open page of that chat follows at once. Showing the same kind with the same args again just
- * switches to the existing tab.
+ * switches to the existing tab — or brings it back if it was closed, with its state.
  * @param opts.kind Canvas kind from the catalog, e.g. file.
  * @param opts.args Arguments of that kind, e.g. { path } for file.
  * @param opts.title Tab title; defaults to the kind's suggestion.
@@ -31,14 +31,16 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const id = (await ctx.fns.canvas.locked({
         agentId,
         fn: async () => {
-            const same = (await ctx.fns.procs.db.select({ sql: "SELECT id FROM canvas_items WHERE agent_id = ? AND kind = ? AND payload = ?::jsonb ORDER BY id LIMIT 1", params: [agentId, opts.kind, payload] })) as any[];
+            const same = (await ctx.fns.procs.db.select({ sql: "SELECT id, closed_at FROM canvas_items WHERE agent_id = ? AND kind = ? AND payload = ?::jsonb ORDER BY closed_at IS NOT NULL, closed_at DESC, id LIMIT 1", params: [agentId, opts.kind, payload] })) as any[];
             const now = Date.now();
             let itemId: number;
             if (same[0]) {
                 itemId = Number(same[0].id);
                 if (opts.title) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET title = ?, updated_at = ? WHERE id = ?", params: [title, now, itemId] });
+                // A closed tab with the same thing comes back with its state, at the end of the strip.
+                if (same[0].closed_at != null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET closed_at = NULL, updated_at = ?, position = (SELECT COALESCE(MAX(position), -1) + 1 FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL) WHERE id = ?", params: [now, agentId, itemId] });
             } else {
-                const pos = (await ctx.fns.procs.db.select({ sql: "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM canvas_items WHERE agent_id = ?", params: [agentId] })) as any[];
+                const pos = (await ctx.fns.procs.db.select({ sql: "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL", params: [agentId] })) as any[];
                 const row: any = await ctx.fns.procs.db.insert({ into: "canvas_items", values: { agent_id: agentId, kind: opts.kind, title, payload, position: Number(pos[0]?.p ?? 0), created_at: now, updated_at: now } });
                 itemId = Number(row.id);
             }

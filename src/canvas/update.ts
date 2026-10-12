@@ -33,7 +33,7 @@ export default async function (
             if (opts.activeItemId !== undefined) {
                 const active = opts.activeItemId === null ? null : Number(opts.activeItemId);
                 if (active !== null) {
-                    const own = (await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM canvas_items WHERE id = ? AND agent_id = ?", params: [active, opts.agentId] })) as any[];
+                    const own = (await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM canvas_items WHERE id = ? AND agent_id = ? AND closed_at IS NULL", params: [active, opts.agentId] })) as any[];
                     if (!own.length) throw new Error(`canvas.update: tab ${active} is not on ${opts.agentId}'s canvas`);
                 }
                 sets.push("active_item_id = ?"); params.push(active);

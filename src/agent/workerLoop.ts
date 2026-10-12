@@ -258,7 +258,7 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
         } else {
             const transient = failure
                 ? failure.retryable
-                : !!errorText && /stalled|429|(?:^|\D)5\d\d(?:\D|$)|Connection closed|ConnectionRefused|network|ETIMEDOUT|ECONNRESET|timed? ?out/i.test(errorText);
+                : !!errorText && /stalled|429|(?:^|\D)5\d\d(?:\D|$)|connection (?:was )?closed|ConnectionRefused|network|ETIMEDOUT|ECONNRESET|timed? ?out/i.test(errorText);
             if (!errorText) delete retries[agentId];
             else if (transient && (retries[agentId] ?? 0) < 1) {
                 retries[agentId] = (retries[agentId] ?? 0) + 1;

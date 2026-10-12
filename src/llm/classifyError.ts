@@ -139,7 +139,7 @@ export default function (
 
     // ---- transport / server ----------------------------------------------
     if ((status >= 500 && status <= 599) || status === 408
-        || /upstream\s+connect|connection\s+(?:reset|termination|refused|closed)|service\s+unavailable|overloaded|stalled|ETIMEDOUT|ECONNRESET|timed? ?out|network/i.test(body + " " + serverMessage)) {
+        || /upstream\s+connect|connection\s+(?:was\s+)?(?:reset|termination|refused|closed)|service\s+unavailable|overloaded|stalled|ETIMEDOUT|ECONNRESET|timed? ?out|network/i.test(body + " " + serverMessage)) {
         return {
             kind: "transient",
             provider,

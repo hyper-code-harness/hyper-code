@@ -174,7 +174,7 @@ function parseArgs(raw: unknown): any {
 function isRetryable(status: number, body: string): boolean {
     if (status === 429 || status === 408) return true;
     if (status >= 500 && status <= 599) return true;
-    return /upstream\s+connect|connection\s+(?:reset|termination|refused)|service\s+unavailable|overloaded|rate.?limit/i.test(body);
+    return /upstream\s+connect|connection\s+(?:was\s+)?(?:reset|termination|refused|closed)|service\s+unavailable|overloaded|rate.?limit/i.test(body);
 }
 
 // Carry the classification on the Error itself: agent.workerLoop reads

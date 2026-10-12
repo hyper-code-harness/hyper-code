@@ -6,6 +6,7 @@ struct NativePadRootView: View {
     @EnvironmentObject private var sessions: MultiServerSessionCoordinator
     @StateObject private var store = AgentListStore()
     @State private var selection: AgentSummary?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var query = ""
     @State private var showingSettings = false
     @State private var showingServers = false
@@ -35,7 +36,7 @@ struct NativePadRootView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(filtered, selection: $selection) { agent in
                 AgentRow(agent: agent).tag(agent)
                     .contextMenu { Button { pin(agent, !agent.pinned) } label: { Label(agent.pinned ? "Unpin" : "Pin", systemImage: "pin") } }
@@ -79,7 +80,10 @@ struct NativePadRootView: View {
         .onChange(of: servers.profiles) { _, profiles in sessions.activate(profiles: profiles, serverStore: servers) }
         .onChange(of: selectedWorkspace.agents) { _, agents in store.agents = agents }
         .onChange(of: selectedWorkspace.error) { _, error in store.error = error }
-        .onChange(of: selection?.id) { _, value in MobileStateCache.shared.updateSelection(profileID: servers.selectedID, agentID: value) }
+        .onChange(of: selection?.id) { _, value in
+            MobileStateCache.shared.updateSelection(profileID: servers.selectedID, agentID: value)
+            columnVisibility = value == nil ? .all : .detailOnly
+        }
         .onChange(of: query) { _, value in MobileStateCache.shared.updateListState(profileID: servers.selectedID, folder: nil, query: value) }
         .onDisappear { store.stopRefreshing() }
         .onChange(of: servers.selectedID) { _, _ in needsLogin = false; switchServer() }

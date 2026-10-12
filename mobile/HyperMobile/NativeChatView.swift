@@ -71,7 +71,10 @@ struct NativeChatView: View {
     }
 
     private var chatSurface: some View {
-        ZStack {
+        VStack(spacing: 0) {
+            chatHeader
+            Divider()
+            ZStack {
             DotGridBackground()
             VStack(spacing: 0) {
             if let error = store.error { ErrorBanner(message: error) }
@@ -98,6 +101,7 @@ struct NativeChatView: View {
                     .frame(maxWidth: 860)
                     .frame(maxWidth: .infinity)
             }
+        }
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(agent.title).navigationBarTitleDisplayMode(.inline)
@@ -148,6 +152,31 @@ struct NativeChatView: View {
             Button("OK") { actionMessage = nil }
         } message: { Text(actionMessage ?? "") }
     }
+    private var chatHeader: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(agent.title).font(.headline).lineLimit(1)
+                AgentActivityStatus(running: store.isRunning)
+            }
+            Spacer()
+            Menu {
+                Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
+                Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
+                Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
+                Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
+                Divider()
+                Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)
+            } label: {
+                Image(systemName: "ellipsis").font(.headline).frame(width: 38, height: 38).background(Color(.secondarySystemBackground), in: Circle())
+            }
+            .accessibilityLabel("Chat actions")
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 52)
+        .background(.bar)
+    }
+
+
     var body: some View {
         Group {
             if horizontalSizeClass == .regular {
@@ -171,21 +200,23 @@ struct NativeChatView: View {
 
     @ToolbarContentBuilder private var chatToolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            VStack(spacing: 2) { Text(agent.title).font(.headline).lineLimit(1); AgentActivityStatus(running: store.isRunning) }
+            if horizontalSizeClass == .compact {
+                VStack(spacing: 2) { Text(agent.title).font(.headline).lineLimit(1); AgentActivityStatus(running: store.isRunning) }
+            }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
-                Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
-                Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
-                if horizontalSizeClass == .compact {
+            if horizontalSizeClass == .compact {
+                Menu {
+                    Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
+                    Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
+                    Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
                     Button { showingCanvas = true } label: { Label("Open Canvas", systemImage: "rectangle.split.2x1") }
-                }
-                Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
-                Divider()
-                Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)
-            } label: { Image(systemName: "ellipsis").font(.headline).frame(width: 38, height: 38).background(Color(.secondarySystemBackground), in: Circle()) }
-                .accessibilityLabel("Chat actions")
+                    Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
+                    Divider()
+                    Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)
+                } label: { Image(systemName: "ellipsis").font(.headline).frame(width: 38, height: 38).background(Color(.secondarySystemBackground), in: Circle()) }
+                    .accessibilityLabel("Chat actions")
+            }
         }
     }
 
@@ -546,7 +577,7 @@ private func linkifiedMarkdown(_ source: String) -> String {
 private struct AgentCanvasWebView: View {
     let baseURL: URL
     let agentID: String
-    let event: WebViewEvent?
+    let revision: UUID
     @Binding var command: WebNavigationCommand?
     @Binding var isLoading: Bool
     @Binding var canGoBack: Bool
@@ -557,7 +588,7 @@ private struct AgentCanvasWebView: View {
     }
 
     var body: some View {
-        HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, event: event, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+        HyperWebView(urlString: "\(urlString)?nativeRevision=\(revision.uuidString)", authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
     }
 }
 
@@ -572,7 +603,7 @@ private struct AgentCanvasSurface: View {
 
     var body: some View {
         ZStack {
-            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, event: events.event, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, revision: events.revision, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
             if isLoading {
                 ProgressView().padding(12).background(.ultraThinMaterial, in: Circle())
             }
@@ -598,7 +629,7 @@ private struct AgentCanvasView: View {
 
     var body: some View {
         NavigationStack {
-            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, event: events.event, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, revision: events.revision, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
                 .navigationTitle("Canvas · \(title)")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

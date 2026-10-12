@@ -2,62 +2,40 @@ import Foundation
 
 @MainActor
 final class CanvasEventBridge: ObservableObject {
-    @Published private(set) var event: WebViewEvent?
+    @Published private(set) var revision = UUID()
 
-    private var watchTask: Task<Void, Never>?
+    private var pollingTask: Task<Void, Never>?
+    private var lastRevision: String?
 
     func start(baseURL: URL, agentID: String) {
         stop()
-        watchTask = Task { [weak self] in
-            guard let self else { return }
-            var revision = ""
-            var retryNanoseconds: UInt64 = 500_000_000
+        pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                do {
-                    let result = try await self.watch(baseURL: baseURL, agentID: agentID, revision: revision)
-                    let previous = revision
-                    revision = result.rev
-                    retryNanoseconds = 500_000_000
-                    if result.changed || (!previous.isEmpty && previous != result.rev) {
-                        self.event = WebViewEvent(payload: [
-                            "type": "canvas.changed",
-                            "agentId": agentID,
-                            "rev": result.rev,
-                        ])
-                    }
-                } catch is CancellationError {
-                    return
-                } catch {
-                    try? await Task.sleep(nanoseconds: retryNanoseconds)
-                    retryNanoseconds = min(retryNanoseconds * 2, 5_000_000_000)
-                }
+                guard let self else { return }
+                await self.check(baseURL: baseURL, agentID: agentID)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
     }
 
     func stop() {
-        watchTask?.cancel()
-        watchTask = nil
+        pollingTask?.cancel()
+        pollingTask = nil
+        lastRevision = nil
     }
 
-    private func watch(baseURL: URL, agentID: String, revision: String) async throws -> WatchResponse {
-        var components = URLComponents(url: baseURL.appending(path: "canvas/\(agentID)/watch"), resolvingAgainstBaseURL: false)!
-        if !revision.isEmpty {
-            components.queryItems = [URLQueryItem(name: "rev", value: revision)]
-        }
-        var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 35
+    private func check(baseURL: URL, agentID: String) async {
+        var request = URLRequest(url: baseURL.appending(path: "canvas/\(agentID)/panel"))
+        request.timeoutInterval = 10
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let (data, response) = try await ServerSessionPool.shared.data(for: request, baseURL: baseURL)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-        return try JSONDecoder().decode(WatchResponse.self, from: data)
-    }
-
-    private struct WatchResponse: Decodable {
-        let rev: String
-        let changed: Bool
+        request.setValue("text/html", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await ServerSessionPool.shared.data(for: request, baseURL: baseURL),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let html = String(data: data, encoding: .utf8),
+              let current = html.firstMatch(of: /data-canvas-rev="([^"]+)"/)?.1 else { return }
+        let value = String(current)
+        defer { lastRevision = value }
+        guard let lastRevision, lastRevision != value else { return }
+        revision = UUID()
     }
 }

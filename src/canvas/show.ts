@@ -38,9 +38,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 itemId = Number(same[0].id);
                 if (opts.title) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET title = ?, updated_at = ? WHERE id = ?", params: [title, now, itemId] });
                 // A closed tab with the same thing comes back with its state, at the end of the strip.
-                if (same[0].closed_at != null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET closed_at = NULL, updated_at = ?, position = (SELECT COALESCE(MAX(position), -1) + 1 FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL) WHERE id = ?", params: [now, agentId, itemId] });
+                if (same[0].closed_at != null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET closed_at = NULL, updated_at = ?, position = (SELECT COALESCE(MIN(position), 1) - 1 FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL) WHERE id = ?", params: [now, agentId, itemId] });
             } else {
-                const pos = (await ctx.fns.procs.db.select({ sql: "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL", params: [agentId] })) as any[];
+                const pos = (await ctx.fns.procs.db.select({ sql: "SELECT COALESCE(MIN(position), 1) - 1 AS p FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL", params: [agentId] })) as any[];
                 const row: any = await ctx.fns.procs.db.insert({ into: "canvas_items", values: { agent_id: agentId, kind: opts.kind, title, payload, position: Number(pos[0]?.p ?? 0), created_at: now, updated_at: now } });
                 itemId = Number(row.id);
             }

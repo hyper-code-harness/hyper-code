@@ -20,7 +20,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const row = ((await ctx.fns.procs.db.select({ sql: "SELECT closed_at FROM canvas_items WHERE id = ? AND agent_id = ?", params: [itemId, agentId] })) as any[])[0];
             if (!row) throw new Error(`canvas.reopen: no tab ${opts.itemId} on ${agentId}'s canvas (closed tabs are kept 30 days)`);
             const now = Date.now();
-            if (row.closed_at != null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET closed_at = NULL, updated_at = ?, position = (SELECT COALESCE(MAX(position), -1) + 1 FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL) WHERE id = ?", params: [now, agentId, itemId] });
+            if (row.closed_at != null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET closed_at = NULL, updated_at = ?, position = (SELECT COALESCE(MIN(position), 1) - 1 FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL) WHERE id = ?", params: [now, agentId, itemId] });
             await ctx.fns.procs.db.run({ sql: "UPDATE canvas_state SET open = true, active_item_id = ?, updated_at = ? WHERE agent_id = ?", params: [itemId, now, agentId] });
             return null;
         },

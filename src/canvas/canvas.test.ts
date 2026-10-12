@@ -36,6 +36,16 @@ test("canvas opens and closes per agent, keeps the chat width, and the agent pag
     subs.delete(sub);
     expect(events).toMatchObject([{ agentId: a.id, open: true, chatWidth: 520 }]);
 
+    const initialWatch = await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/watch` });
+    const initialRevision = await initialWatch.json() as { rev: string; changed: boolean };
+    expect(initialRevision.changed).toBe(false);
+    const watched = ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/watch?rev=${encodeURIComponent(initialRevision.rev)}` });
+    await ctx.fns.canvas.show({ agentId: a.id, kind: "html", title: "Watch test", args: { html: "<p>watch</p>" } });
+    const changedRevision = await (await watched).json() as { rev: string; changed: boolean };
+    expect(changedRevision.changed).toBe(true);
+    expect(changedRevision.rev).not.toBe(initialRevision.rev);
+
+
     html = await page(a.id);
     expect(html).toMatch(/data-canvas-agent="[^"]+" data-canvas-open style="--chat-w:520px"/);
     // Another agent's canvas is untouched.

@@ -32,9 +32,11 @@ export default async function (
     const rev = await ctx.fns.canvas.revision({ agentId: opts.agentId });
     const tabs = items.map(item => {
         const icon = kinds[item.kind]?.icon ?? "square";
-        return `<div class="canvas-tab group relative -mb-px flex h-[35px] max-w-60 shrink-0 cursor-pointer select-none items-center gap-1.5 border-r border-ui-border pl-3 pr-1.5 ${item.active ? "z-10 bg-base-100 text-base-content" : "border-b bg-base-200 text-muted hover:text-base-content"}" data-canvas-tab="${item.id}"${item.active ? ' aria-current="true"' : ""}>
-      <button type="button" class="flex min-w-0 items-center gap-1" data-canvas-select="${item.id}" title="${esc(item.title)}"><i class="ph ph-${esc(icon)} shrink-0" aria-hidden="true"></i><span class="truncate">${esc(item.title)}</span></button>
-      <button type="button" class="flex size-5 shrink-0 items-center justify-center rounded text-faint opacity-60 hover:bg-base-300 hover:opacity-100 ${item.active ? "" : "invisible group-hover:visible"}" data-canvas-close-item="${item.id}" title="Close tab" aria-label="Close ${esc(item.title)}"><i class="ph ph-x text-3xs" aria-hidden="true"></i></button>
+        // macOS Finder tabs: equal-width segments across the strip divided by hairlines, centred title,
+        // the active one is lighter and joins the body, inactive ones are a darker grey; close on the right, on hover and on the active tab.
+        return `<div class="canvas-tab group relative flex min-w-24 flex-1 basis-0 cursor-pointer select-none items-center justify-center border-l border-ui-border px-6 first:border-l-0 ${item.active ? "bg-base-100 text-base-content" : "border-b bg-base-300/60 text-muted hover:bg-base-300"}" data-canvas-tab="${item.id}"${item.active ? ' aria-current="true"' : ""}>
+      <button type="button" class="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-faint ${item.active ? "opacity-60" : "opacity-0"} hover:bg-base-300 hover:text-base-content hover:opacity-100 group-hover:opacity-100 focus-visible:opacity-100" data-canvas-close-item="${item.id}" title="Close tab" aria-label="Close ${esc(item.title)}"><i class="ph ph-x text-3xs" aria-hidden="true"></i></button>
+      <button type="button" class="flex min-w-0 items-center gap-1.5" data-canvas-select="${item.id}" title="${esc(item.title)}"><i class="ph ph-${esc(icon)} shrink-0 text-faint" aria-hidden="true"></i><span class="truncate">${esc(item.title)}</span></button>
     </div>`;
     }).join("");
     let body: string;
@@ -54,9 +56,9 @@ export default async function (
         }
     }
     return `<section id="canvas-panel" data-canvas-panel data-agent-id="${id}" data-canvas-rev="${rev.panel}" aria-label="Canvas" class="canvas-panel glass-panel my-2 ml-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ui-border">
-  <header class="flex h-[35px] shrink-0 items-stretch border-b border-ui-border bg-base-200 text-xs">
-    <nav data-canvas-tabs class="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden [scrollbar-width:none]" aria-label="Canvas tabs">${tabs}</nav>
-    <div class="flex items-center px-2">${close}</div>
+  <header class="flex h-8 shrink-0 items-stretch bg-base-300/60 text-xs">
+    <nav data-canvas-tabs class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] ${items.length ? "" : "border-b border-ui-border"}" aria-label="Canvas tabs">${tabs}</nav>
+    <div class="flex items-center border-b border-l border-ui-border px-1.5">${close}</div>
   </header>
   <div data-canvas-body data-canvas-item="${active?.id ?? ""}" data-canvas-body-rev="${rev.body}"${active && kinds[active.kind]?.liveState ? ` data-canvas-state="${esc(JSON.stringify(active.state))}"` : ""} class="${active ? "" : "dot-grid-surface "}min-h-0 flex-1 overflow-auto">${body}</div>
 </section>

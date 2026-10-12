@@ -11,10 +11,16 @@
 import { SQL } from "bun";
 
 /**
- * Perform conn for the db subsystem.
+ * Get this context's Postgres pool or the connection bound by db.transaction.
+ * Closed transaction scopes throw instead of silently writing outside the transaction.
  */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<SQL> {
     const st = ((ctx.state.procs ??= {} as any).db ??= {});
+    const scope = st.transactionStorage?.getStore();
+    if (scope) {
+        if (!scope.active) throw new Error("Database transaction scope is closed");
+        return scope.connection;
+    }
     if (st.sql) return st.sql;
     const url = ctx.fns.procs.db.url();
     st.url = url;

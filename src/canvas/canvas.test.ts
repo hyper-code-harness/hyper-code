@@ -56,7 +56,7 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: true, activeItemId: two.id });
     // The same file again switches back to its tab instead of adding one.
     expect((await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "package.json" } })).id).toBe(one.id);
-    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => [i.id, i.active])).toEqual([[one.id, true], [two.id, false]]);
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => [i.id, i.active])).toEqual([[two.id, false], [one.id, true]]);
 
     const page = async () => (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/agent/${a.id}` })).text();
     let html = await page();
@@ -198,7 +198,7 @@ test("closing a tab only marks it: it is listed as recently closed and comes bac
     const again = await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "package.json" } });
     expect(again.id).toBe(one.id);
     expect(again.state).toEqual({ line: 42 });
-    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => [i.id, i.active])).toEqual([[two.id, false], [one.id, true]]);
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => [i.id, i.active])).toEqual([[one.id, true], [two.id, false]]);
     expect((await ctx.fns.canvas.list({ agentId: a.id, closed: true })).length).toBe(0);
     // reopen by id, also through the route.
     await ctx.fns.canvas.close({ agentId: a.id, itemId: two.id });

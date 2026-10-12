@@ -1,0 +1,19 @@
+.gcal{--line:color-mix(in oklab,currentColor 12%,transparent);--soft:color-mix(in oklab,currentColor 58%,transparent);--accent:#1a73e8;min-height:100vh;background:var(--color-base-100,#fff);color:var(--color-base-content,#202124);font-size:13.5px}
+.gcal button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.gc-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:12px 20px;border-bottom:1px solid var(--line);background:inherit}
+.gc-top h1{font-size:19px;font-weight:500;margin:0 0 0 6px}
+.gc-btn{border:1px solid var(--line)!important;border-radius:6px;padding:5px 12px}
+.gc-icon{width:30px;height:30px;border-radius:50%;font-size:20px!important;line-height:1}
+.gc-btn:hover,.gc-icon:hover{background:color-mix(in oklab,currentColor 7%,transparent)!important}
+.gc-main{max-width:820px;margin:0 auto;padding:14px 20px 40px}
+.gd-sum{color:var(--soft);font-size:12px;margin-bottom:10px}
+.gd-ev{display:grid;grid-template-columns:64px 1fr;gap:14px;padding:12px 14px;margin-bottom:10px;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px}
+.gd-ev.past{opacity:.55}.gd-ev.now{box-shadow:0 0 0 2px var(--c)}
+.gd-time{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}.gd-time b{font-size:16px}.gd-time span,.gd-time small{color:var(--soft)}.gd-time small{font-size:11px;margin-top:2px}
+.gd-body{min-width:0}.gd-body h2{font-size:15px;font-weight:600;margin:0 0 2px}.gd-body h2 em{font-style:normal;font-size:11px;color:#fff;background:var(--c);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.gd-meta{color:var(--soft);font-size:12px;margin-bottom:6px}
+.gd-row{margin:5px 0;word-break:break-word}.gd-row summary{cursor:pointer}.gd-row ul{margin:4px 0 0 20px;padding:0;list-style:none;font-size:12.5px}.gd-row li.declined{text-decoration:line-through;opacity:.6}
+.gd-desc{white-space:pre-wrap;font-size:12.5px;margin-top:4px;padding:8px 10px;background:color-mix(in oklab,currentColor 4%,transparent);border-radius:6px;max-height:260px;overflow:auto}
+.gcal a{color:var(--accent)}
+.gd-acts{display:flex;gap:8px;margin-top:8px}.gd-acts a{border:1px solid var(--line);border-radius:6px;padding:4px 10px;text-decoration:none;font-size:12.5px;color:inherit}.gd-acts a.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.gd-empty{color:var(--soft);text-align:center;padding:40px}.gd-err{color:#c5221f;font-size:12px;margin-bottom:6px}

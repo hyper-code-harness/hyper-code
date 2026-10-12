@@ -17,7 +17,7 @@ const CSP = [
     "form-action 'none'",
     "base-uri 'none'",
     "frame-ancestors 'self'",
-    "sandbox allow-scripts allow-forms allow-modals allow-pointer-lock allow-downloads",
+    "sandbox allow-scripts allow-forms allow-modals allow-pointer-lock allow-downloads allow-popups allow-popups-to-escape-sandbox",
 ].join("; ");
 
 const json = (value: unknown) => JSON.stringify(value ?? null).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");

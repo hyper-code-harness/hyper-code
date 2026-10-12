@@ -1,6 +1,7 @@
-/** Performs the ui.openFile runtime operation. */
 /**
- * Open a workspace file in the browser UI.
+ * Navigates the whole browser page to a workspace file in the Files UI, leaving the chat.
+ *
+ * To show a file to the person beside the chat use canvas.show({ kind: "file", args: { path } }) instead.
  * @param opts.path Workspace-relative file path.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {

@@ -141,12 +141,12 @@
     document.addEventListener('click', event => {
         const root = page();
         if (!root) return;
-        const select = event.target.closest?.('[data-canvas-select]');
-        if (select && root.contains(select)) {
+        // The whole tab selects it, except its close button.
+        const tab = event.target.closest?.('[data-canvas-tab]');
+        if (tab && root.contains(tab) && !event.target.closest('[data-canvas-close-item]')) {
             event.preventDefault();
-            const tab = select.closest('[data-canvas-tab]');
-            if (tab?.hasAttribute('aria-current')) return;
-            tabAction(root, { activeItemId: Number(select.getAttribute('data-canvas-select')) });
+            if (tab.hasAttribute('aria-current')) return;
+            tabAction(root, { activeItemId: Number(tab.getAttribute('data-canvas-tab')) });
             return;
         }
         const closeItem = event.target.closest?.('[data-canvas-close-item]');

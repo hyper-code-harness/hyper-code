@@ -32,9 +32,9 @@ export default async function (
     const rev = await ctx.fns.canvas.revision({ agentId: opts.agentId });
     const tabs = items.map(item => {
         const icon = kinds[item.kind]?.icon ?? "square";
-        return `<div class="canvas-tab group flex h-7 max-w-56 shrink-0 items-center gap-1 rounded-full pl-2.5 pr-1 ${item.active ? "bg-base-100 text-base-content shadow-sm" : "text-muted hover:bg-base-200"}" data-canvas-tab="${item.id}"${item.active ? ' aria-current="true"' : ""}>
+        return `<div class="canvas-tab group relative -mb-px flex h-8 max-w-56 shrink-0 items-center gap-1.5 rounded-t-lg border border-b-0 pl-3 pr-1.5 cursor-pointer select-none ${item.active ? "z-10 border-ui-border bg-base-100 text-base-content" : "border-transparent text-muted hover:bg-base-100/60 hover:text-base-content"}" data-canvas-tab="${item.id}"${item.active ? ' aria-current="true"' : ""}>
       <button type="button" class="flex min-w-0 items-center gap-1" data-canvas-select="${item.id}" title="${esc(item.title)}"><i class="ph ph-${esc(icon)} shrink-0" aria-hidden="true"></i><span class="truncate">${esc(item.title)}</span></button>
-      <button type="button" class="flex size-5 shrink-0 items-center justify-center rounded-full text-faint opacity-60 hover:bg-base-300 hover:opacity-100" data-canvas-close-item="${item.id}" title="Close tab" aria-label="Close ${esc(item.title)}"><i class="ph ph-x text-3xs" aria-hidden="true"></i></button>
+      <button type="button" class="flex size-5 shrink-0 items-center justify-center rounded-full text-faint opacity-60 hover:bg-base-300 hover:opacity-100 ${item.active ? "" : "invisible group-hover:visible"}" data-canvas-close-item="${item.id}" title="Close tab" aria-label="Close ${esc(item.title)}"><i class="ph ph-x text-3xs" aria-hidden="true"></i></button>
     </div>`;
     }).join("");
     let body: string;
@@ -54,11 +54,9 @@ export default async function (
         }
     }
     return `<section id="canvas-panel" data-canvas-panel data-agent-id="${id}" data-canvas-rev="${rev.panel}" aria-label="Canvas" class="canvas-panel glass-panel my-2 ml-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ui-border">
-  <header class="flex h-11 shrink-0 items-center gap-2 border-b border-ui-border px-3 text-xs">
-    <i class="ph ph-square-half text-faint" aria-hidden="true"></i>
-    <span class="font-semibold text-base-content">Canvas</span>
-    <nav data-canvas-tabs class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Canvas tabs">${tabs}</nav>
-    ${close}
+  <header class="flex h-10 shrink-0 items-end gap-2 border-b border-ui-border bg-base-200/70 px-2 text-xs">
+    <nav data-canvas-tabs class="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden pt-1" aria-label="Canvas tabs">${tabs}</nav>
+    <div class="flex h-full items-center">${close}</div>
   </header>
   <div data-canvas-body data-canvas-item="${active?.id ?? ""}" data-canvas-body-rev="${rev.body}"${active && kinds[active.kind]?.liveState ? ` data-canvas-state="${esc(JSON.stringify(active.state))}"` : ""} class="${active ? "" : "dot-grid-surface "}min-h-0 flex-1 overflow-auto">${body}</div>
 </section>

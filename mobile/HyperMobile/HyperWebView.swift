@@ -151,11 +151,18 @@ struct HyperWebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            guard !Self.isCancellation(error) else { return }
             show(error, in: webView)
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            guard !Self.isCancellation(error) else { return }
             show(error, in: webView)
+        }
+
+        private static func isCancellation(_ error: Error) -> Bool {
+            let error = error as NSError
+            return error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled
         }
 
         private func show(_ error: Error, in webView: WKWebView) {

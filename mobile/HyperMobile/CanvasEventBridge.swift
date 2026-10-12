@@ -62,7 +62,6 @@ final class CanvasEventBridge: ObservableObject {
             guard let (_, response) = try? await ServerSessionPool.shared.data(for: request, baseURL: baseURL),
                   (response as? HTTPURLResponse)?.statusCode == 200 else { return }
             activeTabID = itemID
-            revision = UUID()
             await check(baseURL: baseURL, agentID: agentID)
         }
     }
@@ -83,7 +82,8 @@ final class CanvasEventBridge: ObservableObject {
         activeTabID = html.firstMatch(of: /data-canvas-item="([0-9]+)"/).flatMap { Int(String($0.1)) }
         let value = String(current)
         defer { lastRevision = value }
-        guard let lastRevision, lastRevision != value else { return }
+        guard let lastRevision else { return }
+        guard lastRevision != value else { return }
         revision = UUID()
     }
 }

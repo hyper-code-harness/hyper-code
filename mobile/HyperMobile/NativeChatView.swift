@@ -26,6 +26,7 @@ struct NativeChatView: View {
     @FocusState private var focused: Bool
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var swipeTranslation: CGFloat = 0
     @State private var showingDeleteConfirmation = false
     @State private var actionMessage: String?
@@ -69,7 +70,7 @@ struct NativeChatView: View {
         return rows
     }
 
-    var body: some View {
+    private var chatSurface: some View {
         ZStack {
             DotGridBackground()
             VStack(spacing: 0) {
@@ -147,6 +148,25 @@ struct NativeChatView: View {
             Button("OK") { actionMessage = nil }
         } message: { Text(actionMessage ?? "") }
     }
+    var body: some View {
+        Group {
+            if horizontalSizeClass == .regular {
+                GeometryReader { proxy in
+                    let chatWidth = min(470, max(360, proxy.size.width * 0.38))
+                    HStack(spacing: 0) {
+                        AgentCanvasSurface(baseURL: baseURL, agentID: agent.id)
+                            .frame(width: max(0, proxy.size.width - chatWidth - 1))
+                        Divider()
+                        chatSurface.frame(width: chatWidth)
+                    }
+                }
+            } else {
+                chatSurface
+            }
+        }
+    }
+
+
 
 
     @ToolbarContentBuilder private var chatToolbar: some ToolbarContent {
@@ -158,7 +178,9 @@ struct NativeChatView: View {
                 Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
                 Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
                 Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
-                Button { showingCanvas = true } label: { Label("Open Canvas", systemImage: "rectangle.split.2x1") }
+                if horizontalSizeClass == .compact {
+                    Button { showingCanvas = true } label: { Label("Open Canvas", systemImage: "rectangle.split.2x1") }
+                }
                 Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
                 Divider()
                 Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)
@@ -521,6 +543,43 @@ private func linkifiedMarkdown(_ source: String) -> String {
 }
 
 
+private struct AgentCanvasWebView: View {
+    let baseURL: URL
+    let agentID: String
+    @Binding var command: WebNavigationCommand?
+    @Binding var isLoading: Bool
+    @Binding var canGoBack: Bool
+    @Binding var canGoForward: Bool
+
+    private var urlString: String {
+        baseURL.appending(path: "canvas/\(agentID)/mobile").absoluteString
+    }
+
+    var body: some View {
+        HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+    }
+}
+
+private struct AgentCanvasSurface: View {
+    let baseURL: URL
+    let agentID: String
+    @State private var isLoading = true
+    @State private var canGoBack = false
+    @State private var canGoForward = false
+    @State private var command: WebNavigationCommand?
+
+    var body: some View {
+        ZStack {
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            if isLoading {
+                ProgressView().padding(12).background(.ultraThinMaterial, in: Circle())
+            }
+        }
+        .background(Color(.systemBackground))
+    }
+}
+
+
 private struct AgentCanvasView: View {
     let baseURL: URL
     let agentID: String
@@ -531,13 +590,10 @@ private struct AgentCanvasView: View {
     @State private var canGoForward = false
     @State private var command: WebNavigationCommand?
 
-    private var urlString: String {
-        baseURL.appending(path: "canvas/\(agentID)/mobile").absoluteString
-    }
 
     var body: some View {
         NavigationStack {
-            HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
                 .navigationTitle("Canvas · \(title)")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

@@ -55,10 +55,79 @@
         if (!next || next.getAttribute('data-canvas-rev') === panel.getAttribute('data-canvas-rev')) return;
         const oldBody = panel.querySelector('[data-canvas-body]');
         const newBody = next.querySelector('[data-canvas-body]');
-        if (oldBody && newBody && oldBody.getAttribute('data-canvas-body-rev') === newBody.getAttribute('data-canvas-body-rev')) newBody.replaceWith(oldBody);
-        panel.replaceWith(next);
-        window.htmx?.process?.(next);
+        if (!oldBody || !newBody || oldBody.getAttribute('data-canvas-body-rev') !== newBody.getAttribute('data-canvas-body-rev')) {
+            panel.replaceWith(next);
+            window.htmx?.process?.(next);
+            return;
+        }
+        // Same body: change only what is around it. Moving an iframe in the DOM reloads it, so the live
+        // body never moves — the framed file keeps scroll and edits, an html page keeps running.
+        panel.setAttribute('data-canvas-rev', next.getAttribute('data-canvas-rev') || '');
+        const oldHeader = panel.querySelector(':scope > header'), newHeader = next.querySelector(':scope > header');
+        if (oldHeader && newHeader) { oldHeader.replaceWith(newHeader); window.htmx?.process?.(newHeader); }
+        // A live-state page (html tab) gets the new state posted in instead of a reload.
+        const nextState = newBody.getAttribute('data-canvas-state');
+        if (nextState !== null && nextState !== oldBody.getAttribute('data-canvas-state')) {
+            oldBody.setAttribute('data-canvas-state', nextState);
+            pushState(oldBody, nextState);
+        }
     };
+    // ── html tabs: the sandboxed page talks to us only by postMessage ──────────────────────────────
+    // Its origin is opaque, so we trust a message by its source window: it must be the frame of a tab
+    // in this panel. State patches go out one at a time per tab, in order. While any are in flight,
+    // states arriving from canvas.changed are only our own acknowledgements (or racing with them), so
+    // they are not pushed in; when the queue drains, the server's answer is the truth and goes in if it
+    // differs from what the page holds. So the page never sees its own write echoed or rolled back.
+    const canon = value => JSON.stringify(value, (_k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
+    const frames = new WeakMap();   // frame element -> { held: canonical state the page has, pending, chain }
+    const frameInfo = frame => { let f = frames.get(frame); if (!f) frames.set(frame, f = { held: null, pending: 0, chain: Promise.resolve() }); return f; };
+    const deliver = (frame, state) => {
+        const info = frameInfo(frame);
+        if (info.held === canon(state)) return;
+        info.held = canon(state);
+        frame.closest('[data-canvas-body]')?.setAttribute('data-canvas-state', JSON.stringify(state));
+        frame.contentWindow?.postMessage({ hyperCanvas: 1, type: 'state', state }, '*');
+    };
+    const pushState = (body, text) => {
+        const frame = body.querySelector('iframe[data-canvas-frame]');
+        if (!frame?.contentWindow || frameInfo(frame).pending) return;
+        let state = {};
+        try { state = JSON.parse(text) || {}; } catch {}
+        deliver(frame, state);
+    };
+    window.addEventListener('message', event => {
+        const msg = event.data;
+        if (!msg || msg.hyperCanvas !== 1) return;
+        const root = page();
+        const frame = root && [...root.querySelectorAll('iframe[data-canvas-frame]')].find(f => f.contentWindow === event.source);
+        if (!frame) return;
+        const itemId = frame.getAttribute('data-canvas-frame');
+        const url = `/canvas/${encodeURIComponent(agentOf(root))}/item/${encodeURIComponent(itemId)}`;
+        const post = body => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+            .then(async r => { if (!r.ok) console.warn(`canvas tab ${itemId}:`, await r.text()); return r.ok ? r.json() : null; }).catch(() => null);
+        if (msg.type === 'state' && msg.state && typeof msg.state === 'object' && !Array.isArray(msg.state)) {
+            const info = frameInfo(frame);
+            let held = {};
+            try { held = JSON.parse(info.held || 'null') || JSON.parse(frame.closest('[data-canvas-body]')?.getAttribute('data-canvas-state') || '{}') || {}; } catch {}
+            info.held = canon(Object.fromEntries(Object.entries({ ...held, ...msg.state }).filter(([, v]) => v !== null)));
+            info.pending++;
+            info.chain = info.chain.then(() => post({ state: msg.state })).then(answer => {
+                if (--info.pending) return;
+                // Drained: what the server holds wins — a failed write or another page's change shows up here.
+                if (answer?.state) deliver(frame, answer.state);
+                else fetch(`/canvas/${encodeURIComponent(agentOf(root))}/panel`).then(r => r.ok ? r.text() : '').then(html => {
+                    const m = html.match(/data-canvas-state="([^"]*)"/);
+                    if (!m || info.pending) return;
+                    const t = document.createElement('textarea'); t.innerHTML = m[1];
+                    try { deliver(frame, JSON.parse(t.value)); } catch {}
+                }).catch(() => {});
+            });
+        } else if (msg.type === 'ping') {
+            post({ ping: { text: String(msg.text ?? ''), data: msg.data } });
+        } else if (msg.type === 'error') {
+            console.warn(`canvas tab ${itemId}:`, msg.message);
+        }
+    });
     const shownRev = root => root.querySelector(':scope > [data-canvas-panel]')?.getAttribute('data-canvas-rev') || '';
     const tabAction = (root, body) => fetch(`/canvas/${encodeURIComponent(agentOf(root))}`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),

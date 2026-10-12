@@ -13,4 +13,7 @@ export type Kind = {
     describe?: (ctx: Context, opts: { item: types.canvas.Item }) => string | Promise<string>;
     /** Phosphor icon name for the tab. */
     icon?: string;
+    /** The tab body reads its state live (canvas.js posts it in) instead of being re-rendered: a state change
+     *  keeps the running page — its scripts, scroll and focus — and only delivers the new state. */
+    liveState?: boolean;
 };

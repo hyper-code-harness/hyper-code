@@ -277,6 +277,18 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         });
     }
 
+    if (ev.type === "input") {
+        // A chat input (input.request): the card renders the row's CURRENT state,
+        // so the same event shows the live form first and the answer later.
+        return (ctx as any).fns.input?.card ? await (ctx as any).fns.input.card({ id: String(ev.inputId ?? '') }) : '';
+    }
+
+    if (ev.type === "canvas_ping") {
+        // A canvas tab's page called hyper.ping: it woke the agent with this.
+        const data = ev.data === undefined ? "" : JSON.stringify(ev.data, null, 2);
+        return eventCard({ title: `Canvas: ${String(ev.title ?? "tab")}`, icon: 'square-half', tone: 'info', body: esc(String(ev.text ?? "")), details: data ? `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(data)}</pre>` : undefined });
+    }
+
     if (ev.type === "plan_activation") {
         return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: `<div class="font-medium text-muted">${esc(ev.title ?? ev.taskId ?? "Task")}</div>${ev.instructions ? `<div class="mt-1 whitespace-pre-wrap">${esc(ev.instructions)}</div>` : ""}` });
     }

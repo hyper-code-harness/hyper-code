@@ -13,6 +13,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const items = await ctx.fns.canvas.list({ agentId: opts.agentId });
     const active = items.find(i => i.active) ?? null;
     const hash = (value: unknown) => Bun.hash(JSON.stringify(value)).toString(36);
-    const body = hash(active ? [active.id, active.kind, active.args, active.state] : null);
-    return { panel: hash([items.map(i => [i.id, i.kind, i.title, i.active]), body]), body, activeItemId: active?.id ?? null, tabs: items.map(i => i.id) };
+    // A live-state kind gets its state posted in, so a state change must not replace its body.
+    const live = !!active && !!((ctx.state as any).canvas?.kinds?.[active.kind] as types.canvas.Registered | undefined)?.liveState;
+    const body = hash(active ? [active.id, active.kind, active.args, live ? null : active.state] : null);
+    return { panel: hash([items.map(i => [i.id, i.kind, i.title, i.active]), body, active?.state ?? null]), body, activeItemId: active?.id ?? null, tabs: items.map(i => i.id) };
 }

@@ -34,6 +34,7 @@ struct NativeChatView: View {
     @State private var currentModel: String
     @State private var showingInjectEditor = false
     @State private var showingFiles = false
+    @State private var showingCanvas = false
     @State private var injectText = ""
     @State private var injectEvery = 1
 
@@ -137,6 +138,7 @@ struct NativeChatView: View {
         .sheet(isPresented: $showingModelPicker) { ModelPickerSheet(baseURL: baseURL, agentID: agent.id, selection: $currentModel) }
         .sheet(isPresented: $showingInjectEditor) { InjectEditorSheet(baseURL: baseURL, agentID: agent.id, text: $injectText, every: $injectEvery) }
         .fullScreenCover(isPresented: $showingFiles) { FileBrowserView(baseURL: baseURL, workspacePath: agent.workspaceDir) }
+        .fullScreenCover(isPresented: $showingCanvas) { AgentCanvasView(baseURL: baseURL, agentID: agent.id, title: agent.title) }
         .alert("Delete this chat?", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) { deleteChat() }
@@ -156,6 +158,7 @@ struct NativeChatView: View {
                 Button { showingModelPicker = true } label: { Label("Change model", systemImage: "cpu") }
                 Button { showingInjectEditor = true } label: { Label("Prompt inject", systemImage: "text.badge.plus") }
                 Button { showingFiles = true } label: { Label("Browse files", systemImage: "folder") }
+                Button { showingCanvas = true } label: { Label("Open Canvas", systemImage: "rectangle.split.2x1") }
                 Button { compact() } label: { Label("Compact context", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }.disabled(store.isRunning || actionInFlight)
                 Divider()
                 Button(role: .destructive) { showingDeleteConfirmation = true } label: { Label("Delete chat", systemImage: "trash") }.disabled(actionInFlight)
@@ -515,6 +518,40 @@ private func linkifiedMarkdown(_ source: String) -> String {
     let result = NSMutableString(string: source)
     for (range, replacement) in replacements.reversed() { result.replaceCharacters(in: range, with: replacement) }
     return result as String
+}
+
+
+private struct AgentCanvasView: View {
+    let baseURL: URL
+    let agentID: String
+    let title: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var isLoading = true
+    @State private var canGoBack = false
+    @State private var canGoForward = false
+    @State private var command: WebNavigationCommand?
+
+    private var urlString: String {
+        baseURL.appending(path: "canvas/\(agentID)/mobile").absoluteString
+    }
+
+    var body: some View {
+        NavigationStack {
+            HyperWebView(urlString: urlString, authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+                .navigationTitle("Canvas · \(title)")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Button { command = .init(action: .back) } label: { Image(systemName: "chevron.backward") }.disabled(!canGoBack)
+                        Button { command = .init(action: .forward) } label: { Image(systemName: "chevron.forward") }.disabled(!canGoForward)
+                        Spacer()
+                        if isLoading { ProgressView().controlSize(.small) }
+                        Button { command = .init(action: .reload) } label: { Image(systemName: "arrow.clockwise") }
+                    }
+                }
+        }
+    }
 }
 
 

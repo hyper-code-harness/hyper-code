@@ -15,6 +15,15 @@ test("canvas opens and closes per agent, keeps the chat width, and the agent pag
     let html = await page(a.id);
     expect(html).toContain('data-canvas-panel');
     expect(html).toContain('data-canvas-toggle="toggle"');
+
+    const mobile = await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/mobile` });
+    const mobileHtml = await mobile.text();
+    expect(mobile.status).toBe(200);
+    expect(mobileHtml).toContain('data-mobile-canvas');
+    expect(mobileHtml).toContain(`data-canvas-agent="${a.id}"`);
+    expect(mobileHtml).toContain('data-canvas-panel');
+    expect(mobileHtml).toContain('/canvas/canvas.js');
+
     expect(html).not.toMatch(/data-canvas-agent="[^"]+" data-canvas-open/);
 
     const events: any[] = [];

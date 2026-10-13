@@ -50,9 +50,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
   }
   parts.push({ text: opts.prompt });
 
-  const tokenResult = await Bun.$`gcloud auth print-access-token`.quiet().nothrow();
-  if (tokenResult.exitCode !== 0) throw new Error(`gcloud authentication failed: ${tokenResult.stderr.toString().trim()}`);
-  const token = tokenResult.stdout.toString().trim();
+  const token = await ctx.fns.nanobanana.accessToken({});
   const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
   const url = `https://${host}/v1/projects/${encodeURIComponent(project)}/locations/${encodeURIComponent(location)}/publishers/google/models/${encodeURIComponent(model)}:generateContent`;
   const response = await fetch(url, {

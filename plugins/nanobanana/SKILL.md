@@ -22,4 +22,4 @@ Published image-output prices for Nano Banana 2.1 are approximately $0.0336 at 1
 
 ## Authentication
 
-Uses the active `gcloud` Application Default Login/access identity and the Vertex AI API. The project is intentionally fixed to `hs-hyper-code` unless explicitly overridden.
+Uses only a dedicated service-account JSON key stored in encrypted local secret storage as `secret://nanobanana/serviceAccountKey` — never the ambient `gcloud`/ADC identity. Give that service account nothing but `aiplatform.endpoints.predict` in the billed project (in `hs-hyper-code`: custom role `nanobananaPredict`, account `nanobanana-marketing@hs-hyper-code.iam.gserviceaccount.com`). Store the key with `secrets.set({ ref: "secret://nanobanana/serviceAccountKey", value })` or a `secret` chat input; the plugin mints short-lived tokens from it and caches them in memory. The project is intentionally fixed to `hs-hyper-code` unless explicitly overridden.

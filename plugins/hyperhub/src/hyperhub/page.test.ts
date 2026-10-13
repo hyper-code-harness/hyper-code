@@ -1,0 +1,10 @@
+import {test,expect} from 'bun:test';
+import page from './page';
+import review from './startReview';
+import route from './$route_review_POST';
+const origin='https://registry.example',commit='a'.repeat(40);
+test('legacy page delegates to provider-neutral catalogue',async()=>{let received;const ctx={fns:{plugins:{page:async(o:unknown)=>{received=o;return 'core';}}}} as any;expect(await page(ctx,null,{q:'demo',tab:'installed',baseUrl:origin})).toBe('core');expect(received).toEqual({q:'demo',tab:'installed',provider:'hyperhub'});});
+test('legacy review validates pinned input before delegation',async()=>{await expect(review({} as any,null,{baseUrl:origin,repo:'../bad',name:'example',commit})).rejects.toThrow();await expect(review({} as any,null,{baseUrl:origin,repo:'r',name:'example',commit:'main'})).rejects.toThrow();});
+test('legacy review maps pinned registry selection to core review',async()=>{let received;const ctx={fns:{plugins:{installed:async()=>({plugins:[],errors:[]}),startReview:async(o:unknown)=>{received=o;return {id:'review'};}}}} as any;expect(await review(ctx,null,{baseUrl:origin,repo:'tenant/plugin',name:'example',commit})).toEqual({id:'review'});expect(received).toEqual({selection:{provider:'hyperhub',name:'example',revision:commit,source:{baseUrl:origin,repo:'tenant/plugin'}},operation:'install'});});
+test('legacy review refuses conflicting or unverified local sources',async()=>{const ctx={fns:{plugins:{installed:async()=>({plugins:[{name:'example',managed:false}],errors:[]})}}} as any;await expect(review(ctx,null,{baseUrl:origin,repo:'tenant/plugin',name:'example',commit})).rejects.toThrow('provenance');});
+test('legacy review endpoint rejects cross-origin before side effects',async()=>{const response=await route({} as any,null,{req:new Request('https://hyper.example/hyperhub/review',{method:'POST',headers:{origin:'https://evil.example'}}),params:{}});expect(response.status).toBe(403);});

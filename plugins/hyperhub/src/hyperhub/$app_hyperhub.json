@@ -1,0 +1,8 @@
+{
+  "label": "HyperHub",
+  "href": "/plugins?provider=hyperhub",
+  "hint": "Plugin source · Hyper-git registries",
+  "icon": "ph-plugs",
+  "group": "Tools",
+  "order": 60
+}

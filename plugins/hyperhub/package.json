@@ -1,0 +1,12 @@
+{
+  "name": "hyperhub",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "configuration": {
+      "settings": [
+        "hyperhub.hubs",
+        "hyperhub.registryUrl"
+      ]
+    },"src": "src", "label": "HyperHub", "icon": "ph-puzzle-piece", "optional": true, "description": "Browse Hyper-git plugin registries, preview publication snapshots, and activate reviewed plugin versions."}
+}

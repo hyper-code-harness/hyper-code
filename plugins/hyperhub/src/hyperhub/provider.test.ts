@@ -1,0 +1,26 @@
+import {test,expect,afterEach} from 'bun:test';
+import {mkdtemp,mkdir,writeFile,readdir,rm,realpath} from 'node:fs/promises';
+import {tmpdir} from 'node:os';import {join} from 'node:path';
+import search from './providerSearch';import materialize from './providerMaterialize';
+const roots:string[]=[];afterEach(async()=>{for(const r of roots.splice(0))await rm(r,{recursive:true,force:true});});
+const commit='a'.repeat(40);
+test('provider searches eight hubs with three workers, caps results and preserves identities and failures',async()=>{
+ let active=0,max=0,calls=0;const ctx:any={fns:{hyperhub:{configuredHubs:async()=>Array.from({length:12},(_,i)=>({origin:`https://hub${i}.example`,enabled:true})),search:async(o:any)=>{calls++;max=Math.max(max,++active);await Bun.sleep(3);active--;if(o.baseUrl.includes('hub1.'))throw Error('Registry HTTP 503');return {plugins:Array.from({length:6},()=>({name:'example',repo:'team/example',commit}))};}}}};
+ const r=await search(ctx,null,{});expect(max).toBe(3);expect(calls).toBe(8);expect(r.items).toHaveLength(20);expect(r.errors).toEqual(['https://hub1.example: Registry HTTP 503']);expect(new Set(r.items.map(p=>p.selection.source.baseUrl)).size).toBeGreaterThan(1);expect(r.items[0].selection.revision).toBe(commit);
+});
+async function fixture(){const root=await realpath(await mkdtemp(join(tmpdir(),'provider-inert-')));roots.push(root);const destination=join(root,'content');await mkdir(destination);let archive=false;let fetched=commit;let listing='100644 blob '+commit+' 2\tfile.txt\0';const ctx:any={fns:{hyperhub:{resolve:async()=>({plugin:{name:'example',repo:'team/example',commit,path:'.'}}),command:async(o:any)=>{if(o.args[0]==='rev-parse')return fetched;if(o.args[0]==='ls-tree')return listing;if(o.args[0]==='archive'){archive=true;const dir=join(root,'source');await mkdir(dir,{recursive:true});await writeFile(join(dir,'file.txt'),'ok');const out=o.args.find((s:string)=>s.startsWith('--output=')).slice(9);expect(await Bun.spawn(['tar','-cf',out,'-C',dir,'.']).exited).toBe(0);}return '';}}}};return{root,ctx,destination,selection:{provider:'hyperhub',name:'example',revision:commit,source:{baseUrl:'https://hub.example',repo:'team/example'}},setListing:(s:string)=>listing=s,setFetched:(s:string)=>fetched=s,archived:()=>archive};}
+test('materialization returns exact inert destination and cleans scratch repositories',async()=>{const f=await fixture();expect(await materialize(f.ctx,null,f)).toEqual({path:f.destination});expect(await readdir(f.destination)).toEqual(['file.txt']);expect((await readdir(f.root)).some(x=>x.startsWith('.hyperhub-fetch-'))).toBe(false);});
+test('rejects forged metadata, symlink/submodule modes and unpinned fetched revisions before archive',async()=>{for(const entry of ['100644 blob '+commit+' 1\t.plugin-lock.json\0','100644 blob '+commit+' 1\t.hyperhub-lock.json\0','120000 blob '+commit+' 1\tlink\0','160000 commit '+commit+' -\tmodule\0']){const f=await fixture();f.setListing(entry);await expect(materialize(f.ctx,null,f)).rejects.toThrow();expect(f.archived()).toBe(false);}const f=await fixture();f.setFetched('b'.repeat(40));await expect(materialize(f.ctx,null,f)).rejects.toThrow('commit mismatch');});
+test('selection path mismatch, overlarge files and occupied destination rejected',async()=>{const f=await fixture();await expect(materialize(f.ctx,null,{...f,selection:{...f.selection,source:{...f.selection.source,path:'other'}}})).rejects.toThrow('path');f.setListing('100644 blob '+commit+' 2000001\tlarge\0');await expect(materialize(f.ctx,null,f)).rejects.toThrow('size');await writeFile(join(f.destination,'occupied'),'x');await expect(materialize(f.ctx,null,f)).rejects.toThrow('Empty');});
+test('bundle materialization extracts only selected subtree; legacy dotted paths remain readable',async()=>{
+ for(const selected of ['plugins/example','legacy.v1/example']){
+  const f=await fixture();const source=join(f.root,'bundle');await mkdir(join(source,selected),{recursive:true});await mkdir(join(source,'plugins/sibling'),{recursive:true});
+  await writeFile(join(source,selected,'package.json'),JSON.stringify({name:'example',procs:{src:'src'}}));await writeFile(join(source,selected,'SKILL.md'),'selected');await writeFile(join(source,'plugins/sibling','private.txt'),'not selected');await writeFile(join(source,'README.md'),'bundle root');
+  const git=async(dir:string,args:string[])=>{const p=Bun.spawn(['git',...args],{cwd:dir,stdout:'pipe',stderr:'pipe'});const [out,err,code]=await Promise.all([new Response(p.stdout).text(),new Response(p.stderr).text(),p.exited]);if(code)throw Error(err);return out;};
+  await git(source,['init']);await git(source,['add','.']);await git(source,['-c','user.name=Test','-c','user.email=test@example.invalid','commit','-m','fixture']);const revision=(await git(source,['rev-parse','HEAD'])).trim();
+  f.ctx.fns.hyperhub.resolve=async()=>({plugin:{name:'example',repo:'team/example',commit:revision,path:selected}});
+  f.ctx.fns.hyperhub.command=async(o:any)=>git(o.dir,o.args[0]==='fetch'?['fetch','--depth=1','--no-tags','--',source,revision]:o.args);
+  await materialize(f.ctx,null,{destination:f.destination,selection:{...f.selection,revision,source:{...f.selection.source,path:selected}}});
+  expect((await readdir(f.destination)).sort()).toEqual(['SKILL.md','package.json']);
+ }
+});

@@ -1,0 +1,17 @@
+import {describe,test,expect} from 'bun:test';
+import page from './page';
+import save from './saveRegistryPreference';
+import preferences from './$route_preferences_POST';
+import home from './$route__GET';
+import searchRoute from './$route_search_GET';
+import detailRoute from './$route_detail_GET';
+import reviewRoute from './$route_review_POST';
+const origin='https://registry.example',commit='a'.repeat(40);
+function fixture(){const calls:unknown[]=[];const ctx={fns:{settings:{get:async()=>''},hyperhub:{configuredHubs:async()=>[{label:'Hub',origin,enabled:true}],installed:async()=>({plugins:[],errors:[]}),search:async(o:unknown)=>{calls.push(o);return {plugins:[{repo:'tenant/plugin',name:'example',commit}]};},resolve:async()=>({plugin:{repo:'tenant/plugin',name:'example',commit}})}}} as any;return{ctx,calls};}
+describe('HyperHub legacy routes and preferences',()=>{
+ test('legacy discovery redirects to core with provider filter and ignores activation parameters',async()=>{for(const handler of [home,searchRoute,detailRoute]){const result=await handler({} as any,null,{req:new Request('https://hyper.example/hyperhub?q=demo&tab=installed&confirmed=true'),params:{}});expect(result.status).toBe(303);expect(result.headers.get('location')).toBe('/plugins?provider=hyperhub&q=demo&tab=installed');}});
+ test('review POST forwards pinned selection only, never query activation',async()=>{let received:any;const ctx={fns:{hyperhub:{startReview:async(o:any)=>{received=o;return {id:'review-id'};}}}} as any;const response=await reviewRoute(ctx,null,{req:new Request('https://hyper.example/hyperhub/review?confirmed=true',{method:'POST',headers:{origin:'https://hyper.example'},body:new URLSearchParams({baseUrl:origin,repo:'tenant/plugin',name:'example',commit,confirmed:'true'})}),params:{}});expect(received).toEqual({baseUrl:origin,repo:'tenant/plugin',name:'example',commit});expect(response.status).toBe(303);expect(response.headers.get('location')).toBe('/agent/review-id');});
+ test('save validates and normalizes origin or clears without network',async()=>{let value='';const ctx={fns:{settings:{set:async(o:any)=>{value=o.value;}}}} as any;expect(await save(ctx,null,{baseUrl:origin+'/'})).toEqual({saved:true});expect(value).toBe(origin);await save(ctx,null,{baseUrl:''});expect(value).toBe('');for(const baseUrl of ['http://registry.example','https://x:secret@registry.example','https://registry.example/path','https://registry.example/?','https://registry.example/#'])await expect(save(ctx,null,{baseUrl})).rejects.toThrow();});
+ test('preferences rejects missing or foreign Origin before mutation',async()=>{for(const headers of [{},{origin:'https://evil.example'},{origin:'https://hyper.example','sec-fetch-site':'cross-site'}]){const response=await preferences({} as any,null,{req:new Request('https://hyper.example/hyperhub/preferences',{method:'POST',headers}),params:{}});expect(response.status).toBe(403);}});
+ test('preferences handles same-origin POST and redirects safely',async()=>{let saved='';const ctx={fns:{hyperhub:{saveRegistryPreference:async(o:any)=>{saved=o.baseUrl;}}}} as any;const response=await preferences(ctx,null,{req:new Request('https://hyper.example/hyperhub/preferences',{method:'POST',headers:{origin:'https://hyper.example'},body:new URLSearchParams({baseUrl:origin})}),params:{}});expect(saved).toBe(origin);expect(response.status).toBe(303);expect(response.headers.get('location')).toBe('/hyperhub');});
+});

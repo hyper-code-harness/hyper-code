@@ -13,10 +13,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                  ORDER BY next_run_at, name LIMIT 1 FOR UPDATE SKIP LOCKED
               ), claimed AS (
                 UPDATE cron_tasks t SET state='running', updated_at=? FROM due WHERE t.name=due.name
-                RETURNING t.name, t.fn, t.args, t.next_run_at
+                RETURNING t.name, t.fn, t.args, t.next_run_at, t.authority_version
               )
-              INSERT INTO cron_runs (task_name, fn, args, scheduled_at, started_at, status, created_at)
-              SELECT name, fn, args, next_run_at, ?, 'running', ? FROM claimed
+              INSERT INTO cron_runs (task_name, fn, args, scheduled_at, started_at, status, created_at, authority_version)
+              SELECT name, fn, args, next_run_at, ?, 'running', ?, authority_version FROM claimed
               RETURNING id, task_name AS name, fn, args, scheduled_at AS "scheduledAt", started_at AS "startedAt"`,
         params: [now, now, now, now],
     });

@@ -43,20 +43,29 @@ export default {
         // Separate origin, so allow-same-origin only lets the site keep its own cookies and storage; no
         // allow-top-navigation, so a frame-busting script cannot take the app page away.
         const frame = (cls: string) => `<iframe src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads" referrerpolicy="no-referrer" allow="fullscreen; clipboard-write" class="${cls} h-full w-full border-0 bg-white"></iframe>`;
+        // A small browser chrome: the address (editable — Enter navigates this tab) and "open in a new tab".
+        // Reload is the panel's own button. Back/forward inside the site are not ours to drive: the frame is
+        // another origin.
+        const bar = `<form data-canvas-navigate="${opts.item.id}" class="flex h-9 shrink-0 items-center gap-1.5 border-b border-ui-border bg-base-100 px-2">
+  <i class="ph ph-${url.startsWith("https:") ? "lock-simple" : "globe"} shrink-0 text-faint" aria-hidden="true"></i>
+  <input name="url" value="${esc(url)}" spellcheck="false" autocomplete="off" aria-label="Address" class="min-w-0 flex-1 rounded-md bg-base-200/70 px-2 py-1 text-xs outline-none focus:bg-base-200 focus:ring-1 focus:ring-ui-border">
+  <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Open in a new browser tab" aria-label="Open in a new browser tab" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>
+</form>`;
+        const wrap = (inner: string) => `<div class="flex h-full flex-col">${bar}<div class="relative min-h-0 flex-1">${inner}</div></div>`;
         if (a.embeddable === false) {
             // With the canvas-frames extension (extensions/canvas-frames) the browser drops the framing
             // headers inside Hyper tabs and marks <html data-hyper-frames>; then the frame shows and the
             // notice hides. Without it only the notice is visible.
-            return `<style>.hyper-url-frame{display:none}html[data-hyper-frames] .hyper-url-frame{display:block}html[data-hyper-frames] .hyper-url-notice{display:none}</style>
+            return wrap(`<style>.hyper-url-frame{display:none}html[data-hyper-frames] .hyper-url-frame{display:block}html[data-hyper-frames] .hyper-url-notice{display:none}</style>
 ${frame("hyper-url-frame")}
 <div class="hyper-url-notice flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
   <div class="text-base font-medium">${esc(new URL(url).hostname)} не разрешает показывать себя внутри другой страницы</div>
   <div class="max-w-md text-sm text-faint">${esc(String(a.reason ?? ""))}</div>
   <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Открыть в новой вкладке</a>
   <div class="max-w-md text-xs text-faint">Чтобы такие сайты открывались здесь, поставьте расширение Hyper canvas frames (папка extensions/canvas-frames).</div>
-</div>`;
+</div>`);
         }
-        return frame("block");
+        return wrap(frame("block"));
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
         const a = opts.item.args;

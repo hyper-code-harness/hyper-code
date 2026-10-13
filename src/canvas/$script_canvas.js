@@ -41,7 +41,7 @@
     // fetch the panel again. Only the latest request may swap, and when the active body is unchanged the
     // live one is kept (the framed file keeps its scroll and unsaved edits) and only the strip changes.
     let refreshing = 0;
-    const refreshPanel = async root => {
+    const refreshPanel = async (root, force = false) => {
         const ticket = ++refreshing;
         const r = await fetch(`/canvas/${encodeURIComponent(agentOf(root))}/panel`, { headers: { accept: 'text/html' } }).catch(() => null);
         if (!r?.ok || ticket !== refreshing) return;
@@ -52,10 +52,10 @@
         const tpl = document.createElement('template');
         tpl.innerHTML = html;
         const next = tpl.content.querySelector('[data-canvas-panel]');
-        if (!next || next.getAttribute('data-canvas-rev') === panel.getAttribute('data-canvas-rev')) return;
+        if (!next || (!force && next.getAttribute('data-canvas-rev') === panel.getAttribute('data-canvas-rev'))) return;
         const oldBody = panel.querySelector('[data-canvas-body]');
         const newBody = next.querySelector('[data-canvas-body]');
-        if (!oldBody || !newBody || oldBody.getAttribute('data-canvas-body-rev') !== newBody.getAttribute('data-canvas-body-rev')) {
+        if (force || !oldBody || !newBody || oldBody.getAttribute('data-canvas-body-rev') !== newBody.getAttribute('data-canvas-body-rev')) {
             panel.replaceWith(next);
             window.htmx?.process?.(next);
             return;
@@ -153,6 +153,12 @@
         if (closeItem && root.contains(closeItem)) {
             event.preventDefault();
             tabAction(root, { closeItemId: Number(closeItem.getAttribute('data-canvas-close-item')) });
+            return;
+        }
+        const reload = event.target.closest?.('[data-canvas-reload]');
+        if (reload && root.contains(reload)) {
+            event.preventDefault();
+            refreshPanel(root, true);
             return;
         }
         const reopen = event.target.closest?.('[data-canvas-reopen]');
@@ -265,6 +271,20 @@
             .then(r => r.ok ? r.json() : Promise.reject(r))
             .then(state => { apply(root, state); if (state.rev && state.rev !== shownRev(root)) refreshPanel(root); })
             .catch(() => window.open(a.href, '_blank', 'noopener'));
+    });
+
+    document.addEventListener('focusin', event => {
+        if (event.target.matches?.('[data-canvas-navigate] input[name="url"]')) event.target.select();
+    });
+    // A url tab's address bar: Enter opens the typed address in the same tab (canvas.navigate).
+    document.addEventListener('submit', event => {
+        const form = event.target.closest?.('[data-canvas-navigate]');
+        const root = page();
+        if (!form || !root || !root.contains(form)) return;
+        event.preventDefault();
+        const url = String(new FormData(form).get('url') || '').trim();
+        if (!url) return;
+        tabAction(root, { navigate: { itemId: Number(form.getAttribute('data-canvas-navigate')), url } });
     });
 
     const init = () => { const root = page(); if (root) paintButtons(root); };

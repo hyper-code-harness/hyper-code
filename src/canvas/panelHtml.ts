@@ -25,6 +25,17 @@ export default async function (
         title: "Close canvas",
         attrs: { "data-canvas-toggle": "close" },
     });
+    // Reload draws the active tab again from its source: a file re-read, a site re-fetched, an html page's
+    // load re-run, a tsx drawing recomputed. canvas.js asks for the panel and swaps the body unconditionally.
+    const reload = ctx.fns.procs.ui.button({
+        action: "reload-canvas-tab",
+        html: '<i class="ph ph-arrow-clockwise" aria-hidden="true"></i>',
+        appearance: "plain",
+        ariaLabel: "Reload tab",
+        class: "flex size-7 shrink-0 items-center justify-center rounded-full text-faint transition hover:bg-base-200 hover:text-base-content",
+        title: "Reload tab",
+        attrs: { "data-canvas-reload": "" },
+    });
     const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
     const items = await ctx.fns.canvas.list({ agentId: opts.agentId }).catch(() => [] as types.canvas.Item[]);
     const kinds = ((ctx.state as any).canvas?.kinds ?? {}) as Record<string, types.canvas.Registered>;
@@ -76,7 +87,7 @@ export default async function (
     return `<section id="canvas-panel" data-canvas-panel data-agent-id="${id}" data-canvas-rev="${rev.panel}" aria-label="Canvas" class="canvas-panel glass-panel my-2 ml-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ui-border">
   <header class="flex h-8 shrink-0 items-stretch bg-base-300/60 text-xs">
     <nav data-canvas-tabs class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] ${items.length ? "" : "border-b border-ui-border"}" aria-label="Canvas tabs">${tabs}</nav>
-    ${history}<div class="flex items-center border-b border-l border-ui-border px-1.5">${close}</div>
+    ${history}<div class="flex items-center gap-0.5 border-b border-l border-ui-border px-1.5">${active ? reload : ""}${close}</div>
   </header>
   <div data-canvas-body data-canvas-item="${active?.id ?? ""}" data-canvas-body-rev="${rev.body}"${active && kinds[active.kind]?.liveState ? ` data-canvas-state="${esc(JSON.stringify(active.state))}"` : ""} class="${active ? "" : "dot-grid-surface "}min-h-0 flex-1 overflow-auto">${body}</div>
 </section>

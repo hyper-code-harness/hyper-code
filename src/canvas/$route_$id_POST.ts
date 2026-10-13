@@ -1,6 +1,7 @@
 // POST /canvas/:id — open/close an agent's canvas or set the chat width beside it. JSON or form body:
 // { open?: boolean, chatWidth?: number, activeItemId?: number, closeItemId?: number, reopenItemId?: number,
-// show?: { kind: "file" | "url", args } } — show opens a link clicked in the chat as a tab. Answers the
+// show?: { kind: "file" | "url", args }, navigate?: { itemId, url } } — show opens a link clicked in the chat
+// as a tab, navigate points a url tab at another address (its address bar). Answers the
 // resulting state with the panel fingerprint (rev).
 /** Changes an agent's canvas state from the browser (canvas.update). */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }): Promise<Response> {
@@ -37,6 +38,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         try { await ctx.fns.canvas.show({ agentId, kind, args }); }
         catch (error: any) { return new Response(String(error?.message ?? error), { status: 400 }); }
         body.open = true;
+    }
+    // The address bar of a url tab: the same prepare() check as a new url tab, in place.
+    if (body.navigate && typeof body.navigate === "object") {
+        const itemId = Number(body.navigate.itemId);
+        if (!Number.isInteger(itemId)) return new Response("invalid item id", { status: 400 });
+        try { await ctx.fns.canvas.navigate({ agentId, itemId, url: String(body.navigate.url ?? "") }); }
+        catch (error: any) { return new Response(String(error?.message ?? error), { status: 400 }); }
     }
     const open = typeof body.open === "boolean" ? body.open : body.open === "1" || body.open === "true" ? true : body.open === "0" || body.open === "false" ? false : undefined;
     const chatWidth = body.chatWidth == null || body.chatWidth === "" ? undefined : Number(body.chatWidth);

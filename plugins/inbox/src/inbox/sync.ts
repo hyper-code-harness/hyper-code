@@ -1,5 +1,6 @@
 /**
- * Fetches new mail for this Hyper from the relay once (long poll up to wait seconds), decrypts and verifies each message, stores it
+ * Fetches new encrypted agent-to-agent messages for this Hyper from the relay once
+ * (long poll up to wait seconds), decrypts and verifies each message, stores it
  * in inbox.messages and delivers verified ones to the addressed agents (inbox.route → inbox.deliver). Unverified messages are kept
  * as quarantined (verified false, reason) and never delivered. Advances the stored cursor only after storing. Safe to call
  * concurrently with the background loop: storage is idempotent by message id.

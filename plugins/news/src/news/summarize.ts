@@ -12,13 +12,13 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const source=String(item.article_md||item.summary||item.title||"").trim();
     if(!source)throw new Error(`news.summarize: no source text for ${opts.id}`);
     const root=globalThis as typeof globalThis&{__newsSummaryTail?:Promise<void>};const previous=root.__newsSummaryTail??Promise.resolve();let release!:()=>void;root.__newsSummaryTail=new Promise<void>(resolve=>{release=resolve});await previous.catch(()=>undefined);let result:any;
-    const model="openai:gpt-4o-mini";
+    const model="codex:gpt-5.6-sol";
     try{for(let attempt=0;attempt<4;attempt++){try{result=await ctx.fns.llm.call({
-        system:"Ты — технический редактор новостной ленты. Отвечай строго в указанном формате, без markdown и без дополнительных пояснений.",
+        system:"Ты — проницательный редактор новостной ленты. Находи не очевидный пересказ заголовка, а уникальную ценность материала: новый факт, неожиданную связь, конкретный механизм, редкую цифру, сильный аргумент или практическое следствие. Отвечай строго в указанном формате, без markdown и дополнительных пояснений.",
         model,
-        user:`Сделай краткое саммари материала на русском языке.\n\nTOPICS: 2-3 основные темы через запятую на английском, lowercase (например: ai, postgresql, security).\nSUMMARY: ровно один абзац из 1-3 коротких предложений. Передай только суть и важные факты или цифры. Пиши простым прагматичным языком, в третьем лице. Не используй мета-фразы «статья рассказывает», «автор пишет», «в материале». Не добавляй фактов, которых нет в исходнике.\n\nЗАГОЛОВОК: ${item.title}\n\nИСХОДНИК:\n${source.slice(0,14000)}`,
-        temperature:0.1,
-        max_tokens:350,
+        user:`Сделай содержательное саммари материала на русском языке.\n\nTOPICS: 2-3 основные темы через запятую на английском, lowercase (например: ai, postgresql, security).\nSUMMARY: один живой, плотный абзац из 2-4 предложений. Сначала сформулируй главный тезис, затем вытащи наиболее уникальное и информационно ценное, чего нельзя понять из одного заголовка: новый факт, неожиданный вывод, механизм, редкую цифру, контраргумент или практическое следствие. Если материал выражает авторскую позицию, ясно атрибутируй её, не выдавая мнение за факт. Избегай общих слов, канцелярита и повторения заголовка. Не используй мета-фразы «статья рассказывает», «автор пишет», «в материале». Не добавляй фактов, которых нет в исходнике.\n\nЗАГОЛОВОК: ${item.title}\n\nИСХОДНИК:\n${source.slice(0,24000)}`,
+        temperature:0.25,
+        max_tokens:650,
         sessionId:`news-summary:${item.id}`,
     });break}catch(error:any){const message=String(error?.message??error),transient=/\b429\b|rate.?limit|overloaded|temporar/i.test(message);if(!transient||attempt===3)throw error;await Bun.sleep(1500*2**attempt)}}}finally{release()}
     const text=String(result.text??"").trim();

@@ -3,11 +3,20 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "inbox.defaultAgent",
+        "inbox.enabled",
+        "inbox.host",
+        "inbox.principal",
+        "inbox.relay"
+      ]
+    },
     "src": "src",
     "label": "Inbox",
     "icon": "ph-envelope-simple",
     "optional": true,
-    "description": "End-to-end encrypted mail between people, agents and Hyper environments over the Hypermesh relay: addresses, send, reply, inbox, delivery to agents."
+    "description": "Send and receive end-to-end encrypted messages between people, agents, and Hyper environments."
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",

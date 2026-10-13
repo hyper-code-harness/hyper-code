@@ -7,6 +7,6 @@
     "label": "News",
     "icon": "ph-newspaper",
     "optional": true,
-    "description": "Durable news storage and reading UI with source-neutral item writes, search, likes and read state."
+    "description": "Store, search, filter, and read news items, with likes and read status."
   }
 }

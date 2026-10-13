@@ -30,6 +30,126 @@ From code:
 - `vegalite.resolveDataPath({ path })` → the absolute path, or a throw if it leaves the data root.
 - `vegalite.theme({})` → the Vega config with the host font and palette, if you compile a spec yourself.
 
+## Executable object expressions (`vega-lite eval`)
+
+With `vegalite.allowEval` explicitly enabled, use `eval` in the fence info string.
+The body is a **JavaScript object expression**, not JSON: unquoted keys, expressions,
+`await`, `ctx` and `session` are available. It is wrapped as an async return expression
+and its resulting object is passed to Vega-Lite. Do not write a top-level `return`
+or a trailing semicolon. This mode is JavaScript, not TypeScript.
+
+**Security and lifecycle:** disabled by default. This is full server-side code execution,
+not a sandbox, and read-only behavior is not enforced. Enable only when all rendered
+Markdown is trusted. Use read-only calls; never send messages, write files, mutate data,
+or access secrets in a chart. Expressions run again on every render, including reopening
+history; results are not a saved snapshot. Ordinary fences remain strict JSON. Width,
+height and theme flags also work in eval mode. Runtime or syntax errors fall back to code.
+The system-context fence hint advertises eval only while the setting is enabled.
+
+### Postgres (framework connection)
+
+````markdown
+```vega-lite eval width=520 height=300
+{
+  data: {
+    values: await ctx.fns.procs.db.select({
+      sql: "SELECT sender_full_name AS name, COUNT(*)::int AS messages FROM fhir.zulip_messages GROUP BY sender_full_name ORDER BY messages DESC LIMIT ?",
+      params: [10]
+    })
+  },
+  mark: 'bar',
+  encoding: {
+    y: { field: 'name', type: 'nominal', sort: '-x' },
+    x: { field: 'messages', type: 'quantitative' }
+  }
+}
+```
+````
+
+This example requires the FHIR mirror. Always use `ctx.fns.procs.db`, not bare Bun.sql.
+
+### DuckDB
+
+````markdown
+```vega-lite eval
+{
+  data: {
+    values: (await ctx.fns.duckdb.query({
+      sql: "SELECT 'Jan' AS month, 120 AS sales UNION ALL SELECT 'Feb', 180"
+    })).rows
+  },
+  mark: 'bar',
+  encoding: {
+    x: { field: 'month', type: 'nominal' },
+    y: { field: 'sales', type: 'quantitative' }
+  }
+}
+```
+````
+
+Requires the DuckDB plugin. Direct function calls use their own permissions;
+`allowSqlData` only gates the declarative `data: { sql }` syntax, not eval calls.
+
+### DuckDB over a local CSV (OMOP example)
+
+Inspect the CSV's columns and a few rows with `duckdb.query` before writing a chart.
+Start with `read_csv_auto`; verify it detected separate columns rather than treating
+an entire line as one field. Use an actual absolute path on the server, not `~`.
+The path below is a placeholder: replace it with your local OMOP CDM CSV.
+
+````markdown
+```vega-lite eval width=480 height=320
+{
+  title: 'Largest OMOP tables · Number of fields',
+  data: {
+    values: (await ctx.fns.duckdb.query({
+      sql: `SELECT cdmTableName AS name, count(*) AS fields
+            FROM read_csv('/absolute/path/OMOP_CDMv5.4_Field_Level.csv',
+              delim=',', header=true, quote='"', escape='"',
+              null_padding=true, strict_mode=false, parallel=false)
+            GROUP BY cdmTableName
+            ORDER BY fields DESC, name LIMIT 12`
+    })).rows
+  },
+  mark: 'bar',
+  encoding: {
+    y: { field: 'name', type: 'nominal', sort: '-x', title: null,
+         axis: { labelLimit: 190 } },
+    x: { field: 'fields', type: 'quantitative', title: 'Fields' }
+  }
+}
+```
+````
+
+These parsing options were needed for an OMOP CDM 5.4 field dictionary with
+quoted multiline guidance and uneven row widths; they are not universal defaults:
+
+- `delim`, `quote`, and `escape` explicitly describe comma-separated, quoted CSV.
+- `null_padding=true` fills missing trailing columns with NULL.
+- `strict_mode=false` relaxes structural checks; inspect the parsed rows before trusting counts.
+- `parallel=false` is needed when combining null padding with quoted newlines.
+- Do not silently add `ignore_errors=true`: dropping rows can produce misleading charts.
+
+DuckDB may infer `Yes`/`No` columns such as `isRequired` as BOOLEAN. Check the
+inferred type; in that case use `CASE WHEN isRequired THEN 'Required' ELSE 'Optional' END`,
+not a string comparison. This chart describes schema fields, not patient counts.
+Direct DuckDB file access is not confined by Vega-Lite's `dataRoot` setting.
+
+### A regular runtime function call
+
+````markdown
+```vega-lite eval
+{
+  data: { values: [await ctx.fns.fhir.stats({})] },
+  mark: 'bar',
+  encoding: { y: { field: 'messages', type: 'quantitative' } }
+}
+```
+````
+
+Any read-only function returning rows can supply `data.values`; for a single record,
+wrap it in an array as above. Transform rows with ordinary JavaScript when needed.
+
 ## Data
 
 A spec may use inline `data: { values: [...] }`, or `data: { url: "reports/sales.csv" }`. Urls are resolved **before** rendering: every file is read, parsed and inlined, so Vega's own loader never runs and a displayed chart cannot make this server issue a request.
@@ -59,5 +179,6 @@ It is off by default because DuckDB reads any file this server can, which delibe
 | `vegalite.allowRemoteData` | `false` | let specs fetch `https://` data; off means a remote url is an error |
 | `vegalite.maxDataBytes` | 8 MiB | largest data file a chart may read |
 | `vegalite.allowSqlData` | `false` | let specs use `data: { sql }` through the duckdb plugin |
+| `vegalite.allowEval` | `false` | execute trusted JavaScript object expressions in `vega-lite eval` fences; full server privileges, reruns on render |
 
 Turning `allowRemoteData` on makes any rendered fence able to reach whatever the spec names, from this machine. Leave it off unless charts come from a source you control.

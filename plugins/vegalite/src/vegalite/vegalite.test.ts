@@ -224,3 +224,29 @@ describe("GET /vegalite/data", () => {
         expect((await call("path=nope.csv")).status).toBe(404);
     });
 });
+
+describe("vegalite executable fences", () => {
+    test("disabled eval never executes code", async () => {
+        const ctx = makeCtx();
+        await expect(fence(ctx, null, { source: "{ mark: (ctx.state.executed = true) }", lang: "vega-lite", info: "eval" })).rejects.toThrow(/allowEval/);
+        expect((ctx.state as any).executed).toBeUndefined();
+    });
+    test("awaited calls and expressions produce an SVG", async () => {
+        const ctx = makeCtx({ allowEval: true });
+        const html = await fence(ctx, null, {
+            source: `{ ...${JSON.stringify(BAR)}, data: { values: (await ctx.fns.vegalite.readData({ path: 'rows.json' })).rows.map(row => ({ ...row, b: row.b * 2 })) } }`,
+            lang: "vega-lite", info: "eval width=240 height=100 theme=off",
+        });
+        expect(html).toContain("<svg");
+        expect(html).not.toContain("Inter");
+    });
+    test("JSON mode does not evaluate JavaScript even when enabled", async () => {
+        await expect(fence(makeCtx({ allowEval: true }), null, { source: "{ mark: 'bar' }", lang: "vega-lite", info: "" })).rejects.toThrow(/JSON/);
+    });
+    test("invalid results and runtime failures propagate", async () => {
+        for (const source of ["null", "[]", "42"]) {
+            await expect(fence(makeCtx({ allowEval: true }), null, { source, lang: "vega-lite", info: "eval" })).rejects.toThrow(/spec object/);
+        }
+        await expect(fence(makeCtx({ allowEval: true }), null, { source: "{ mark: await Promise.reject(new Error('query failed')) }", lang: "vega-lite", info: "eval" })).rejects.toThrow("query failed");
+    });
+});

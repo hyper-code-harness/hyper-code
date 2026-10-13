@@ -3,11 +3,19 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "vegalite.allowRemoteData",
+        "vegalite.allowSqlData",
+        "vegalite.dataRoot",
+        "vegalite.maxDataBytes"
+      ]
+    },
     "src": "src",
     "label": "Vega-Lite",
     "icon": "ph-chart-bar",
     "optional": true,
-    "description": "Vega-Lite charts: render specs to static inline SVG, show ```vega-lite fences in Markdown, and serve local CSV/JSON/NDJSON data files to specs."
+    "description": "Render charts as inline SVG from Vega-Lite specifications and local CSV, JSON, or NDJSON data."
   },
   "dependencies": {
     "vega": "^6.1.2",

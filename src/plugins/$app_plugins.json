@@ -1,0 +1,8 @@
+{
+  "label": "Plugins",
+  "href": "/plugins",
+  "hint": "Browse plugin sources and review installed extensions",
+  "icon": "ph-puzzle-piece",
+  "group": "System",
+  "order": 55
+}

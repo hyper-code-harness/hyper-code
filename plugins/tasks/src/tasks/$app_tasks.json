@@ -1,0 +1,8 @@
+{
+  "label": "Tasks",
+  "href": "/tasks",
+  "hint": "Track open and completed tasks with attached agent chats",
+  "icon": "ph-check-square",
+  "group": "Pages",
+  "order": 30
+}

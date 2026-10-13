@@ -1,0 +1,8 @@
+{
+  "label": "Declared settings",
+  "href": "/settings/declared",
+  "hint": "Inspect and edit declared runtime settings",
+  "icon": "ph-sliders-horizontal",
+  "group": "System",
+  "order": 45
+}

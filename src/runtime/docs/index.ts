@@ -123,7 +123,7 @@ async function runIndex(
 
 function splitName(name: string): string { return name.replaceAll(".", " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase(); }
 function parseLocales(value: string | undefined): string[] { return [...new Set(String(value ?? "").split(",").map(item => item.trim().toLowerCase()).filter(Boolean))]; }
-function localizationIdentity(contentHash: string, model: string, locales: string): string { return Bun.hash(`${contentHash}|openai|v6|${model}|${locales}`).toString(16); }
+function localizationIdentity(contentHash: string, model: string, locales: string): string { return Bun.hash(`${contentHash}|openai|v7|${model}|${locales}`).toString(16); }
 function validLocalizedText(value: any): boolean {
     const text = String(value ?? "").trim();
     return text.length >= 120 && text !== "[object Object]" && !/requests:\s*$/i.test(text);

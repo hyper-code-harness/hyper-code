@@ -1,0 +1,29 @@
+import {test, expect} from 'bun:test';
+import configuration from './configuration';
+import saveConfiguration from './saveConfiguration';
+import {mkdtemp, mkdir, writeFile, rm, symlink} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+
+async function fixture() {
+ const dir = await mkdtemp(join(tmpdir(),'plugin-config-'));
+ await mkdir(join(dir,'src/demo'),{recursive:true});
+ const defs = [{name:'demo.flag',type:'boolean',value:true},{name:'demo.count',type:'number',value:2,min:1,max:9},{name:'demo.token',type:'secret',value:'DO-NOT-EXPOSE'},{name:'demo.mode',type:'enum',value:'a',options:['a','b']}];
+ const items=defs.map(d=>({module:'demo',key:d.name.split('.')[1],descriptor:{type:d.type,default:d.value,min:d.min,max:d.max,options:d.options},currentValue:d.value,source:'default'}));
+ const entries:any[]=[];
+ for(const item of items) {const abs=join(dir,'src/demo/$setting_'+item.key+'.ts');await writeFile(abs,'');entries.push({kind:'setting',module:'demo',name:item.key,root:'demo',abs});}
+ const widget=join(dir,'src/demo/widget.ts');await writeFile(widget,''); entries.push({kind:'fn',module:'demo',runtimeName:'widget',root:'demo',abs:widget});
+ const live=Object.assign(()=>'',{meta:{abs:widget}});
+ const manifest:any={settings:defs.map(d=>d.name),widget:'demo.widget'};
+ const writes:any[]=[];
+ const ctx:any={state:{registry:{demo:{widget:live}},settings:{registry:new Map(items.map(i=>['demo.'+i.key,i.descriptor]))},procs:{boot:{entries}}},fns:{procs:{modules:{list:()=>[{name:'demo',dir,plugin:true,namespaces:['demo'],fns:['demo.widget']}]}},plugins:{readMetadata:async()=>({procs:{configuration:manifest}})},settings:{declared:async()=>items,set:async(v:any)=>writes.push(v),remove:async(v:any)=>writes.push(v)}}};
+ ctx.fns.plugins.configuration=(opts:any)=>configuration(ctx,null,opts);
+ return {ctx,dir,manifest,entries,writes,live,cleanup:()=>rm(dir,{recursive:true,force:true})};
+}
+test('owned metadata is safe and does not run widget',async()=>{const f=await fixture();try{const out=await configuration(f.ctx,null,{name:'demo'});expect(out.widget).toBe('demo.widget');expect(JSON.stringify(out)).not.toContain('DO-NOT-EXPOSE');expect(out.settings[2].configured).toBe(true);}finally{await f.cleanup();}});
+test('ownership rejects foreign, stale and symlink escaped sources',async()=>{const f=await fixture();try{f.entries[0].root='other';await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow('not owned');f.entries[0].root='demo';f.live.meta.abs='/foreign/widget.ts';await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow('Stale');f.live.meta.abs=f.entries.at(-1).abs;await rm(f.entries[0].abs);await symlink('/etc/hosts',f.entries[0].abs);await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow('not owned');}finally{await f.cleanup();}});
+test('malformed metadata and undeclared fields reject',async()=>{const f=await fixture();try{f.manifest.settings.push('demo.absent');await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow('not owned');f.manifest.settings.pop();f.manifest.extra=true;await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow('Unknown');}finally{await f.cleanup();}});
+test('full validation precedes writes including omitted booleans',async()=>{const f=await fixture();try{for(const values of [{'other.flag':'true'},{'demo.count':'10'},{'demo.count':'NaN'},{'demo.count':''},{'demo.mode':'bad'},{'demo.token':'plaintext'}]){await expect(saveConfiguration(f.ctx,null,{name:'demo',values})).rejects.toThrow();expect(f.writes).toEqual([]);}await saveConfiguration(f.ctx,null,{name:'demo',values:{'demo.count':'3','demo.token':''}});expect(f.writes.map(w=>[w.key,w.value])).toEqual([['flag',false],['count',3]]);}finally{await f.cleanup();}});
+test('secret resets rejected before writes',async()=>{const f=await fixture();try{await expect(saveConfiguration(f.ctx,null,{name:'demo',reset:'demo.token'})).rejects.toThrow('read-only');expect(f.writes).toEqual([]);}finally{await f.cleanup();}});
+test('separate secrets use safe metadata only and require namespace ownership',async()=>{const f=await fixture();try{delete f.manifest.settings;delete f.manifest.widget;f.manifest.secrets=[{name:'apiKey',ref:'secret://demo/apiKey',required:true}];let calls=0;f.ctx.fns.settings.declared=()=>{throw new Error('must not read settings');};f.ctx.fns.secrets={parseRef:({ref}:any)=>{const m=/^secret:\/\/([\w.-]+)\/([\w.-]+)$/.exec(ref);if(!m)throw new Error('invalid ref');return {namespace:m[1],name:m[2]};},list:async()=>{calls++;return [{ref:'secret://demo/apiKey',source:'test'}];},get:()=>{throw new Error('must not decrypt');}};const out=await configuration(f.ctx,null,{name:'demo'});expect(out.secrets).toEqual([{name:'apiKey',ref:'secret://demo/apiKey',required:true,configured:true}]);expect(calls).toBe(1);for(const bad of [{name:'apiKey',ref:'secret://foreign/key'},{name:'apiKey',ref:'secret://demo/key',value:'raw'},{name:'apiKey',ref:'secret://demo/key',required:'yes'}]){f.manifest.secrets=[bad];await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow();}expect(calls).toBe(1);f.manifest.secrets=[{name:'one',ref:'secret://demo/key'},{name:'two',ref:'secret://demo/key'}];await expect(configuration(f.ctx,null,{name:'demo'})).rejects.toThrow('duplicate');expect(f.writes).toEqual([]);}finally{await f.cleanup();}});
+test('reset uses exact whitelist and cannot combine values',async()=>{const f=await fixture();try{await expect(saveConfiguration(f.ctx,null,{name:'demo',reset:'other.flag'})).rejects.toThrow();await expect(saveConfiguration(f.ctx,null,{name:'demo',reset:'demo.flag',values:{}})).rejects.toThrow();expect(f.writes).toEqual([]);await saveConfiguration(f.ctx,null,{name:'demo',reset:'demo.flag'});expect(f.writes).toEqual([{module:'demo',scopeType:'global',key:'flag'}]);}finally{await f.cleanup();}});

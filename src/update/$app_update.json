@@ -1,0 +1,8 @@
+{
+  "label": "Hyper update",
+  "href": "/update",
+  "hint": "Review update status and apply available updates",
+  "icon": "ph-arrow-clockwise",
+  "group": "System",
+  "order": 80
+}

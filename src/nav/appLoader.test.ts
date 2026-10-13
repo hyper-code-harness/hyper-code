@@ -33,7 +33,7 @@ test("nav items orders declared apps and exposes presentation metadata", async (
     await ctx.fns.procs.db.close?.({});
 });
 
-test("nav items discovers parameterless GET pages but excludes assets and parameterized routes", async () => {
+test("nav items excludes undeclared GET pages, assets and parameterized routes", async () => {
     const ctx: any = await mkTestCtx();
     ctx.state.nav = { apps: {} };
     ctx.state.procs.http.routes = {
@@ -45,7 +45,7 @@ test("nav items discovers parameterless GET pages but excludes assets and parame
     ctx.fns.plugins.list = () => [];
     ctx.fns.session.list = async () => [];
     const result = await items(ctx, null, { limit: 20 });
-    expect(result).toContainEqual(expect.objectContaining({ href: "/gaps", label: "Gaps", group: "Pages" }));
+    expect(result.map(item => item.href)).not.toContain("/gaps");
     expect(result.map(item => item.href)).not.toContain("/ui/app.js");
     expect(result.map(item => item.href)).not.toContain("/agent/:id");
     expect(result.map(item => item.href)).not.toContain("/api/mobile/v1/news");

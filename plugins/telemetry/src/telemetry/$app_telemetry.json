@@ -1,0 +1,8 @@
+{
+  "label": "Telemetry",
+  "href": "/telemetry",
+  "hint": "Inspect runtime traces and telemetry storage",
+  "icon": "ph-chart-line",
+  "group": "System",
+  "order": 90
+}

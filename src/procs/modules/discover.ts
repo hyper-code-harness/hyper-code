@@ -6,6 +6,7 @@ import projectRootFn from "../project/projectRoot";
 import workdirFn from "../project/workdir";
 import modulePaths from "./paths";
 import readDeclared from "./readDeclared";
+import readPluginRegistry from "./readPluginRegistry";
 
 // The modules of this process = the app's src/ (namespace "") + proc's own core src (the
 // framework: http/repl/dev/config/lifecycle/…) + each mounted module's src.
@@ -53,6 +54,7 @@ export type Root = {
  * Includes framework and host roots plus official, user, project, platform, and external modules.
  */
 export default async function (ctx: Context, session: Session | null, _opts?: {}): Promise<Root[]> {
+    const registry = await readPluginRegistry(ctx, session, {});
     const coreSrc = resolve(import.meta.dir, "../..");     // the framework's src root — this file lives in src/procs/modules/
     // Bootstrap dependencies must also refresh when package metadata grammar changes.
     const { default: describe } = await import("./describe?t=" + Date.now());
@@ -154,7 +156,7 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
             // BEFORE the scan, so an excluded module's files are never opened,
             // never imported and never registered. "Not started" is not a
             // boundary; "not mounted" is.
-            if (declared[namespace] === false) continue;
+            if (!registry && declared[namespace] === false) continue;
             const source: Root["source"] = kind === "official"
                 ? "official"
                 : kind === "user"
@@ -167,6 +169,7 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
             // platform plugins keep their existing opt-in behavior.
             const optional = kind === "user" ? false : manifest.optional === true || source === "platform";
             const plugin = kind === "official" || kind === "user" || manifest.plugin === true || optional;
+            if (registry && !plugin && declared[namespace] === false) continue;
             // `"modules": { "*": {} }` — mount the whole library without naming it
             // module by module. A host (the EHR) wants every function it ships
             // available to the apps it installs; it does NOT want the machine's
@@ -176,7 +179,7 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
             // under its own folder name, so a host points at a directory of
             // projects rather than naming them one by one.
             const wildcard = ("*" in declared && source !== "platform") || prefixed;
-            if (kind !== "user" && optional && !wildcard && !(namespace in declared)) continue;
+            if (!registry && kind !== "user" && optional && !wildcard && !(namespace in declared)) continue;
             seen.add(real);
             out.push({
                 ...await describe(ctx, session, { dir, name: namespace, manifest }),
@@ -214,8 +217,40 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
         });
     }
 
+    let selected = out;
+    if (registry) {
+        // Only metadata has been read above. No plugin module has been imported.
+        const candidates = new Map<string, Root>();
+        for (const candidate of out) {
+            const real = await realpath(candidate.folder ?? candidate.dir).catch(() => candidate.folder ?? candidate.dir);
+            if (candidate.plugin || candidate.source === "external") candidates.set(real, candidate);
+        }
+        selected = out.filter(candidate => !candidate.plugin && candidate.source !== "external");
+        const names = new Map<string, string>();
+        for (const entry of registry.entries) {
+            if (!entry.enabled) continue;
+            let candidate = candidates.get(entry.dir);
+            if (!candidate) {
+                const manifest = await readManifest(entry.dir);
+                if (!manifest) throw new Error(`pluginRegistry path has no module manifest: ${entry.path}`);
+                const name = entry.dir.split("/").pop()!;
+                candidate = {
+                    ...await describe(ctx, session, { dir: entry.dir, name, manifest }),
+                    name, folder: entry.dir, dir: resolve(entry.dir, manifest.src ?? "src"),
+                    source: "external", from: entry.path, optional: manifest.optional === true,
+                    plugin: true, config: (declared[name] || {}) as Record<string, any>,
+                    prefix: (declared[name] as any)?.prefix,
+                };
+            }
+            if (!candidate) throw new Error(`Unresolved pluginRegistry entry: ${entry.path}`);
+            if (selected.some(root => root.name === candidate!.name) || (names.has(candidate.name) && names.get(candidate.name) !== entry.dir)) throw new Error(`Conflicting pluginRegistry name: ${candidate.name}`);
+            if (!await Bun.file(candidate.dir).stat().then(s => s.isDirectory()).catch(() => false)) throw new Error(`pluginRegistry source directory missing: ${candidate.dir}`);
+            names.set(candidate.name, entry.dir);
+            selected.push(candidate);
+        }
+    }
     const exist: Root[] = [];
-    for (const r of out) {
+    for (const r of selected) {
         if (await Bun.file(r.dir).stat().then(() => true).catch(() => false)) exist.push(r);
         else console.warn(`[modules] ${r.name}: src dir not found: ${r.dir}`);
     }

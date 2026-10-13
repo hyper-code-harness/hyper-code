@@ -1,6 +1,6 @@
 // Compact global menu prototype. It remains server/HTMX-owned: the default
 // overview and filtered results both come from GET /nav/items.
-/** Performs the ui.navMenu runtime operation. */
+/** Renders the global navigation dialog with search, keyboard navigation and a persistent Plugins catalogue shortcut. */
 export default function (_ctx: Context, _session: Session | null, _opts?: {}): string {
     return `<div id="nav-overlay" class="hidden fixed inset-0 z-50 bg-base-content/35 p-3 backdrop-blur-[1px]" onclick="if(event.target===this)window.__navClose()">
   <div role="dialog" aria-modal="true" aria-label="Global menu" class="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ui-border bg-base-100 text-base-content shadow-2xl">
@@ -9,6 +9,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
       <input id="nav-q" name="q" placeholder="Search chats, projects, plugins, people…" autocomplete="off"
              hx-get="/nav/items" hx-trigger="load, nav-refresh from:body, input changed delay:250ms" hx-target="#nav-results"
              class="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-base-content outline-none placeholder:text-faint">
+      <a href="/plugins" class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-subtle hover:bg-base-200 hover:text-base-content" title="Plugin catalogue"><i class="ph ph-puzzle-piece" aria-hidden="true"></i><span>Plugins</span></a>
       <kbd class="kbd kbd-xs">esc</kbd>
     </div>
     <div id="nav-results" class="min-h-0 flex-1 overflow-y-auto"></div>
@@ -22,7 +23,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
   let sel = 0;
   const overlay = () => document.getElementById('nav-overlay');
   const query = () => document.getElementById('nav-q');
-  const rows = () => Array.from(document.querySelectorAll('#nav-results .nav-row'));
+  const rows = () => Array.from(document.querySelectorAll('#nav-results .nav-row')).filter(row => !row.closest('details:not([open])'));
   const mark = () => rows().forEach((row, index) => {
     const active = index === sel;
     row.classList.toggle('bg-base-200', active);

@@ -10,6 +10,8 @@ import { appendFile, readFile } from "node:fs/promises";
  * @param opts.name The target name.
  */
 export default async function (ctx: Context, _session: Session | null, opts?: { name?: string }) {
+    // Registry entries are installed folders, never instructions to clone/install.
+    if (await ctx.fns.procs.modules.readPluginRegistry({})) return { fetched: [] as string[] };
     const workdir = ctx.fns.procs.project.workdir({});
     const declared = await ctx.fns.procs.modules.readDeclared({ workdir });
     const fetched: string[] = [];

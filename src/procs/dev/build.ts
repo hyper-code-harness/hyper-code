@@ -44,10 +44,14 @@ process.on("SIGTERM", () => stop().then(() => process.exit(0)));
 `;
 
 /**
- * Build the dev subsystem operation.
- * @param opts.outdir The outdir value used by the operation.
+ * Builds a static production executable from the legacy runtime composition.
+ * Explicit pluginRegistry requires the source runtime and is rejected before build output is written.
+ * @param opts.outdir Destination directory for the compiled executable. @default dist
  */
 export default async function (ctx: Context, _session: Session | null, opts?: { outdir?: string }) {
+    if (await ctx.fns.procs.modules.readPluginRegistry({})) {
+        throw new Error("Static build does not support pluginRegistry; use the source runtime or legacy composition");
+    }
     // Never ship a bundle with name collisions / invalid names.
     const lint = await ctx.fns.procs.dev.lint({});
     if (!lint.ok) throw new Error(`build aborted — lint failed:\n` + lint.errors.map((e) => "  ✗ " + e).join("\n"));

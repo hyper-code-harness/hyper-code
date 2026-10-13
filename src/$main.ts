@@ -68,9 +68,19 @@ export async function boot(opts?: { root?: string }): Promise<Context> {
     // Run module $start hooks in package.json proc.prod order (db connects,
     // http serves, …). $stop runs in reverse on shutdown.
     await ctx.fns.procs.lifecycle.start({});
+    // Shutdown always ends in exit: a hung $stop, a leftover timer or socket
+    // must never keep a half-stopped process alive. Second signal = now.
+    let stopping = false;
     const shutdown = async (sig: string) => {
+        if (stopping) process.exit(1);
+        stopping = true;
         console.log(`\n[${sig}] shutting down`);
-        await ctx.fns.procs.lifecycle.stop({});
+        setTimeout(() => {
+            console.error(`[${sig}] shutdown did not finish in 10s — forcing exit`);
+            process.exit(1);
+        }, 10_000).unref?.();
+        try { await ctx.fns.procs.lifecycle.stop({}); }
+        catch (error: any) { console.error(`[${sig}] shutdown failed:`, error?.stack ?? error); }
         process.exit(0);
     };
     process.on("SIGINT", () => shutdown("SIGINT"));
@@ -111,6 +121,13 @@ export async function bootRegistry(opts?: { root?: string }): Promise<Context> {
 }
 
 if (import.meta.main) {
-    const ctx = await boot();
-    (globalThis as any).ctx = ctx;
+    try {
+        const ctx = await boot();
+        (globalThis as any).ctx = ctx;
+    } catch (error: any) {
+        // Port taken, database down, a required module broken: lifecycle.start
+        // has rolled back (agent worker stopped too). Exit — never linger.
+        console.error(`[boot] failed, exiting: ${error?.stack ?? error?.message ?? error}`);
+        process.exit(1);
+    }
 }

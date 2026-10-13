@@ -292,6 +292,65 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
 
 }
 
+// ONE worker per database. Two processes on the same Postgres both draining the
+// queue is how an orphaned server (its supervisor gone, its port taken by the
+// successor) kept claiming agents for days: it ran them on stale code, kept
+// renewing the heartbeat of a run stuck in a tool, so stale-run recovery never
+// fired, and the person saw an agent that "hangs" after a reminder. A session
+// advisory lock on a reserved connection makes the second process a standby:
+// it serves HTTP but claims nothing until the holder's connection is gone.
+const WORKER_LOCK_KEY = 'hyper.agent.workerLoop';
+const LOCK_CHECK_MS = 10_000;
+
+async function holdWorkerLock(ctx: Context): Promise<boolean> {
+    // Test contexts use a one-connection pool pinned to pg_temp: reserving it
+    // would starve every other query, and there is no second process to fence.
+    if (ctx.fns.procs.env.mode({}) === 'test') return true;
+    const st = ctx.state as any;
+    if (st.workerLock) {
+        if (Date.now() - Number(st.workerLockCheckedAt ?? 0) < LOCK_CHECK_MS) return true;
+        try {
+            await st.workerLock.unsafe('SELECT 1');
+            st.workerLockCheckedAt = Date.now();
+            return true;
+        } catch (error: any) {
+            // The lock lived on that connection; whoever asks next may get it.
+            console.error('[workerLoop] lock connection lost:', error?.message ?? error);
+            try { st.workerLock.release(); } catch {}
+            st.workerLock = null;
+        }
+    }
+    const pool: any = await ctx.fns.procs.db.conn({});
+    const reserved = await pool.reserve();
+    try {
+        const rows = await reserved.unsafe('SELECT pg_try_advisory_lock(hashtext($1)) AS ok', [WORKER_LOCK_KEY]);
+        if (rows?.[0]?.ok) {
+            st.workerLock = reserved;
+            st.workerLockCheckedAt = Date.now();
+            st.workerStandbyLogged = false;
+            ctx.fns.procs.log.info({ event: 'agent.worker.lock', msg: `agent worker lock acquired (pid ${process.pid})` });
+            return true;
+        }
+    } catch (error: any) {
+        console.error('[workerLoop] lock attempt failed:', error?.message ?? error);
+    }
+    try { reserved.release(); } catch {}
+    if (!st.workerStandbyLogged) {
+        st.workerStandbyLogged = true;
+        ctx.fns.procs.log.warn({ event: 'agent.worker.standby', msg: 'another process on this database runs the agent worker — standing by' });
+    }
+    return false;
+}
+
+async function releaseWorkerLock(ctx: Context): Promise<void> {
+    const st = ctx.state as any;
+    const reserved = st.workerLock;
+    st.workerLock = null;
+    if (!reserved) return;
+    try { await reserved.unsafe('SELECT pg_advisory_unlock(hashtext($1))', [WORKER_LOCK_KEY]); } catch {}
+    try { reserved.release(); } catch {}
+}
+
 /** Worker loop for the runtime. */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<void> {
     if ((ctx.state as any).workerLoopRunning) return;
@@ -300,6 +359,10 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     const inflight = new Set<Promise<unknown>>();
 
     while ((ctx.state as any).workerLoopRunning) {
+        if (!(await holdWorkerLock(ctx).catch(() => false))) {
+            await waitForWork(ctx, 5_000);
+            continue;
+        }
         // Drain every claimable agent into a parallel promise. The atomic
         // claim guarantees no two concurrent runs target the same agent.
         // No artificial concurrency cap — backpressure comes from the LLM
@@ -371,4 +434,5 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     // in-flight DB writes — callers (and test afterAll pool close) rely on
     // the loop promise resolving only after all claimed work has settled.
     if (inflight.size > 0) await Promise.allSettled([...inflight]);
+    await releaseWorkerLock(ctx);
 }

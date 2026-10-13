@@ -18,7 +18,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     provider: string;
     account: string;
     kind: "subscription" | "api" | "local";
-    api: "openai" | "anthropic" | "responses" | "mock";
+    api: "openai" | "anthropic" | "responses" | "cursor" | "mock";
     /** For hyper/<node> models: the provider the node uses upstream (e.g. claude-code). */
     upstream?: string;
 }> {
@@ -52,7 +52,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }
 
 type ProviderConfig = {
-    api: "openai" | "anthropic" | "responses" | "mock";
+    api: "openai" | "anthropic" | "responses" | "cursor" | "mock";
     // subscription = fixed quota per rolling window; a 429 means "wait until it
     // resets", money cannot fix it, so agents get parked. api = pay-per-token;
     // a 429 is short throttling and stays a normal retry. local = no limits.
@@ -154,6 +154,17 @@ const PROVIDERS: Record<string, ProviderConfig> = {
         kind: "subscription",
         resolveBaseUrl: () => "https://api.x.ai/v1",
         resolveApiKey: () => null,
+    },
+
+    cursor: {
+        // Cursor subscription through the official @cursor/sdk local runtime.
+        // Not an HTTP endpoint at all: the SDK speaks its own protocol from
+        // inside this process, so the URL is informational and streamCursor
+        // ignores it. See src/llm/streamCursor.ts.
+        api: "cursor",
+        kind: "subscription",
+        resolveBaseUrl: () => "https://api.cursor.com",
+        resolveApiKey: declaredSecret('cursorApiKey'),
     },
 
     openai: {

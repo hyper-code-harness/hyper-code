@@ -81,6 +81,19 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
         ];
     } catch { /* OAuth migration unavailable / not connected — omit */ }
 
+    // Cursor subscription catalogue, asked live: the key's plan decides what it
+    // may run, so there is nothing sensible to hard-code. Omitted when no key
+    // is configured or the call fails.
+    try {
+        if (await configured("cursor:composer-2.5")) {
+            const ep = await ctx.fns.llm.resolveEndpoint({ model: "cursor:composer-2.5" });
+            const { Cursor } = await import("@cursor/sdk");
+            const models = await Cursor.models.list({ apiKey: ep.apiKey! });
+            const ids = models.map((m) => `cursor:${m.id}`);
+            if (ids.length) out.cursor = ids;
+        }
+    } catch { /* no key / unreachable — omit */ }
+
 
     // Codex (ChatGPT subscription) — only if user has a valid JWT.
     // Models pulled live from /codex/models (subscription-gated whitelist).

@@ -6,7 +6,7 @@ const render = (model: string, active = false, bare = false, compact = false) =>
 
 describe('ui.modelLogo', () => {
     test('maps the configured providers to local SVG marks', () => {
-        for (const model of ['codex:gpt-5.6-sol', 'claude-code:claude-haiku-4-5', 'kimi:kimi-k3', 'xai:grok-4.6']) {
+        for (const model of ['codex:gpt-5.6-sol', 'claude-code:claude-haiku-4-5', 'kimi:kimi-k3', 'xai:grok-4.6', 'cursor:composer-2.5']) {
             const html = render(model);
             expect(html).toContain('<svg');
             expect(html).toContain(`title="${model}"`);
@@ -21,6 +21,16 @@ describe('ui.modelLogo', () => {
         expect(html).toContain('M9.27 15.29');
     });
 
+
+    test('uses the Cursor mark for every cursor: model, whoever built the model', () => {
+        // Cursor resells Anthropic/OpenAI models, and the badge must name the
+        // subscription that pays — not the vendor hidden in the model id.
+        for (const model of ['cursor:composer-2.5', 'cursor:claude-opus-5-5', 'cursor:gpt-5.6-sol', 'cursor/work:grok-4.7']) {
+            const html = render(model);
+            expect(html).toContain('M11.503.131');
+            expect(html).not.toContain('ph-cpu');
+        }
+    });
 
     test('rotates the mark only while active', () => {
         expect(render('codex:gpt-5.6-sol', true)).toContain('animate-spin');

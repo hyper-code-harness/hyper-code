@@ -37,6 +37,7 @@ export default async function (
         let result: any;
         if (ep.api === "mock") result = await ctx.fns.llm.streamMock(wireOpts);
         else if (ep.api === "anthropic") result = await ctx.fns.llm.streamAnthropic(wireOpts);
+        else if (ep.api === "cursor") result = await ctx.fns.llm.streamCursor(wireOpts);
         else if (ep.provider === "xai") result = await ctx.fns.llm.streamXai(wireOpts);
         else if (ep.api === "responses") result = await ctx.fns.llm.streamCodex(wireOpts);
         else result = await ctx.fns.llm.streamOpenAI(wireOpts);

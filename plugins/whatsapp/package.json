@@ -1,0 +1,20 @@
+{
+  "name": "whatsapp",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "WhatsApp",
+    "icon": "ph-whatsapp-logo",
+    "optional": true,
+    "description": "Link a WhatsApp account by QR, mirror chats and messages locally, search them, and send messages or join groups with confirmation."
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "qrcode": "^1.5.4",
+    "pino": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
+  }
+}

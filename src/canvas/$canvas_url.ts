@@ -47,6 +47,7 @@ export default {
         // Reload is the panel's own button. Back/forward inside the site are not ours to drive: the frame is
         // another origin.
         const bar = `<form data-canvas-navigate="${opts.item.id}" class="flex h-9 shrink-0 items-center gap-1.5 border-b border-ui-border bg-base-100 px-2">
+  <button type="button" data-canvas-reload title="Reload page" aria-label="Reload page" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
   <i class="ph ph-${url.startsWith("https:") ? "lock-simple" : "globe"} shrink-0 text-faint" aria-hidden="true"></i>
   <input name="url" value="${esc(url)}" spellcheck="false" autocomplete="off" aria-label="Address" class="min-w-0 flex-1 rounded-md bg-base-200/70 px-2 py-1 text-xs outline-none focus:bg-base-200 focus:ring-1 focus:ring-ui-border">
   <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Open in a new browser tab" aria-label="Open in a new browser tab" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>

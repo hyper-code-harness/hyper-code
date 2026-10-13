@@ -1,0 +1,8 @@
+{
+  "name": "architecture-map",
+  "version": "0.1.0",
+  "description": "Interactive module-level architecture map backed by Hyper's indexed code call graph.",
+  "procs": {
+    "src": "src"
+  }
+}

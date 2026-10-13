@@ -44,6 +44,23 @@ describe("agent.modelPicker", () => {
     });
 
 
+    test("shows each Hyper node as a proxy with the host's providers as accounts", async () => {
+        const ctx: any = await mkTestCtx();
+        const agent = await ctx.fns.agent.start({ model: "hyper/anna:gpt-x" });
+        ctx.fns.llm.listModels = async () => ({ codex: ["codex:gpt-x"], "hyper/anna": ["hyper/anna:gpt-x", "hyper/anna:claude-y"] });
+        ctx.fns.llm.listAccounts = async () => ([{ provider: "hyper", account: "anna", available: true, usedPercent: 3, planType: "pro" }]);
+        ctx.fns.node.list = async () => ([{ name: "anna", url: "http://x", enabled: true, catalogAt: 1, usageAt: 1, lastError: null,
+            catalog: [{ id: "gpt-x", api: "responses", provider: "codex", account: "default", kind: "subscription" }, { id: "claude-y", api: "anthropic", provider: "claude-code", account: "default", kind: "subscription" }],
+            usage: [{ provider: "codex", account: "default", usedPercent: 3, resetsAt: null, planType: "pro", parkedAgents: 0 }] }]);
+        const html = await (await ctx.fns.agent.modelPicker({ agentId: agent.id })).text();
+        expect(html).toContain("via proxy");
+        expect(html).toContain("anna → Codex");
+        expect(html).toContain("anna → Claude Code");
+        expect(html).toContain("97% left");
+        expect(html).toContain('value="hyper/anna:claude-y"');
+        expect(html).not.toContain("Hyper nodes");
+    });
+
     test("keeps the current route visible when it is absent from the catalogue", async () => {
         const ctx: any = await mkTestCtx();
         const agent = await ctx.fns.agent.start({ model: "mock:private" });

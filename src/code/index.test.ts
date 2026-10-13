@@ -309,4 +309,22 @@ describe("code.index incremental", () => {
         } finally { cleanup(); }
     });
 
+    test("stores AST metrics for files and individual functions", async () => {
+        const { ctx, cleanup } = await indexed({
+            "shop/risk.ts": `export default function outer(a: boolean, b: boolean) {
+    if (a && b) return 1;
+    const inner = (x: number) => x > 0 ? x : 0;
+    return inner(1);
+}
+`,
+        });
+        try {
+            const files = await ctx.fns.procs.db.select({ sql: "SELECT functions, cyclomatic_total, cyclomatic_max, cognitive_total, parameters_max FROM code_file_metrics", params: [] });
+            expect(files).toEqual([{ functions: 2, cyclomatic_total: 5, cyclomatic_max: 3, cognitive_total: 4, parameters_max: 2 }]);
+            const fns = await ctx.fns.procs.db.select({ sql: "SELECT name, cyclomatic, parameters FROM code_function_metrics ORDER BY line, name", params: [] });
+            expect(fns).toEqual([{ name: "outer", cyclomatic: 3, parameters: 2 }, { name: "inner", cyclomatic: 2, parameters: 1 }]);
+        } finally { cleanup(); }
+    });
+
+
 });

@@ -87,6 +87,8 @@ export default async function (
     const typeRows: Row[] = [];
     const callRows: Row[] = [];
     const findingRows: Row[] = [];
+    const fileMetricRows: Row[] = [];
+    const functionMetricRows: Row[] = [];
     const dynamic: Array<{ rel: string; line: number }> = [];
 
     // The dotted name a file answers to. Computed without reading anything, so
@@ -121,9 +123,14 @@ export default async function (
     // literals first was worse than either — it also removed the genuine call
     // inside a template's `${…}` on the next line of that same file. The AST
     // knows the difference by construction.
-    const scanCalls = (text: string, from: string, rel: string, edgeKind: string) => {
+    const scanCalls = (text: string, from: string, rel: string, edgeKind: string, root?: string) => {
         const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true,
             rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+        if (root && edgeKind !== "test") {
+            const metrics = sourceMetrics(ts, sf, text, rel, root, now);
+            fileMetricRows.push(metrics.file);
+            functionMetricRows.push(...metrics.functions);
+        }
         const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
 
         const visit = (node: ts.Node): void => {
@@ -200,7 +207,7 @@ export default async function (
         const name = nameOf(e);
 
         fnRows.push([name, e.kind, e.projectRel, e.root, ENTRY.has(e.kind) || promptNames.has(name), now, tierByRoot[e.root] ?? "core", isAsyncFile(text)]);
-        scanCalls(text, name, e.projectRel, e.kind);
+        scanCalls(text, name, e.projectRel, e.kind, e.root);
         // The file is open and parsed anyway, so the per-file rules ride along.
         // Checking the tree separately would mean parsing all 1315 files again
         // for every report; here the whole project stays checked for free.
@@ -245,10 +252,16 @@ export default async function (
             await tx.unsafe(toPg("DELETE FROM code_functions" + scope), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_types" + scope), scopeP);
             await tx.unsafe(toPg("DELETE FROM code_findings" + scope), scopeP);
+            await tx.unsafe(toPg("DELETE FROM code_file_metrics" + scope), scopeP);
+            if (opts?.rel) await tx.unsafe(toPg("DELETE FROM code_function_metrics WHERE rel = ?"), [opts.rel]);
+            else if (opts?.root) await tx.unsafe(toPg("DELETE FROM code_function_metrics WHERE root = ?"), [opts.root]);
+            else await tx.unsafe(toPg("DELETE FROM code_function_metrics"));
             await bulk(tx, toPg, "code_functions", ["name", "kind", "rel", "root", "entry_point", "indexed_at", "tier", "is_async"], fnRows);
             await bulk(tx, toPg, "code_types", ["name", "rel", "root", "indexed_at"], typeRows);
             await bulk(tx, toPg, "code_calls", ["caller", "callee", "rel", "line", "kind", "discarded"], callRows);
             await bulk(tx, toPg, "code_findings", ["rel", "line", "rule", "severity", "detail", "root", "indexed_at"], findingRows);
+            await bulk(tx, toPg, "code_file_metrics", ["rel", "root", "language", "lines", "source_lines", "functions", "cyclomatic_total", "cyclomatic_max", "cognitive_total", "cognitive_max", "nesting_max", "parameters_max", "indexed_at"], fileMetricRows);
+            await bulk(tx, toPg, "code_function_metrics", ["rel", "root", "name", "line", "end_line", "lines", "cyclomatic", "cognitive", "nesting_max", "parameters", "indexed_at"], functionMetricRows);
         });
     }
 
@@ -267,6 +280,46 @@ export default async function (
 
     return { functions: fnRows.length, types: typeRows.length, calls: distinct, unresolved, dynamic, ms: Date.now() - started };
 }
+
+type Metric = { name: string; line: number; endLine: number; lines: number; cyclomatic: number; cognitive: number; nesting: number; parameters: number };
+
+// Metrics computed during the same TypeScript parse that extracts calls. Cyclomatic follows
+// ESLint's classic model; cognitive adds nesting weight so deeply nested code stands out.
+function sourceMetrics(tsm: typeof ts, sf: ts.SourceFile, text: string, rel: string, root: string, indexedAt: number): { file: Row; functions: Row[] } {
+    const metrics: Metric[] = [];
+    const line = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+    const functionName = (n: ts.FunctionLikeDeclaration): string => {
+        if ("name" in n && n.name) return n.name.getText(sf);
+        const p = n.parent;
+        if (tsm.isVariableDeclaration(p) || tsm.isPropertyDeclaration(p) || tsm.isPropertyAssignment(p) || tsm.isMethodDeclaration(p)) return p.name?.getText(sf) ?? "<anonymous>";
+        return "<anonymous>";
+    };
+    const isFunction = (n: ts.Node): n is ts.FunctionLikeDeclaration => tsm.isFunctionLike(n) && ("body" in n) && !!n.body;
+    const decision = (n: ts.Node): boolean => tsm.isIfStatement(n) || tsm.isForStatement(n) || tsm.isForInStatement(n) || tsm.isForOfStatement(n) || tsm.isWhileStatement(n) || tsm.isDoStatement(n) || tsm.isCatchClause(n) || tsm.isCaseClause(n) || tsm.isConditionalExpression(n) || (tsm.isBinaryExpression(n) && [tsm.SyntaxKind.AmpersandAmpersandToken, tsm.SyntaxKind.BarBarToken, tsm.SyntaxKind.QuestionQuestionToken].includes(n.operatorToken.kind));
+    const nestingNode = (n: ts.Node): boolean => tsm.isIfStatement(n) || tsm.isForStatement(n) || tsm.isForInStatement(n) || tsm.isForOfStatement(n) || tsm.isWhileStatement(n) || tsm.isDoStatement(n) || tsm.isCatchClause(n) || tsm.isSwitchStatement(n) || tsm.isConditionalExpression(n);
+    const measure = (fn: ts.FunctionLikeDeclaration): Metric => {
+        let cyclomatic = 1, cognitive = 0, nestingMax = 0;
+        const walk = (node: ts.Node, nesting: number): void => {
+            if (node !== fn && isFunction(node)) return;
+            const branch = decision(node);
+            if (branch) { cyclomatic++; cognitive += 1 + nesting; }
+            const next = nesting + (nestingNode(node) ? 1 : 0); nestingMax = Math.max(nestingMax, next);
+            tsm.forEachChild(node, child => walk(child, next));
+        };
+        tsm.forEachChild(fn, child => walk(child, 0));
+        const start = line(fn), endLine = sf.getLineAndCharacterOfPosition(fn.end).line + 1;
+        return { name: functionName(fn), line: start, endLine, lines: Math.max(1, endLine - start + 1), cyclomatic, cognitive, nesting: nestingMax, parameters: fn.parameters.length };
+    };
+    const visit = (node: ts.Node): void => { if (isFunction(node)) metrics.push(measure(node)); tsm.forEachChild(node, visit); }; visit(sf);
+    const sourceLines = text.split("\n").filter(l => l.trim() && !l.trim().startsWith("//")).length;
+    const sum = (key: "cyclomatic" | "cognitive") => metrics.reduce((n, m) => n + m[key], 0);
+    const max = (key: "cyclomatic" | "cognitive" | "nesting" | "parameters") => metrics.reduce((n, m) => Math.max(n, m[key]), 0);
+    return {
+        file: [rel, root, rel.endsWith(".tsx") ? "tsx" : "ts", text.split("\n").length, sourceLines, metrics.length, Math.max(1, sum("cyclomatic")), Math.max(1, max("cyclomatic")), sum("cognitive"), max("cognitive"), max("nesting"), max("parameters"), indexedAt],
+        functions: metrics.map(m => [rel, root, m.name, m.line, m.endLine, m.lines, m.cyclomatic, m.cognitive, m.nesting, m.parameters, indexedAt]),
+    };
+}
+
 
 // The dotted runtime name a call expression targets, or null if it is not a
 // `ctx.fns` call at all. The chain is read right-to-left and anchored on the

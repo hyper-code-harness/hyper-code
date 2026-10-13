@@ -5,7 +5,7 @@ import { connect } from "node:net";
  *
  * Start the service on 127.0.0.1:<port> as this OS user first. The function
  * checks the port answers, adds it to the Hyperlet agent config and waits for
- * the control plane to route https://<name>.<team>.in.hs.hyper-mesh.xyz
+ * the control plane to route https://<name>.<team>.in.<zone> (zone from controlPlane)
  * (VPN-only, real TLS). Re-publishing an existing name updates it.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
@@ -21,6 +21,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     health?: string;
     /** Seconds to wait for confirmation from the agent. @default 20 @minimum 0 @maximum 120 */
     wait?: number;
+    /** Active agent config or operator descriptor path. @default "/etc/hyperlet-hn/config.json" */
+    path?: string;
 }): Promise<{ url: string; host: string; confirmed: boolean; routed: boolean; status: string }> {
     const { name, port } = opts;
     const kind = opts.kind ?? "http", scheme = opts.scheme ?? "http", health = opts.health ?? "/";
@@ -34,14 +36,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         c.on("connect", () => { clearTimeout(t); c.destroy(); res(true); }); c.on("error", () => { clearTimeout(t); res(false); });
     });
     if (!listening) throw new Error(`Nothing listens on 127.0.0.1:${port}. Start the service bound to 127.0.0.1 first.`);
-    const cfg = await ctx.fns.hyperlet.config({});
+    const cfg = await ctx.fns.hyperlet.config({ path: opts.path });
     const clash = cfg.services.find(s => s.port === port && s.name !== name);
     if (clash) throw new Error(`Port ${port} is already published as '${clash.name}'`);
     const services = [...cfg.services.filter(s => s.name !== name), { name, port, scheme, kind, health }];
     const host = `${name}.${cfg.tenant}.in.${cfg.zone}`;
-    const { confirmed, report } = await ctx.fns.hyperlet.write({ services, wait: opts.wait });
+    const { confirmed, report } = await ctx.fns.hyperlet.write({ services, wait: opts.wait, path: cfg.path });
     const routed = !!report?.ok && (report.hosts ?? []).includes(host);
-    const status = !report ? "agent did not report (is hyperlet@<user> running?)"
+    const status = !report ? "agent did not report (check the active system agent and configured stateFile)"
         : !report.ok ? `agent error: ${report.error}`
         : (report.refused ?? []).includes(name) ? `refused: 127.0.0.1:${port} is not owned by this user`
         : routed ? ((report.down ?? []).includes(name) ? "routed, but health check fails" : "routed")

@@ -7,10 +7,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     name: string;
     /** Seconds to wait for confirmation from the agent. @default 20 @minimum 0 @maximum 120 */
     wait?: number;
+    /** Active agent config or operator descriptor path. @default "/etc/hyperlet-hn/config.json" */
+    path?: string;
 }): Promise<{ removed: boolean; confirmed: boolean; remaining: string[] }> {
-    const cfg = await ctx.fns.hyperlet.config({});
+    const cfg = await ctx.fns.hyperlet.config({ path: opts.path });
     if (!cfg.services.some(s => s.name === opts.name)) return { removed: false, confirmed: true, remaining: cfg.services.map(s => s.name) };
     const services = cfg.services.filter(s => s.name !== opts.name);
-    const { confirmed } = await ctx.fns.hyperlet.write({ services, wait: opts.wait });
+    const { confirmed } = await ctx.fns.hyperlet.write({ services, wait: opts.wait, path: cfg.path });
     return { removed: true, confirmed, remaining: services.map(s => s.name) };
 }

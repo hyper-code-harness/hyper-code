@@ -1,4 +1,4 @@
-import {DEFAULT_BASE, HYPER_TAB_URL, normalizeBase, panelPath, targetForTab, sourceLabel} from './helpers.js';
+import {DEFAULT_BASE, normalizeBase, panelPath, targetForTab, sourceLabel} from './helpers.js';
 
 // Serialize mutations including network requests; Chrome may suspend us between events.
 let queue = Promise.resolve();
@@ -13,7 +13,7 @@ async function loadState() {
   await chrome.storage.local.setAccessLevel({accessLevel: 'TRUSTED_CONTEXTS'});
   const local = await chrome.storage.local.get(['installationId', 'base']);
   if (!local.installationId) await chrome.storage.local.set({installationId: crypto.randomUUID()});
-  if (!local.base || local.base !== DEFAULT_BASE) await chrome.storage.local.set({base: DEFAULT_BASE});
+  if (!local.base) await chrome.storage.local.set({base: DEFAULT_BASE});
   const saved = await chrome.storage.session.get('sidebar');
   state = saved.sidebar || {epoch: crypto.randomUUID(), tabs: {}, closes: []};
   await save();
@@ -129,9 +129,40 @@ chrome.action.onClicked.addListener(tab => {
     pendingActions.delete(tab.id);
   }).catch(error => console.error('Sidebar action state:', error));
 });
+async function openPalette() {
+  const current = await chrome.windows.getCurrent();
+  const width = Math.min(700, Math.max(420, current.width || 700));
+  const height = Math.min(620, Math.max(320, (current.height || 620) - 160));
+  return chrome.windows.create({
+    url: chrome.runtime.getURL('palette.html'), type: 'popup', focused: true, width, height,
+    left: Math.round((current.left || 0) + ((current.width || width) - width) / 2),
+    top: Math.round((current.top || 0) + 80),
+  });
+}
 chrome.commands.onCommand.addListener(event(async command => {
+
+  if (command === 'close-tab') {
+    const [current] = await chrome.tabs.query({active: true, currentWindow: true});
+    if (current?.id != null) await chrome.tabs.remove(current.id);
+    return;
+  }
+
+  if (command === 'move-tab-left' || command === 'move-tab-right') {
+    const tabs = (await chrome.tabs.query({currentWindow: true})).filter(tab => Number.isInteger(tab.index));
+    if (tabs.length < 2) return;
+    tabs.sort((a, b) => a.index - b.index);
+    const current = tabs.find(tab => tab.active);
+    if (current?.id == null) return;
+    const step = command === 'move-tab-right' ? 1 : -1;
+    const index = (current.index + step + tabs.length) % tabs.length;
+    await chrome.tabs.move(current.id, {index});
+    return;
+  }
+
+
   if (command === 'open-hyper-tab') {
-    const url = HYPER_TAB_URL;
+    const {base} = await config();
+    const url = normalizeBase(base);
     const matches = await chrome.tabs.query({url: `${new URL(url).origin}/*`});
     let target = matches.find(tab => tab.url === url) || matches.find(tab => tab.pinned);
     if (!target) target = await chrome.tabs.create({url, pinned: true, active: true});
@@ -170,7 +201,26 @@ chrome.tabs.onAttached.addListener(event(async id => { await ensure(await chrome
 chrome.tabs.onActivated.addListener(event(async ({tabId}) => { await ensure(await chrome.tabs.get(tabId)); }));
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL(''))) return;
+  if (sender.id !== chrome.runtime.id) return;
+  if (message.type === 'paletteOpen') {
+    openPalette().then(() => reply({ok: true}), error => reply({ok: false, error: String(error)}));
+    return true;
+  }
+  if (message.type === 'closeCurrent') {
+    if (sender.tab?.id != null) chrome.tabs.remove(sender.tab.id).then(() => reply({ok: true}), error => reply({ok: false, error: String(error)}));
+    else reply({ok: false, error: 'No source tab'});
+    return true;
+  }
+  if (message.type === 'paletteTabs') {
+    chrome.tabs.query({currentWindow: true}).then(tabs => reply({ok: true, tabs: tabs.map(({id, title, url, active}) => ({id, title, url, active}))}), error => reply({ok: false, error: String(error)}));
+    return true;
+  }
+  if (message.type === 'paletteActivate') {
+    if (Number.isInteger(message.tabId)) chrome.tabs.update(message.tabId, {active: true}).then(() => reply({ok: true}), error => reply({ok: false, error: String(error)}));
+    else reply({ok: false, error: 'Invalid tab'});
+    return true;
+  }
+  if (!sender.url?.startsWith(chrome.runtime.getURL(''))) return;
   if (!['open', 'retry', 'detach', 'config', 'pair', 'pairStatus', 'revoke'].includes(message.type)) return;
   serial(async () => {
     await load();

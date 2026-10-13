@@ -1,11 +1,12 @@
-export const DEFAULT_BASE = 'https://macstudio-nikolai.tail32c871.ts.net:3443';
-export const HYPER_TAB_URL = `${DEFAULT_BASE}/agent/bzxf`;
+export const DEFAULT_BASE = 'https://hyper.niquola.in.hn.hyper-mesh.xyz';
 
-/** Accept the single configured HTTPS Hyper origin without paths or credentials. */
+/** Accept an HTTPS Hyper origin, or loopback HTTP for local development. */
 export function normalizeBase(value = DEFAULT_BASE) {
   const url = new URL(value);
-  if (url.origin !== DEFAULT_BASE || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
-    throw new Error(`Use ${DEFAULT_BASE}`);
+  const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) || url.username || url.password
+      || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '')) {
+    throw new Error('Use an HTTPS Hyper origin, or HTTP on localhost');
   }
   return url.origin;
 }
@@ -46,8 +47,7 @@ export function agentUrl(base, agentId, panel = true) {
   return `${normalizeBase(base)}/agent/${encodeURIComponent(agentId)}${panel ? '?presentation=sidebar' : ''}`;
 }
 
-
-/** Construct only the safe, local draft path; a binding id is not an auth token. */
+/** Construct only the safe draft path; a binding id is not an auth token. */
 export function draftUrl(base, bindingId, panel = true) {
   if (typeof bindingId !== 'string' || !/^[a-f0-9-]{36}$/.test(bindingId)) throw new Error('Invalid binding ID');
   return `${normalizeBase(base)}/sidebar/draft/${bindingId}${panel ? '?presentation=sidebar' : ''}`;

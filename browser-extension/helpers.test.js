@@ -1,13 +1,14 @@
 import {describe, test, expect} from 'bun:test';
 import {DEFAULT_BASE, normalizeBase, panelPath, parsePanelIdentity, targetForTab, sourceLabel, agentUrl, draftUrl} from './helpers.js';
 
-describe('loopback configuration', () => {
-  test('default configured HTTPS origin', () => {
+describe('Hyper origin configuration', () => {
+  test('accepts HTTPS origins and loopback HTTP', () => {
     expect(normalizeBase()).toBe(DEFAULT_BASE);
-    expect(normalizeBase('https://macstudio-nikolai.tail32c871.ts.net:3443/')).toBe(DEFAULT_BASE);
+    expect(normalizeBase('https://hyper.niquola.in.hn.hyper-mesh.xyz/')).toBe('https://hyper.niquola.in.hn.hyper-mesh.xyz');
+    expect(normalizeBase('http://127.0.0.1:3010/')).toBe('http://127.0.0.1:3010');
   });
-  test('rejects remote hosts, credentials, scripts and path/query injection', () => {
-    for (const value of ['https://localhost:3010', 'http://localhost.evil.test', 'http://user:secret@localhost:3010', 'http://localhost/a', 'http://localhost/?token=x', 'http://localhost/#x', 'javascript:alert(1)', 'http://[::1]:3010']) {
+  test('rejects insecure remote hosts, credentials, scripts and path/query injection', () => {
+    for (const value of ['http://localhost.evil.test', 'http://user:secret@localhost:3010', 'https://hyper.example/a', 'https://hyper.example/?token=x', 'https://hyper.example/#x', 'javascript:alert(1)']) {
       expect(() => normalizeBase(value)).toThrow();
     }
   });
@@ -49,8 +50,8 @@ test('source label tolerates unavailable URL', () => {
 test('manifest is local MV3 with no injection or remote privileged scripts', async () => {
   const manifest = await Bun.file(new URL('./manifest.json', import.meta.url)).json();
   expect(manifest.manifest_version).toBe(3);
-  expect(manifest.host_permissions).toEqual(['https://macstudio-nikolai.tail32c871.ts.net:3443/*']);
-  expect(manifest.content_scripts).toBeUndefined();
+  expect(manifest.host_permissions).toEqual(['http://localhost/*', 'http://127.0.0.1/*', 'https://*/*']);
+  expect(manifest.content_scripts).toEqual([{matches: ['http://localhost/*', 'http://127.0.0.1/*', 'https://*/*'], js: ['hotkeys.js'], run_at: 'document_start'}]);
   expect(manifest.permissions).toContain('debugger');
   expect(manifest.content_security_policy.extension_pages).toContain("script-src 'self'");
   const worker = await Bun.file(new URL('./worker.js', import.meta.url)).text();
@@ -64,4 +65,5 @@ test('draft URL accepts only a safe binding identifier on configured loopback or
   expect(draftUrl(DEFAULT_BASE, id)).toBe(`${DEFAULT_BASE}/sidebar/draft/${id}?presentation=sidebar`);
   for (const value of ['../agent/ab', `${id}?token=x`, 'https://evil.test', null]) expect(() => draftUrl(DEFAULT_BASE, value)).toThrow();
   expect(() => draftUrl('http://evil.test', id)).toThrow();
+  expect(draftUrl('https://hyper.example', id)).toBe(`https://hyper.example/sidebar/draft/${id}?presentation=sidebar`);
 });

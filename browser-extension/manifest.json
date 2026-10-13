@@ -4,18 +4,75 @@
   "version": "0.1.0",
   "minimum_chrome_version": "142",
   "description": "One Hyper agent per Chrome tab, using the existing local Hyper UI.",
-  "permissions": ["sidePanel", "tabs", "storage", "debugger"],
-  "host_permissions": ["https://macstudio-nikolai.tail32c871.ts.net:3443/*"],
-  "background": {"service_worker": "worker.js", "type": "module"},
-  "action": {"default_title": "Open Hyper sidebar"},
-  "commands": {
-    "previous-tab": {"suggested_key": {"default": "Ctrl+K", "mac": "MacCtrl+K"}, "description": "Go to previous tab"},
-    "next-tab": {"suggested_key": {"default": "Ctrl+J", "mac": "MacCtrl+J"}, "description": "Go to next tab"},
-    "open-hyper-tab": {"suggested_key": {"default": "Ctrl+N", "mac": "MacCtrl+N"}, "description": "Open or focus the pinned Hyper tab"}
+  "permissions": [
+    "sidePanel",
+    "tabs",
+    "storage",
+    "debugger"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
   },
-  "side_panel": {"default_path": "panel.html"},
-  "options_ui": {"page": "options.html", "open_in_tab": true},
+  "action": {
+    "default_title": "Open Hyper sidebar"
+  },
+  "commands": {
+    "previous-tab": {
+      "suggested_key": {
+        "default": "Ctrl+K",
+        "mac": "MacCtrl+K"
+      },
+      "description": "Go to previous tab"
+    },
+    "next-tab": {
+      "suggested_key": {
+        "default": "Ctrl+J",
+        "mac": "MacCtrl+J"
+      },
+      "description": "Go to next tab"
+    },
+    "move-tab-left": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "MacCtrl+Shift+K"
+      },
+      "description": "Move the current tab left"
+    },
+    "move-tab-right": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+J",
+        "mac": "MacCtrl+Shift+J"
+      },
+      "description": "Move the current tab right"
+    }
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src https://macstudio-nikolai.tail32c871.ts.net:3443; frame-src https://macstudio-nikolai.tail32c871.ts.net:3443; object-src 'none'; base-uri 'none'"
-  }
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src http://localhost:* http://127.0.0.1:* https:; frame-src http://localhost:* http://127.0.0.1:* https:; object-src 'none'; base-uri 'none'"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*/*"
+      ],
+      "js": [
+        "hotkeys.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
 }

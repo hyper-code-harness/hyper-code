@@ -2,14 +2,14 @@ import {test, expect} from 'bun:test';
 import vm from 'node:vm';
 import * as helpers from './helpers.js';
 
-import {DEFAULT_BASE, HYPER_TAB_URL} from './helpers.js';
+import {DEFAULT_BASE} from './helpers.js';
 
 const source = (await Bun.file(new URL('./worker.js', import.meta.url)).text()).replace(/^import .*?;\n/, '');
 async function worker(saved, cold = false) {
-  const hooks = {}, options = new Map(), opened = [], behavior = [];
+  const hooks = {}, options = new Map(), opened = [], behavior = [], removed = [], moved = [];
   const tabs = new Map([1, 2].map(id => [id, {id, windowId: 10, title: `Tab ${id}`, url: 'https://example.com'}]));
   const session = saved ? {sidebar: structuredClone(saved)} : {};
-  const local = {base: 'http://localhost:3010', installationId: 'install'};
+  const local = {base: DEFAULT_BASE, installationId: 'install'};
   const event = name => ({addListener(fn) { hooks[name] = fn; }});
   const chrome = {
     storage: {local: {setAccessLevel: async () => {}, get: async () => local, set: async x => Object.assign(local, x)}, session: {get: async () => structuredClone(session), set: async x => Object.assign(session, structuredClone(x))}},
@@ -19,15 +19,15 @@ async function worker(saved, cold = false) {
     action: {onClicked: event('click')},
     commands: {onCommand: event('command')},
     runtime: {id: 'test', getURL: path => `chrome-extension://test/${path}`, sendMessage: async () => {}, onInstalled: event('install'), onStartup: event('startup'), onMessage: event('message')},
-    tabs: {query: async query => query?.currentWindow ? [...tabs.values()].map((tab, index) => ({...tab, index, active: index === 0})) : query?.url ? [...tabs.values()].filter(tab => tab.url?.startsWith('http://localhost:3010/')) : [...tabs.values()], get: async id => { if (!tabs.has(id)) throw Error('Missing tab'); return tabs.get(id); }, update: async (id, changes) => Object.assign(tabs.get(id), changes), create: async changes => { const id = Math.max(...tabs.keys()) + 1; const tab = {id, windowId: 10, ...changes}; tabs.set(id, tab); return tab; },
+    tabs: {query: async query => query?.currentWindow ? [...tabs.values()].map((tab, index) => ({...tab, index, active: index === 0})) : query?.url ? [...tabs.values()].filter(tab => tab.url?.startsWith(`${DEFAULT_BASE}/`)) : [...tabs.values()], get: async id => { if (!tabs.has(id)) throw Error('Missing tab'); return tabs.get(id); }, update: async (id, changes) => Object.assign(tabs.get(id), changes), remove: async id => { removed.push(id); tabs.delete(id); }, move: async (id, opts) => { moved.push({id, ...opts}); return tabs.get(id); }, create: async changes => { const id = Math.max(...tabs.keys()) + 1; const tab = {id, windowId: 10, ...changes}; tabs.set(id, tab); return tab; },
       ...Object.fromEntries(['Created', 'Removed', 'Updated', 'Replaced', 'Attached', 'Activated'].map(name => [`on${name}`, event(name)]))},
-    windows: {update: async () => {}},
+    windows: {update: async () => {}, getCurrent: async () => ({left: 0, top: 0, width: 1200, height: 800}), create: async () => ({})},
   };
-  const context = vm.createContext({chrome, ...helpers, DEFAULT_BASE, HYPER_TAB_URL, crypto, console, URL, AbortSignal, fetch: async () => { throw Error('Unexpected network'); }});
+  const context = vm.createContext({chrome, ...helpers, DEFAULT_BASE, crypto, console, URL, AbortSignal, fetch: async () => { throw Error('Unexpected network'); }});
   vm.runInContext(source, context);
   const settle = () => vm.runInContext('queue', context);
   if (!cold) await settle();
-  return {hooks, options, opened, session, tabs, behavior, settle};
+  return {hooks, options, opened, session, tabs, behavior, removed, moved, settle};
 }
 
 test('boot, creation, activation and updates never opt untouched tabs in', async () => {
@@ -104,4 +104,25 @@ test('a panel message cannot opt in a legacy tab', async () => {
   expect(reply.ok).toBe(false);
   expect(w.session.sidebar.tabs[1].optedIn).toBeUndefined();
   expect(w.options.get(1).enabled).toBe(false);
+});
+
+test('Ctrl-X command closes the active tab in the current window', async () => {
+  const w = await worker();
+  w.hooks.command('close-tab');
+  await w.settle();
+  expect(w.removed).toEqual([1]);
+  expect(w.tabs.has(1)).toBe(false);
+  expect(w.tabs.has(2)).toBe(true);
+});
+
+test('Cmd-J/K commands move the active tab right and left, wrapping at the edges', async () => {
+  const right = await worker();
+  right.hooks.command('move-tab-right');
+  await right.settle();
+  expect(right.moved).toEqual([{id: 1, index: 1}]);
+
+  const left = await worker();
+  left.hooks.command('move-tab-left');
+  await left.settle();
+  expect(left.moved).toEqual([{id: 1, index: 1}]);
 });

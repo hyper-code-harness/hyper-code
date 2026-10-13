@@ -1,0 +1,12 @@
+{
+  "name": "nanobanana",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Nano Banana",
+    "icon": "ph-image",
+    "optional": true,
+    "description": "Generate and edit marketing images with Gemini Nano Banana 2.1 on Vertex AI in the dedicated Hyper Google Cloud project."
+  }
+}

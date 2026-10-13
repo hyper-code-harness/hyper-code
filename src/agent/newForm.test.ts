@@ -8,5 +8,6 @@ test("new form ignores an unusable last model and selects configured default", a
   ctx.fns.settings.modelDefault = async () => "hyper/macstudio:claude-sonnet-4-6";
   const html = await ctx.fns.agent.newForm({});
   expect(html).not.toContain("openai:missing");
-  expect(html).toContain('value="hyper/macstudio:claude-sonnet-4-6" selected');
+  expect(html).toContain('<input type="hidden" name="model" value="hyper/macstudio:claude-sonnet-4-6">');
+  expect(html).toContain('data-model-picker-field');
 });

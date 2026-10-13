@@ -77,3 +77,14 @@ tmp/
 
 # Excalidraw drawings (local user content)
 drawings/
+
+# local scratch: screenshots, debug dumps, session cookies, research notes
+.hyper/*.png
+.hyper/*.svg
+.hyper/cookie.json
+.hyper/htmx-migration/
+/artifacts/
+/data/
+/research/
+/doonto/
+/dhh-rails-world-2026-keynote-transcript.md

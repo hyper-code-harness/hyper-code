@@ -94,7 +94,12 @@ export default async function (
     // The dotted name a file answers to. Computed without reading anything, so
     // it can be done for the whole tree before any call is resolved.
     const nameOf = (e: ScanEntry): string => {
-        if (e.kind !== "fn" || !e.runtimeName) return e.projectRel;
+        if (e.kind !== "fn" || !e.runtimeName) {
+            // Framework entry points have no callable registry name, but they still belong to a
+            // namespace. Store the path as a dotted identity (`agent.$route_…`) so SQL consumers
+            // can group it exactly like runtime functions without reparsing `rel`.
+            return e.projectRel.replace(/\.tsx?$/, "").replaceAll("/", ".");
+        }
         return e.moduleDir === "." ? e.runtimeName : `${e.moduleDir.replaceAll("/", ".")}.${e.runtimeName}`;
     };
 

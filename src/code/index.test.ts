@@ -141,7 +141,7 @@ describe("code.index", () => {
         try {
             const rows = await ctx.fns.procs.db.select({ sql: "SELECT name, kind, entry_point FROM code_functions ORDER BY name", params: [] });
             expect(rows).toEqual([
-                { name: "shop$route_cart_GET.ts".replace("shop$", "shop/$"), kind: "route", entry_point: true },
+                { name: "shop.$route_cart_GET", kind: "route", entry_point: true },
                 { name: "shop.charge", kind: "fn", entry_point: false },
             ]);
         } finally { cleanup(); }

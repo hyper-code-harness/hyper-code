@@ -4,9 +4,9 @@
   "type": "module",
   "procs": {
     "src": "src",
-    "label": "RSS library",
+    "label": "RSS & Atom",
     "icon": "ph-rss",
     "optional": true,
-    "description": "Durable RSS and Atom feed catalogue, fetch runs and entry state that publishes prepared items through the News core API."
+    "description": "Manage feed subscriptions, fetch new entries incrementally, and publish prepared items to News."
   }
 }

@@ -7,6 +7,6 @@
     "label": "Marker PDF",
     "icon": "ph-file-pdf",
     "optional": true,
-    "description": "Local Apple-Silicon-aware PDF to Markdown conversion with Marker, artifact discovery, and output quality analysis."
+    "description": "Convert PDFs to Markdown with Marker on Apple Silicon and inspect output files and conversion quality."
   }
 }

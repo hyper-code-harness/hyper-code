@@ -3,10 +3,15 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "brave.apiKey"
+      ]
+    },
     "src": "src",
     "label": "Brave Search",
     "icon": "ph-magnifying-glass",
     "optional": true,
-    "description": "Low-level direct access to Brave Search API provider-specific filters and raw responses; prefer websearch.search for ordinary web discovery."
+    "description": "Search the web through the Brave API with provider-specific filters and raw responses."
   }
 }

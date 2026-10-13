@@ -1,1 +1,7 @@
-{"name":"vision","private":true,"type":"module","procs":{"src":"src","label":"Vision","icon":"ph-eye","optional":true,"description":"Local image OCR with pluggable engines: fast Apple Vision lines with boxes, or accurate Qwen3-VL Markdown via LM Studio."}}
+{"name":"vision","private":true,"type":"module","procs":{
+    "configuration": {
+      "settings": [
+        "vision.lmstudioUrl",
+        "vision.qwenModel"
+      ]
+    },"src":"src","label":"Image OCR","icon":"ph-eye","optional":true,"description":"Extract text from images locally with Apple Vision or Qwen3-VL through LM Studio."}}

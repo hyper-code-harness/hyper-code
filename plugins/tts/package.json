@@ -3,10 +3,15 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "tts.engine"
+      ]
+    },
     "src": "src",
-    "label": "Google Cloud TTS",
+    "label": "Google Cloud Text-to-Speech",
     "icon": "ph-speaker-high",
     "optional": true,
-    "description": "Google Cloud text-to-speech synthesis and voice catalogue."
+    "description": "Synthesize speech with Google Cloud Text-to-Speech and browse available voices."
   }
 }

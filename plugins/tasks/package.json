@@ -7,6 +7,6 @@
     "label": "Tasks",
     "icon": "ph-check-square",
     "optional": true,
-    "description": "Minimal task tracker with one attached agent chat per task."
+    "description": "Track tasks with a dedicated agent chat attached to each task."
   }
 }

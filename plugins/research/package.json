@@ -3,10 +3,15 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "research.apiKey"
+      ]
+    },
     "src": "src",
     "label": "Research",
     "icon": "ph-microscope",
     "optional": true,
-    "description": "Evidence research over Consensus: synthesized answers, ranked peer-reviewed papers, citations, follow-ups and study filters."
+    "description": "Find peer-reviewed evidence through Consensus, with synthesized answers, ranked papers, citations, and follow-ups."
   }
 }

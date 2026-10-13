@@ -3,10 +3,15 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "knowledge.sidecarTimeoutMs"
+      ]
+    },
     "src": "src",
     "label": "Knowledge",
     "icon": "ph-graph",
     "optional": true,
-    "description": "Typed people, organizations, products and concepts with provenance, relations and full-text search in an isolated Postgres schema."
+    "description": "Store and search typed people, organizations, products, and concepts with sources and relationships."
   }
 }

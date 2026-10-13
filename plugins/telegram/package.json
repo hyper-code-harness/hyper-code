@@ -7,7 +7,7 @@
     "label": "Telegram",
     "icon": "ph-telegram-logo",
     "optional": true,
-    "description": "Personal Telegram client: dialogs, messages, search, contacts, folders, participants and guarded write operations."
+    "description": "Read and search chats, messages, contacts, folders, and participants, with guarded messaging actions."
   },
   "dependencies": {
     "telegram": "^2.26.22"

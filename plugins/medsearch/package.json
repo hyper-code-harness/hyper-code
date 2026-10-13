@@ -4,10 +4,10 @@
   "type": "module",
   "procs": {
     "src": "src",
-    "label": "MedSearch",
+    "label": "Medical Literature",
     "icon": "ph-first-aid-kit",
     "optional": true,
-    "description": "Open PubMed and Europe PMC search with Jev semantic reranking, relevance scores, article metadata, related papers and open full text.",
+    "description": "Search PubMed and Europe PMC, rank relevant papers, read abstracts, and retrieve related work and open full text.",
     "domains": ["eutils.ncbi.nlm.nih.gov", "www.ebi.ac.uk"]
   }
 }

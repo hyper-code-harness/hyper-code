@@ -3,10 +3,17 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "desktop.idleDisconnectMinutes",
+        "desktop.keepAwake",
+        "desktop.windowChangeTimeoutMs"
+      ]
+    },
     "src": "src",
     "label": "Desktop",
     "icon": "ph-desktop",
     "optional": true,
-    "description": "macOS desktop control for agents on this Mac or remote Macs over SSH via Cua Driver: apps, windows, Accessibility outline, screenshots with OCR, background clicks, typing, keys and scrolling."
+    "description": "Inspect and control macOS apps and windows locally or over SSH, with screenshots, OCR, clicks, and typing."
   }
 }

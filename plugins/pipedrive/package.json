@@ -3,10 +3,16 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "pipedrive.apiToken",
+        "pipedrive.domain"
+      ]
+    },
     "src": "src",
     "label": "Pipedrive",
     "icon": "ph-kanban",
     "optional": true,
-    "description": "Read-only Pipedrive CRM access: deals, contacts, organizations, pipelines, search and attached email threads."
+    "description": "Read and search CRM deals, contacts, organizations, pipelines, and attached email threads."
   }
 }

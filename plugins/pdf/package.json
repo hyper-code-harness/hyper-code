@@ -7,6 +7,6 @@
     "label": "PDF Parser",
     "icon": "ph-file-pdf",
     "optional": true,
-    "description": "Unified local PDF-to-Markdown routing across Marker and MinerU with inspection, quality analysis, provenance, and direct comparison."
+    "description": "Convert PDFs to Markdown with automatic engine selection, quality checks, provenance, and engine comparisons."
   }
 }

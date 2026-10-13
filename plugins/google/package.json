@@ -4,10 +4,10 @@
   "type": "module",
   "procs": {
     "src": "src",
-    "label": "google",
+    "label": "Google Workspace",
     "icon": "ph-google-logo",
     "optional": true,
-    "description": "Google Workspace: OAuth token broker (google) + gmail, gcal, gdoc, gsheets, gtasks and Workspace Admin directory (gworkspace).",
+    "description": "Access Gmail, Calendar, Docs, Drive, Sheets, Tasks, and Workspace Directory through shared Google authentication.",
     "domains": ["docs.google.com", "drive.google.com"]
   },
   "dependencies": {

@@ -7,7 +7,7 @@
     "label": "YouTube",
     "icon": "ph-youtube-logo",
     "optional": true,
-    "description": "YouTube search, metadata, playlists and transcript extraction via yt-dlp.",
+    "description": "Search YouTube and retrieve video metadata, playlists, and transcripts through yt-dlp.",
     "domains": ["youtube.com", "www.youtube.com", "youtu.be"]
   }
 }

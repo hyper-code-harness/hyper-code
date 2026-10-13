@@ -3,10 +3,16 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "websearch.defaultEngine",
+        "websearch.fetchModel"
+      ]
+    },
     "src": "src",
     "label": "Web Search",
     "icon": "ph-magnifying-glass",
     "optional": true,
-    "description": "Provider-neutral web search over Brave Search API and Google through the user's browser."
+    "description": "Search the public web through the Brave API or Google in the user’s browser."
   }
 }

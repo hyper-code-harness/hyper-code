@@ -7,6 +7,6 @@
     "label": "Google Places",
     "icon": "ph-map-pin",
     "optional": true,
-    "description": "Google Places text search, nearby search, details, reviews and photos."
+    "description": "Find nearby places and retrieve addresses, opening hours, ratings, reviews, and photos."
   }
 }

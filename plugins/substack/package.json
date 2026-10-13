@@ -1,1 +1,1 @@
-{"name":"substack","private":true,"type":"module","procs":{"src":"src","label":"Substack","icon":"ph-newspaper-clipping","optional":true,"description":"Standalone Substack subscriptions, archives, authenticated post bodies, cursors and incremental runs via Hyper Browser."}}
+{"name":"substack","private":true,"type":"module","procs":{"src":"src","label":"Substack","icon":"ph-newspaper-clipping","optional":true,"description":"Browse subscriptions and archives, read authenticated posts, and sync Substack content through Chrome."}}

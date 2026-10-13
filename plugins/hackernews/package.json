@@ -1,1 +1,1 @@
-{"name":"hackernews","private":true,"type":"module","procs":{"src":"src","label":"Hacker News","icon":"ph-y-combinator-logo","optional":true,"description":"Standalone incremental Hacker News Algolia mirror with feed cursors and run history."}}
+{"name":"hackernews","private":true,"type":"module","procs":{"src":"src","label":"Hacker News","icon":"ph-y-combinator-logo","optional":true,"description":"Sync and browse a local Hacker News mirror with configurable feeds and incremental update history."}}

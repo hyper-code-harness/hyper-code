@@ -3,11 +3,18 @@
   "private": true,
   "type": "module",
   "procs": {
+    "configuration": {
+      "settings": [
+        "duckdb.allowFence",
+        "duckdb.memoryLimit",
+        "duckdb.threads"
+      ]
+    },
     "src": "src",
     "label": "DuckDB",
     "icon": "ph-database",
     "optional": true,
-    "description": "In-process DuckDB: SQL over NDJSON/JSON/CSV/Parquet, local DuckDB files and the project Postgres, with Markdown tables and charts."
+    "description": "Query JSON, CSV, Parquet, DuckDB files, and project Postgres with SQL; produce tables and charts."
   },
   "dependencies": {
     "@duckdb/node-api": "^1.5.6-r.1"

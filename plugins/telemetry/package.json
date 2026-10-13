@@ -6,6 +6,6 @@
     "src": "src",
     "label": "Telemetry",
     "icon": "ph-pulse",
-    "description": "Paged NDJSON span storage with parquet compaction, DuckDB queries and a performance dashboard over the built-in tracer."
+    "description": "Store and query runtime traces with NDJSON and Parquet, and inspect performance in a dashboard."
   }
 }

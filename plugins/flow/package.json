@@ -1,1 +1,1 @@
-{"name":"flow","private":true,"type":"module","procs":{"src":"src","label":"Flows","icon":"ph-list-checks","optional":true,"description":"Computed attention gaps with explicit single-target actions and verified receipts."}}
+{"name":"flow","private":true,"type":"module","procs":{"src":"src","label":"Flows","icon":"ph-list-checks","optional":true,"description":"Find attention gaps in source data and apply explicit, individually verified actions."}}

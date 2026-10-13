@@ -1,0 +1,8 @@
+{
+  "label": "Autotext lab",
+  "href": "/autotext",
+  "hint": "Compare short prose completions from different models",
+  "icon": "ph-text-t",
+  "group": "System",
+  "order": 70
+}

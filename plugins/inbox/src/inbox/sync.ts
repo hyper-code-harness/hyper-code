@@ -33,6 +33,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         received++;
         if (!m.verified) { quarantined++; continue; }
         const stored: types.inbox.Message = { ...m, direction: "in", agentId: null, receivedAt: now, deliveredAt: null, readAt: null };
+        const back = await ctx.fns.inbox.mentionReply({ message: stored });
+        if (back.handled) {
+            delivered++;
+            await ctx.fns.procs.db.run({ sql: "UPDATE inbox.messages SET agent_id = ?, delivered_at = ? WHERE id = ? AND direction = 'in'", params: [back.agentId, Date.now(), m.id] });
+            continue;
+        }
         for (const agentId of await ctx.fns.inbox.route({ to: m.to })) {
             const d = await ctx.fns.inbox.deliver({ agentId, message: stored });
             if (d.delivered) {

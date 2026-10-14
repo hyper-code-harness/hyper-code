@@ -15,6 +15,8 @@ const MAX_PER_10_MIN = 30;
  * @param opts.subject Subject line.
  * @param opts.thread Root message id of the thread this message continues.
  * @param opts.hop Hop of the message being answered (the new message gets hop + 1); omit for a new conversation.
+ * @param opts.labels Labels for the recipient's client (`t` tags), e.g. ["mention"]; at most 8.
+ * @param opts.link A page on this Hyper about the message (e.g. the chat); clients show it only when it is on this Hyper's host.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Sending agent; its alias or id becomes the local part of the sender address. */
@@ -29,6 +31,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     thread?: string;
     /** Hop of the message being answered (the new message gets hop + 1); omit for a new conversation. */
     hop?: number;
+    /** Labels for the recipient's client (`t` tags), e.g. ["mention"]; at most 8. */
+    labels?: string[];
+    /** A page on this Hyper about the message (e.g. the chat); clients show it only when it is on this Hyper's host. */
+    link?: string;
 }): Promise<{ id: string; from: string; to: string[]; wraps: number; thread: string | null; hop: number }> {
     const text = String(opts.text ?? "").trim();
     const to = [...new Set((opts.to ?? []).map(a => String(a).trim().toLowerCase()).filter(Boolean))];
@@ -50,6 +56,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const tags: string[][] = [["from", from], ...to.map(a => ["to", a]), ["hop", String(hop)]];
     if (opts.subject) tags.push(["subject", String(opts.subject).slice(0, 200)]);
     if (opts.thread) tags.push(["e", opts.thread, "", "root"]);
+    for (const l of (opts.labels ?? []).slice(0, 8)) tags.push(["t", String(l).toLowerCase().slice(0, 32)]);
+    if (opts.link) tags.push(["link", String(opts.link).slice(0, 500)]);
     const rumor = createRumor({ kind: 14, content: text, tags }, sk);
     const targets = new Set<string>();
     for (const addr of to) {

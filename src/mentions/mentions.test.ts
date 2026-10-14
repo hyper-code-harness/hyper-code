@@ -71,6 +71,18 @@ test("mentions render as chips with the person's name, never inside code", async
     expect((html.match(/data-mention/g) ?? []).length).toBe(1);
 });
 
+test("messages from hidden sidecars never create mention notifications", async () => {
+    const ctx: any = await mkTestCtx();
+    const { nik, rn } = await people(ctx);
+    const target = await rn.fns.agent.start({ model: "mock:echo" });
+    const sidecar = await rn.fns.agent.start({ model: "mock:echo", visibility: "hidden" });
+    await rn.fns.session.save({ agent: target });
+    await rn.fns.session.save({ agent: sidecar });
+    await ctx.fns.session.appendMessage({ id: target.id, message: { role: "user", content: "internal @niquola", author: `agent:${sidecar.id}`, message_type: "agent_message" } });
+    expect(await ctx.fns.mentions.unreadCount({ userId: nik.id })).toBe(0);
+});
+
+
 test("the composer asks /mentions/people; the agent learns whom it can mention on a shared Hyper", async () => {
     const ctx: any = await mkTestCtx();
     const { anna, get } = await people(ctx);

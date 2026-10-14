@@ -23,6 +23,13 @@ export default async function (
         from?: string | null;
     },
 ): Promise<{ mentioned: string[] }> {
+    // Hidden sidecars may legitimately send agent messages, but their internal output must never
+    // create user-facing mention badges or sidebar notifications.
+    if (opts.from?.startsWith("agent:")) {
+        const senderId = opts.from.slice("agent:".length);
+        const [sender] = await ctx.fns.procs.db.select({ sql: "SELECT visibility FROM agents WHERE id = ?", params: [senderId] }) as any[];
+        if (sender?.visibility === "hidden") return { mentioned: [] };
+    }
     const to = (await ctx.fns.mentions.parse({ text: opts.text })).filter((id) => id !== opts.from);
     if (!to.length) return { mentioned: [] };
     const excerpt = String(opts.text).replace(/\s+/g, " ").trim().slice(0, 240);

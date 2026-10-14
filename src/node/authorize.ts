@@ -7,7 +7,8 @@
  *
  * Verifies the bearer token against llm_node_clients (sha256), checks the
  * source address is loopback or Tailscale (100.64.0.0/10) without forwarding
- * headers, enforces the hop limit and bumps usage counters. Returns the client
+ * headers, or a hypermesh overlay client (10.77.0.0/16) forwarded by the local
+ * hyperlet ingress after the hub's policy check, enforces the hop limit and bumps usage counters. Returns the client
  * with its provider allow-list, or a ready 401/403 response.
  * @param opts.req Incoming request.
  */
@@ -24,7 +25,11 @@ export default async function (
     const ip = String((ctx.state as any).procs?.http?.server?.server?.requestIP?.(opts.req)?.address ?? "").replace(/^::ffff:/, "");
     const loopback = ip === "127.0.0.1" || ip === "::1" || ip === "localhost";
     const tailscale = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip);
-    if (forwarded || !(loopback || tailscale)) return deny(403, "hyper node accepts loopback or tailnet clients only");
+    // hypermesh: the local hyperlet ingress (loopback peer) forwards only requests the hub has already
+    // authorized by policy grant; it stamps x-hn-id and appends the overlay (10.77.0.0/16) client address.
+    const xff = String(opts.req.headers.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    const hnMesh = loopback && Boolean(opts.req.headers.get("x-hn-id")) && xff.length > 0 && /^10\.77\.\d+\.\d+$/.test(xff.at(-1)!);
+    if (!hnMesh && (forwarded || !(loopback || tailscale))) return deny(403, "hyper node accepts loopback, tailnet or hypermesh clients only");
     const hops = Number(opts.req.headers.get("x-hyper-hops") ?? 0);
     if (!Number.isFinite(hops) || hops >= 3) return deny(508, "hyper node hop limit reached");
     const header = opts.req.headers.get("authorization") ?? "";

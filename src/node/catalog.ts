@@ -24,15 +24,19 @@ export default async function (
         /** Current hop count. @default 0 */
         hops?: number;
     },
-): Promise<Array<{ id: string; api: "anthropic" | "responses" | "openai"; provider: string; account: string; kind: "subscription" | "api"; via?: string }>> {
+): Promise<Array<{ id: string; api: "anthropic" | "responses" | "openai" | "cursor"; provider: string; account: string; kind: "subscription" | "api"; via?: string }>> {
     const allow = new Set((opts.providers ?? []).filter(Boolean));
     // Own models only from listModels; node models come from the cache below.
     // listModels would refresh nodes, and a node that points back at us would
     // recurse through our own /models until the hop limit.
     const all = await ctx.fns.llm.listModels({ skipNodes: true });
-    const out: Array<{ id: string; api: "anthropic" | "responses" | "openai"; provider: string; account: string; kind: "subscription" | "api"; via?: string }> = [];
+    const out: Array<{ id: string; api: "anthropic" | "responses" | "openai" | "cursor"; provider: string; account: string; kind: "subscription" | "api"; via?: string }> = [];
     const seen = new Set<string>();
-    for (const [group, models] of Object.entries(all)) {
+    // Cursor re-sells other vendors' model ids (claude-*, gpt-*, kimi-*): the same id is offered by the
+    // vendor's own provider in its native wire api, which every client speaks. Dedup is by id, first wins —
+    // so Cursor goes last and only adds ids nobody else has (older clients do not speak the cursor api).
+    const groups = Object.entries(all).sort(([a], [b]) => Number(a === "cursor") - Number(b === "cursor"));
+    for (const [group, models] of groups) {
         if (group === "lmstudio" || group === "mock") continue;
         for (const full of models) {
             const m = /^([a-z][\w\-]*)(?:\/([\w\-.]+))?:(.+)$/.exec(full);

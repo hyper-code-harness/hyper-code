@@ -80,15 +80,32 @@ for manifest in plugins/*/package.json; do
     (cd "$dir" && { bun install --frozen-lockfile >/dev/null 2>&1 || bun install >/dev/null; })
 done
 
-# 4. database
-say "Postgres (paradedb) на :54393"
+# 4. database — only on 127.0.0.1, with a random password (never the old built-in "hyper": the repo is public).
+say "Postgres (paradedb) на 127.0.0.1:54393"
 mkdir -p "$HOME/.hyper"
 COMPOSE="$HOME/.hyper/docker-compose.yml"
+DBENV="$HOME/.hyper/.env"
 if [ -f "$COMPOSE" ] && ! cmp -s docker-compose.yml "$COMPOSE"; then
     cp "$COMPOSE" "$COMPOSE.bak-$(date +%Y%m%d%H%M%S)"
 fi
+# The password: keep the one already generated; otherwise a new one (48 hex).
+DB_PW="$(sed -n 's/^HYPER_DB_PASSWORD=//p' "$DBENV" 2>/dev/null | tail -1)"
+if [ -z "$DB_PW" ]; then
+    DB_PW="$(openssl rand -hex 24)"
+    (umask 077; touch "$DBENV"; grep -v '^HYPER_DB_PASSWORD=' "$DBENV" > "$DBENV.new" || true; echo "HYPER_DB_PASSWORD=$DB_PW" >> "$DBENV.new"; mv "$DBENV.new" "$DBENV")
+fi
+chmod 600 "$DBENV"
+# An install from before 14.10 runs with password "hyper" on every interface: rotate it in place (data kept).
+if docker inspect hyper-db >/dev/null 2>&1; then
+    docker exec hyper-db psql -U hyper -d postgres -qc "ALTER USER hyper PASSWORD '$DB_PW'" \
+        || die "не смог сменить пароль базы в hyper-db"
+fi
 cp docker-compose.yml "$COMPOSE"
-docker compose -f "$COMPOSE" up -d --quiet-pull
+docker compose -f "$COMPOSE" up -d --quiet-pull   # recreates the container on 127.0.0.1 if it was published everywhere
+# Hyper reads DATABASE_URL from $HYPER_DIR/.env (0600).
+(umask 077; touch .env; grep -v '^DATABASE_URL=' .env > .env.new || true
+ echo "DATABASE_URL=postgres://hyper:$DB_PW@127.0.0.1:54393/hyper" >> .env.new; mv .env.new .env)
+chmod 600 .env
 printf '  жду готовности базы'
 for _ in $(seq 1 60); do
     [ "$(docker inspect -f '{{.State.Health.Status}}' hyper-db 2>/dev/null)" = healthy ] && { echo " — готова"; break; }

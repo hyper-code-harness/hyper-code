@@ -36,7 +36,7 @@ function applyPending(): { old: string; target: string; migrationsChanged: boole
     if (!current.ok || current.output !== p.old || !clean.ok || clean.output) throw new Error("staged update precondition changed; refusing checkout");
     command(["git", "update-ref", `refs/hyper-update-backups/${p.requestedAt}`, p.old]);
     if (p.migrationsChanged) {
-        const dbUrl = process.env.DATABASE_URL || "postgres://hyper:hyper@localhost:54393/hyper";
+        const dbUrl = process.env.DATABASE_URL; if (!dbUrl) throw new Error("DATABASE_URL is not set (see .env; script/install.sh writes it)");
         const dump = command(["pg_dump", "--format=custom", "--no-owner", "--no-acl", "--file", backupPath, dbUrl]);
         if (!dump.ok) throw new Error(dump.output || "database backup failed");
     }
@@ -69,7 +69,7 @@ async function rollback(update: { old: string; target: string; migrationsChanged
     command([process.execPath, "install", "--frozen-lockfile"]);
     let database = "not changed";
     if (update.migrationsChanged && existsSync(backupPath)) {
-        const dbUrl = process.env.DATABASE_URL || "postgres://hyper:hyper@localhost:54393/hyper";
+        const dbUrl = process.env.DATABASE_URL; if (!dbUrl) throw new Error("DATABASE_URL is not set (see .env; script/install.sh writes it)");
         const restore = command(["pg_restore", "--clean", "--if-exists", "--no-owner", "--no-acl", "--dbname", dbUrl, backupPath]);
         database = restore.ok ? "restored" : `restore failed: ${restore.output}`;
     }

@@ -16,7 +16,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: hyper
-      POSTGRES_PASSWORD: hyper
+      # From ~/.hyper/.env (script/install.sh generates it). No fallback: compose refuses to start without it.
+      POSTGRES_PASSWORD: ${HYPER_DB_PASSWORD:?set HYPER_DB_PASSWORD in ~/.hyper/.env (script/install.sh generates it)}
       POSTGRES_DB: hyper
     command:
       - postgres
@@ -39,7 +40,9 @@ services:
       - -c
       - track_activity_query_size=4096
     ports:
-      - "54393:5432"
+      # Loopback only. "54393:5432" would publish it on every interface (LAN, VPN, internet) — docker bypasses
+      # ufw/nft input rules. Reach it from elsewhere through an SSH tunnel, not by publishing.
+      - "127.0.0.1:54393:5432"
     volumes:
       - hyper_pgdata:/var/lib/postgresql
     healthcheck:

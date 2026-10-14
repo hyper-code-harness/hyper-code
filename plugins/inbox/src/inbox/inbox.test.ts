@@ -7,7 +7,7 @@ import { mkTestCtx } from "../../../../src/_testCtx.entry";
 // End to end against the REAL Hypermesh relay code (~/hypermesh, CP relay + its own inbox client for people) on a throwaway
 // Postgres schema, with this plugin as the Hyper side. Skipped when the hypermesh checkout is not next to this repo.
 const HM = process.env.HYPERMESH_DIR ?? `${homedir()}/hypermesh`;
-const PG = process.env.HYPERLET_TEST_PG ?? "postgres://hyper:hyper@localhost:54393/postgres";
+const PG = process.env.HYPERLET_TEST_PG ?? (process.env.DATABASE_URL ?? "").replace(/\/[^/?]*(\?|$)/, "/postgres$1");
 const available = existsSync(`${HM}/packages/runtime/load.ts`);
 const t = available ? test : test.skip;
 const ZONE = "hn.hyper-mesh.xyz"; const HOST = `hyper.team.in.${ZONE}`;

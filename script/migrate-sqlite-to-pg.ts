@@ -8,7 +8,8 @@ import { Database } from "bun:sqlite";
 import { SQL } from "bun";
 
 const sqlitePath = process.argv[2] ?? ".hyper/_runtime/sessions";
-const pgUrl = process.argv[3] ?? process.env.DATABASE_URL ?? "postgres://hyper:hyper@localhost:54393/hyper";
+const pgUrl = process.argv[3] ?? process.env.DATABASE_URL;
+if (!pgUrl) throw new Error("pass a Postgres URL or set DATABASE_URL");
 
 const lite = new Database(sqlitePath, { readonly: true });
 const pg = new SQL(pgUrl, { max: 4 });

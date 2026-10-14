@@ -121,7 +121,7 @@ bun script/multiuser.ts down --db hyper --yes --old-code-running
 
 Last resort — full dump from before the change (stop Hyper first; everything after the dump is lost):
 ```bash
-pg_restore --clean --if-exists --no-owner -d postgres://hyper:hyper@localhost:54393/hyper \
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" \
   ~/hyper-backups/hyper-full-2026-09-25-before-users.dump
 ```
 
@@ -129,7 +129,7 @@ pg_restore --clean --if-exists --no-owner -d postgres://hyper:hyper@localhost:54
 
 ## Afterwards
 
-- Drop the rehearsal copy: `psql postgres://hyper:hyper@localhost:54393/postgres -c "DROP DATABASE hyper_rehearsal"`.
+- Drop the rehearsal copy: `psql "${DATABASE_URL%/*}/postgres" -c "DROP DATABASE hyper_rehearsal"`.
 - Delete `/tmp/hyper_full.dump`; delete branch `main-wip-snapshot`.
 - `git worktree remove ~/hyper-code2-users`.
 - Second email (`<personal email>`) is not supported yet (one email per user) — plan step 5.

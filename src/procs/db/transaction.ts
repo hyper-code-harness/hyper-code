@@ -18,11 +18,15 @@ export default async function <T>(
     const existing = storage.getStore();
     if (existing) throw new Error(existing.active ? "Nested database transactions are not supported" : "Database transaction scope is closed");
     const pool = await ctx.fns.procs.db.conn({});
-    return await pool.begin(async (connection) => {
+    // Bun's SQL.begin runs its callback outside the caller's async context: every
+    // AsyncLocalStorage store (another ctx's open transaction, tracing, …) would be
+    // lost inside. Restore the caller's context first.
+    const resume = AsyncLocalStorage.snapshot();
+    return await pool.begin((connection) => resume(async () => {
         const scope = { connection: connection as typeof pool, active: true };
         return await storage.run(scope, async () => {
             try { return await opts.fn(); }
             finally { scope.active = false; }
         });
-    });
+    }));
 }

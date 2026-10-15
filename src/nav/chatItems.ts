@@ -9,7 +9,7 @@ export default async function (
     session: Session | null,
     opts: {
         /** Agent cards from nav.agents. */
-        agents: Array<{ id: string; title?: string | null; model?: string; runState?: string; hasUnread?: boolean; createdBy?: string | null }>;
+        agents: Array<{ id: string; title?: string | null; model?: string; icon?: string | null; runState?: string; hasUnread?: boolean; createdBy?: string | null }>;
     },
 ): Promise<types.nav.Item[]> {
     const users = opts.agents.some(a => a.createdBy) ? await ctx.fns.auth.listUsers({}).catch(() => [] as types.auth.User[]) : [];
@@ -21,6 +21,7 @@ export default async function (
         label: String(agent.title || agent.id),
         href: `/agent/${encodeURIComponent(agent.id)}`,
         model: String(agent.model ?? "?"),
+        ...(agent.icon ? { avatar: agent.icon } : {}),
         active: !!agent.runState && agent.runState !== "idle",
         unread: !!agent.hasUnread,
         ...(multi && agent.createdBy && agent.createdBy !== me ? { owner: names.get(agent.createdBy) ?? agent.createdBy } : {}),

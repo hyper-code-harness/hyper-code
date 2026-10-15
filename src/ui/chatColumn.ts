@@ -28,12 +28,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     }
     if (!agent) return `<div class="p-4 text-sm text-faint">agent ${esc(id)} not found</div>`;
 
-    const parent = agent.parentId ? await ctx.fns.session.load({ id: String(agent.parentId) }) : null;
     const maxIdx = await ctx.fns.session.getMaxEventIdx({ id });
     const events = await ctx.fns.session.getEvents({ id, beforeIdx: maxIdx + 1, limit: 100 });
-    const inheritedCount = agent.parentId
-        ? (await ctx.fns.session.getFullMessages({ id })).length - (await ctx.fns.session.getMessages({ id })).length
-        : 0;
 
     const historyHead = events.length && Number(events[0]?.idx ?? 0) > 0
         ? `<div id="msg-head" hx-get="/agent/${encodeURIComponent(id)}/events.html?before=${Number(events[0].idx)}&limit=100" hx-trigger="load-older" hx-target="this" hx-swap="outerHTML" class="flex justify-center py-1">${ctx.fns.procs.ui.button({ action: 'load-older-messages', label: 'older messages', appearance: 'plain', class: 'rounded-full border border-ui-border bg-base-100 px-3 py-1 text-3xs text-faint hover:text-muted', attrs: { onclick: "htmx.trigger(this.parentElement, 'load-older')" } })}</div>`
@@ -42,12 +38,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const eventsHtml = activeSleepForView
         ? await ctx.fns.agent.renderSleepContextHtml({ sleepContext: agent.sleepContext!, events, agentId: id })
         : await ctx.fns.agent.renderEventsHtml({ events, agentId: id });
-    const lastEvent = ((await ctx.fns.procs.db.select({
-        sql: 'SELECT payload FROM events WHERE agent_id = ? AND type = \'assistant\' ORDER BY idx DESC LIMIT 1',
-        params: [id],
-    })) as any[])[0];
-    const lastUsage = lastEvent ? JSON.parse(lastEvent.payload).usage : null;
-    const statusBarHtml = await ctx.fns.agent.renderStatusBar({ agentId: id, initialUsage: lastUsage });
     const stopControlHtml = await ctx.fns.agent.renderStatusBar({ agentId: id, part: 'stop' });
     const stopControlRegion = ctx.fns.ui.live({
         id: 'chat-stop-control',
@@ -56,98 +46,30 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         // The agent topic signals start/stop; the interval is only a watchdog.
         every: 30,
         swap: 'innerHTML',
-        attrs: 'class="pointer-events-none absolute inset-y-0 right-1.5 z-50 flex items-center [&>button]:pointer-events-auto"',
+        attrs: 'class="flex items-center"',
         html: stopControlHtml,
     });
-
-    const compactPopup = await ctx.fns.ui.inplacePopup({
-        id: `compact-popover-${id}`,
-        triggerHtml: '<i class="ph ph-arrows-in-line-vertical"></i>',
-        triggerAttrs: 'class="px-1 text-faint hover:text-primary" title="Compact context" aria-label="Compact context"',
-        panelAttrs: 'aria-label="Compact context"',
-        contentHtml: `<form hx-post="/agent/${encodeURIComponent(id)}/compact" hx-swap="none" hx-config='{"timeout":0}'><div class="text-sm font-medium">Compact context</div><textarea name="instructions" rows="3" placeholder="Optional focus instructions" class="mt-2 w-full rounded border border-ui-border bg-base-100 p-2 text-xs"></textarea>${ctx.fns.procs.ui.button({ action: 'compact-context', label: 'Compact', type: 'submit', tone: 'primary', class: 'mt-2' })}</form>`,
-    });
-
-    const modelControl = ctx.fns.ui.popup({
-        method: 'agent.modelPicker',
-        params: { agentId: id },
-        html: ctx.fns.ui.modelLogo({ model: agent.model, bare: true }),
-        attrs: `class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-base-100/25 text-muted transition hover:bg-base-100/60 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/25" title="Change provider or model · ${esc(agent.model)}" aria-label="Change provider or model: ${esc(agent.model)}"`,
-    });
-
-    const reasoning = await ctx.fns.llm.resolveReasoningEffort({ model: agent.model, effort: agent.reasoningEffort ?? "auto" });
-    const effortLabel = (agent.reasoningEffort ?? "auto") === "auto" ? `Auto · ${reasoning.applied}` : reasoning.applied;
-    const effortControl = ctx.fns.ui.popup({
-        method: 'agent.effortPicker',
-        params: { agentId: id },
-        html: `<i class="ph ph-brain" aria-hidden="true"></i><span class="hidden sm:inline capitalize">${esc(effortLabel)}</span>`,
-        attrs: `class="inline-flex h-7 items-center gap-1 rounded-full border border-ui-border bg-base-100/35 px-2 text-3xs font-medium text-subtle transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary" title="Reasoning effort · ${esc(effortLabel)}" aria-label="Change reasoning effort: ${esc(effortLabel)}"`,
-    });
-    // Opens the canvas left of the chat; src/canvas/$script_canvas.js handles the click and paints the state.
-    const canvasToggle = ctx.fns.procs.ui.button({ action: 'toggle-canvas', html: '<i class="ph ph-square-half" aria-hidden="true"></i>', appearance: 'plain', ariaLabel: 'Open canvas', title: 'Open canvas', class: 'canvas-toggle flex size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content aria-pressed:bg-primary/10 aria-pressed:text-primary', attrs: { 'data-canvas-toggle': 'toggle', 'aria-pressed': 'false' } });
-    const workspaceDir = String(agent.workspaceDir ?? '').trim();
-    const workspaceHost = String(agent.workspaceHost ?? '').trim();
-    const workspaceName = workspaceDir.split('/').filter(Boolean).pop() || workspaceDir;
-    const workspaceControl = workspaceHost
-        ? ctx.fns.ui.popup({
-            method: 'ui.previewFile',
-            params: { path: workspaceDir, host: workspaceHost, mode: 'auto', title: `${workspaceHost}:${workspaceName}` },
-            html: `<i class="ph ph-hard-drives shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceHost)}:${esc(workspaceName)}</span>`,
-            attrs: `class="hidden min-w-0 items-center gap-1 text-micro leading-none text-faint transition hover:text-primary sm:inline-flex" title="Remote files · ${esc(workspaceHost)}:${esc(workspaceDir)}" aria-label="Open remote files in ${esc(workspaceHost)}:${esc(workspaceDir)}"`,
-        })
-        : workspaceDir ? ctx.fns.ui.popup({
-        method: 'ui.previewFile',
-        params: { path: workspaceDir, mode: 'auto', title: workspaceName },
-        html: `<i class="ph ph-folder-open shrink-0" aria-hidden="true"></i><span class="max-w-48 truncate">${esc(workspaceName)}</span>`,
-        attrs: `class="hidden min-w-0 items-center gap-1 text-micro leading-none text-faint transition hover:text-primary sm:inline-flex" title="Files · ${esc(workspaceDir)}" aria-label="Open files in ${esc(workspaceDir)}"`,
-    }) : '';
-
 
     const statusMode = agent.statusLineMode ?? "global";
     const statusLabel = statusMode === "global" ? "global prompt inject" : statusMode === "off" ? "prompt inject off" : (agent.statusLine ? esc(agent.statusLine) : "custom prompt inject…");
     const statusLinePopup = await ctx.fns.ui.inplacePopup({
         id: `status-line-popover-${id}`,
-        triggerHtml: `<span id="status-line-label-${esc(id)}" class="min-w-0 truncate"><i class="ph ph-note-pencil mr-1"></i>${statusLabel}${statusMode === "custom" && agent.statusLine && Number(agent.statusLineEvery ?? 1) > 1 ? ` · every ${Number(agent.statusLineEvery)} turns` : ''}</span>`,
-        triggerAttrs: 'class="min-w-0 max-w-full truncate text-3xs text-faint hover:text-muted" title="Edit prompt inject" aria-label="Edit prompt inject"',
+        triggerHtml: `<span id="status-line-label-${esc(id)}" class="min-w-0 truncate"><i class="ph ph-note-pencil mr-1"></i><span class="status-line-text">${statusLabel}${statusMode === "custom" && agent.statusLine && Number(agent.statusLineEvery ?? 1) > 1 ? ` · every ${Number(agent.statusLineEvery)} turns` : ''}</span></span>`,
+        triggerAttrs: statusMode === "global"
+            ? 'class="flex size-8 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-muted [&_.status-line-text]:hidden" title="Prompt inject · global" aria-label="Edit prompt inject"'
+            : 'class="min-w-0 max-w-full truncate rounded-full bg-base-200/70 px-2 py-0.5 text-3xs text-faint hover:text-muted" title="Edit prompt inject" aria-label="Edit prompt inject"',
         panelAttrs: 'aria-label="Edit prompt inject"',
         contentHtml: `<div class="min-w-0 space-y-3"><label class="block text-xs font-medium text-muted">Mode<select form="status-line-form-${esc(id)}" name="mode" class="mt-1 block w-full rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs"><option value="global"${statusMode === "global" ? " selected" : ""}>Global</option><option value="custom"${statusMode === "custom" ? " selected" : ""}>Custom</option><option value="off"${statusMode === "off" ? " selected" : ""}>Off</option></select></label><label class="block min-w-0 text-xs font-medium text-muted">Custom text<textarea form="status-line-form-${esc(id)}" name="text" maxlength="500" rows="4" placeholder="Overrides the global Status Line…" class="mt-1 block w-full min-w-0 max-w-full box-border resize-y rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content">${esc(agent.statusLine ?? '')}</textarea></label><label class="block min-w-0 text-xs font-medium text-muted">Custom cadence: every <input form="status-line-form-${esc(id)}" name="every" type="number" min="1" max="100" value="${Math.max(1, Number(agent.statusLineEvery ?? 1))}" class="mt-1 block w-full min-w-0 max-w-full box-border rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content"></label>${ctx.fns.procs.ui.button({ action: 'save-status-line', label: 'Save', type: 'submit', tone: 'primary', class: 'w-full', attrs: { form: `status-line-form-${id}` } })}</div>`,
     });
 
-    const moreMenu = await ctx.fns.ui.inplacePopup({
-        id: `chat-more-${id}`,
-        triggerHtml: '<i class="ph ph-dots-three text-base" aria-hidden="true"></i>',
-        triggerAttrs: 'class="flex size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content" title="More actions" aria-label="More actions"',
-        panelAttrs: 'aria-label="Agent actions"',
-        contentHtml: `<div class="flex flex-col">
-  ${ctx.fns.ui.popup({ method: 'agent.initialPromptPopup', params: { agentId: id }, html: '<i class="ph ph-scroll" aria-hidden="true"></i>Initial prompt', attrs: 'class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content"' })}
-  <a href="/shared-agents?from=${encodeURIComponent(id)}" class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content"><i class="ph ph-users-three" aria-hidden="true"></i>Shared Agents</a>
-  <form method="POST" action="/agent/${encodeURIComponent(id)}/fork" hx-boost="false">${ctx.fns.procs.ui.button({ action: 'fork', entity: 'agent', id, html: '<i class="ph ph-git-fork" aria-hidden="true"></i>Fork and open', type: 'submit', appearance: 'plain', class: 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content' })}</form>
-  <a href="/agent/${encodeURIComponent(id)}" hx-boost="false" class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content"><i class="ph ph-info" aria-hidden="true"></i>Agent page</a>
-  <div class="my-1 h-px bg-ui-border" aria-hidden="true"></div>
-  <form method="POST" action="/agent/${encodeURIComponent(id)}/archive" hx-boost="false">${ctx.fns.procs.ui.button({ action: 'archive', entity: 'agent', id, html: '<i class="ph ph-archive" aria-hidden="true"></i>Archive', type: 'submit', appearance: 'plain', title: 'Hides from the rail, keeps the transcript', class: 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted hover:bg-base-200 hover:text-base-content' })}</form>
-  <form method="POST" action="/agent/${encodeURIComponent(id)}/delete" hx-boost="false" onsubmit="return confirm('delete ${esc(id)}? The transcript goes with it.')">${ctx.fns.procs.ui.button({ action: 'delete', entity: 'agent', id, html: '<i class="ph ph-trash" aria-hidden="true"></i>Delete', type: 'submit', appearance: 'plain', class: 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-error hover:bg-error/10' })}</form>
-</div>`,
-    });
+    // The header — avatar, name, $chatbadge_ / $chatbutton_ parts and the ⋯ panel of $chatcard_ — is chat.header.
+    const view = await ctx.fns.chat.buildRenderContext({ agentId: id });
+    const headerHtml = view ? await ctx.fns.chat.header({ context: view }) : '';
 
     // header names THIS agent and holds its controls, nothing more.
     return `
-<header class="glass-bar absolute inset-x-0 top-0 z-40 mx-auto mt-2 flex h-11 w-[calc(100%-2rem)] max-w-3xl shrink-0 items-center gap-2.5 overflow-visible rounded-[22px] border border-ui-border pl-2 pr-5 text-xs text-muted">
-  ${modelControl}
-  <span class="flex min-w-0 flex-col">
-    <span class="truncate font-mono font-medium leading-4 text-muted">${esc(String(agent.title ?? id).slice(0, 40) || id)} <span class="text-faint">(${esc(id)})</span></span>
-    ${workspaceControl}
-  </span>
-   ${agent.parentId ? `<a href="/agent/${encodeURIComponent(String(agent.parentId))}" class="rounded border border-warning/30 bg-warning/10 px-1 py-0.5 text-warning hover:bg-warning/10 hover:text-warning" title="forked from ${esc(parent?.title || agent.parentId)} · inherited ${inheritedCount} msgs" aria-label="Back to parent agent ${esc(parent?.title || agent.parentId)}"><i class="ph ph-arrow-bend-up-left mr-0.5"></i>${esc(String(parent?.title || agent.parentId).slice(0, 24))}</a>` : ""}
-  ${statusBarHtml}
-  <span class="ml-auto flex items-center gap-1">
-    ${canvasToggle}
-    ${effortControl}
-    ${compactPopup}
-
-    ${moreMenu}
-  </span>
-</header>
-<div id="messages" data-agent-id="${esc(id)}" data-inherited-count="${inheritedCount}" style="overflow-anchor:none" class="dot-grid-surface chat-dot-grid flex-1 overflow-y-auto px-3 py-3 space-y-2">${historyHead}${eventsHtml}
+${headerHtml}
+<div id="messages" data-agent-id="${esc(id)}" data-inherited-count="${view?.inheritedCount ?? 0}" style="overflow-anchor:none" class="dot-grid-surface chat-dot-grid flex-1 overflow-y-auto px-3 py-3 space-y-2">${historyHead}${eventsHtml}
 ${agent.sleepContext?.active === true
   ? `<div id="msg-tail" hx-get="/agent/${encodeURIComponent(id)}/events.html?offset=${maxIdx + 1}&compact=1" hx-trigger="load" hx-target="this" hx-swap="outerHTML"></div>`
   : `<div id="msg-tail" hx-get="/agent/${encodeURIComponent(id)}/events.html?offset=${maxIdx + 1}" hx-trigger="load" hx-target="this" hx-swap="outerHTML"></div>`}
@@ -171,7 +93,16 @@ ${ctx.fns.ui.live({
   html: ctx.fns.agent.renderActiveToolCall({ agentId: id }),
 })}
 </div>
-${await ctx.fns.ui.chatComposer({ action: `/agent/${encodeURIComponent(id)}?debounceSeconds=0.1`, controlsHtml: stopControlRegion, statusHtml: statusLinePopup })}
+${await ctx.fns.ui.chatComposer({
+  action: `/agent/${encodeURIComponent(id)}?debounceSeconds=0.1`,
+  controlsHtml: stopControlRegion,
+  // The prompt inject takes a line above the text only when it differs from the instance default;
+  // otherwise it is a quiet icon among the meters.
+  aboveHtml: statusMode === "global" ? "" : statusLinePopup,
+  statusHtml: statusMode === "global" ? statusLinePopup : "",
+  toolsHtml: await ctx.fns.chat.modelChip({ agentId: id }),
+  metersHtml: ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="flex items-center"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
+})}
 
 <form id="status-line-form-${esc(id)}" hx-post="/agent/${encodeURIComponent(id)}/status-line" hx-target="#status-line-label-${esc(id)}" hx-swap="innerHTML" hx-on::after:request="if(event.detail.ctx?.response?.status < 400) document.getElementById('status-line-popover-${esc(id)}')?.hidePopover()"></form>
 

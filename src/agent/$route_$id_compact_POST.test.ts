@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { mkTestCtx } from "../_testCtx.entry";
 
 describe("POST /agent/:id/compact", () => {
-  test("dispatches manual compaction and exposes top-bar control", async () => {
+  test("dispatches manual compaction and offers the compact form from the context ring", async () => {
     const ctx = await mkTestCtx();
     const agent: any = { id: "a1", model: "test:model", messages: [], events: [], scratchpad: {}, workspaceDir: process.cwd(), systemPrompt: "" };
     (ctx.state as any).agent = { a1: agent };
@@ -14,12 +14,12 @@ describe("POST /agent/:id/compact", () => {
     ctx.state.registry.session.getMaxEventIdx = () => -1;
     ctx.state.registry.session.getEvents = () => [];
     ctx.state.registry.session.getFullMessages = () => [];
+    // The chat shows a context ring in the composer; it opens the compact form (chat.compactPopup).
     const html = await ctx.fns.ui.chatColumn({ agentId: "a1" });
-    expect(html).toContain("Compact context");
-    expect(html).toContain("/agent/a1/compact");
-    expect(html).toContain('popovertarget="compact-popover-a1"');
-    expect(html).toContain('anchor-name:--inplace-compact-popover-a1');
-    expect(html).toContain('class="inplace-popup-panel"');
-    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('id="chat-context-ring"');
+    expect(html).toContain("/chat/a1/ring");
+    const form = ctx.fns.chat.compactForm({ agentId: "a1" });
+    expect(form).toContain("Compact context");
+    expect(form).toContain('hx-post="/agent/a1/compact"');
   });
 });

@@ -14,6 +14,8 @@ export type Item = {
     icon?: string;
     /** Draw this model's logo instead of an icon (chat rows), spinning while `active`. */
     model?: string;
+    /** The chat's own avatar SVG (agents.icon), drawn instead of the model logo (with `model`). */
+    avatar?: string;
     /** The chat is running right now (with `model`). */
     active?: boolean;
     /** Show a dot for news the person has not seen. */

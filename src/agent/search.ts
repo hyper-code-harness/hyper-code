@@ -20,7 +20,7 @@ export default async function (
         /** Optional creator id used by owner-scoped menus. */
         owner?: string;
     },
-): Promise<Array<{ id: string; title: string; model: string; runState: string; visibility: "nav" | "team"; parentId: string | null; workspaceDir: string; workspaceHost: string; createdBy: string | null; lastMessageAt: number | null; hasUnread: boolean }>> {
+): Promise<Array<{ id: string; title: string; model: string; icon: string | null; runState: string; visibility: "nav" | "team"; parentId: string | null; workspaceDir: string; workspaceHost: string; createdBy: string | null; lastMessageAt: number | null; hasUnread: boolean }>> {
     const query = (opts.query ?? "").trim().toLowerCase();
     const terms = query.split(/\s+/).filter(Boolean);
     const escapeLike = (value: string) => value.replace(/[\\%_]/g, "\\$&");
@@ -32,7 +32,7 @@ export default async function (
     const firstOwner = opts.owner ? (await ctx.fns.auth.listUsers({}).catch(() => [] as types.auth.User[])).find((user: types.auth.User) => user.role === "owner")?.id ?? null : null;
     const viewer = await ctx.fns.auth.viewerId({});
     const rows = await ctx.fns.procs.db.select({
-     sql: `SELECT a.id, COALESCE(NULLIF(a.title, ''), a.id) AS title, a.model,
+     sql: `SELECT a.id, COALESCE(NULLIF(a.title, ''), a.id) AS title, a.model, a.icon,
                   a.run_state AS "runState", a.visibility, a.parent_id AS "parentId",
                   a.workspace_dir AS "workspaceDir", a.workspace_host AS "workspaceHost",
                   a.created_by AS "createdBy", a.last_message_at AS "lastMessageAt",

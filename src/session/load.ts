@@ -11,6 +11,7 @@ id: string }): Promise<types.agent.Agent | null> {
         id: row.id,
         model: row.model,
         title: row.title ?? "",
+        icon: row.icon ?? null,
         reasoningEffort: row.reasoning_effort || "auto",
         workspaceDir: row.workspace_dir || process.cwd(),
         workspaceHost: row.workspace_host || "",

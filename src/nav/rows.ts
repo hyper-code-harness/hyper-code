@@ -40,7 +40,7 @@ export default async function (
         if (/^[A-Za-z0-9_-]+$/.test(agentPin)) pin = `<form hx-post="/nav/agent/${encodeURIComponent(agentPin)}/pin" hx-swap="none" class="${formClass}"><input type="hidden" name="pinned" value="${isPinned ? "0" : "1"}">${button("agent")}</form>`;
         else if (local(pagePin)) pin = `<form hx-post="/dock/pin" hx-swap="none" class="${formClass}"><input type="hidden" name="kind" value="page"><input type="hidden" name="target" value="${esc(pagePin)}"><input type="hidden" name="pinned" value="${isPinned ? "0" : "1"}"><button type="submit" title="${isPinned ? "Remove from" : "Add to"} Dock" aria-label="${isPinned ? "Remove" : "Add"} ${esc(item.label)} ${isPinned ? "from" : "to"} Dock" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-muted"><i class="ph ${isPinned ? "ph-push-pin-slash" : "ph-push-pin"}"></i></button></form>`;
         const icon = item.model
-            ? ctx.fns.ui.modelLogo({ model: item.model, active: !!item.active, bare: true, compact: true })
+            ? ctx.fns.chat.icon({ icon: item.avatar, model: item.model, active: !!item.active })
             : `<i class="ph ${esc(/^ph-[a-z0-9-]+$/.test(String(item.icon ?? "")) ? item.icon : "ph-arrow-square-out")} shrink-0 text-faint${item.detail ? " mt-0.5" : ""}" aria-hidden="true"></i>`;
         const mark = item.model && agentPin && isPinned ? '<i class="ph ph-push-pin-fill mr-1 text-faint opacity-50" aria-label="Pinned"></i>' : "";
         const compact = opts.compact || !!item.model;

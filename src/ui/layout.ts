@@ -48,8 +48,16 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* Compact lazy tool links. The tray is assembled client-side so consecutive
    calls occupy one visual row without wrapping each button in extra markup. */
 .tool-tray { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
-.inplace-popup-panel[id^="chat-more-"] { width: 13rem; padding: .35rem; }
-.inplace-popup-panel[id^="chat-more-"] :is(a, button) { justify-content: flex-start !important; width: 100%; min-height: 2.25rem; }
+.inplace-popup-panel[id^="chat-panel-"] { width: min(30rem, calc(100vw - 1.5rem)); max-height: min(36rem, calc(100vh - 5rem)); overflow-y: auto; padding: .6rem; }
+.chat-icon-ring { position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 55%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); animation: chat-icon-spin 1.1s linear infinite; }
+/* The header icon follows the live status region: ring on while it says running. */
+.chat-icon-ring--live { display: none; }
+.chat-header:has([data-agent-running]) .chat-icon-ring--live { display: block; }
+@keyframes chat-icon-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .chat-icon-ring { animation: none; background: var(--color-primary); opacity: .45; } }
+.chat-run-ring--live .chat-run-dots { transform-origin: 14px 14px; animation: chat-icon-spin 8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .chat-run-ring--live .chat-run-dots { animation: none; } }
+.inplace-popup-panel[id^="chat-panel-"] .chat-row { justify-content: flex-start; min-height: 1.85rem; }
 .tool-tray-toggle { display: inline-flex; align-items: center; gap: .3rem; height: 1.5rem; padding: 0 .55rem; border: 1px solid var(--ui-border); border-radius: 9999px; background: rgb(from var(--color-base-100) r g b / .6); font-size: var(--text-2xs); color: var(--color-subtle); cursor: pointer; }
 .tool-tray-toggle:hover { color: var(--color-base-content); border-color: var(--ui-border-strong); }
 /* Folded: failures and the latest call stay on the row. The latest one is
@@ -141,13 +149,12 @@ export default async function (ctx: Context, session: Session | null, opts: {
  * token count go too, so the title keeps real room. */
 @container chat (max-width: 560px) {
   #chat-panel > header { gap: .4rem; padding-right: .75rem; }
-  /* Only the model-adjacent effort pill and the ⋯ menu stay. */
-  #chat-panel > header > span.ml-auto > :not(:first-child):not([popovertarget^="chat-more-"]):not([id^="chat-more-"]) { display: none !important; }
-  #chat-panel > header > span:nth-of-type(1) { flex: 1 1 auto; min-width: 3rem; }
+  /* Badges other than the status fold away; the panel (⋯) has everything they offered. */
+  #chat-panel > header [data-chat-badges] > :not([data-chat-id="agent.status"]) { display: none !important; }
+  #chat-panel > header [data-chat-buttons] > :not([data-chat-id="agent.effort"]) { display: none !important; }
 }
 @container chat (max-width: 420px) {
-  #chat-panel > header > span.ml-auto > :not([popovertarget^="chat-more-"]):not([id^="chat-more-"]) { display: none !important; }
-  #chat-panel > header #status-bar > span[title="context tokens"] { display: none; }
+  #chat-panel > header [data-chat-buttons], #chat-panel > header [data-chat-badges] > :not([data-chat-id="agent.status"]) { display: none !important; }
 }
 .dot-grid-surface {
   background-color: var(--color-base-200);
@@ -181,7 +188,9 @@ export default async function (ctx: Context, session: Session | null, opts: {
   backdrop-filter: blur(16px) saturate(115%);
   -webkit-backdrop-filter: blur(16px) saturate(115%);
 }
-.chat-composer .glass-input { padding-right: 3.25rem; }
+.chat-box.glass-input { max-height: none; min-height: 0; }
+.chat-box:focus-within { box-shadow: 0 0 0 2px rgb(59 130 246 / .55), 0 2px 10px rgb(0 0 0 / .055), 0 4px 80px 8px rgb(0 0 0 / .03); }
+.chat-ring { display: block; width: 18px; height: 18px; border-radius: 9999px; background: conic-gradient(var(--c) var(--p), color-mix(in oklab, var(--color-base-content) 14%, transparent) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px)); }
 .glass-input:hover { box-shadow: 0 0 0 1px rgb(0 0 0 / .05), 0 2px 9px rgb(0 0 0 / .05), 0 4px 80px 8px rgb(0 0 0 / .028); }
 .glass-input:focus {
   box-shadow: 0 0 0 3px rgb(59 130 246 / .72), 0 2px 10px rgb(0 0 0 / .055), 0 4px 80px 8px rgb(0 0 0 / .03);
@@ -241,10 +250,8 @@ export default async function (ctx: Context, session: Session | null, opts: {
   #chat-panel > header button:not(.hidden), #chat-panel > header a:not(.hidden) { min-width: 2.25rem; min-height: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
   #chat-panel > header select { min-height: 2.25rem; }
   .chat-composer button { min-width: 2.75rem; min-height: 2.75rem; }
-  .chat-composer [data-attach-button] { left: 0; top: 0; }
 
-  #chat-panel > header > span:nth-of-type(1) { flex: 1; }
-  #chat-panel > header > span.ml-auto > :not([popovertarget^="chat-more-"]):not([id^="chat-more-"]) { display: none !important; }
+  #chat-panel > header [data-chat-buttons], #chat-panel > header [data-chat-badges] > :not([data-chat-id="agent.status"]) { display: none !important; }
   #messages, #messages > *, #messages .assistant, #messages .user, #messages .tool { min-width: 0; max-width: 100%; }
   #messages { overflow-x: hidden !important; }
   #messages .tool { min-width: 2.25rem; min-height: 2.25rem; padding: .45rem; touch-action: manipulation; }
@@ -265,7 +272,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
   .chat-dot-grid { padding: 3.75rem .5rem 6.25rem !important; }
   .chat-dot-grid > * { max-width: 100% !important; }
   .chat-composer { width: calc(100% - .75rem) !important; max-width: none !important; margin-bottom: max(.25rem, env(safe-area-inset-bottom)) !important; padding-top: .5rem !important; }
-  .chat-composer > div:first-child { display: none; }
   .chat-composer .glass-input { font-size: 16px !important; }
   #app-popup { width: calc(100vw - 1rem) !important; max-height: calc(100dvh - 1rem) !important; }
   /* On a phone the composer owns the bottom; toasts drop from the top, under the header. */
@@ -304,6 +310,7 @@ ${opts.headExtra ?? ""}
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>
+<script src="/chat/header.js" defer></script>
 <script src="/ui/meta.js" defer></script>
 <script src="/screen/client.js" defer></script>
 <script src="/ui/wake-timer.js" defer></script>

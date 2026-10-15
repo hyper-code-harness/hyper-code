@@ -2,6 +2,8 @@ export type Agent = {
     id: string;
     model: string;
     title: string;
+    /** Chat avatar: sanitized SVG markup set by chat.setIcon; null/undefined shows the model logo. */
+    icon?: string | null;
     /** Durable preference for model-side reasoning intensity. */
     reasoningEffort?: types.llm.ReasoningEffort;
     workspaceDir: string;

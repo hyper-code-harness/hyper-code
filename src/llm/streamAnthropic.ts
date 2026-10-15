@@ -47,10 +47,13 @@ export default async function (
         max_tokens: 16384,
     };
 
-    if (reasoning.mode === "anthropic-adaptive" && reasoning.applied !== "off") {
+    // "auto" as the applied level (Claude 5 default) sends nothing: the model decides, as before levels existed.
+    if (reasoning.mode === "anthropic-adaptive" && (reasoning.applied as string) === "auto") {
+    } else if (reasoning.mode === "anthropic-adaptive" && reasoning.applied !== "off") {
         body.thinking = { type: "adaptive" };
         body.output_config = { effort: reasoning.applied === "xhigh" ? "max" : reasoning.applied };
-    } else if (reasoning.mode === "anthropic-adaptive") {
+    } else if (reasoning.mode === "anthropic-adaptive" && !/(opus|sonnet)-5/.test(ep.modelId)) {
+        // Claude 5 rejects thinking.type "disabled" (400): "off" there means sending no thinking field at all.
         body.thinking = { type: "disabled" };
     }
     // Native tool_use blocks, in JSON protocol mode only (see agent.wireTools).

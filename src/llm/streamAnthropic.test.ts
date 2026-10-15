@@ -63,6 +63,23 @@ describe("streamAnthropic — offline (mocked fetch + shared parseSSE)", () => {
     });
 
 
+    test("Claude 5 never gets thinking disabled or an effort the API rejects", async () => {
+        const sent = async (modelId: string, applied: string) => {
+            let request: any;
+            globalThis.fetch = (async (_url: any, init: any) => { request = JSON.parse(init.body); return sseResponse(); }) as any;
+            const ctx: any = mkCtx();
+            ctx.fns.llm.resolveEndpoint = () => ({ url: "http://mock/v1/messages", modelId, apiKey: "k", provider: "anthropic", api: "anthropic" });
+            ctx.fns.llm.resolveReasoningEffort = async () => ({ requested: "auto", applied, mode: "anthropic-adaptive", downgraded: false, reason: null });
+            await stream(ctx, null, { agent: agent() });
+            return request;
+        };
+        const auto5 = await sent("claude-opus-5-5", "off");
+        expect(auto5.thinking).toBeUndefined();
+        expect(auto5.output_config).toBeUndefined();
+        expect((await sent("claude-opus-5-5", "xhigh")).output_config).toEqual({ effort: "max" });
+        expect((await sent("claude-sonnet-4-6", "off")).thinking).toEqual({ type: "disabled" });
+    });
+
     test("handles Kimi-style SSE (no space after colon) + thinking deltas", async () => {
         globalThis.fetch = (async () => sseResponse(
             'event:content_block_delta\ndata:{"delta":{"type":"thinking_delta","thinking":"hmm"}}\n\n',

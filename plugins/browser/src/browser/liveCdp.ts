@@ -19,7 +19,7 @@ export default async function (
     } = {},
 ): Promise<{ browserUrl: string; isDefault: boolean }> {
     const norm = (u: string) => u.trim().replace(/\/+$/, "");
-    const fallback = norm(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222");
+    const fallback = norm(ctx.fns.procs.env.cdpUrl({}));
     const requested = norm(opts.requested ?? "");
     if (!requested || requested === fallback) return { browserUrl: fallback, isDefault: true };
     const allowList = await ctx.fns.settings.getString({ module: "browser", scopeType: "global", key: "liveCdpAllow" });

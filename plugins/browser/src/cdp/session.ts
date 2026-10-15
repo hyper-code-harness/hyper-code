@@ -29,7 +29,7 @@ export default async function (
         return existing;
     }
 
-    const browserUrl = String(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222").replace(/\/$/, "");
+    const browserUrl = ctx.fns.procs.env.cdpUrl({});
     const probe = () => fetch(`${browserUrl}/json/version`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
     // Chrome not running (reboot, crash, user quit it): start the profile once
     // instead of failing every browser call until someone starts it by hand.

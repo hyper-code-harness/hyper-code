@@ -33,6 +33,8 @@ export async function mkTestCtx(opts: { db?: string | false; env?: Record<string
         LOG_LEVEL: "warn",
         // The test database chosen by testCtx (never the working one), kept for pools opened later.
         ...(ctx.env.DATABASE_URL ? { DATABASE_URL: ctx.env.DATABASE_URL } : {}),
+        // the suite's headless Chrome (testCtx), never the developer's browser
+        CDP_BROWSER_URL: ctx.env.CDP_BROWSER_URL,
         ...(typeof opts.db === "string" ? { DATABASE_URL: opts.db } : {}),
         ...opts.env,
     };

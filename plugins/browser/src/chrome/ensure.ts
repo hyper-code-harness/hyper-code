@@ -11,7 +11,7 @@ export default async function (
     _session: Session | null,
     opts?: { /** Only check; never launch. @default false */ noStart?: boolean },
 ): Promise<{ running: boolean; browserUrl: string; started: boolean }> {
-    const browserUrl = ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222";
+    const browserUrl = ctx.fns.procs.env.cdpUrl({});
     const alive = async () => { try { return (await fetch(`${browserUrl}/json/version`)).ok; } catch { return false; } };
 
     if (await alive()) return { running: true, browserUrl, started: false };

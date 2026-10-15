@@ -2,15 +2,14 @@
 // a user hits — procs.ui.respond puts it in HX-Trigger, real htmx 4 reads the
 // header and fires `hyper-toast`, the real ui.controlScript shows the toast.
 // Before the fix `new Response` threw on the Cyrillic header: 500, no toast.
-// Runs in a private headless Chrome (test/chrome/headless.ts) — never the
+// Runs in the suite's headless Chrome (test/chrome/headless.ts) — never the
 // developer's browser; skipped when no Chrome is installed.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkTestCtx } from "../../_testCtx.entry";
-import { startHeadlessChrome } from "../../../test/chrome/headless";
+import { testChrome } from "../../../test/chrome/headless";
 
-const chrome = await startHeadlessChrome();
-const available = !!chrome;
-const CDP = chrome?.url ?? "";
+const CDP = (await testChrome()) ?? "";
+const available = !!CDP;
 
 const ctx = await mkTestCtx();
 let server: ReturnType<typeof Bun.serve>;
@@ -32,7 +31,7 @@ beforeAll(async () => {
         },
     });
 });
-afterAll(async () => { server?.stop(true); await chrome?.stop(); });
+afterAll(() => server?.stop(true));
 
 /** Opens a background tab, clicks the button, returns the toast text and the action's HTTP status. */
 async function clickInChrome(): Promise<{ toast: string; status: number }> {

@@ -11,6 +11,7 @@
 //   });
 import { resolve } from "node:path";
 import { makeCtx, makeRequestCtx } from "./$main";
+import { testChrome, NO_CHROME_URL } from "../test/chrome/headless";
 import loadFns from "./procs/boot/load";
 import loadMigrations from "./procs/migrate/$loader_migration";
 import { readFileSync } from "node:fs";
@@ -51,6 +52,8 @@ export async function testCtx(opts?: { root?: string; workdir?: string; env?: Re
     if (ctx.env.DATABASE_URL || ctx.env.TEST_DATABASE_URL) ctx.env.DATABASE_URL = testDatabaseUrl(ctx.env);
     Object.assign(ctx.env, opts?.env ?? {});
     ctx.env.NODE_ENV = "test";
+    // "The browser" in a test is the suite's headless Chrome, never the developer's :9222.
+    if (!opts?.env?.CDP_BROWSER_URL) ctx.env.CDP_BROWSER_URL = (await testChrome()) ?? NO_CHROME_URL;
     // Boot chatter is `log.debug` and the default level is info, so a test run is
     // quiet without anyone muzzling console.log. LOG_LEVEL=debug shows it all.
     ctx.env.LOG_LEVEL ??= "warn";

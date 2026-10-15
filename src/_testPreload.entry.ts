@@ -4,6 +4,10 @@
 import { afterAll, afterEach, beforeEach } from "bun:test";
 import { endTest } from "./$test";
 import { closeTestDatabases } from "./_testDb.entry";
+import { testChrome, NO_CHROME_URL } from "../test/chrome/headless";
+
+// Code that builds its own ctx or reads process.env must not reach the developer's Chrome either.
+process.env.CDP_BROWSER_URL = (await testChrome()) ?? NO_CHROME_URL;
 
 beforeEach(() => { (globalThis as any).__hyperInTest = true; });
 

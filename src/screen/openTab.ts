@@ -9,7 +9,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { p
 
     const base = await ctx.fns.screen.eval({ code: "return location.origin", timeoutMs: 20_000 });
     const url = new URL(`/${opts.plugin}`, String(base)).href;
-    const browserUrl = String(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222").replace(/\/$/, "");
+    const browserUrl = ctx.fns.procs.env.cdpUrl({});
     const response = await fetch(`${browserUrl}/json/new?${encodeURIComponent(url)}`, {
         method: "PUT",
         signal: AbortSignal.timeout(5_000),

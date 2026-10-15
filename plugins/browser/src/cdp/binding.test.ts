@@ -10,7 +10,7 @@ afterEach(() => { globalThis.WebSocket = originalWS; globalThis.fetch = original
 const binding = { bindingId: "b", targetId: "target-A", cdpSessionName: "sidebar:b", state: "active" };
 function context(value: any = binding) {
     const caller = { agentId: "agent-A" } as any;
-    const ctx = { env: {}, state: {}, fns: { sidebar: { bindingForAgent: async () => value }, cdp: {} } } as any;
+    const ctx = { env: {}, state: {}, fns: { sidebar: { bindingForAgent: async () => value }, cdp: {}, procs: { env: { cdpUrl: () => String(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222").replace(/\/+$/, "") } } } } as any;
     ctx.fns.cdp.scope = (opts: any) => scope(ctx, caller, opts);
     ctx.fns.cdp.session = (opts: any) => session(ctx, caller, opts);
     return { ctx, caller };

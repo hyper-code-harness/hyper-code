@@ -13,8 +13,9 @@ export default async function (
     _session: Session | null,
     opts?: { /** Seconds to wait for the debugging endpoint. @default 8 */ wait?: number },
 ): Promise<{ browserUrl: string; userDataDir: string; profile: string; tmuxSession: string }> {
-    const browserUrl = ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222";
-    const port = new URL(browserUrl).port || "9222";
+    const browserUrl = ctx.fns.procs.env.cdpUrl({});
+    const port = new URL(browserUrl).port;
+    if (!port) throw new Error(`CDP_BROWSER_URL needs an explicit port: ${browserUrl}`);
     const { userDataDir, profile, legacy } = await ctx.fns.chrome.profileDir({});
     const bin = ctx.fns.chrome.path({});
     const tmuxSession = ctx.env.CDP_TMUX_SESSION || "chrome-cdp";

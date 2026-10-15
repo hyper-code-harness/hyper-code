@@ -18,7 +18,7 @@ export default async function (
     const targetId = String(opts.targetId || handle?.targetId || "");
     if (!targetId) throw new Error("browser.tabClose: session or targetId is required");
 
-    const browserUrl = String(ctx.env.CDP_BROWSER_URL || "http://127.0.0.1:9222").replace(/\/$/, "");
+    const browserUrl = ctx.fns.procs.env.cdpUrl({});
     const version = await fetch(`${browserUrl}/json/version`, { signal: AbortSignal.timeout(3000) });
     if (!version.ok) throw new Error(`Chrome CDP unavailable at ${browserUrl} (${version.status})`);
     const info: any = await version.json();

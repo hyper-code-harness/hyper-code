@@ -260,6 +260,8 @@ API: `ctx.fns.settings.{get, set, remove, list, getNumber, getString}`. `getNumb
 
 ### Declared settings
 
+See [settings.md](settings.md) for the full picture: declarations, instance files `~/.hyper/settings/$settings_<module>.json` (they win over the database for scope `global`) and resolution order.
+
 Settings are *declared* with a typed descriptor in `$setting_<key>.ts` files (`{ type, default, env, options, min, max, title, description }`). Resolution per consumer:
 
 1. **Explicit caller input** (e.g. POST `?debounceSeconds=…`, `opts.model`) — wins.
@@ -277,6 +279,8 @@ Shipping declarations:
 | `src/llm/$setting_<provider>ApiKey.ts` | `llm.global.<provider>ApiKey`    | `resolveEndpoint` per-provider auth                        |
 | `src/agent/$setting_debounceMs.ts`     | `agent.global.debounceMs`        | `POST /agent/:id` default debounce (default `1000`)        |
 |                                        | `ui.agent.<id>.debounceMs`       | per-agent override (no declaration; set via UI/REPL)       |
+
+Before step 2, for scope `global` only: a value fixed by an instance file (`settings.files`) wins, and `settings.set` refuses that key.
 
 Forms at `GET /settings/declared` render every declaration with title/description/options for the user to tweak live.
 

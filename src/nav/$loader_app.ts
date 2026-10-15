@@ -1,6 +1,9 @@
 /** Collects `$app_<name>.json` declarations into the global navigation registry. */
 export default async function (ctx: Context, _session: Session | null, opts: { entries: any[] }): Promise<void> {
-    const apps: Record<string, { name: string; label: string; href: string; hint: string; icon: string; group: string; order: number; plugin?: boolean }> = {};
+    // Boot hands over every $app_ file, a hot reload just the one that changed: merge by name so reloading
+    // one page never drops the others.
+    const apps: Record<string, { name: string; label: string; href: string; hint: string; icon: string; group: string; order: number; plugin?: boolean }> =
+        { ...((ctx.state as any).nav?.apps ?? {}) };
     for (const entry of opts.entries) {
         const raw = JSON.parse(await Bun.file(entry.abs).text());
         const href = String(raw.href ?? "").trim();

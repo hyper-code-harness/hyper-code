@@ -32,7 +32,8 @@ function renderInput(item: any): string {
 
 function renderRow(ctx: Context, item: any): string {
     const d = item.descriptor;
-    const sourceBadge = item.source === 'db' ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">db</span>'
+    const sourceBadge = item.source === 'file' ? `<span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30" title="${esc(item.path)}">file: ${esc(String(item.path ?? '').split('/').pop())}</span>`
+        : item.source === 'db' ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">db</span>'
         : item.source === 'env' ? `<span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">env: ${esc(d.env)}</span>`
         : '<span class="text-xs px-1.5 py-0.5 rounded bg-base-200 text-subtle border border-ui-border">default</span>';
     const resetBtn = item.source === 'db'
@@ -44,7 +45,7 @@ function renderRow(ctx: Context, item: any): string {
     ${d.title ? `<div class="text-xs text-subtle">${esc(d.title)}</div>` : ''}
     ${d.description ? `<div class="text-2xs text-faint mt-0.5">${esc(d.description)}</div>` : ''}
   </td>
-  <td class="px-3 py-2 align-top">${renderInput(item)}</td>
+  <td class="px-3 py-2 align-top">${item.source === 'file' ? `<code class="text-xs font-mono text-muted break-all">${esc(JSON.stringify(item.currentValue))}</code><div class="text-2xs text-faint">edit ${esc(item.path)}</div>` : renderInput(item)}</td>
   <td class="px-3 py-2 align-top">${sourceBadge}</td>
   <td class="px-3 py-2 align-top text-xs text-faint font-mono">${esc(JSON.stringify(d.default))}</td>
   <td class="px-3 py-2 align-top">${resetBtn}</td>

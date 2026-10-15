@@ -22,12 +22,16 @@ test("nav items orders declared apps and exposes presentation metadata", async (
     const ctx: any = await mkTestCtx();
     const late = await tempApp({ label: "late", href: "/late", order: 20 });
     const early = await tempApp({ label: "early", href: "/early", order: 10, icon: "ph-star", group: "Projects & files" });
+    ctx.state.nav.apps = {}; // only the two test pages; the loader merges into what boot collected
     await loader(ctx, null, { entries: [{ name: "late", rel: "$app_late.json", abs: late }, { name: "early", rel: "$app_early.json", abs: early }] });
     ctx.fns.plugins.list = () => [];
     ctx.fns.session.list = async () => [];
     ctx.state.procs.http.routes = {};
     const result = await items(ctx, null, { limit: 10 });
     expect(result.map(item => item.label)).toEqual(["early", "late"]);
+    // a hot reload of one $app_ file keeps the others
+    await loader(ctx, null, { entries: [{ name: "late", rel: "$app_late.json", abs: late }] });
+    expect(Object.keys(ctx.state.nav.apps).sort()).toEqual(["early", "late"]);
     expect(result[0]).toMatchObject({ icon: "ph-star", group: "Projects & files", order: 10 });
     await Promise.all([Bun.file(late).delete(), Bun.file(early).delete()]);
     await ctx.fns.procs.db.close?.({});

@@ -13,8 +13,12 @@ type SetOpts = {
     isSecret?: boolean;
 };
 
-/** Creates or updates one persisted setting override. */
+/** Creates or updates one persisted setting override; refuses an instance (global) key fixed by a $settings_ file. */
 export default async function (ctx: Context, _session: Session | null, opts: SetOpts): Promise<{ ok: true }> {
+    if (opts.scopeType === 'global' && !opts.scopeId) {
+        const fixed = (await ctx.fns.settings.files({})).values[`${opts.module}.${opts.key}`];
+        if (fixed) throw new Error(`${opts.module}.${opts.key} is fixed by ${fixed.path} — change it in that file (one place per value)`);
+    }
     const now = Date.now();
     await ctx.fns.procs.db.run({
         sql: `INSERT INTO settings (module, scope_type, scope_id, key, value, is_secret, updated_at)

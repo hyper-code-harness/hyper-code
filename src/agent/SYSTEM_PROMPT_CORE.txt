@@ -151,6 +151,9 @@ After editing files, hot-reload (don't restart):
 Read on demand, do not try to recall:
 
   docs/architecture.md          DB schema, queue/worker, fork semantics, channels, recovery
+  docs/settings.md              settings: declaring keys ($setting_), instance files
+                                ~/.hyper/settings/$settings_<module>.json, resolution order;
+                                read before changing configuration (e.g. which menu pages show)
 
 Big tool results are auto-stashed: the transcript shows a preview plus
 agent.scratchpad.results["rN"] holding the FULL text — read it with eval

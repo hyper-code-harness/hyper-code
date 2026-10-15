@@ -7,7 +7,9 @@ type DeclaredItem = {
     key: string;
     descriptor: any;
     currentValue: any;
-    source: 'db' | 'env' | 'default';
+    source: 'file' | 'db' | 'env' | 'default';
+    /** Instance settings file that fixes the value (source = file). */
+    path?: string;
 };
 
 /** Lists declared settings with their resolved values and provenance. */
@@ -15,6 +17,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     const registry: Map<string, any> | undefined = (ctx.state as any).settings?.registry;
     if (!registry) return [];
 
+    const files = (await ctx.fns.settings.files({})).values;
     const out: DeclaredItem[] = [];
     for (const [regKey, descriptor] of registry.entries()) {
         const dotIdx = regKey.indexOf('.');
@@ -22,6 +25,8 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         const module = regKey.slice(0, dotIdx);
         const key = regKey.slice(dotIdx + 1);
 
+        const fixed = files[regKey];
+        if (fixed) { out.push({ module, key, descriptor, currentValue: fixed.value, source: 'file', path: fixed.path }); continue; }
         // Detect provenance.
         const dbRow = (await ctx.fns.procs.db.select({
             sql: "SELECT value FROM settings WHERE module = ? AND scope_type = 'global' AND scope_id = '' AND key = ?",

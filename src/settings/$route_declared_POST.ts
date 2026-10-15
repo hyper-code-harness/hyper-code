@@ -27,7 +27,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 });
             }
         } else {
+            const fixed = (await ctx.fns.settings.files({})).values;
             for (const [regKey, descriptor] of registry.entries()) {
+                if (fixed[regKey]) continue; // owned by an instance settings file
                 const dotIdx = regKey.indexOf('.');
                 if (dotIdx <= 0) continue;
                 const module = regKey.slice(0, dotIdx);

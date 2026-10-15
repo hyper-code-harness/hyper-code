@@ -1,4 +1,6 @@
 // Resolution chain:
+//   0. Instance settings file ~/.hyper/settings/$settings_<module>.json — only for scope='global'
+//      (settings.files); a key fixed there wins over the database.
 //   1. DB row (explicit override).
 //   2. Declared default — only for scope='global':
 //        a. descriptor.env  → ctx.env[<that>] (parsed by descriptor.type)
@@ -23,6 +25,10 @@ function parseEnv(raw: string, type?: string): any {
 
 /** Resolves a setting from the database or its declared global default. */
 export default async function (ctx: Context, _session: Session | null, opts: GetOpts): Promise<any> {
+    if ((opts.scopeType ?? 'global') === 'global' && !opts.scopeId) {
+        const fixed = (await ctx.fns.settings.files({})).values[`${opts.module}.${opts.key}`];
+        if (fixed) return fixed.value;
+    }
     const row = (await ctx.fns.procs.db.select({
         sql: `SELECT value
            FROM settings

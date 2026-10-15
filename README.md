@@ -189,6 +189,11 @@ Key directories:
 
 See [authentication](docs/auth.md) and [HTTPS setup](docs/https.md).
 
+## Community
+
+Join the [Hyper community on Telegram](https://t.me/+9Q6Ir0piDno1Nzcy) to ask questions, share what you build, and follow updates. Joining requires admin approval. For reproducible bugs and feature requests, please use [GitHub Issues](https://github.com/hyper-code-harness/hyper-code/issues/new/choose).
+
+
 ## Contributing
 
 [Report a bug or propose a feature](https://github.com/hyper-code-harness/hyper-code/issues/new/choose). Include reproduction steps, relevant logs with secrets removed, and your platform and provider when reporting a problem.

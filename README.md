@@ -1,316 +1,196 @@
-# hyper-code2
+# Hyper
 
-[![test](https://github.com/niquola/hyper-code2/actions/workflows/test.yml/badge.svg)](https://github.com/niquola/hyper-code2/actions/workflows/test.yml)
+[![test](https://github.com/hyper-code-harness/hyper-code/actions/workflows/test.yml/badge.svg)](https://github.com/hyper-code-harness/hyper-code/actions/workflows/test.yml)
 
-A self-extending AI agent server on Bun, running on the [procs](https://github.com/niquola/procs) framework (vendored at `src/procs/`). Procedural TypeScript, **markers protocol** instead of native tool-calls, an injecting-Proxy `ctx.fns` and a tokened external REPL into the live process.
+**A self-hosted workspace for AI agents that can extend their own tools.**
 
-The agent acts by emitting `§eval` / `§write:<path>` / `§bash` / `§html` markers in plain content. The runtime parses each marker, executes its body (JS/TS for eval, file write for write, `bash -c` for bash, TSX render for html), and feeds the result back as a synthetic user message on the next turn. No JSON tool schemas, no escape-in-escape, one wire format.
+Chat with agents, connect tools through plugins, and work with files, documents, and interactive views alongside the conversation. Agents can add new capabilities as TypeScript functions and load them without restarting the server.
 
-**State is separated from functions.** Behaviour lives in files under `src/` / `.hyper/` and is loaded into `ctx.fns.<module>.<fn>` — called as `ctx.fns.mod.fn({ ...opts })`, with `ctx` and the request `session` injected by a Proxy. Runtime state lives on `ctx.state` (in-memory) and Postgres (`agents`, `messages`, `events`, any table the agent chooses to add — paradedb, so transcripts are BM25-searchable). Replacing a file + `ctx.fns.procs.repl.load({ name: "<module>" })` (or just saving it — the dev watcher syncs) swaps the function everywhere without touching state or restarting the process — routes, procedures, types, even the agent loop itself can be extended live.
+Hyper runs on **Bun + Postgres**, with a procedural TypeScript runtime built on [procs](https://github.com/niquola/procs). Conversations and task state persist in the database; functions stay in files you can inspect and change.
 
-**All sessions are in Postgres and fully agent-accessible.** Every turn's messages and UI events for every agent are rows in the `hyper` Postgres (paradedb, `~/.hyper/docker-compose.yml`). The agent reads its own + other agents' history with a one-liner: `§eval\nctx.fns.procs.db.select({ sql: "SELECT … FROM messages …" })`. Useful for recalling prior work, mining patterns, or building custom indexes.
+> Hyper is under active development. UI composition and plugin interfaces are evolving. It is intended for trusted environments, not for running untrusted agents in a sandbox.
 
-## External coding harnesses
+## What you can do
 
-The live runtime is available to trusted local Claude Code, Codex, and other shell-capable harnesses through the `hyper` CLI:
+- **Work on code with persistent context.** Inspect a repository, edit files, run commands, and return to a conversation later.
+- **Delegate focused work.** Give agents separate tasks and follow their plans and results without putting every detail into one chat.
+- **Bring tools into the conversation.** Discover plugin capabilities for services such as GitHub, Google Workspace, Telegram, and web search. Individual integrations may require credentials or additional software.
+- **See the output beside the chat.** Open files, documents, diagrams, charts, and plugin views in Canvas.
+- **Extend the workspace while it runs.** Add procedures, HTTP routes, and plugin UI surfaces, then hot-reload them without discarding session state.
+- **Use your existing coding harness.** Give trusted local Claude Code, Codex, and other shell-capable tools access to Hyper through its CLI.
 
-```sh
-hyper plugin search "GitHub pull request review"
-hyper function read gh.pr
-hyper tools
-hyper tool call find --json '{"path":"src","pattern":"*.ts"}'
-hyper repl 'return await ctx.fns.gh.me({})'
-hyper skills mount
-```
-
-The CLI provides live plugin/function discovery, schema-validated declared-tool calls, a separately-tokened loopback-only arbitrary REPL, and managed `hyper-*` skill links. See [External coding harnesses](docs/external-harnesses.md) for setup, commands, and the security model.
-
-## Core applications
-
-- **[Knowledge](plugins/knowledge/SKILL.md)** — typed entities, provenance and relations in the isolated `knowledge` schema; UI at `/knowledge`.
-- **[News](docs/news.md)** — durable source-neutral archive, search, read/like state and keyboard slideshow; UI at `/news`.
-
-
-## UI architecture: HTMX first
-
-The UI is server-rendered HTML. Native HTML handles local behaviour, HTMX handles server interaction, and a small amount of delegated JavaScript is reserved for transient UX that cannot be expressed declaratively.
-
-```text
-Postgres write → narrow SSE invalidation topic → ui.live region → HTMX fragment GET → DOM swap
-```
-
-Conventions:
-
-- use `<details>`, `<dialog>`, forms and native validation before JavaScript;
-- use HTMX for form submits, lazy fragments, paging and live refreshes;
-- render each fragment/row on the server only once—browser JS must not duplicate templates;
-- submit repeated form controls with `FormData.getAll()` instead of constructing hidden JSON;
-- keep JavaScript for scroll anchoring, keyboard shortcuts, resize, and local reorder/remove only;
-- popup RPC uses the compact `hx-popup="module.function"` plus optional `hx-popup-params='{"key":"value"}'` contract; do not repeat transport/target/swap attributes or create local dialogs;
-- do not mix Datastar or another reactive framework into the HTMX lifecycle.
-
-Examples in the current UI: Plan `+` loads a server-rendered task row with HTMX; tool details and secure input call procedural partials through `hx-popup` into one permanent native `<dialog>`; chat and Meta refresh on separate live topics.
-
-## What it is
-
-A tiny HTTP server that hosts a multi-agent chat. Each agent has four markers it can emit:
-
-| marker            | body                | result fed back                    | used for                                  |
-| ----------------- | ------------------- | ---------------------------------- | ----------------------------------------- |
-| `§eval`         | JS/TS              | captured `console.log` output      | **main action** — compute, call ctx.fns, query DB |
-| `§write:<path>` | file contents       | "wrote N bytes"                    | dropping multi-line file content verbatim |
-| `§bash`         | shell script        | stdout (or `[exit N]` + stderr)    | quick lookups: `ls`, `git`, `grep`, `head` |
-| `§html`         | TSX fragment        | nothing (final answer)             | rich UI bubbles with Tailwind, interactive forms |
-
-Through `§eval` the agent can:
-
-- Compute anything via the Bun runtime — `Bun.file`, `Bun.write`, `Bun.$` shell, `bun:sqlite`, `Bun.sql`, `Bun.redis`, `Bun.s3`, `fetch`, `crypto`.
-- **Read its own source** (`Bun.file("src/agent/run.ts").text()`).
-- **Write new procedures** to `src/<module>/<fn>.ts` or `.hyper/<module>/<fn>.ts` and hot-reload them (`ctx.fns.procs.dev.sync({ rel })`) — no restart.
-- Add new HTTP routes on the fly (`$route_*.ts` → `ctx.fns.procs.http.loadRoutes({})`).
-- Mutate its own model, system prompt, scratchpad between turns.
-- Compact its own history (`ctx.fns.agent.compact({ agent, … })`) when results grow too large.
-
-Through `§html` the agent answers with **TSX**: full JS interpolation in `{expr}`, auto-escape, Tailwind classes inline, even `<form method="POST">` that sends the user's input straight back into the conversation. No template engine — JSX is the template engine.
-
-## Architecture in one picture
-
-```mermaid
-flowchart LR
-    subgraph Browser
-        F[form hx-post]
-        M["#messages + #msg-tail<br/>(long-poll, hx-trigger=load)"]
-        S["#status-bar<br/>(every 1s)"]
-        SB["#sidebar<br/>(every 10s)"]
-    end
-
-    subgraph Server["Bun process"]
-        POST["POST /agent/:id"]
-        EH["GET /agent/:id/events.html<br/>(long-poll, holds 25s)"]
-        STAT["GET /agent/:id/statusbar"]
-        WORKER["workerLoop<br/>(single, in-process)"]
-        RUN["run<br/>→ LLM → parseMarkers → execute"]
-    end
-
-    subgraph DB[Postgres]
-        AGENTS[(agents<br/>+ next_run_at<br/>+ run_state<br/>+ last_processed_msg_idx)]
-        MSGS[(messages<br/>append-only<br/>+ excluded_from_cursor<br/>+ excluded_from_llm)]
-        EVENTS[(events<br/>append-only)]
-    end
-
-    F      -- "appendUserMessage<br/>+ next_run_at = now+1s" --> POST
-    POST   --> MSGS
-    POST   --> AGENTS
-    POST   -- "wakeWorker" --> WORKER
-    WORKER -- "atomic claim<br/>UPDATE … RETURNING id" --> AGENTS
-    WORKER --> RUN
-    RUN    -- "appendEvent<br/>(per token-batch)" --> EVENTS
-    RUN    --> MSGS
-    EVENTS -- "wakeWaiters" --> EH
-    M      -- "/events.html?offset=N" --> EH
-    EH     --> M
-    S      -- "/statusbar" --> STAT
-    STAT   --> AGENTS
-    SB     -- "x-hyper-fragment: sidebar" --> Server
-```
-
-**DB-first.** The DB is the source of truth for messages, events, and run state. Browser drives long-poll + status/sidebar polls — no JSON polling for chat, no SSE for data. Client JS is ~30 lines (Enter-key + scroll-on-swap). Full spec: [`docs/architecture.md`](docs/architecture.md).
-
-**No queue table.** "When should this agent run next?" lives on `agents.next_run_at`; "is it running right now?" on `agents.run_state`. POST writes one message + bumps `next_run_at`; the worker atomically claims via `UPDATE agents … RETURNING id` and processes everything since `last_processed_msg_idx` in one pass. Synthetic `§result:*` user-messages emitted by `run()` itself are tagged `excluded_from_cursor=1` so they don't look like fresh input — only real user POSTs schedule the next run.
-
-**Settings.** Declared key/value store in `src/<mod>/$setting_<key>.ts`. Resolution chain: explicit caller input → DB row → declared `env` binding → declared `default` → caller fallback. Shipping declarations: `llm.defaultModel`, `agent.debounceMs`, `agent.protocol`, `provider.{baseUrl,apiKey}` for each LLM backend, plus per-provider api-key declarations.
-
-## Conventions (procs, one thing per file)
-
-- **`src/<mod>/<fn>.ts`** (verb, lower-case) → `ctx.fns.<mod>.<fn>`; default export is an anonymous `(ctx, session, opts)` function, called with opts only: `ctx.fns.mod.fn({ ... })`.
-- **`src/<mod>/<Name>.ts`** (noun, capitalized) → `types.<mod>.<Name>` global type via `procs.dev.genTypes`. No `import type` of project types anywhere.
-- **`src/<mod>/$setting_<key>.ts`** → declared runtime setting (`{ type, default, env, options, … }`) → `ctx.state.settings.registry`.
-- **`src/<mod>/$route_<path>_<METHOD>.ts`** → HTTP handler `(ctx, session, { req, params })`. `_` = `/`, `$param` = `:param`.
-- **`src/<mod>/$migration_<id>.ts`** → Postgres migration (`{ up, down? }`), applied at startup in id order.
-- **`src/<mod>/$script_<name>.js`** → browser asset, bundled, served as `/<mod>/<name>.js`.
-- Plus the rest of the procs grammar: `$middleware`, `$config.ts`, `$start/$stop`, `$cli_*`, `$loader_*`, `$point_/$hook_` — see `AGENTS.md`.
-
-No cross-imports between project files — call other procedures via `ctx.fns`. `import` only from `bun`, `node:*`, npm. `.hyper/` mirrors `src/` and loads after it; gitignored, runtime-writable. The framework itself is `ctx.fns.procs.*` and can't be shadowed.
-
-## Layout
-
-```
-src/
-  $main.ts                        procs boot: makeCtx (injecting Proxy) → loadFns → genTypes → loadRoutes → lifecycle.start
-  $test.ts                        testCtx for bun tests (full registry, per-ctx pg_temp schema, no server)
-  Context.ts / Session.ts         global framework types
-  ctx_ns.d.ts                     AUTO-GEN by procs.dev.genTypes — never edit
-  $route_GET.ts                   GET /  — redirect to the latest agent
-
-  procs/                          VENDORED framework — ctx.fns.procs.*
-    boot/ http/ repl/ db/ dev/ config/ log/ migrate/ events/ lifecycle/
-    auth/ cli/ modules/ project/ styles/ ui/ hooks/ generate/ env/
-    (local patches marked `hyper-code2:`: .hyper overlay root, _migrations
-     name→id compat, WAL on file DBs)
-
-  agent/                          ctx.fns.agent.* — the markers-protocol runtime
-    SYSTEM_PROMPT_CORE.txt        invariants + map of ctx.fns (teaches the new calling convention)
-    SYSTEM_PROMPT.txt             markers wire-format with full HTML/TSX examples
-    run.ts                        turn loop — stream → parse → execute markers → feed results
-    workerLoop.ts / $start.ts     single in-process drainer, started by lifecycle
-    parseMarkers / executeMarker / compact / delegateTask / finishTask / …
-    $route_*.ts                   /agent/:id (POST/GET), /events.html (long-poll), /statusbar, /fork, /archive ...
-
-  session/                        ctx.fns.session.* — DB-first persistence
-    append* / replace* / truncate* / get* / save / load / loadAll / fork / …
-    $migration_*.ts               schema evolution (ids preserved from the SQL era)
-
-  llm/                            ctx.fns.llm.* — stream dispatch + OAuth refreshers + streamMock
-  settings/                       ctx.fns.settings.* — DB-backed runtime settings ($loader_setting.ts)
-  files/                         ctx.fns.files.* + GET /files — GitHub-style browser, editor, media preview (docs/files-ui.md)
-  ui/ markdown/ git/ dev/ events/ skill/ tools/
-
-.runtime/                         port, repl-token (0600), signing key — gitignored
-.hyper/                           runtime-writable overlay, gitignored
-  _runtime/sessions               legacy sqlite file (storage is the hyper Postgres, ~/.hyper/docker-compose.yml)
-  <agent-generated>/              whatever the agent decides to add
-
-script/
-  repl.ts                         external REPL client → POST /procs/repl (port+token from .runtime/)
-  cli.ts                          $cli_* commands runner
-
-AGENTS.md                         project conventions consumed by tooling and any agent that asks
-```
-
-## Markers protocol
-
-Body of any marker spans from the line **after** the marker to the **next** marker line at column 1 (or end of message). No closing delimiter. Examples emitted by the agent (each is one full assistant reply):
-
-```
-§eval
-const pkg = await Bun.file("package.json").json();
-console.log(pkg.name, Object.keys(pkg.dependencies ?? {}).length, "deps");
-```
-
-```
-§bash
-ls -la src/agent | head -10
-git log --oneline -3
-```
-
-```
-§html
-<div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-  <h3>{agent.scratchpad.user.name}</h3>
-  <ul>{agent.scratchpad.items.map(i => <li>{i}</li>)}</ul>
-</div>
-```
-
-After the runtime executes, the next turn's transcript shows `assistant: §eval\n<code>` directly followed by `user: §result:eval\n<stdout>`. Markers can be chained in one reply — each gets its own assistant + result pair, so the model sees crisp call→result alignment.
-
-If the model glues a marker to preceding text without a leading `\n` (`текст.§eval\n…`) the parser executes it anyway and attaches a `§error:marker-misplaced` warning so the model self-corrects on the next turn — no wasted turn. To put a literal `///marker` in prose, escape with four slashes (`/§eval` → renders as `§eval`) or break the slashes (`/./eval` is content, doesn't match the regex). See [`src/agent/SYSTEM_PROMPT_CORE.txt`](src/agent/SYSTEM_PROMPT_CORE.txt) for the full agent-facing spec, [`src/agent/parseMarkers.ts`](src/agent/parseMarkers.ts) for the implementation.
+For example: ask an agent to review a pull request, research an issue and show its findings in Canvas, or build a small integration you can reuse in later conversations.
 
 ## Quick start
 
+### Requirements
+
+- **macOS or Linux**. The installer uses launchd on macOS and a systemd user service on Linux. Some integrations are platform-specific.
+- **Git and a running Docker installation**, including Docker Compose v2.
+- **Bun**; the installer installs it if missing.
+- An LLM provider API key, a supported authenticated CLI, or a local model server.
+
+### Install
+
+Clone the repository so you can inspect the installer before running it:
+
 ```bash
-# 1. install (requires Bun >= 1.3.13)
+git clone https://github.com/hyper-code-harness/hyper-code.git ~/hyper-code2
+cd ~/hyper-code2
+# Review script/install.sh, then:
+HYPER_DIR="$PWD" bash script/install.sh
+```
+
+The installer installs dependencies, starts ParadeDB (Postgres with search extensions), generates a database password, writes `DATABASE_URL` to the checkout's `.env`, and starts Hyper as a background service. It stores the database Compose configuration in `~/.hyper/docker-compose.yml` and binds Postgres to `127.0.0.1:54393`.
+
+Open **http://localhost:3010/**. Configure your provider, then create a chat and select a model.
+
+The installer can also update an existing installation: it fast-forwards the checkout, installs dependencies, and restarts the service. Review local changes before running it again.
+
+### Connect a model
+
+API credentials belong in the checkout's `.env` or the corresponding provider settings. For example, add one of these to `.env` without removing the generated `DATABASE_URL`:
+
+```dotenv
+ANTHROPIC_API_KEY=your-key
+# or
+OPENAI_API_KEY=your-key
+```
+
+Restart the service after changing environment variables. On Linux, use `systemctl --user restart hyper.service`; on macOS, see [service installation](script/install-service.sh).
+
+Models use the form `<provider>:<model-id>`. Available adapters include:
+
+| Provider | Configuration |
+| --- | --- |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+| Groq | `GROQ_API_KEY` |
+| Kimi / Kimi Coding | `KIMI_API_KEY` / `KIMI_CODING_API_KEY` |
+| LM Studio | Local server; `LMSTUDIO_URL` |
+| Claude Code | Existing Claude Code authentication; see [subscription operations](docs/anthropic-subscription-operations.md) |
+| Codex | Existing authentication from `codex login` |
+
+Subscription access depends on the provider's current authentication and model availability rules. Do not assume it is interchangeable with API-key access.
+
+## Workspace and plugins
+
+The UI brings navigation, a working surface, and conversation together:
+
+```text
+Layout
+├── Dock              Navigation and live badges
+├── Canvas            Files, documents, diagrams, and plugin views
+└── Chat              Conversation, header, and composer
+
+Home / global menu
+├── Widgets           Independent blocks of useful information
+└── Search sources    Results supplied by core modules and plugins
+```
+
+**Layout → Regions → Widgets** is the direction of the UI redesign: the layout defines areas of the screen, plugins supply independent parts, and settings control their composition. Not every UI part is a home widget; Canvas tabs, chat parts, and search sources have separate contracts. The redesign is ongoing—this is a conceptual map, not a screenshot or a promise of a finished drag-and-drop editor.
+
+Plugins can provide more than tools:
+
+| Convention | Purpose |
+| --- | --- |
+| `$widget_` | Home widgets |
+| `$search_` | Sources for global search |
+| `$app_` | Application pages in navigation |
+| `$dock_` | Dock icons and live badges |
+| `$canvas_` | Canvas tab kinds |
+| `$fence_` | Rendered Markdown blocks, such as diagrams and charts |
+
+See [plugin authoring](docs/plugin-authoring.md), [plugin runtime architecture](docs/plugin-runtime-architecture.md), and [UI architecture](docs/ui-architecture.md) for contracts and design details. UI design documents may describe work in progress.
+
+Official plugins live in [`plugins/`](plugins/). Private integrations can live outside the repository in the configured `USER_PLUGINS` directory; small project-local procedures belong in `.hyper/`.
+
+## How it works
+
+**Native tools, discoverable procedures.** Agents receive tools with JSON Schema arguments. Tools can inspect files, execute commands, or evaluate code that calls the runtime's procedures. Provider adapters translate tool calls and results into each provider's wire format.
+
+**One function per file.** A procedure at `src/<module>/<function>.ts` is available as `ctx.fns.<module>.<function>`. Calls take one options object; the runtime injects `ctx` and the request session:
+
+```ts
+await ctx.fns.procs.db.select({
+  sql: "SELECT id FROM agents LIMIT ?",
+  params: [10],
+});
+
+await ctx.fns.procs.repl.load({ name: "myModule" });
+```
+
+**State is separate from behavior.** Persistent conversations, events, and agent state live in Postgres. In-memory runtime state lives on `ctx.state`. Reloading a procedure replaces its implementation without restarting the process or discarding that state.
+
+**Calls resolve through the registry.** Project functions call one another through `ctx.fns`, rather than importing each other's implementations. This makes hot-reload apply to existing call sites. Capitalized type files generate the shared `types.<module>.<Name>` namespace.
+
+**The UI is server-rendered.** Bun serves HTML and HTTP routes; HTMX handles incremental interactions. Plugins extend the same procedural runtime rather than running a separate frontend application for every feature.
+
+Read more in [architecture](docs/architecture.md), [settings](docs/settings.md), and [tool-call protocols](docs/toolcall-protocols.md).
+
+## External coding harnesses
+
+The `hyper` CLI exposes the live runtime to trusted local shell-capable harnesses. From a checkout, invoke it with `bun script/hyper.ts`:
+
+```bash
+bun script/hyper.ts plugin search "GitHub pull request review"
+bun script/hyper.ts function read gh.pr
+bun script/hyper.ts tools
+bun script/hyper.ts tool call find --json '{"path":"src","pattern":"*.ts"}'
+bun script/hyper.ts repl 'return await ctx.fns.gh.me({})'
+bun script/hyper.ts skills mount
+```
+
+See [external harnesses](docs/external-harnesses.md) for CLI setup, authentication, and usage.
+
+## Development
+
+After configuring the database and provider, run Hyper in the foreground:
+
+```bash
 bun install
-
-# 2. point at an LLM provider — pick one of:
-#    - LM Studio: cp .env.test .env  (LMSTUDIO_URL=http://localhost:1234, MODEL=…)
-#    - Anthropic API key: ANTHROPIC_API_KEY=sk-ant-…
-#    - Claude Code subscription: nothing — refreshClaudeCode pulls the token from macOS keychain
-#    - Codex (ChatGPT subscription): codex login
-#    - Kimi: KIMI_API_KEY=… or KIMI_CODING_API_KEY=… or kimi login
-
-# 3. run
-tmux new-session -d -s hyper 'cd $(pwd) && bun run start'
-
-# 4. chat
-open http://localhost:3010/
+bun run start
 ```
 
-## LLM providers & auth
-
-Models are addressed as `<provider>:<model-id>`. The prefix picks the endpoint and protocol; the API key is pulled from a declared setting (`llm.<provider>ApiKey`), an env var, or a local credentials file:
-
-| prefix             | endpoint                             | auth                                                                      |
-| ------------------ | ------------------------------------ | ------------------------------------------------------------------------- |
-| *none* / `lmstudio:` | `LMSTUDIO_URL` (default `:1234`)   | none (local)                                                              |
-| `openai:`          | `https://api.openai.com/v1`          | `OPENAI_API_KEY`                                                          |
-| `anthropic:`       | `https://api.anthropic.com`          | `ANTHROPIC_API_KEY`                                                       |
-| `claude-code:`     | `https://api.anthropic.com`          | OAuth from macOS keychain `Claude Code-credentials` (no API key needed)   |
-| `kimi:`            | `https://api.moonshot.ai/v1`         | `KIMI_API_KEY` (Moonshot console key)                                     |
-| `kimi-coding:`     | `https://api.kimi.com/coding`        | `KIMI_CODING_API_KEY` OR JWT from `~/.kimi/credentials/kimi-code.json`    |
-| `codex:`           | `https://chatgpt.com/backend-api/codex` | OAuth from `~/.codex/auth.json` (ChatGPT subscription via codex CLI)   |
-| `groq:`            | `https://api.groq.com/openai/v1`     | `GROQ_API_KEY`                                                            |
-| `openrouter:`      | `https://openrouter.ai/api/v1`       | `OPENROUTER_API_KEY`                                                      |
-
-All four subscription providers (`claude-code:`, `kimi-coding:`, `codex:`) read tokens fresh on each request, refresh via the matching OAuth token endpoint when within 60s of expiry, and write the new pair back so the official CLI keeps working.
-
-`claude-code:` only exposes `claude-haiku-4-5-…` in the new-agent form. Sonnet/Opus are gated by Anthropic's per-model anti-fraud rule for non-CLI OAuth clients (429 with no usage to spend); use `anthropic:claude-…` with an API key when you need them.
-
-## REPL workflow
-
-Long-running server in tmux session `hyper` (port 3010). Boot = procs lifecycle: log → db → migrate → repl → agent (loadAll + workerLoop) → http. Everything is iterable without restart.
-
-`POST /procs/repl` is **gated three ways**: a JWT this run signs (mirrored to `.runtime/repl-token`, 0600), loopback-only (no proxies), and 403 under `NODE_ENV=production`. `script/repl.ts` reads the port and token automatically — so any local process (including a coding agent outside this repo) can drive the live server.
+Stop an existing background instance first if it uses the same port. For normal function changes, prefer hot-reload over restarting the server.
 
 ```bash
-# start
-tmux new-session -d -s hyper 'cd $(pwd) && bun run start'
+# Generate runtime types, then type-check.
+bun script/cli.ts types
+bunx tsc --noEmit
 
-# evaluate code
-bun script/repl.ts 'console.log(1 + 1)'                            # quick eval (Jupyter-style)
-bun script/repl.ts 'Object.keys(ctx.fns)'                          # introspect (last expression returned)
-bun script/repl.ts -f /tmp/play.js                                 # from file
-echo 'console.log(ctx.state.serverStart)' | bun script/repl.ts     # stdin
-
-# hot-reload
-bun script/repl.ts 'await ctx.fns.procs.repl.load({ name: "agent" })'      # whole namespace
-bun script/repl.ts 'await ctx.fns.procs.repl.load({ name: "agent.run" })'  # single fn
-bun script/repl.ts 'await ctx.fns.procs.dev.sync({ rel: "agent/run.ts" })' # pick up an edited file (any kind)
-bun script/repl.ts 'await ctx.fns.procs.dev.genTypes({})'                  # regen ctx_ns.d.ts
-bun script/repl.ts 'await ctx.fns.procs.http.loadRoutes({})'               # rescan routes
-bun script/repl.ts 'await ctx.fns.procs.migrate.up({})'                    # apply new migrations
-
-# introspect functions (C-h f / M-.)
-bun script/repl.ts 'ctx.fns.procs.dev.doc({ name: "agent.run" })'
-bun script/repl.ts 'ctx.fns.procs.dev.where({ name: "session.appendMessage" })'
-
-# create a new agent + open it
-bun script/repl.ts 'await ctx.fns.ui.createAgent({ model: "claude-code:claude-haiku-4-5-20251001" })'
+# Run tests with the configured test database available.
+bun test --timeout 15000
 ```
 
-REPL `eval` is **Jupyter-style**: `console.log` and `print` are captured, and the last expression statement is returned as a value. TypeScript is transpiled via `Bun.Transpiler`; top-level `await` works. In dev the **watcher** syncs every saved file automatically (`WATCH=0` opts out).
+The test suite uses Postgres; it is not an in-memory SQLite-only suite. Some integrations have additional requirements. See the [CI workflow](.github/workflows/test.yml) for the automated test environment.
 
-When you reload a function that holds a long-running promise (notably `workerLoop`), the new function lands in `ctx.fns` but the old promise keeps spinning in its closure. Restart the process for those — `tmux kill-session -t hyper && tmux new-session …`.
+Key directories:
 
-## Testing
+| Path | Contents |
+| --- | --- |
+| `src/` | Core procedures, types, routes, and UI |
+| `src/procs/` | Vendored procedural runtime |
+| `plugins/` | Official plugins |
+| `.hyper/` | Project-local runtime extensions |
+| `script/` | Installer, service management, and CLI entry points |
+| `docs/` | Architecture, operations, and design notes |
 
-```bash
-bun test              # all tests (bun:test auto-discovers *.test.ts)
-bunx tsc --noEmit     # type check — must be clean
-```
+## Security
 
-All unit tests use `model: 'mock:*'` which routes through `src/llm/streamMock.ts`. Live integration tests for `streamOpenAI` are gated behind `LIVE_LLM=1` and **off by default**. `bun test` is deterministic and offline.
+**An agent with shell and runtime access can execute code with the server's privileges.** It may access files, query stored conversations, and use credentials granted to connected integrations. Plugins and the external REPL are trusted code, not isolation boundaries.
 
-The shared test fixture is [`src/_testCtx.entry.ts`](src/_testCtx.entry.ts) — `mkTestCtx()` returns a fully-wired `ctx` with `:memory:` DB, migrations, all common `ctx.fns.*` populated, and the same `settingsRegistry` declarations as production.
+- Run Hyper under an account with only the access it needs.
+- Keep API keys and database credentials out of Git and chat transcripts.
+- Review plugins before enabling them and limit connected-account permissions.
+- Treat confirmations for sending, publishing, deleting, and other external actions as essential safeguards—not as a substitute for access control.
+- Do not expose the HTTP server or REPL to the public internet without reviewing authentication and deployment configuration. The installer's loopback database binding does not secure every application endpoint.
 
-## Why "procedural, not OO"
+See [authentication](docs/auth.md) and [HTTPS setup](docs/https.md).
 
-Inspired by [proc-ts](https://github.com/niquola/proc-ts). Consequences:
+## Contributing
 
-- **One file, one function, anonymous default export.** No classes, no base abstractions, no DI containers.
-- **No cross-imports of project files.** Call other procedures via `ctx.fns.<ns>.<fn>({ … })` — names resolve at call time, which is what makes hot-reload actually work: swapping a file in the registry updates every call site instantly.
-- **Types live next to code as capitalized files** (`agent/Agent.ts` → `types.agent.Agent`). Scanned into a single generated `ctx_ns.d.ts` with `declare global` — no imports of `Context`, `types.agent.Agent` at usage sites.
-- **`$`-prefixed filenames carry intent.** `$main.ts` is the entry; `$start.ts`/`$stop.ts` are lifecycle; `$route_*.ts` is an HTTP route; `$setting_*.ts` is a declared setting; `$migration_*.ts` is a migration; `$script_*.js` is a browser asset; `$config.ts`, `$middleware`, `$cli_*`, `$loader_*` complete the grammar. Everything else is a plain function.
+[Report a bug or propose a feature](https://github.com/hyper-code-harness/hyper-code/issues/new/choose). Include reproduction steps, relevant logs with secrets removed, and your platform and provider when reporting a problem.
 
-Optimised for an LLM-agent-driven codebase where the agent reads, writes, and hot-reloads files by itself.
-
-## What's not here (by design)
-
-- **No build step.** Bun runs TS/TSX directly.
-- **No framework** (no Express, no Next.js, no Vite). `Bun.serve`, `Bun.file`, `Bun.markdown`, `bun:sqlite`, `bun:test`, `Bun.Transpiler` cover everything.
-- **No npm equivalents** where a Bun built-in exists.
-- **No native function-calling protocol.** Markers are the only wire format. Removed in favour of one escape level + uniform behaviour across providers.
-- **No streaming tokens to the UI yet** — events appear once the LLM finishes. `/agent/:id/statusbar` polls every 1s so the user sees `running · 12.3s`.
-
-## License
-
-MIT.
+For code changes, follow the procedural conventions: one function per file, calls through `ctx.fns`, documented options, and focused tests. Keep credentials and private plugins out of pull requests. Start with [architecture](docs/architecture.md) and [plugin authoring](docs/plugin-authoring.md).

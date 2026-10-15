@@ -1,5 +1,5 @@
 // Core widget: the pages the core declares (`$app_`); System pages other than Search fold into
-// "Administration". Pages declared by plugins are on the Plugins tab (plugin-pages widget).
+// an "Administration" section (expanded). Pages declared by plugins are on the Plugins tab (plugin-pages widget).
 export default {
     title: "Pages",
     icon: "ph-browsers",
@@ -13,7 +13,7 @@ export default {
         const admin = items.filter(isAdmin);
         return {
             items: items.filter(item => !isAdmin(item)),
-            sections: admin.length ? [{ title: "Administration", items: admin, collapsed: true, count: admin.length }] : [],
+            sections: admin.length ? [{ title: "Administration", items: admin, count: admin.length }] : [],
         };
     },
 } satisfies types.nav.Widget;

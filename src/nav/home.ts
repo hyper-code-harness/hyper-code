@@ -33,9 +33,9 @@ export default async function (
         form(fields, `<button type="submit" class="${iconButton}" title="${esc(label)}" aria-label="${esc(label)}"${disabled ? " disabled" : ""}><i class="ph ${icon}" aria-hidden="true"></i></button>`);
     const span: Record<types.nav.Size, string> = {
         S: "",
-        M: "sm:col-span-2",
-        L: "sm:col-span-2 sm:row-span-2",
-        wide: "sm:col-span-2 lg:col-span-4",
+        M: "",
+        L: "lg:row-span-2",
+        wide: "lg:col-span-3",
         tall: "lg:row-span-3",
     };
     const tiles = await Promise.all(tab.widgets.map(async (placement, index) => {
@@ -72,7 +72,7 @@ export default async function (
     const editToggle = `<button type="button" data-nav-edit-toggle aria-pressed="${edit}" title="${edit ? "Done editing" : "Edit menu"}" aria-label="${edit ? "Done editing" : "Edit menu"}" class="ml-auto inline-flex shrink-0 items-center gap-1 self-center rounded px-2 py-1 text-xs ${edit ? "bg-primary text-primary-content" : "text-faint hover:bg-base-200 hover:text-base-content"}"><i class="ph ${edit ? "ph-check" : "ph-pencil-simple"}" aria-hidden="true"></i>${edit ? "Done" : ""}</button>`;
     const strip = `<nav class="flex items-end gap-1 overflow-x-auto border-b border-ui-border px-3" aria-label="Menu tabs">${tabs.length > 1 || edit ? pills : ""}${tabTools}${editToggle}</nav>`;
     const grid = tiles.length
-        ? `<div class="grid grid-cols-1 gap-px bg-base-200 sm:grid-cols-2 lg:grid-cols-4" style="grid-template-rows:auto auto 1fr" data-nav-tab-body="${esc(tab.id)}">${tiles.join("")}</div>`
+        ? `<div class="grid grid-cols-1 gap-px bg-base-200 lg:grid-cols-3" style="grid-template-rows:auto auto 1fr" data-nav-tab-body="${esc(tab.id)}">${tiles.join("")}</div>`
         : `<div class="px-4 py-5 text-sm text-faint" data-nav-tab-body="${esc(tab.id)}">No widgets on this tab yet.</div>`;
     return strip + grid;
 }

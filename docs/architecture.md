@@ -8,6 +8,8 @@ A module that owns a user-facing page can publish it to global navigation with a
 
 The left Dock (`dock.render`, called by `ui.layout`) is assembled from `$dock_<name>.ts|json` entries collected by `dock/$loader_dock.ts`, plus the person's pinned chats (`user_agent_state.pinned`) and pages. The global menu button (top) and the person (bottom) are fixed; everything else is placed in a top or bottom zone by the `dock.layout` setting — instance scope `global`, personal scope `user` — over each entry's own `zone`/`order`. Each entry renders in parallel under a timeout and is dropped on error.
 
+The global menu (⌘/, `ui.navMenu` + GET `/nav/items`) is built from tabs (`nav.tabs`): built-in `home` (core widgets chats, shared, pages, projects) and `plugins` (pages declared by plugin `$app_` files plus every plugin widget placed nowhere), then the person's own tabs from the `nav.layout` setting (instance `global` / env `HYPER_NAV`, personal `user`, edited through POST `/nav/layout` → `nav.editLayout`). With an empty query a tab draws its grid of `$widget_<name>.ts` tiles (`nav/$loader_widget.ts`, drawn by `nav.drawWidget` with timeout and ttl cache); with a query `nav.searchAll` asks the tab's `$search_<name>.ts` sources (`nav/$loader_search.ts`) in parallel, inlines those that answer within 300 ms and leaves htmx placeholders (GET `/nav/group/:token`) for the slower ones. All rows are `types.nav.Item`, drawn by `nav.rows`.
+
 ```json
 {
   "label": "cron tasks",

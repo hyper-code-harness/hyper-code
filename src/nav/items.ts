@@ -18,6 +18,7 @@ export default async function (
         .map((app: any): types.nav.Item => ({
             label: String(app.label), href: String(app.href), hint: String(app.hint ?? "page"),
             icon: String(app.icon ?? "ph-gear"), group: String(app.group ?? "System"), order: Number(app.order ?? 100),
+            ...(app.plugin ? { plugin: true } : {}),
         }));
 
 

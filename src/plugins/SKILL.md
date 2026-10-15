@@ -81,6 +81,8 @@ Within a namespace directory:
 | `$route_GET.ts` | Namespace root route `/example` |
 | `$app_example.json` | Navigation entry for a real existing page |
 | `$dock_example.json` / `$dock_example.ts` | Icon or live badge in the left Dock (`example.example`) |
+| `$widget_example.ts` | Tile for the global menu (⌘/) grid (`example.example`) |
+| `$search_example.ts` | Result group for the global menu search (`example.example`) |
 | `$setting_enabled.ts` | Declared setting `example.enabled` |
 | `$script_example.js` | Browser asset |
 | `$migration_<timestamp>_<name>.ts` | Database migration with `up(ctx)` and optional `down(ctx)` |
@@ -131,6 +133,43 @@ export default {
 `render` runs on every page render with a short timeout (1.5 s); a throw, a timeout or `null` only leaves that entry out. Keep it to a cached read — never network or discovery on the render path. To keep a badge live, ship a small `$script_*.js` that re-fetches your own fragment on a `hyper-events` event you emit, as `mentions/$dock_mentions.ts` does.
 
 Order and visibility are not the plugin's call: the `dock.layout` setting (`{ "top": [ids], "bottom": [ids], "hidden": [ids], "pins": [hrefs] }`) sets them for the instance (env `HYPER_DOCK`) and, per person, the Dock itself saves the person's copy when they drag, hide, pin or reset. Unknown ids are ignored, so removing a plugin never breaks a layout.
+
+### Global menu widgets and search
+
+The global menu (⌘/) has tabs on top (Home, Plugins, the person's own). While the search box is empty a tab shows a grid of widget tiles; once the person types, the tab's search sources answer in groups. Both come from plugin files; ids are `<namespace>.<name>`. Rows are always `types.nav.Item` and the menu draws them itself, so ⌘J/⌘K, ↵, ⌘↵ and 📌 work everywhere.
+
+```ts
+// src/example/$widget_alerts.ts — a tile; the person may place it several times with different config
+export default {
+    title: "Alerts",
+    icon: "ph-bell",
+    description: "Open alerts of the example service",   // shown in the "Add widget" catalogue
+    sizes: ["M", "S", "wide", "tall"],                    // first is the default; S 1×1, M 2×1, L 2×2, wide full row, tall one column × 3
+    config: { level: { type: "string", default: "error", description: "Lowest level shown" } },
+    ttl: 60,                                              // seconds the drawn tile is reused per person, size and config
+    render: async (ctx, session, { size, config }) => {
+        const rows = await ctx.fns.example.alerts({ level: config.level, limit: size === "S" ? 3 : 8 });
+        return { items: rows.map(r => ({ id: `example:${r.id}`, label: r.title, href: `/example/${r.id}`, icon: "ph-bell", hint: r.level })) };
+        // also: html (trusted, for non-list content), sections: [{ title, items, collapsed? }], columns: true
+    },
+} satisfies types.nav.Widget;
+```
+
+```ts
+// src/example/$search_alerts.ts — a search source
+export default {
+    title: "Alerts",
+    icon: "ph-bell",
+    prefix: "!",          // optional: "!disk" asks only this source
+    order: 60,            // group position, lower first
+    search: async (ctx, session, { q, limit, signal }) =>
+        (await ctx.fns.example.findAlerts({ q, limit })).map(r => ({ id: `example:${r.id}`, label: r.title, href: `/example/${r.id}` })),
+} satisfies types.nav.Search;
+```
+
+`render` and `search` must only read and must check access for the current viewer. Each runs with its own timeout (2.5 s / 2 s); a throw or timeout shows "unavailable" in that tile or group only. A source slower than 300 ms gets a placeholder that fills in when it answers, so fast groups never wait. Keep `render` a cached read (use `ttl`) — opening the menu must not fan out to a dozen services.
+
+A plugin widget nobody placed lands on the built-in **Plugins** tab automatically, next to the pages plugins declare with `$app_`. The person arranges the rest from the menu (pencil button): add, move, resize, remove tiles, add/rename/move/remove tabs, reset. That is stored in the `nav.layout` setting — for the instance (env `HYPER_NAV`) and per person. Unknown ids are ignored, so removing a plugin never breaks a layout.
 
 ### Settings
 

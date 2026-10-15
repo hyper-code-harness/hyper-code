@@ -46,6 +46,11 @@ export default function (_ctx: Context, _session: Session | null, opts: { rel: s
     const moduleDir = dirname(rel);
     const fileName = basename(rel);
 
+    // Tests and harness entries are never app files, whatever their name — `$loader_attach.test.ts` is a test of a
+    // loader, not a loader (imported as one, it ran describe() inside every booting test).
+    if (rel.endsWith('.test.ts')) return { kind: 'skip', rel, moduleDir, fileName, reason: 'test' };
+    if (rel.endsWith('.entry.ts')) return { kind: 'skip', rel, moduleDir, fileName, reason: 'entry' };
+
     // $style_<name>.css → a Tailwind input, compiled against the whole scan and
     // served at /<module>/<name>.css. Comes before $script so a stylesheet is not
     // treated as a raw asset.
@@ -72,8 +77,6 @@ export default function (_ctx: Context, _session: Session | null, opts: { rel: s
     }
 
     if (rel.endsWith('.d.ts')) return { kind: 'skip', rel, moduleDir, fileName, reason: 'dts' };
-    if (rel.endsWith('.test.ts')) return { kind: 'skip', rel, moduleDir, fileName, reason: 'test' };
-    if (rel.endsWith('.entry.ts')) return { kind: 'skip', rel, moduleDir, fileName, reason: 'entry' };
     // Not TypeScript — but a kind may live in any format at all, so a `$<kind>_`
     // name is read before the file is written off.
     if (!rel.endsWith('.ts')) {

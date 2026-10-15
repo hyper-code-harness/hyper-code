@@ -26,6 +26,10 @@ services:
       # exhausts mid-suite.
       - -c
       - max_connections=1000
+      # The shared lock table holds max_locks_per_transaction × max_connections entries. At the default 64 a few
+      # big transactions plus test runs filled it and every query failed with "out of shared memory" (15.10).
+      - -c
+      - max_locks_per_transaction=256
       # pg_search is paradedb's BM25 index, pg_cron the scheduler, and
       # pg_stat_statements is what the /telemetry dashboard reads for the
       # server's own view of slow statements. All three must be preloaded.
@@ -51,5 +55,52 @@ services:
       timeout: 5s
       retries: 10
 
+  # Tests run here, never on the working database: every test ctx opens its own connection and migrates ~140
+  # pg_temp tables, and a few parallel suites used to exhaust the lock table of the live server (15.10).
+  # Its own disk volume, fsync off: test data is disposable, durability is not needed.
+  db-test:
+    image: paradedb/paradedb:latest-pg18
+    container_name: hyper-db-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hyper
+      POSTGRES_PASSWORD: ${HYPER_DB_PASSWORD:?set HYPER_DB_PASSWORD in ~/.hyper/.env (script/install.sh generates it)}
+      POSTGRES_DB: hyper
+    command:
+      - postgres
+      - -c
+      - max_connections=1000
+      - -c
+      - max_locks_per_transaction=256
+      - -c
+      - shared_preload_libraries=pg_search,pg_cron
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+      # Minimal WAL: nothing replicates from here, and the log stays small (it grew to 1 GB during a full run).
+      - -c
+      - wal_level=minimal
+      - -c
+      - max_wal_senders=0
+      - -c
+      - max_wal_size=256MB
+      # Every test ctx creates ~140 pg_temp tables: the system catalogs bloat fast, vacuum them often.
+      - -c
+      - autovacuum_naptime=5s
+    ports:
+      - "127.0.0.1:54399:5432"
+    volumes:
+      - hyper_pgdata_test:/var/lib/postgresql
+      - ./db-test:/docker-entrypoint-initdb.d:ro   # script/install.sh copies script/db-test here
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hyper"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   hyper_pgdata:
+  hyper_pgdata_test:

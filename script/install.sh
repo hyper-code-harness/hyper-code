@@ -101,6 +101,7 @@ if docker inspect hyper-db >/dev/null 2>&1; then
         || die "не смог сменить пароль базы в hyper-db"
 fi
 cp docker-compose.yml "$COMPOSE"
+mkdir -p "$HOME/.hyper/db-test" && cp script/db-test/*.sql "$HOME/.hyper/db-test/"   # init of the test Postgres (hyper-db-test)
 docker compose -f "$COMPOSE" up -d --quiet-pull   # recreates the container on 127.0.0.1 if it was published everywhere
 # Hyper reads DATABASE_URL from $HYPER_DIR/.env (0600).
 (umask 077; touch .env; grep -v '^DATABASE_URL=' .env > .env.new || true

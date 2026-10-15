@@ -1,2 +1,5 @@
 [test]
 preload = ["./src/_testPreload.entry.ts"]
+# Run the suite with `bun run test` (package.json): --parallel=16 --no-isolate. bun 1.4 reads neither from this
+# file. Each worker process loads the code once and gets its own copy of the migrated test database
+# (src/_testDb.entry.ts, on hyper-db-test:54399).

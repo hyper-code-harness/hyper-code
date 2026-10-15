@@ -5,7 +5,7 @@
 // A loader IS a function, like everything else here: it takes the entries of its
 // kind and does what it likes with them.
 import { bindSelf, dottedName, setPath, source } from "./boot/load";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 
 /**
  * Load loader fn declarations into the runtime.
@@ -21,7 +21,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { e
         if (typeof fn !== "function") continue;
         // Like metadata on a Clojure var: docs, arg schema and source travel with
         // the live function and are replaced atomically on hot reload.
-        const parsed = reflectSource(ts, entry);
+        const parsed = reflectCached(ts, entry);
         (fn as any).meta = {
             name: dottedName(entry),
             module: entry.moduleDir.replaceAll("/", "."),
@@ -41,6 +41,22 @@ export default async function (ctx: Context, _session: Session | null, opts: { e
     // filesystem-specific (APFS alphabetical, ext4 hash) — debug may be
     // registered before emit exists.
     for (const entry of loaded) (ctx.fns as any).procs?.log?.debug?.({ event: "load.fn", msg: dottedName(entry), from: source(entry) });
+}
+
+// Parsing every file with the TypeScript compiler is most of a boot's cost after the imports; a test file
+// builds a fresh ctx per test in one process. Same file, same mtime → same metadata, so it is kept per process.
+// Entries that carry their own source (bundles, hot reload with text) are always parsed.
+// On globalThis: boot imports this loader cache-busted, so a module-level Map would start empty every boot.
+const reflectCache: Map<string, any> = ((globalThis as any).__hyperReflectCache ??= new Map());
+function reflectCached(ts: any, entry: any): any {
+    if (entry.source) return reflectSource(ts, entry);
+    let key = "";
+    try { key = `${entry.abs}:${statSync(entry.abs).mtimeMs}`; } catch { return reflectSource(ts, entry); }
+    const hit = reflectCache.get(key);
+    if (hit) return structuredClone(hit);
+    const parsed = reflectSource(ts, entry);
+    reflectCache.set(key, parsed);
+    return structuredClone(parsed);
 }
 
 function reflectSource(ts: any, entry: any): any {

@@ -31,6 +31,8 @@ export async function mkTestCtx(opts: { db?: string | false; env?: Record<string
     ctx.env = {
         NODE_ENV: "test",
         LOG_LEVEL: "warn",
+        // The test database chosen by testCtx (never the working one), kept for pools opened later.
+        ...(ctx.env.DATABASE_URL ? { DATABASE_URL: ctx.env.DATABASE_URL } : {}),
         ...(typeof opts.db === "string" ? { DATABASE_URL: opts.db } : {}),
         ...opts.env,
     };

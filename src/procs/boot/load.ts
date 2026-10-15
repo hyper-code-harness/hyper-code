@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 // Scan src/ for function files and register raw fns into ctx.state.registry
 // (ctx.fns is an injecting Proxy over it — see $main.ts). Root-level $name.ts
 // become injecting getters directly on ctx (ctx.genTypes, ctx.layout, ...).
@@ -66,7 +67,7 @@ export async function apply(ctx: Context, entries: any[], mounted: any[], opts: 
             // The whole module, not just the default: a loader may read a named
             // export too (a fence's `hint`), and re-importing to get it would
             // run the file twice.
-            const imported = await import(entry.abs + `?t=${Date.now()}`);
+            const imported = await import(entry.abs + bust(entry.abs));
             (entry as any).mod = imported;
             (entry as any).fn = imported.default;
         } catch (error: any) {
@@ -214,7 +215,7 @@ export async function collectStateFile(ctx: Context, entry: any, abs: string): P
             if (entry.root !== "core") console.error(`[$loader] "${entry.loaderKind}" belongs to the framework — pick another name (${entry.rel})`);
             return;
         }
-        const loader = (await import(abs + `?t=${Date.now()}`)).default;
+        const loader = (await import(abs + bust(abs))).default;
         if (typeof loader !== "function") return;
         loaders[entry.loaderKind] = loader;
         // hyper-code2: the classified entry handed in by dev.sync carries no
@@ -374,3 +375,10 @@ export function source(entry: { abs: string }): string {
 
 // Root fns are injecting getters: ctx.fns.procs.dev.genTypes(opts) → raw(ctx, ctx.session, opts).
 // `this` in the getter is the receiver, so request-ctxs inject their session.
+
+// Cache-bust for import(): a fresh module per file VERSION, not per call. Boot re-imports every file so an
+// edited one is picked up; keyed by mtime, an unchanged file is served from Bun's module cache. That makes a
+// second ctx in the same process (every test ctx) skip re-evaluating ~2000 files (0.4 s each ctx).
+function bust(abs: string): string {
+    try { return `?t=${Math.floor(statSync(abs).mtimeMs)}`; } catch { return `?t=${Date.now()}`; }
+}

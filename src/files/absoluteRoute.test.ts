@@ -94,7 +94,7 @@ describe("GET /files/absolute — path-based Files URLs", () => {
     });
 
 
-    test("forwards the authenticated cookie through internal Files dispatch", async () => {
+    test("forwards the authenticated cookie and the hub assertion through internal Files dispatch", async () => {
         const ctx: any = await mkTestCtx();
         const dir = await mkdtemp(join(tmpdir(), "hyper-files-auth-forward-"));
         try {
@@ -105,12 +105,13 @@ describe("GET /files/absolute — path-based Files URLs", () => {
             const embed = middlewares.find((item: any) => item.prefix === "/files/embed").handler;
             const seen: any[] = [];
             ctx.state.registry.procs.http.dispatch = (_c: any, _s: any, opts: any) => { seen.push(opts); return new Response("ok"); };
-            const headers = { accept: "text/html", cookie: "procs_session=signed", host: "localhost:3010", "x-forwarded-proto": "http" };
+            const headers = { accept: "text/html", cookie: "procs_session=signed", "x-hn-assertion": "hub.signed.jwt", host: "localhost:3010", "x-forwarded-proto": "http" };
             await absolute(ctx, null, { req: new Request(`http://localhost:3010/files/absolute${join(dir, "readme.md")}`, { headers }), params: {} });
             await embed(ctx, null, { req: new Request(`http://localhost:3010/files/embed${join(dir, "readme.md")}`, { headers }), params: {} });
             expect(seen).toHaveLength(2);
             for (const call of seen) {
                 expect(call.headers.cookie).toBe("procs_session=signed");
+                expect(call.headers["x-hn-assertion"]).toBe("hub.signed.jwt");
                 expect(call.headers.host).toBe("localhost:3010");
                 expect(call.headers["x-forwarded-proto"]).toBe("http");
             }

@@ -32,7 +32,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         const headers: Record<string, string> = {};
         // Internal dispatch re-enters global auth middleware; preserve the
         // browser session and forwarded origin/host, not only render headers.
-        for (const name of ["accept", "hx-request", "x-hyper-fragment", "cookie", "host", "origin", "x-forwarded-host", "x-forwarded-proto"]) {
+        for (const name of ["accept", "hx-request", "x-hyper-fragment", "cookie", "x-hn-assertion", "authorization", "host", "origin", "x-forwarded-host", "x-forwarded-proto"]) {
             const value = opts.req.headers.get(name);
             if (value) headers[name] = value;
         }

@@ -10,9 +10,13 @@ Hyper runs on **Bun + Postgres**, with a procedural TypeScript runtime built on 
 
 > Hyper is under active development. UI composition and plugin interfaces are evolving. It is intended for trusted environments, not for running untrusted agents in a sandbox.
 
-## Video
+## Watch: Agents on FHIR
 
-[Watch on YouTube](https://www.youtube.com/watch?v=ZpzxLonfERc).
+A recording of Health Samurai's **Agents on FHIR working group meeting — October 15**. Watch the session on YouTube using the preview below.
+
+[![Watch Agents on FHIR — working group meeting, October 15](https://i.ytimg.com/vi/ZpzxLonfERc/hqdefault.jpg)](https://www.youtube.com/watch?v=ZpzxLonfERc)
+
+▶ **[Watch the recording on YouTube](https://www.youtube.com/watch?v=ZpzxLonfERc)** · Health Samurai
 
 ## What you can do
 

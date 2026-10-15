@@ -61,7 +61,7 @@ describe("GET /files/absolute — path-based Files URLs", () => {
             const html = await response.text();
             expect(response.status).toBe(200);
             expect(html).toContain("Embedded");
-            expect(html).not.toContain('id="quick-bar"');
+            expect(html).not.toContain('id="dock"');
             expect(html).toContain("max-w-none");
         } finally {
             await rm(dir, { recursive: true, force: true });
@@ -80,7 +80,7 @@ describe("GET /files/absolute — path-based Files URLs", () => {
             const page = await ctx.fns.procs.http.dispatch({ url: one, headers: { accept: "text/html" } });
             const html = await page.text();
             expect(page.status).toBe(200);
-            expect(html).not.toContain('id="quick-bar"');
+            expect(html).not.toContain('id="dock"');
             expect(html).toContain("/files/embed/");
 
             const two = new URL("./two.md", "http://localhost" + one).pathname;

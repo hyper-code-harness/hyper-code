@@ -28,12 +28,11 @@ describe("ui.layout", () => {
         expect(html).not.toContain('id="agents-rail"');
         // No agent rail or tabs: reaching a page goes through the global menu;
         // quick access is only a thin strip of pinned page icons.
-        expect(html).toContain('id="quick-bar"');
-        expect(html).toContain('id="quick-items"');
+        expect(html).toContain('id="dock"');
         expect(html).not.toContain('data-action="open-tab"');
-        const rail=/<nav id="quick-bar"[\s\S]*?<\/nav>/.exec(html)?.[0]??'';
-        expect(rail).toContain('id="gap-count-badge"');
-        expect(rail).toContain('href="/gaps"');
+        const dock=/<nav id="dock"[\s\S]*?<\/nav>/.exec(html)?.[0]??'';
+        expect(dock).toContain('data-dock-id="menu"');
+        expect(dock).toContain('id="theme-toggle"');
     });
 
     test("initializes and exposes a persisted light-dark theme switcher", async () => {
@@ -60,7 +59,7 @@ describe("ui.layout", () => {
         const session: any = { url: new URL("http://localhost/files/absolute/tmp/readme.md?embed=1"), req: new Request("http://localhost/files/absolute/tmp/readme.md?embed=1") };
         const html = await ctx.state.registry.ui.layout(ctx, session, { main: "<p>embedded</p>", title: "file" });
         expect(html).toContain("<p>embedded</p>");
-        expect(html).not.toContain('id="quick-bar"');
+        expect(html).not.toContain('id="dock"');
         expect(html).not.toContain('id="app-popup"');
         expect(html).not.toContain('id="nav-overlay"');
         expect(html).toContain("window.parent.postMessage({type:'ui.close-popup'}");
@@ -76,7 +75,7 @@ describe("ui.layout", () => {
         expect(html).toContain(main);
         expect(html).toMatch(/<body[^>]*data-presentation="sidebar"/);
         expect(html).toContain('data-agent-id="ab"');
-        for (const id of ["quick-bar", "nav-overlay", "mobile-nav-button", "theme-toggle"]) {
+        for (const id of ["dock", "nav-overlay", "mobile-nav-button", "theme-toggle"]) {
             expect(html).not.toContain(`id="${id}"`);
         }
         for (const id of ["app-popup", "app-popup-body", "secure-input-host"]) {

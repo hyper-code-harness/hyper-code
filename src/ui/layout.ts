@@ -81,7 +81,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
   color: var(--color-base-content);
 }
 .tool.tool-tucked:active { transform: translateY(0) scale(1.05); }
-#quick-bar,
+#dock,
 .glass-panel {
   background-color: rgb(from var(--color-base-100) r g b / .68);
   background-image: linear-gradient(110deg, rgb(255 255 255 / .16), transparent 48%, rgb(255 255 255 / .05));
@@ -214,7 +214,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 @media (max-width: 700px) {
   html, body, #frame { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
   body { -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
-  #quick-bar { display: none !important; }
+  #dock { display: none !important; }
   #page-view { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
   /* #main is the page scroller: with overflow hidden every ordinary page on a
    * phone showed only its first screen. The chat page keeps its own inner
@@ -272,7 +272,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 
 
 /* Sidebar presentation reuses the page and live chat, independent of viewport. */
-body[data-presentation="sidebar"] #quick-bar,
+body[data-presentation="sidebar"] #dock,
 body[data-presentation="sidebar"] #mobile-nav-button,
 body[data-presentation="sidebar"] #nav-overlay,
 body[data-presentation="sidebar"] [data-page="agent"] > aside[id^="agent-meta-"] { display: none !important; }
@@ -310,21 +310,7 @@ ${opts.headExtra ?? ""}
 <body class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>
 <div id="frame" class="relative flex h-screen">
   ${hideNavigation ? "" : ctx.fns.procs.ui.button({ action: "open-global-menu-mobile", html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', appearance: "plain", title: "Agents and pages", ariaLabel: "Open agents and pages", class: "hidden", attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" } })}
-  ${hideNavigation ? "" : `<nav id="quick-bar" aria-label="Quick access" class="my-2 ml-2 mr-1 flex h-[calc(100%-1rem)] w-10 shrink-0 flex-col items-center rounded-2xl border border-ui-border py-2 shadow-sm">
-    ${ctx.fns.procs.ui.button({ action: "open-global-menu", html: '<i class="ph ph-squares-four text-base" aria-hidden="true"></i>', appearance: "plain", title: "Global menu — ⌘/", ariaLabel: "Open global menu", class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { onclick: "window.__navOpen?.()" } })}
-    ${ctx.fns.procs.ui.button({ action: "toggle-theme", html: '<i class="ph ph-moon" aria-hidden="true"></i>', appearance: "plain", title: "Switch color theme", ariaLabel: "Switch color theme", class: "mt-1 flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { id: "theme-toggle", "aria-pressed": "false" } })}
-    ${await ctx.fns.ui.gapBadge({})}
-    ${await ctx.fns.mentions.badge({}).catch(() => "")}
-     ${await ctx.fns.ui.updateBadge({})}
-    <div id="quick-items" class="mt-2 flex min-h-0 flex-1 flex-col items-center gap-1" aria-label="Pinned pages"></div>
-    <!-- Subscription quota, loaded by itself so the shell never waits on it.
-         Collapsed to rings in the narrow bar; the title carries the detail. -->
-    <div class="mt-auto flex w-full flex-col items-center">${ctx.fns.auth.onlineRegion({ layout: "column" })}${await ctx.fns.auth.meBadge({}).catch(() => "")}</div>
-    <div id="quota-rings" class="w-full" hx-get="/llms/usage" hx-trigger="load" hx-swap="innerHTML" hx-target="this"></div>
-    <script>(function(){var button=document.getElementById('theme-toggle');function paint(){var dark=document.documentElement.dataset.theme==='dark';button.setAttribute('aria-pressed',String(dark));button.title=dark?'Use light theme':'Use dark theme';button.querySelector('i').className='ph '+(dark?'ph-sun':'ph-moon')}paint();button.addEventListener('click',function(){var next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;document.documentElement.style.colorScheme=next;try{localStorage.setItem('hyper-theme',next)}catch(_){}paint()})})()</script>
-  </nav>`}
-    <script src="/ui/gap-count.js" defer></script>
-    <script src="/mentions/live.js" defer></script>
+  ${hideNavigation ? "" : await ctx.fns.dock.render({})}
     <script src="/canvas/canvas.js" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->

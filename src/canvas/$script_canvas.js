@@ -57,6 +57,7 @@
         const newBody = next.querySelector('[data-canvas-body]');
         if (force || !oldBody || !newBody || oldBody.getAttribute('data-canvas-body-rev') !== newBody.getAttribute('data-canvas-body-rev')) {
             panel.replaceWith(next);
+            runBodyScripts(next);
             window.htmx?.process?.(next);
             return;
         }
@@ -272,6 +273,45 @@
             .then(state => { apply(root, state); if (state.rev && state.rev !== shownRev(root)) refreshPanel(root); })
             .catch(() => window.open(a.href, '_blank', 'noopener'));
     });
+
+    // A file tab draws the Files viewer in place (files.view), not in a frame. Its links — breadcrumbs,
+    // folder entries, Preview/Code/Edit — move this same tab; a modifier click keeps the browser's own
+    // behaviour (open the Files page). Raw media and PDF links are left alone.
+    const filesTarget = href => {
+        const url = new URL(href, location.href);
+        if (url.origin !== location.origin) return null;
+        const tab = url.searchParams.get('tab') || '';
+        let m;
+        try {
+            if ((m = /^\/files\/(?:absolute|embed)(\/.*)?$/.exec(url.pathname))) return { path: (m[1] || '/').split('/').map(decodeURIComponent).join('/') || '/', tab };
+            if ((m = /^\/files\/remote\/(?:embed\/)?([^/]+)(\/.*)?$/.exec(url.pathname))) return { host: decodeURIComponent(m[1]), path: (m[2] || '/').split('/').map(decodeURIComponent).join('/') || '/', tab };
+        } catch { return null; }
+        return null;
+    };
+    document.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const a = event.target.closest?.('[data-canvas-files] a[href]');
+        const root = page();
+        if (!a || !root || !root.contains(a) || a.hasAttribute('download') || a.target === '_blank') return;
+        const target = filesTarget(a.getAttribute('href'));
+        if (!target) return;
+        const body = a.closest('[data-canvas-body]');
+        const itemId = Number(body?.getAttribute('data-canvas-item'));
+        if (!itemId) return;
+        event.preventDefault();
+        tabAction(root, { navigate: { itemId, file: target } });
+    });
+    // The editor of an Edit view comes as <script> in the body. A refreshed panel is parsed from a template,
+    // where scripts are inert, so they are recreated to run (a first page load runs them itself).
+    const runBodyScripts = el => {
+        el?.querySelectorAll?.('[data-canvas-files] script').forEach(old => {
+            const s = document.createElement('script');
+            for (const { name, value } of old.attributes) s.setAttribute(name, value);
+            s.textContent = old.textContent;
+            if (s.src) s.async = false;
+            old.replaceWith(s);
+        });
+    };
 
     document.addEventListener('focusin', event => {
         if (event.target.matches?.('[data-canvas-navigate] input[name="url"]')) event.target.select();

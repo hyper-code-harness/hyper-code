@@ -1,20 +1,23 @@
 // CodeMirror 6 editor with autosave + optional vim mode.
-// Uses the prebuilt bundle exposed on window.__cm (see src/ui/bundle.entry.ts).
+// CodeMirror comes from /ui/codemirror.js (src/ui/$script_codemirror.js, exposes window.__cm), loaded here
+// on first use, so pages that never edit do not pay for it.
 // Config comes from window.__editor = { saveUrl, content, lang }.
 (async function () {
     const cfg = window.__editor;
     if (!cfg) return;
 
-    // Wait for bundle.js to populate window.__cm (defer means it runs before
-    // other defer scripts in source order, but bundle is listed earlier).
-    let cm = window.__cm;
-    let waited = 0;
-    while (!cm && waited < 5000) {
-        await new Promise(r => setTimeout(r, 50));
-        cm = window.__cm;
-        waited += 50;
+    if (!window.__cm) {
+        window.__cmLoading ??= new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = "/ui/codemirror.js";
+            s.onload = resolve;
+            s.onerror = () => { window.__cmLoading = null; reject(new Error("load failed")); };
+            document.head.appendChild(s);
+        });
+        try { await window.__cmLoading; } catch (e) { console.error("[editor] /ui/codemirror.js", e); }
     }
-    if (!cm) { console.error("[editor] bundle not loaded (run: bun script/build-bundle.ts)"); return; }
+    const cm = window.__cm;
+    if (!cm) { console.error("[editor] CodeMirror did not load"); return; }
 
     const { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
         drawSelection, dropCursor, rectangularSelection, highlightSpecialChars } = cm.view;

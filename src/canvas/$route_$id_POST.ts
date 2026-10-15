@@ -1,7 +1,7 @@
 // POST /canvas/:id — open/close an agent's canvas or set the chat width beside it. JSON or form body:
 // { open?: boolean, chatWidth?: number, activeItemId?: number, closeItemId?: number, reopenItemId?: number,
-// show?: { kind: "file" | "url", args }, navigate?: { itemId, url } } — show opens a link clicked in the chat
-// as a tab, navigate points a url tab at another address (its address bar). Answers the
+// show?: { kind: "file" | "url", args }, navigate?: { itemId, url } | { itemId, file: { path, host?, tab? } } } — show opens a link clicked in the
+// chat as a tab, navigate points a url tab at another address (its address bar) or a file tab at another file. Answers the
 // resulting state with the panel fingerprint (rev).
 /** Changes an agent's canvas state from the browser (canvas.update). */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }): Promise<Response> {
@@ -43,7 +43,9 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (body.navigate && typeof body.navigate === "object") {
         const itemId = Number(body.navigate.itemId);
         if (!Number.isInteger(itemId)) return new Response("invalid item id", { status: 400 });
-        try { await ctx.fns.canvas.navigate({ agentId, itemId, url: String(body.navigate.url ?? "") }); }
+        const f = body.navigate.file;
+        const file = f && typeof f === "object" ? { path: String(f.path ?? ""), host: f.host ? String(f.host) : undefined, tab: (["preview", "code", "edit"].includes(f.tab) ? f.tab : "") as "" | "preview" | "code" | "edit" } : undefined;
+        try { await ctx.fns.canvas.navigate({ agentId, itemId, ...(file ? { file } : { url: String(body.navigate.url ?? "") }) }); }
         catch (error: any) { return new Response(String(error?.message ?? error), { status: 400 }); }
     }
     const open = typeof body.open === "boolean" ? body.open : body.open === "1" || body.open === "true" ? true : body.open === "0" || body.open === "false" ? false : undefined;

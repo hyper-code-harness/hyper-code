@@ -80,12 +80,31 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     const page = async () => (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/agent/${a.id}` })).text();
     let html = await page();
     expect(html).toContain(`data-canvas-item="${one.id}"`);
-    expect(html).toMatch(/<iframe src="\/files\/embed\/[^"]*\/package\.json"/);
+    // Drawn in place by files.view, not framed: no second page load and no second sign-in.
+    expect(html).toContain("data-canvas-files");
+    expect(html).not.toMatch(/<iframe src="\/files\/embed\//);
+    expect(html).toContain("package.json");
 
     const post = (body: any) => ctx.fns.procs.http.dispatch({ method: "POST", url: `http://localhost/canvas/${a.id}`, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     expect((await (await post({ activeItemId: two.id })).json()).activeItemId).toBe(two.id);
     const panel = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/panel` })).text();
-    expect(panel).toMatch(/<iframe src="\/files\/embed\/[^"]*\/README\.md\?tab=preview"/);
+    expect(panel).toContain("data-canvas-files");
+    expect(panel).toContain('class="prose');
+    expect(panel).toMatch(/href="\/files\/absolute\/[^"]*\/README\.md\?tab=code"/);
+
+    // A link inside the file tab moves the same tab: README → its Code view, then to the folder.
+    const readmePath = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!.args.path;
+    await post({ navigate: { itemId: two.id, file: { path: readmePath, tab: "code" } } });
+    let moved = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!;
+    expect(moved.args).toMatchObject({ path: readmePath, tab: "code" });
+    const dir = readmePath.replace(/\/README\.md$/, "");
+    await post({ navigate: { itemId: two.id, file: { path: dir } } });
+    moved = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!;
+    expect(moved.args.path).toBe(dir);
+    const listing = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/panel` })).text();
+    expect(listing).toContain("README.md");
+    expect(listing).toMatch(/item[s]?<\/span>/);
+    await post({ navigate: { itemId: two.id, file: { path: readmePath, tab: "preview" } } });
 
     // The agent sees what is open, active first, with the tab's state.
     await ctx.fns.canvas.setState({ agentId: a.id, itemId: two.id, state: { line: 12 } });

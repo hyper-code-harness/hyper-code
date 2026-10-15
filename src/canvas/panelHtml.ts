@@ -89,7 +89,7 @@ export default async function (
     <nav data-canvas-tabs class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] ${items.length ? "" : "border-b border-ui-border"}" aria-label="Canvas tabs">${tabs}</nav>
     ${history}<div class="flex items-center gap-0.5 border-b border-l border-ui-border px-1.5">${active ? reload : ""}${close}</div>
   </header>
-  <div data-canvas-body data-canvas-item="${active?.id ?? ""}" data-canvas-body-rev="${rev.body}"${active && kinds[active.kind]?.liveState ? ` data-canvas-state="${esc(JSON.stringify(active.state))}"` : ""} class="${active ? "" : "dot-grid-surface "}min-h-0 flex-1 overflow-auto">${body}</div>
+  <div data-canvas-body data-canvas-item="${active?.id ?? ""}" data-canvas-kind="${esc(active?.kind ?? "")}" data-canvas-body-rev="${rev.body}"${active && kinds[active.kind]?.liveState ? ` data-canvas-state="${esc(JSON.stringify(active.state))}"` : ""} class="${active ? "" : "dot-grid-surface "}min-h-0 flex-1 overflow-auto">${body}</div>
 </section>
 <div class="canvas-resizer" data-canvas-resizer role="separator" aria-orientation="vertical" aria-label="Resize chat" tabindex="0"></div>`;
 }

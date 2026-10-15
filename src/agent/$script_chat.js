@@ -28,6 +28,14 @@
             this.lastAssistant = this.latestAssistant();
         }
 
+        // The composer grows with what is typed (up to 40vh, then scrolls). CSS field-sizing does it where
+        // supported; elsewhere set the height from the content.
+        fit() {
+            if (!this.input || CSS.supports?.('field-sizing', 'content')) return;
+            this.input.style.height = 'auto';
+            this.input.style.height = this.input.scrollHeight + 'px';
+        }
+
         mount() {
             if (!this.messages || !this.form || !this.input) return false;
             const { signal } = this.abort;
@@ -39,7 +47,7 @@
                 if (this.messages.scrollTop < 80) this.loadOlder();
             }, { passive: true, signal });
             // @mentions: typing @ suggests people; the list owns arrows/Enter/Tab/Esc while open.
-            this.input.addEventListener('input', () => this.mentionUpdate(), { signal });
+            this.input.addEventListener('input', () => { this.mentionUpdate(); this.fit(); }, { signal });
             this.input.addEventListener('blur', () => setTimeout(() => this.mentionClose(), 150), { signal });
             this.input.addEventListener('keydown', (event) => {
                 if (event.isComposing || event.key === 'Process') return;
@@ -85,6 +93,7 @@
                 this.shouldStick = true;
                 this.scrollBottom();
                 this.renderAttachments();
+                this.fit();
                 requestAnimationFrame(() => { if (this.alive() && this.shouldStick) this.scrollBottom(); });
             }, { signal });
             this.arrangeTools(this.messages);

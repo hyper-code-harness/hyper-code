@@ -1,7 +1,7 @@
 // Bundle entry: everything our UI loads at runtime, collected so Bun.build
-// can ship one static <script src="/bundle.js"> instead of N esm.sh requests.
+// can ship one static /ui/codemirror.js instead of N esm.sh requests (loaded on demand by files/editor.js).
 // Exposes `window.__cm` for files/$script_editor.js to consume.
-declare const window: any;
+
 
 import * as view from "@codemirror/view";
 import * as state from "@codemirror/state";
@@ -20,7 +20,7 @@ import * as langSql from "@codemirror/lang-sql";
 
 import * as vim from "@replit/codemirror-vim";
 
-(window as any).__cm = {
+window.__cm = {
     view, state, language, commands, search, autocomplete, lint,
     langs: {
         javascript: langJs, markdown: langMd, json: langJson,

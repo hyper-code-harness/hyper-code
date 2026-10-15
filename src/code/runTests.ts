@@ -14,6 +14,7 @@
  * kind picks the files by name: "fast" (*.test.ts, the default), "it" (*.it.test.ts), "live" (*.live.test.ts), "all" (fast + it, never live).
  * @param opts.kind Which tests to run. @default "fast"
  * @param opts.path Directories or files to test, relative to the project root. @default ["src", "plugins", "script"]
+ * Given a path, the run is a picked run: its report goes to .runtime/test-report-picked.xml (read with code.tests({ picked: true })) and the full report of the kind is left alone.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Which tests to run: fast (*.test.ts), it (*.it.test.ts, real processes), live (*.live.test.ts, network), all (fast + it). @default "fast" */
@@ -28,26 +29,31 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const paths = [opts.path ?? ["src", "plugins", "script"]].flat();
     for (const x of paths) if (!x || x.startsWith("-") || x.includes("..")) throw new Error("invalid test path: " + x);
     const path = paths.join(" ");
+    // a run of picked files keeps its own report, so the full report of the kind stays whole
+    const picked = opts.path !== undefined;
+    const report = picked ? "picked" : kind;
     const ws = String((ctx.state as any).root);
 
     // the size of the last run is the best guess of this one's
     let expected = 0, expectedFiles = 0;
-    try {
-        const xml = await Bun.file(`${ws}/.runtime/test-report-${kind}.xml`).text();
+    // a picked run is measured against its file count only (a previous pick says nothing about this one)
+    if (picked) expectedFiles = paths.length;
+    else try {
+        const xml = await Bun.file(`${ws}/.runtime/test-report-${report}.xml`).text();
         expected = +(xml.match(/<testsuites [^>]*tests="(\d+)"/)?.[1] ?? 0);
         expectedFiles = (xml.match(/<testsuite name=/g) ?? []).length;
     } catch { /* first run of this kind: no estimate */ }
 
-    const run: types.code.TestRun = { running: true, startedAt: Date.now(), exitCode: null, kind, path, pass: 0, fail: 0, skip: 0, files: 0, expected, expectedFiles, failed: [], current: "" };
+    const run: types.code.TestRun = { running: true, startedAt: Date.now(), exitCode: null, kind, picked, path, pass: 0, fail: 0, skip: 0, files: 0, expected, expectedFiles, failed: [], current: "" };
     st.testRun = run;
     const p = Bun.spawn({
         // script/test.ts picks the files of the kind (the same script `bun run test:<kind>` runs)
         cmd: ["bun", "script/test.ts", kind,
             "--timings=.runtime/test-timings.json", "--update-timings",
-            "--reporter=junit", `--reporter-outfile=.runtime/test-report-${kind}.xml`, ...paths],
+            "--reporter=junit", `--reporter-outfile=.runtime/test-report-${report}.xml`, ...paths],
         cwd: ws, stdout: "pipe", stderr: "pipe",
     });
-    const log = Bun.file(`${ws}/.runtime/test-run-${kind}.log`).writer();
+    const log = Bun.file(`${ws}/.runtime/test-run-${report}.log`).writer();
     const read = async (s: ReadableStream<Uint8Array>, count: boolean) => {
         const dec = new TextDecoder();
         let buf = "";

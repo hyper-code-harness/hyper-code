@@ -6,6 +6,8 @@ export type TestRun = {
     exitCode: number | null;
     /** which tests: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts), all (fast + it) */
     kind: TestKind;
+    /** true when only picked files ran (opts.path given): the report is .runtime/test-report-picked.xml */
+    picked?: boolean;
     path: string;
     /** tests passed / failed / skipped so far */
     pass: number;

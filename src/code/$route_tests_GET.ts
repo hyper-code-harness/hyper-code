@@ -1,11 +1,12 @@
-/** GET /code/tests?kind=fast|it|live|all — the last run of that kind of tests (code.tests) as a page with kind tabs and a Run button; the Tests canvas frames it. */
+/** GET /code/tests?kind=fast|it|live|all[&picked=1] — the last run of that kind of tests (code.tests), or of the last picked files, as a page with kind tabs, a Run button and a file picker; the Tests canvas frames it. */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
     const q = new URL(opts.req.url).searchParams.get("kind") ?? "fast";
     const kind = (["fast", "it", "live", "all"].includes(q) ? q : "fast") as types.code.TestKind;
-    const data = await ctx.fns.code.tests({ kind });
+    const picked = new URL(opts.req.url).searchParams.get("picked") === "1";
+    const data = await ctx.fns.code.tests({ kind, picked });
     const json = JSON.stringify(data ?? null).replace(/</g, "\\u003c");
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Tests</title><style>${CSS}</style></head>
-<body><div id=app></div><script>window.TESTS=${json};window.TEST_KIND=${JSON.stringify(kind)};</script><script src="/code/tests.js"></script></body></html>`;
+<body><div id=app></div><script>window.TESTS=${json};window.TEST_KIND=${JSON.stringify(kind)};window.TEST_PICKED=${picked};</script><script src="/code/tests.js"></script></body></html>`;
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
 
@@ -36,6 +37,17 @@ details[open]>summary .name{color:#2563eb}
 .kinds{display:flex;gap:4px;margin:0 0 10px}.kinds a{border:1px solid #e5e7eb;border-radius:8px;padding:4px 10px;color:#374151;text-decoration:none;font-size:12px}
 .kinds a.on{background:#111827;border-color:#111827;color:#fff}.kinds a small{color:#9ca3af;margin-left:4px}.kinds a.on small{color:#d1d5db}
 .empty{color:#6b7280;padding:24px 0}
+.rerun{border:1px solid #d1d5db;border-radius:6px;padding:1px 7px;background:#fff;font:500 11px system-ui;color:#374151;cursor:pointer;margin-left:6px;text-transform:none;letter-spacing:0}
+.kinds .sep{flex:1}.kinds button{border:1px solid #e5e7eb;border-radius:8px;padding:4px 10px;background:#fff;font-size:12px;cursor:pointer}
+.kinds button.on{background:#eff6ff;border-color:#93c5fd}
+#pick{border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin:0 0 12px;display:none}#pick.open{display:block}
+#pick .ptools{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+#pick input[type=search]{flex:1;min-width:200px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;font-size:12px}
+#pick .ptools button{border:1px solid #d1d5db;border-radius:6px;padding:3px 8px;background:#fff;font-size:12px;cursor:pointer}
+#pick .ptools .go{background:#2563eb;border-color:#2563eb;color:#fff}#pick .ptools .go:disabled{opacity:.5}
+#pick .plist{max-height:320px;overflow:auto;font:12px ui-monospace,monospace}
+#pick label{display:grid;grid-template-columns:18px 1fr 60px 60px;gap:6px;padding:2px 4px;border-radius:4px;cursor:pointer}
+#pick label:hover{background:#f9fafb}#pick label .fl{color:#dc2626}#pick label .n{color:#9ca3af;text-align:right}
 body.norun .kpis,body.norun h2,body.norun details{display:none}body.running .empty{display:none}
 body.running .kpis,body.running h2,body.running details,body.running .grp,body.running .f{display:none}
 #prog:not(:empty){margin:4px 0 14px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb}

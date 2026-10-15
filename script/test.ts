@@ -5,6 +5,7 @@
 //   *.live.test.ts   live         the real network and real accounts — only on demand
 //
 //   bun script/test.ts [fast|it|live|all] [bun test flags…] [paths…]
+//   bun script/test.ts <kind> --list [paths…]     print the files, one per line, run nothing
 //
 // "all" = fast + it (never live). Paths default to src, plugins and script. The files are
 // listed here and passed to bun explicitly, so bun never walks the tree itself.
@@ -45,6 +46,7 @@ if (import.meta.main) {
     const flags = args.filter(a => a.startsWith("-"));
     const paths = args.filter(a => !a.startsWith("-"));
     const files = testFiles(kind, paths.length ? paths : undefined);
+    if (flags.includes("--list")) { if (files.length) console.log(files.join("\n")); process.exit(0); }
     if (!files.length) { console.error(`no ${kind} tests under ${paths.join(" ") || "src plugins script"}`); process.exit(0); }
     const p = Bun.spawn({
         cmd: ["bun", "test", "--parallel=16", "--no-isolate", ...flags, ...files.map(f => "./" + f)],

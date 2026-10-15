@@ -12,6 +12,7 @@ const unxml = (s: string) => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").r
  * Summarises the last full test run: totals, slowest files with their slowest tests, slowest tests and failures, each with a highlighted code snippet of the test.
  * Use to look at test speed and failures without rerunning; returns null when no run has been recorded yet. Start a fresh run with code.runTests.
  * @param opts.kind Which run to read: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts) or all. @default "fast"
+ * @param opts.picked Read the last run of picked files (code.runTests with a path) instead of the full run of the kind. @default false
  * @param opts.top How many slow files and slow tests to list. @default 10 @minimum 1 @maximum 50
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
@@ -19,6 +20,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     top?: number;
     /** Which run to read: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts) or all. @default "fast" */
     kind?: types.code.TestKind;
+    /** Read the last run of picked files (code.runTests with a path) instead of the full run of the kind. @default false */
+    picked?: boolean;
 }): Promise<{
     tests: number; failures: number; skipped: number; wall: number; nfiles: number; total: number; at: number | null;
     top: { f: string; ms: number; tests: T[] }[]; slowTests: T[]; fails: F[];
@@ -27,7 +30,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const ws = String((ctx.state as any).root);
     const kind: types.code.TestKind = opts.kind ?? "fast";
     if (!["fast", "it", "live", "all"].includes(kind)) throw new Error("invalid test kind: " + kind);
-    const xf = Bun.file(`${ws}/.runtime/test-report-${kind}.xml`);
+    const xf = Bun.file(`${ws}/.runtime/test-report-${opts.picked ? "picked" : kind}.xml`);
     const run = ctx.fns.code.testRunStatus({});
     if (!(await xf.exists())) return null;
     const xml = await xf.text();

@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkTestCtx } from "../_testCtx.entry";
@@ -28,5 +28,29 @@ test("code.tests reads timings + junit report; null without a run", async () => 
     expect(ctx.fns.code.testRunStatus({})).toEqual({ running: false });
     // each kind has its own report: no integration run recorded yet
     expect(await ctx.fns.code.tests({ kind: "it" })).toBeNull();
+    rmSync(root, { recursive: true, force: true });
+});
+
+test("code.testFiles lists one kind with its last results; a picked run keeps its own report", async () => {
+    const ctx: any = await mkTestCtx({ db: false });
+    const root = join(tmpdir(), "hyper-code-testfiles-" + process.pid);
+    rmSync(root, { recursive: true, force: true });
+    for (const d of [".runtime", "src/m", "script"]) mkdirSync(join(root, d), { recursive: true });
+    // the listing comes from the project's own script/test.ts
+    copyFileSync(join(import.meta.dir, "../../script/test.ts"), join(root, "script/test.ts"));
+    ctx.state.root = root;
+    for (const f of ["a.test.ts", "b.test.ts", "c.it.test.ts", "d.live.test.ts"]) writeFileSync(join(root, "src/m", f), "");
+    writeFileSync(join(root, ".runtime/test-report-fast.xml"), `<testsuites name="bun test" tests="3" failures="1" skipped="0" time="1">
+<testsuite name="src/m/a.test.ts" file="src/m/a.test.ts" tests="3" assertions="3" failures="1" skipped="0" time="0.25">
+</testsuite></testsuites>`);
+    expect(await ctx.fns.code.testFiles({})).toEqual([
+        { file: "src/m/a.test.ts", tests: 3, failures: 1, ms: 250 },
+        { file: "src/m/b.test.ts", tests: null, failures: null, ms: null },
+    ]);
+    expect((await ctx.fns.code.testFiles({ kind: "it" })).map((f: any) => f.file)).toEqual(["src/m/c.it.test.ts"]);
+    expect((await ctx.fns.code.testFiles({ kind: "all" })).length).toBe(3);
+    // the picked report is separate from the kind's full report
+    expect(await ctx.fns.code.tests({ picked: true })).toBeNull();
+    expect((await ctx.fns.code.tests({})).failures).toBe(1);
     rmSync(root, { recursive: true, force: true });
 });

@@ -136,7 +136,7 @@ Order and visibility are not the plugin's call: the `dock.layout` setting (`{ "t
 
 ### Global menu widgets and search
 
-The global menu (⌘/) has tabs on top (Home, Plugins, the person's own). While the search box is empty a tab shows a grid of widget tiles; once the person types, the tab's search sources answer in groups. Both come from plugin files; ids are `<namespace>.<name>`. Rows are always `types.nav.Item` and the menu draws them itself, so ⌘J/⌘K, ↵, ⌘↵ and 📌 work everywhere.
+The global menu (⌘/) has tabs on top (Home, Plugins, the person's own). While the search box is empty a tab shows a grid of widget tiles; once the person types, the tab's search sources answer in groups. Both come from plugin files; ids are `<namespace>.<name>`. Rows are always `types.nav.Item` and the menu draws them itself, so ⌘J/⌘K (rows), ⌘←/⌘→ (next widget or group), ↵, ⌘↵ and 📌 work everywhere.
 
 ```ts
 // src/example/$widget_alerts.ts — a tile; the person may place it several times with different config

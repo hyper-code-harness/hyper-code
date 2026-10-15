@@ -16,7 +16,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     </div>
     <div id="nav-results" class="min-h-0 flex-1 overflow-y-auto"></div>
     <div class="flex gap-4 border-t border-ui-border bg-base-200 px-4 py-1.5 text-3xs text-subtle">
-      <span>⌘J/⌘K move</span><span>↵ open</span><span>⌘↵ beside</span><span>⌘1–9 tab</span><span class="ml-auto">⌘/ open</span>
+      <span>⌘J/⌘K move</span><span>⌘←/⌘→ widget</span><span>↵ open</span><span>⌘↵ beside</span><span>⌘1–9 tab</span><span class="ml-auto">⌘/ open</span>
     </div>
   </div>
 </div>
@@ -41,6 +41,17 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     const list = rows();
     if (!list.length) return;
     sel = (sel + delta + list.length) % list.length;
+    mark();
+  };
+  // ⌘← / ⌘→ jump to the previous / next widget tile (or search group), landing on its first row.
+  const jump = delta => {
+    const list = rows();
+    if (!list.length) return;
+    const box = row => row.closest('[data-nav-widget],[data-nav-group]');
+    const boxes = [...new Set(list.map(box))];
+    const at = boxes.indexOf(box(list[sel]));
+    const next = boxes[(at + delta + boxes.length) % boxes.length];
+    sel = list.findIndex(row => box(row) === next);
     mark();
   };
   const openSelected = beside => {
@@ -107,6 +118,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     if (event.key === 'Escape') { event.preventDefault(); window.__navClose(); return; }
     if (event.key === 'ArrowDown' || ((event.metaKey || event.ctrlKey) && key === 'j')) { event.preventDefault(); move(1); return; }
     if (event.key === 'ArrowUp' || ((event.metaKey || event.ctrlKey) && key === 'k')) { event.preventDefault(); move(-1); return; }
+    if ((event.metaKey || event.ctrlKey) && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) { event.preventDefault(); jump(event.key === 'ArrowRight' ? 1 : -1); return; }
     if ((event.metaKey || event.ctrlKey) && /^[1-9]$/.test(event.key)) {
       const tab = tabs()[Number(event.key) - 1];
       if (tab) { event.preventDefault(); showTab(tab.getAttribute('data-nav-tab')); }

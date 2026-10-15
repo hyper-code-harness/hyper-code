@@ -20,6 +20,8 @@ const prog = document.createElement("div"); prog.id = "prog";
 document.querySelector(".kpis").before(prog);
 const fmt = ms => Math.round(ms / 1000) + " s";
 function show(r) {
+    // while a run is going the old report is stale: show only the live progress
+    document.body.classList.toggle("running", !!r.running);
     btn.disabled = !!r.running;
     btn.textContent = r.running ? "Running…" : "Run";
     if (!r.running) {

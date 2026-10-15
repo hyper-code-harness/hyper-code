@@ -31,6 +31,7 @@ details[open]>summary .name{color:#2563eb}
 .run{margin-left:auto;border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:5px 14px;font:600 12px Inter,system-ui;cursor:pointer}
 .run[disabled]{background:#93c5fd;border-color:#93c5fd;cursor:default}
 .status{color:#6b7280;font-size:12px}
+body.running .kpis,body.running h2,body.running details,body.running .grp,body.running .f{display:none}
 #prog:not(:empty){margin:4px 0 14px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb}
 .pbar{display:flex;height:14px;border-radius:7px;background:#e5e7eb;overflow:hidden}.pbar i{display:block;height:100%;transition:width .4s}
 .pp{background:#22c55e}.pf{background:#ef4444}.ps{background:#9ca3af}

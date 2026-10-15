@@ -22,10 +22,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     run: types.code.TestRun | { running: false };
 } | null> {
     const ws = String((ctx.state as any).root);
-    const tf = Bun.file(ws + "/.runtime/test-timings.json"), xf = Bun.file(ws + "/.runtime/test-report.xml");
+    const xf = Bun.file(ws + "/.runtime/test-report.xml");
     const run = ctx.fns.code.testRunStatus({});
-    if (!(await tf.exists()) || !(await xf.exists())) return null;
-    const timings: Record<string, number> = JSON.parse(await tf.text()).files ?? {};
+    if (!(await xf.exists())) return null;
     const xml = await xf.text();
     const head = xml.match(/<testsuites [^>]*tests="(\d+)"[^>]*failures="(\d+)"[^>]*skipped="(\d+)"[^>]*time="([\d.]+)"/);
     const n = Math.max(1, Math.min(50, opts.top ?? 10));
@@ -36,7 +35,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     for (const m of xml.matchAll(/<testcase name="([^"]*)" classname="([^"]*)" time="([\d.]+)" file="([^"]*)"[^>]*>\s*<failure type="([^"]*)" message="([^"]*)"/g))
         fails.push({ name: unxml(m[1]!), cls: unxml(m[2]!), s: +m[3]!, file: m[4]!, type: m[5]!, msg: m[6]!.slice(0, 160) });
     const slowTests = [...all].sort((a, b) => b.s - a.s).slice(0, n);
-    const files = Object.entries(timings).map(([f, ms]) => ({ f, ms })).sort((a, b) => b.ms - a.ms);
+    // per-file time from this run's report: the timings file is merged across runs and keeps deleted files
+    const files = [...xml.matchAll(/<testsuite name="([^"]*)" file="([^"]*)"[^>]*time="([\d.]+)"/g)]
+        .filter(m => m[1] === m[2]).map(m => [m[0], m[2], m[3]] as const)   // top-level suites only, not describe blocks
+        .map(m => ({ f: m[1]!, ms: Math.round(+m[2]! * 1000) })).sort((a, b) => b.ms - a.ms);
     const top = files.slice(0, n).map(f => ({
         ...f,
         tests: all.filter(t => t.file === f.f || "src/" + t.file === f.f).sort((a, b) => b.s - a.s).slice(0, 15).map(t => ({ ...t })),

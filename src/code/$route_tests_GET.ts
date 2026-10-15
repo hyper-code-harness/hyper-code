@@ -31,4 +31,10 @@ details[open]>summary .name{color:#2563eb}
 .run{margin-left:auto;border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:5px 14px;font:600 12px Inter,system-ui;cursor:pointer}
 .run[disabled]{background:#93c5fd;border-color:#93c5fd;cursor:default}
 .status{color:#6b7280;font-size:12px}
+#prog:not(:empty){margin:4px 0 14px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb}
+.pbar{display:flex;height:14px;border-radius:7px;background:#e5e7eb;overflow:hidden}.pbar i{display:block;height:100%;transition:width .4s}
+.pp{background:#22c55e}.pf{background:#ef4444}.ps{background:#9ca3af}
+.pnum{margin-top:6px;font-size:12px;color:#374151;font-variant-numeric:tabular-nums}.okc{color:#16a34a}.badc{color:#dc2626}
+.pcur{font:11px ui-monospace,Menlo,monospace;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pfl{margin-top:6px;font:11px ui-monospace,Menlo,monospace;color:#b91c1c;max-height:160px;overflow:auto}
 `;

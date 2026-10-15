@@ -17,6 +17,6 @@
  * @param opts.submit Form identifier to submit.
  * @param opts.title Optional tour title.
  */
-export default async function (ctx: Context, _session: Session | null, opts: types.tour.Step & { title?: string }) {
+export default async function (ctx: Context, _session: Session | null, opts: types.screen.TourStep & { title?: string }) {
     return await ctx.fns.screen.eval({ code: `return window.page.step(${JSON.stringify(opts)})`, timeoutMs: 20_000 });
 }

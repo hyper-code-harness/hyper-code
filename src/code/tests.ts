@@ -19,7 +19,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }): Promise<{
     tests: number; failures: number; skipped: number; wall: number; nfiles: number; total: number; at: number | null;
     top: { f: string; ms: number; tests: T[] }[]; slowTests: T[]; fails: F[];
-    run: { running: boolean; startedAt?: number; exitCode?: number | null };
+    run: types.code.TestRun | { running: false };
 } | null> {
     const ws = String((ctx.state as any).root);
     const tf = Bun.file(ws + "/.runtime/test-timings.json"), xf = Bun.file(ws + "/.runtime/test-report.xml");

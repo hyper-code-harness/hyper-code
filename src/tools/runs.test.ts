@@ -10,12 +10,19 @@ import { testCtx } from "../$test";
 
 const ctx = await testCtx();
 
+// Poll instead of guessing how long a spawn takes: returns as soon as ok(value).
+async function until<T>(fn: () => T, ok: (v: T) => boolean, ms = 5000): Promise<T> {
+    const end = Date.now() + ms;
+    let v = fn();
+    while (!ok(v) && Date.now() < end) { await Bun.sleep(10); v = fn(); }
+    return v;
+}
+const bashRuns = () => ctx.fns.tools.runs({}).filter((r: any) => r.name === "bash");
+
 test("tools.runs exposes a running call, then forgets it", async () => {
     const before = ctx.fns.tools.runs({}).length;
     const call = ctx.fns.tools.call({ name: "bash", args: { command: "echo hello; sleep 5" } });
-    await Bun.sleep(900);
-
-    const live = ctx.fns.tools.runs({}).filter((r: any) => r.name === "bash");
+    const live = await until(bashRuns, l => l.length === 1 && String(l[0]!.tail).includes("hello"));
     expect(live.length).toBe(1);
     // The tail is the proof of life: output is visible before the call ends.
     expect(live[0]!.tail).toContain("hello");
@@ -34,8 +41,7 @@ test("tools.runs exposes a running call, then forgets it", async () => {
 test("an aborted call returns far sooner than its command would have", async () => {
     const started = Date.now();
     const call = ctx.fns.tools.call({ name: "bash", args: { command: "sleep 30" } });
-    await Bun.sleep(600);
-    const run = ctx.fns.tools.runs({}).find((r: any) => r.name === "bash");
+    const run = (await until(bashRuns, l => l.length > 0))[0];
     expect(run).toBeTruthy();
     ctx.fns.tools.abortRun({ id: run!.id });
     await call;
@@ -45,9 +51,10 @@ test("an aborted call returns far sooner than its command would have", async () 
 
 test("the longest-running call is reported first", async () => {
     const slow = ctx.fns.tools.call({ name: "bash", args: { command: "sleep 6" } });
-    await Bun.sleep(800);
+    await until(bashRuns, l => l.length === 1);
+    await Bun.sleep(20); // distinct startedAt
     const quick = ctx.fns.tools.call({ name: "bash", args: { command: "sleep 3" } });
-    await Bun.sleep(400);
+    await until(bashRuns, l => l.length === 2);
 
     // A user waiting on a long call must not be shown a short one instead.
     const first = ctx.fns.tools.runs({})[0];

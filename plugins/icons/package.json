@@ -1,0 +1,11 @@
+{
+  "name": "icons",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Icons",
+    "icon": "ph-shapes",
+    "description": "Search local Lucide SVG icons and install consistently padded chat icons."
+  }
+}

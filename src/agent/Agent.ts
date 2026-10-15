@@ -14,7 +14,9 @@ export type Agent = {
      *  = every loaded tool. What is excluded here never reaches the prompt or
      *  the provider's tool list, so it costs no prefix tokens either. */
     tools?: string[];
-    messages: any[];                        // synchronized runtime view of DB-backed transcript
+    /** Runtime-only inherited prefix length recorded by syncAgentState; never serialized. */
+    inheritedMessageCount?: number;
+    messages: types.session.Message[];                        // synchronized runtime view of DB-backed transcript
     events: any[];                          // synchronized runtime view of DB-backed event trace
     cursors: Record<string, number>;
     subscribers: Set<(ev: any, signal?: AbortSignal) => void>;

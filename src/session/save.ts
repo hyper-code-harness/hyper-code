@@ -1,4 +1,4 @@
-/** Save for the runtime. */
+/** Persist agent state, own transcript rows and events, retaining result references and durable scratchpad plans. A synchronized fork's inherited prefix is not duplicated. */
 export default async function (ctx: Context, session: Session | null, opts: {
         /** Live agent instance to operate on. */
 agent: types.agent.Agent }): Promise<void> {
@@ -67,12 +67,15 @@ agent: types.agent.Agent }): Promise<void> {
         ],
     });
 
+    // A live fork's synchronized transcript includes its inherited prefix; only
+    // its own suffix belongs in this agent's rows. Fresh forks have no messages.
+    const inheritedCount = agent.parentId ? (agent.inheritedMessageCount ?? 0) : 0;
+    const messages: types.session.Message[] = (agent.messages ?? []).slice(inheritedCount);
     await ctx.fns.procs.db.run({ sql: 'DELETE FROM messages WHERE agent_id = ?', params: [agent.id] });
-    const messages: any[] = agent.messages ?? [];
     for (let idx = 0; idx < messages.length; idx++) {
         const message: any = messages[idx];
         await ctx.fns.procs.db.run({
-            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author, result_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)',
             params: [
                 agent.id,
                 idx,
@@ -85,6 +88,7 @@ agent: types.agent.Agent }): Promise<void> {
                 message.excluded_from_llm ? 1 : 0,
                 message.excluded_from_cursor ? 1 : 0,
                 message.author ?? null,
+                message.result_ref == null ? null : JSON.stringify(message.result_ref),
             ],
         });
     }

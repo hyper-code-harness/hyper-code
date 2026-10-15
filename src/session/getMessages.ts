@@ -1,4 +1,4 @@
-/** Get messages for the runtime. */
+/** Load an agent's own persisted transcript with parsed result references. Result bodies remain on disk and are not read here. */
 export default async function (
     ctx: Context,
     _session: Session | null,
@@ -7,7 +7,7 @@ export default async function (
     id: string;
         /** Whether to include entries excluded from the processing cursor. */
     includeExcluded?: boolean },
-): Promise<any[]> {
+): Promise<types.session.Message[]> {
     const { id } = opts;
     const includeExcluded = opts.includeExcluded === true;
     const rows = (await ctx.fns.procs.db.select({
@@ -33,6 +33,7 @@ export default async function (
         // JSONB comes back parsed on some drivers and as text on others.
         if (r.tool_calls != null) m.tool_calls = typeof r.tool_calls === "string" ? JSON.parse(r.tool_calls) : r.tool_calls;
         if (r.tool_call_id != null) m.tool_call_id = r.tool_call_id;
+        if (r.result_ref != null) m.result_ref = typeof r.result_ref === "string" ? JSON.parse(r.result_ref) : r.result_ref;
         if (Number(r.excluded_from_llm ?? 0) !== 0) m.excluded_from_llm = true;
         if (r.message_type != null && r.message_type !== "message") m.message_type = r.message_type;
         if (Number(r.excluded_from_cursor ?? 0) !== 0) m.excluded_from_cursor = true;

@@ -18,6 +18,7 @@ export default async function (
         host?: string;
     },
 ): Promise<Response> {
+    if (await ctx.fns.files.isPrivateResult({ path: opts.path, host: opts.host })) return new Response("not found", { status: 404 });
     const { stat } = await import("node:fs/promises");
     const { extname } = await import("node:path");
     const remote = opts.host ? await ctx.fns.remote.stat({ host: opts.host, path: opts.path }).catch(() => null) : null;

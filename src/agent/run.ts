@@ -316,13 +316,13 @@ export default async function (
         let terminal: { type: 'html'; html: string; text: string } | undefined;
         for (const call of toolCalls) {
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
-            const output = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
+            const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
 
             // Events store data, never rendered markup. renderEventHtml builds
             // the current view on every read, so renderer improvements apply to
             // old calls too (including edit diff cards).
             await ctx.fns.session.appendToolCallEvent({ id: agent.id, payload: {
-                name: call.name, args: call.args, result: output,
+                name: call.name, args: call.args, result: output, result_ref,
                 isError: r.isError,
                 messageIdx: append.idx,
             } });
@@ -331,6 +331,7 @@ export default async function (
                 id: agent.id,
                 idx: pending[call.id]!,
                 content: r.content?.length ? [{ type: 'text', text: output }, ...r.content] : output,
+                result_ref,
             });
             if (!r.isError && r.terminal?.type === 'html') terminal = r.terminal;
         }

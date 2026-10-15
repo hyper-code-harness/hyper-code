@@ -1,4 +1,4 @@
-/** Append message for the runtime. */
+/** Append a transcript message, preserving native tool identity and immutable result metadata. Retries with clientRequestId are idempotent. */
 export default async function (
     ctx: Context,
     session: Session | null,
@@ -6,7 +6,7 @@ export default async function (
         /** Agent identifier. */
     id: string;
         /** Message to persist or process. */
-    message: any;
+    message: types.session.Message;
         /** Ts used by the operation. */
     ts?: number;
         /** Stable client submission id used to make retries idempotent. */
@@ -31,8 +31,8 @@ export default async function (
     for (let attempt = 0; ; attempt++) {
         try {
             const res = await ctx.fns.procs.db.run({
-        sql: `INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author, client_request_id)
-              SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM messages WHERE agent_id = ?
+        sql: `INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author, client_request_id, result_ref)
+              SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb FROM messages WHERE agent_id = ?
               ON CONFLICT (agent_id, client_request_id) WHERE client_request_id IS NOT NULL DO NOTHING
               RETURNING idx`,
         params: [
@@ -50,6 +50,7 @@ export default async function (
             message.excluded_from_cursor ? 1 : 0,
             message.author ?? null,
             opts.clientRequestId?.trim() || null,
+            message.result_ref == null ? null : JSON.stringify(message.result_ref),
             id,
         ],
             });
@@ -72,7 +73,7 @@ export default async function (
         && typeof message.content === 'string' && message.content.includes('@')
         && (message.message_type == null || message.message_type === 'message' || message.message_type === 'agent_message');
     if (said) {
-        await ctx.fns.mentions.record({ agentId: id, messageIdx: idx, text: message.content, from: message.role === 'assistant' ? `agent:${id}` : message.author ?? null })
+        await ctx.fns.mentions.record({ agentId: id, messageIdx: idx, text: String(message.content), from: message.role === 'assistant' ? `agent:${id}` : message.author ?? null })
             .catch((error: any) => ctx.fns.procs.log.warn({ event: 'mentions.record.failed', msg: String(error?.message ?? error), agentId: id }));
     }
     return { idx };

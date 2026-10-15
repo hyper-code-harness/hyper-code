@@ -44,6 +44,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Runtime state
 .runtime/
 .hyper/_runtime
+# Private immutable tool results (including nested instance roots)
+**/.hyper/results/
 .hyper/_test_*
 .hyper/_tmp_*
 .hyper/tmp_*

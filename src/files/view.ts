@@ -37,12 +37,15 @@ export default async function (
         assetsBase?: boolean;
     },
 ): Promise<{ title: string; html: string }> {
+    if (await ctx.fns.files.isPrivateResult({ path: opts.path, host: opts.host })) return { title: "not found", html: "<p>not found</p>" };
     if (opts.isDir) return renderDir(ctx, opts.path, !!opts.wide, !!opts.embed, opts.host);
     return renderFile(ctx, opts.path, opts.tab ?? "", !!opts.wide, !!opts.embed, opts.host, !!opts.assetsBase);
 }
 
 async function renderDir(ctx: Context, path: string, wide = false, embedded = false, host?: string) {
-    const entries = await ctx.fns.files.list({ path, host });
+    const listed = await ctx.fns.files.list({ path, host });
+    const visible = await Promise.all(listed.map(async entry => ({ entry, denied: await ctx.fns.files.isPrivateResult({ path: path ? `${path.replace(/\/$/, "")}/${entry.name}` : entry.name, host }) })));
+    const entries = visible.filter(item => !item.denied).map(item => item.entry);
     const crumbs = await breadcrumbs(ctx, path, embedded, host);
     const rows = (await Promise.all(entries.map(async (e, index) => {
         // Joining an absolute parent must not double the slash: "/" + "Users".

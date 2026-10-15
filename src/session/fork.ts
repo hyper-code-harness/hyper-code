@@ -1,4 +1,4 @@
-/** Fork for the runtime. */
+/** Create a child inheriting its parent's transcript and result references. Clone durable scratchpad state and plans, but omit obsolete result bodies and their sequence counter. */
 export default async function (ctx: Context, _session: Session | null, opts: {
         /** Agent identifier. */
 id: string;
@@ -23,7 +23,9 @@ visibility?: "nav" | "team" | "hidden" }): Promise<types.agent.Agent> {
         visibility: opts.visibility ?? "nav",
         forkOffset: opts.offset ?? fullCount,
     });
-    agent.scratchpad = JSON.parse(JSON.stringify(parent.scratchpad ?? {}));
+    // Omit obsolete result bodies before cloning, while preserving plans and other durable state.
+    const { results: _legacyResults, resultSeq: _legacyResultSeq, ...durableScratchpad } = parent.scratchpad ?? {};
+    agent.scratchpad = JSON.parse(JSON.stringify(durableScratchpad));
     await ctx.fns.session.save({ agent });
     await ctx.fns.events.emitAgentsChanged({ agentId: agent.id, reason: "fork" });
     return agent;

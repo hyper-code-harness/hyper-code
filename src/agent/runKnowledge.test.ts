@@ -13,7 +13,7 @@ function harness(turns: any[], scratchpad: any = { knowledgeTrackingEnabled: tru
         session: { forAgent: () => ({}), appendUserMessage: ({ text }: any) => appendMessage({ message: { role: 'user', content: text } }), appendMessage,
             syncAgentState: async () => { agent.messages = rows.map(r => ({ ...r })); }, appendAssistantEvent: noop, appendErrorEvent: noop, appendToolCallEvent: noop,
             updateMessageContent: async ({ idx, content }: any) => { rows[idx].content = content; } },
-        agent: { statusLineForTurn: async () => '', stashResult: async ({ output }: any) => output, sanitizeHtmlBody: ({ html }: any) => html },
+        agent: { statusLineForTurn: async () => '', stashResult: async ({ output }: any) => ({ content: output }), sanitizeHtmlBody: ({ html }: any) => html },
         procs: { db: { select: async () => [{ i: Math.max(-1, ...rows.filter(r => r.role === 'user').map(r => r.idx)) }] } },
         llm: { stream: async () => { const turn = turns.shift(); if (turn instanceof Error) throw turn; return turn ?? { text: 'done' }; } },
         markdown: { render: async ({ source }: any) => source },
@@ -24,6 +24,17 @@ function harness(turns: any[], scratchpad: any = { knowledgeTrackingEnabled: tru
 }
 
 describe('Knowledge completed-turn hook (isolated)', () => {
+    test('tool result references accompany preview in persisted messages and events', async () => {
+        const h = harness([{ toolCalls: [{ id: 't', name: 'read', args: {} }] }, { text: 'answer' }]);
+        const ref = { version: 1, id: 'result-uuid', ownerAgentId: 'mock', bytes: 7000, sha256: 'hash', kind: 'read' };
+        const events: any[] = [];
+        h.ctx.fns.agent.stashResult = async () => ({ content: 'bounded preview', result_ref: ref });
+        h.ctx.fns.session.updateMessageContent = async ({ idx, content, result_ref }: any) => Object.assign(h.rows[idx], { content, result_ref });
+        h.ctx.fns.session.appendToolCallEvent = async ({ payload }: any) => events.push(payload);
+        await h.execute();
+        expect(h.rows.find((r: any) => r.role === 'tool')).toMatchObject({ content: 'bounded preview', result_ref: ref });
+        expect(events[0]).toMatchObject({ result: 'bounded preview', result_ref: ref });
+    });
     test('direct run extracts once after final prose and completed tool rows', async () => {
         const h = harness([{ text: 'working', toolCalls: [{ id: 't', name: 'read', args: {} }] }, { text: 'answer' }]);
         await h.execute();

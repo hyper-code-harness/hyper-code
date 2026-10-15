@@ -24,6 +24,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
             return new Response(null, { status: 303, headers: { location: target + (tab ? `?tab=${encodeURIComponent(tab)}` : "") } });
         }
     }
+    if (await ctx.fns.files.isPrivateResult({ path, host })) return new Response("not found", { status: 404 });
     const st = host
         ? await ctx.fns.files.stat({ path, host }).then(s => s && { isDirectory: () => s.isDir }).catch(() => null)
         : await stat(ctx.fns.files.resolveSafe({ path })).catch(() => null);

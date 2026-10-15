@@ -1,9 +1,9 @@
-/** Replace messages for the runtime. */
+/** Replace an agent's own transcript rows while preserving supplied tool identity and result references. For forks, callers must supply only the own suffix, not inherited messages. */
 export default async function (ctx: Context, _session: Session | null, opts: {
         /** Agent identifier. */
 id: string;
         /** Messages to persist or process. */
-messages: any[];
+messages: types.session.Message[];
         /** Ts used by the operation. */
 ts?: number }): Promise<{ count: number }> {
     const { id, messages } = opts;
@@ -13,8 +13,8 @@ ts?: number }): Promise<{ count: number }> {
         const m: any = messages[i];
         await ctx.fns.procs.db.run({
             sql: `
-            INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author, result_ref)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
         `,
             params: [
                 id,
@@ -28,6 +28,7 @@ ts?: number }): Promise<{ count: number }> {
                 m.excluded_from_llm ? 1 : 0,
                 m.excluded_from_cursor ? 1 : 0,
                 m.author ?? null,
+                m.result_ref == null ? null : JSON.stringify(m.result_ref),
             ],
         });
     }

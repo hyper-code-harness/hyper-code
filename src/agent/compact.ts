@@ -32,6 +32,11 @@ export default async function (
     const { agent, summary: summaryRaw, message: from } = opts;
     await ctx.fns?.session?.syncAgentState?.({ agent });
 
+    // Replacement writes own rows only. Never materialize or mutate inherited
+    // history merely because the live transcript contains the parent's prefix.
+    const ownCount = agent.parentId ? (await ctx.fns.session.getMessages({id:agent.id})).length : agent.messages.length;
+    const inheritedCount = Math.max(0, agent.messages.length - ownCount);
+
     if (Number.isInteger(from)) {
         const idx = from as number;
         if (idx < 0 || idx >= agent.messages.length) {
@@ -44,26 +49,27 @@ export default async function (
             if (isToolResult(ctx, cur) || isAssistantInvocation(ctx, prev)) effectiveFrom -= 1;
             else break;
         }
+        if (effectiveFrom < inheritedCount) return {replaced:false};
         const dropped = agent.messages.slice(effectiveFrom);
         const before = dropped.reduce((n, m) => n + JSON.stringify(m).length, 0);
         const note = `[compacted from #${effectiveFrom}, ${dropped.length} msg(s)] ${summaryRaw}`;
         const next = agent.messages.slice(0, effectiveFrom);
         next.push({ role: "user", content: note });
-        await ctx.fns?.session?.replaceMessages?.({ id: agent.id, messages: next });
+        await ctx.fns?.session?.replaceMessages?.({ id: agent.id, messages: next.slice(inheritedCount) });
         await ctx.fns?.session?.syncAgentState?.({ agent });
         return { replaced: true, from: effectiveFrom, before, after: note.length };
     }
 
     // String form: shrink the most recent tool-result message in place.
     const summary = String(summaryRaw);
-    for (let i = agent.messages.length - 1; i >= 0; i--) {
+    for (let i = agent.messages.length - 1; i >= inheritedCount; i--) {
         const m = agent.messages[i];
-        if (!isToolResult(ctx, m)) continue;
+        if (!m || !isToolResult(ctx, m)) continue;
         const before = String(m.content ?? "").length;
         const newContent = `[compacted] ${summary}`;
         const next = agent.messages.slice();
         next[i] = { ...m, content: newContent };
-        await ctx.fns?.session?.replaceMessages?.({ id: agent.id, messages: next });
+        await ctx.fns?.session?.replaceMessages?.({ id: agent.id, messages: next.slice(inheritedCount) });
         await ctx.fns?.session?.syncAgentState?.({ agent });
         return { replaced: true, resultIdx: i, before, after: newContent.length };
     }

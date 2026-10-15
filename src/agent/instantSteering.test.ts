@@ -8,6 +8,7 @@ function harness() {
     const agent: any = { id: "a", model: "mock:test", title: "a", workspaceDir: process.cwd(), systemPrompt: "", messages: [...rows], events, scratchpad: {}, isStreaming: true, abortController: null, samplingAbortController: null };
     let streamCalls = 0;
     const ctx: any = { state: { agent: { a: agent } }, fns: {
+        auth: { actorId: async () => null },
         session: {
             forAgent: () => null,
             appendMessage: async ({ message }: any) => { const row = { ...message, idx: rows.length }; rows.push(row); return row; },
@@ -18,9 +19,9 @@ function harness() {
         },
         procs: { db: { select: async ({ sql }: any) => sql.includes("MAX(idx)") ? [{ i: Math.max(...rows.filter(r => r.role === "user" && !r.excluded_from_cursor).map(r => r.idx), -1) }] : [{ id: "a" }], run: async () => ({ changes: 1 }) }, ui: { escape: ({ text }: any) => text }, log: { warn: () => {} } },
         settings: { getNumber: async () => 0 }, attachments: { saveUploads: async () => [], commitUploads: async () => {}, resolveContent: async ({ messages }: any) => messages },
-        agent: { renderEventHtml: async () => "", wakeWorker: () => {}, statusLineForTurn: async () => "", buildLlmRequest: async () => ({ system: "", messages: agent.messages }), functionRag: async () => null, fullSystemPrompt: async () => "", cacheRoot: async () => "a", wireTools: () => [], stashResult: async ({ output }: any) => output },
+        agent: { renderEventHtml: async () => "", wakeWorker: () => {}, statusLineForTurn: async () => "", buildLlmRequest: async () => ({ system: "", messages: agent.messages }), functionRag: async () => null, fullSystemPrompt: async () => "", cacheRoot: async () => "a", wireTools: () => [], stashResult: async ({ output }: any) => ({ content: output }) },
         llm: { stream: async ({ signal }: any) => { streamCalls++; if (streamCalls === 1) return await new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true })); return { text: "steered answer", usage: {}, finishReason: "stop", toolCalls: [] }; } },
-        markdown: { render: async ({ source }: any) => source }, tools: { call: async () => ({ output: "" }) }, events: { refreshAgentMeta: () => {} },
+        markdown: { render: async ({ source }: any) => source }, tools: { runs: () => [], call: async () => ({ output: "" }) }, events: { refreshAgentMeta: () => {} },
     } };
     return { ctx, agent, rows, get streamCalls() { return streamCalls; } };
 }

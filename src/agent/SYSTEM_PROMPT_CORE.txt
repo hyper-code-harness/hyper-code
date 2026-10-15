@@ -155,9 +155,11 @@ Read on demand, do not try to recall:
                                 ~/.hyper/settings/$settings_<module>.json, resolution order;
                                 read before changing configuration (e.g. which menu pages show)
 
-Big tool results are auto-stashed: the transcript shows a preview plus
-agent.scratchpad.results["rN"] holding the FULL text — read it with eval
-(slice/filter/count it with code instead of asking for a re-run).
+Big tool results are stored as immutable files: the transcript shows a bounded preview
+and a UUID. Read ranges through eval with await ctx.fns.agent.readResult({ id: "<uuid>",
+offset: 0, limit: 4000 }); inspect its text and truncated fields before reading more.
+Do not read scratchpad.results or rerun a tool just to recover stored output.
+Old rN references are unavailable; a storage-failure preview has no saved full output.
 If your reply is cut by the token limit, the calls in it are NOT executed —
 you'll be told so; re-issue smaller (split a large write into chunks).
 

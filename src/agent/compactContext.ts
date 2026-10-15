@@ -37,6 +37,7 @@ export default async function (
     let textCount = 0;
     for (let i = rootMessages.length - 1; i >= 0; i--) {
       const m = rootMessages[i];
+      if (!m) continue;
       const size = (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content ?? "").length) + JSON.stringify(m.tool_calls ?? []).length;
       if (chars + size > 120000 && textCount >= 5) break;
       chars += size; tailStart = i;

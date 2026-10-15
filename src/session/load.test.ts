@@ -25,6 +25,8 @@ describe("session.load", () => {
         // fresh ctx, same db — simulate restart by sharing the pg pool (the
         // pg_temp schema follows the connection).
         const ctx2: any = await mkTestCtx();
+        ctx2.state.procs ??= {};
+        ctx2.state.procs.db ??= {};
         (ctx2.state as any).procs.db.sql = await ctx.fns.procs.db.conn();
         const loaded = await ctx2.fns.session.load({ id: original.id });
         expect(loaded).not.toBeNull();

@@ -146,7 +146,9 @@ export async function apply(ctx: Context, entries: any[], mounted: any[], opts: 
                 ...routes.filter((route: string) => route.endsWith("/client.js")).map((route: string) => route.slice("GET ".length)),
                 ...mine.filter((e: any) => e.kind === "script" && e.routePath?.endsWith("/client.js")).map((e: any) => e.routePath),
             ],
-            fns: mine.filter((e: any) => e.kind === "fn").map((e: any) => dottedName(e)),
+            // a lowercase file without a default export (procs/boot/requestCtx.ts: a
+            // leaf helper with a named export) registers no function — do not list it
+            fns: mine.filter((e: any) => e.kind === "fn" && !(e.mod && typeof e.fn !== "function")).map((e: any) => dottedName(e)),
             routes,
             hooks: mine.filter((e: any) => e.kind === "hook").map((e: any) => e.hookName),
             loaders: mine.filter((e: any) => e.kind === "loader").map((e: any) => e.loaderKind),

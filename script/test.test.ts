@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { kindOf, testFiles } from "./test";
+import { kindOf, testFiles, timeoutFlag, DEFAULT_TIMEOUT_MS } from "./test";
 
 test("the kind of a test is in its file name", () => {
     expect(kindOf("src/a/x.test.ts")).toBe("fast");
@@ -15,4 +15,10 @@ test("each kind lists only its own files; all = fast + it, never live", () => {
     expect(fast.some(f => f.endsWith(".it.test.ts") || f.endsWith(".live.test.ts"))).toBe(false);
     expect(all.length).toBe(fast.length + it.length);
     expect([...fast, ...it, ...live].some(f => f.includes("node_modules"))).toBe(false);
+});
+
+test("a per-test timeout is set unless the caller sets one", () => {
+    expect(timeoutFlag([], {})).toEqual([`--timeout=${DEFAULT_TIMEOUT_MS}`]);
+    expect(timeoutFlag([], { TEST_TIMEOUT_MS: "60000" })).toEqual(["--timeout=60000"]);
+    expect(timeoutFlag(["--timeout=1000"], { TEST_TIMEOUT_MS: "60000" })).toEqual([]);
 });

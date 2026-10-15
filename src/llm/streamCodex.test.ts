@@ -34,6 +34,7 @@ function mkCtx(): Context {
             accountAuthHealth: async () => [],
             parseSSE: (opts: any) => parseSSE(ctx, null, opts),
             connectFetch: (o: any) => fetch(o.url, o.init),
+            codexCliVersion: async () => "0.0.0-test",
         },
     };
     return ctx as unknown as Context;

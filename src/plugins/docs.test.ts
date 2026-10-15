@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { testCtx } from "../$test";
 
-const ctx = await testCtx();
+const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });   // official plugins only, not this machine's user plugins
 
 describe("generated plugin docs", () => {
     test("deduplicates mounted functions and exposes runtime metadata", () => {

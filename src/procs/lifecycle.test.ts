@@ -8,7 +8,11 @@ import { tmpdir } from "node:os";
 const ctx = await testCtx();
 
 test("lifecycle.order reads package.json proc.prod keys (http last)", async () => {
-    expect(await ctx.fns.procs.lifecycle.order({})).toEqual(["procs/log", "procs/telemetry", "procs/db", "procs/migrate", "procs/repl", "agent", "procs/http"]);
+    // the order is package.json's procs.prod, with procs/http moved to the end
+    const prod = Object.keys((await Bun.file(new URL("../../package.json", import.meta.url).pathname).json()).procs.prod);
+    const order = await ctx.fns.procs.lifecycle.order({});
+    expect(order).toEqual([...prod.filter(k => k !== "procs/http"), "procs/http"]);
+    expect(order.slice(0, 3)).toEqual(["procs/log", "procs/telemetry", "procs/db"]);
 });
 
 // A host mounts modules it did not write. One of them failing to start — a

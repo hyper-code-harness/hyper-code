@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test";
 import { testCtx } from "../../$test";
 
-const ctx = await testCtx();
+const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });   // official plugins only, not this machine's user plugins
 
 test("every mounted plugin function exposes docs and a parameter schema", () => {
     const seen = new Set<string>();

@@ -41,6 +41,10 @@ export async function testCtx(opts?: { root?: string; workdir?: string; env?: Re
     // project would otherwise fight over one global, and the loser mounts the
     // wrong thing (this is exactly what happened).
     if (opts?.workdir) ctx.env.WORKDIR = opts.workdir;
+    // The repo's own workspace.json is local and untracked: each machine declares
+    // its private ~/.hyper/user plugins there. A test must not mount whatever this
+    // machine happens to have — only an explicit opts.workdir brings one in.
+    if (!opts?.workdir) ctx.env.PROCS_IGNORE_WORKSPACE = "1";
     // Never inherit installed plugins from the developer's environment or the
     // host manifest. Tests of plugin discovery may explicitly opt into disposable fixtures via
     // opts.env; those fixtures must not migrate persistent/qualified schemas.

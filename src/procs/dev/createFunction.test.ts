@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { testCtx } from "../../$test";
 
-const ctx = await testCtx();
+const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });   // official plugins only, not this machine's user plugins
 
 test("createFunction requires complete authoring metadata", async () => {
     await expect(ctx.fns.procs.dev.createFunction({ module: "demo", name: "ping", summary: "Short", description: "Too short", params: [], returnType: "Promise<string>", body: "return 'pong';", dryRun: true })).rejects.toThrow("summary");

@@ -10,6 +10,11 @@
 // "all" = fast + it (never live). Paths default to src, plugins and script. The files are
 // listed here and passed to bun explicitly, so bun never walks the tree itself.
 // code.runTests (the Tests page) starts this same script.
+//
+// Per-test timeout: bun's 5 s is too tight for 16 parallel files on a busy machine —
+// a test that needs 1.5 s alone (first testCtx: template db + module load) times out
+// at load ~20 without anything being wrong. Default 20 s; TEST_TIMEOUT_MS or an
+// explicit --timeout=<ms> overrides it.
 
 import { Glob } from "bun";
 import { existsSync, statSync } from "node:fs";
@@ -19,6 +24,13 @@ export const KINDS = ["fast", "it", "live", "all"] as const;
 export type Kind = typeof KINDS[number];
 
 const ROOT = resolve(import.meta.dir, "..");
+export const DEFAULT_TIMEOUT_MS = 20_000;
+
+export function timeoutFlag(flags: string[], env: Record<string, string | undefined> = process.env): string[] {
+    if (flags.some(f => f === "--timeout" || f.startsWith("--timeout="))) return [];
+    const ms = Number(env.TEST_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
+    return [`--timeout=${ms}`];
+}
 
 export function kindOf(file: string): "fast" | "it" | "live" {
     return file.endsWith(".live.test.ts") ? "live" : file.endsWith(".it.test.ts") ? "it" : "fast";
@@ -49,7 +61,7 @@ if (import.meta.main) {
     if (flags.includes("--list")) { if (files.length) console.log(files.join("\n")); process.exit(0); }
     if (!files.length) { console.error(`no ${kind} tests under ${paths.join(" ") || "src plugins script"}`); process.exit(0); }
     const p = Bun.spawn({
-        cmd: ["bun", "test", "--parallel=16", "--no-isolate", ...flags, ...files.map(f => "./" + f)],
+        cmd: ["bun", "test", "--parallel=16", "--no-isolate", ...timeoutFlag(flags), ...flags, ...files.map(f => "./" + f)],
         cwd: ROOT, stdio: ["inherit", "inherit", "inherit"],
     });
     process.exit(await p.exited);

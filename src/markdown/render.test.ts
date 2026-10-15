@@ -25,7 +25,8 @@ describe("markdown.render", () => {
         expect(html).toContain('class="md-frontmatter"');
         expect(html).toContain("<th>name</th><td>google</td>");
         expect(html).toContain("Search &amp; mail");
-        expect(html).toContain("- gmail");
+        // a list value is shown as YAML; Bun's stringify style (block or flow) is not pinned
+        expect(html).toMatch(/<th>tags<\/th><td>[^<]*gmail[^<]*calendar[^<]*<\/td>/);
         expect(html).toContain("<h1>Google</h1>");
         expect(html).not.toContain("<hr>");
     });
@@ -42,8 +43,9 @@ describe("markdown.render", () => {
     test("code block gets shiki-highlighted", async () => {
         const ctx = mkCtx();
         const html = await render(ctx, null, { source: "```js\nconst x = 42;\n```" });
-        expect(html).toContain("class=\"shiki github-light\"");
-        expect(html).toContain("style=\"color:");
+        // dual theme: light and dark colours as CSS variables, the page picks one
+        expect(html).toContain('class="shiki shiki-themes github-light github-dark"');
+        expect(html).toContain("--shiki-light:");
         expect(html).not.toContain("<pre><code class=\"language-js\">");
     });
 

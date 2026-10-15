@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { testCtx } from "../$test";
 
-const ctx = await testCtx();
+const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });   // official plugins only, not this machine's user plugins
 
 describe("plugins.index", () => {
     test("stores each mounted plugin once with SKILL workflow text", async () => {
@@ -13,6 +13,6 @@ describe("plugins.index", () => {
         expect(result.indexed).toBeGreaterThanOrEqual(2);
         expect(rows.map((row: any) => row.name)).toEqual(["arxiv", "research"]);
         expect(rows[0].skill_text).toContain("public arXiv Atom API");
-        expect(rows[1].search_text).toContain("Consensus web subscription");
+        expect(rows[1].search_text).toContain("official Consensus REST API");   // from plugins/research/SKILL.md
     });
 });

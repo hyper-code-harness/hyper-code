@@ -12,5 +12,9 @@ test("wake preset overrides the custom minutes input", async () => {
     });
     const response = await route(ctx, null, { req, params: { id: agent.id } });
     expect(response.status).toBe(204);
-    expect(agent.wakeAt).toBeGreaterThanOrEqual(before + 60 * 60_000);
+    // agent.wake records a one-shot trigger; the preset (60) wins over minutes (5)
+    const [trigger] = await ctx.fns.agent.triggers({ id: agent.id });
+    expect(trigger.prompt).toBe("one hour");
+    expect(Number(trigger.nextAt)).toBeGreaterThanOrEqual(before + 60 * 60_000);
+    expect(Number(trigger.nextAt)).toBeLessThan(before + 61 * 60_000);
 });

@@ -40,7 +40,8 @@ export default async function (ctx: Context, session: Session | null, opts: { wo
     const app = await Bun.file(`${projectRootFn(ctx, session, {})}/package.json`).json()
         .then((pkg: any) => pkg.procs?.modules ?? pkg.proc?.modules ?? {})
         .catch(() => ({}));
-    const project = await Bun.file(`${opts.workdir}/workspace.json`).json()
+    // PROCS_IGNORE_WORKSPACE (the test harness): this machine's local workspace.json is not read
+    const project = ctx.env.PROCS_IGNORE_WORKSPACE ? {} : await Bun.file(`${opts.workdir}/workspace.json`).json()
         .then((manifest: any) => manifest.modules ?? manifest.plugins ?? {})   // `plugins` is the older spelling
         .catch(() => ({}));
     // `false` is meaningful — "not mounted, do not read its files". Anything

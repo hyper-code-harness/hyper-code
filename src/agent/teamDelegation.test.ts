@@ -23,10 +23,6 @@ async function setup() {
     return ctx;
 }
 
-const escapeHtml = ({ text }: any) => String(text)
-    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-
 describe("team delegation", () => {
     test("delegate forks a child and assigns the native session plan", async () => {
         const ctx = await setup();
@@ -171,14 +167,9 @@ describe("team delegation", () => {
 
 
     test("parent Meta panel renders child plans in Team", async () => {
-        const ctx: any = { fns: {
-            procs: { ui: { escape: escapeHtml } },
-            ui: {
-                toggle: () => "", wakeTimer: () => "", planTaskRow: () => "",
-                live: (opts: any) => opts.html,
-            },
-        } };
-        const html = renderMeta(ctx, null, {
+        // the real UI helpers (button, toggle, sections…), not hand stubs that fall behind them
+        const ctx: any = await mkTestCtx({ db: false });
+        const html = await renderMeta(ctx, null, {
             agent: { id: "p", scratchpad: {}, goal: null } as any,
             archivedTeam: [{ id: "z", title: "Old research", runState: "idle", status: "ready", summary: "Archived result", updatedAt: 1, archivedAt: 2, plan: { tasks: [] } }],
             team: [{ id: "c", title: "Research", runState: "running", status: "working", summary: null, updatedAt: 1, plan: { tasks: [

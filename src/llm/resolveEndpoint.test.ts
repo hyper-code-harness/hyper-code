@@ -27,10 +27,13 @@ const mkCtx = (env: Record<string, string> = {}) => {
         settings: {
             getString: (opts: any) => getString(ctx, null, opts),
             get: (opts: any) => get(ctx, null, opts),
+            files: async () => ({ values: {} }),   // no instance settings files in unit-test
         },
         secrets: {
             resolve: (opts: any) => resolveSecret(ctx, null, opts),
             resolveSetting: (opts: any) => resolveSetting(ctx, null, opts),
+            // secrets.get = cache + local store over resolve; no DB here, so straight to resolve
+            get: (opts: any) => resolveSecret(ctx, null, opts),
         },
     };
     return ctx as unknown as Context;

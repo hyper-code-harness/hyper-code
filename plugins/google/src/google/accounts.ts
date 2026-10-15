@@ -4,7 +4,13 @@
  */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}) {
     const found = new Set<string>();
-    const raw = await ctx.fns.secrets.get({ ref: "op://hyper/google/accounts", namespace: "google", name: "accounts" });
+    // The metadata list is optional: with the bootstrap provider (1Password) down and
+    // nothing stored locally yet, the saved tokens below still name the accounts.
+    const raw = await ctx.fns.secrets.get({ ref: "op://hyper/google/accounts", namespace: "google", name: "accounts" })
+        .catch((error: any) => {
+            ctx.fns.procs.log.warn({ event: "google.accounts.metadata-unavailable", msg: String(error?.message ?? error) });
+            return null;
+        });
     if (raw) {
         const accounts = JSON.parse(raw);
         if (Array.isArray(accounts)) for (const value of accounts) if (typeof value === "string") found.add(value);

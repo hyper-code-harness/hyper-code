@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import { testCtx } from "./$test";
 import route from "./$route_functions_GET";
 
-const ctx = await testCtx();
+const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });   // duckdb is an official plugin
 
 test("GET /functions renders searchable live runtime documentation", async () => {
     const page: any = await route(ctx, null, {

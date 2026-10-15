@@ -17,5 +17,9 @@ test("runtime.docs search is compact and list filters namespaces", async () => {
     expect(hits.map((x: any) => x.name)).toContain("jev.decide");
     expect((hits[0] as any).paramsSchema).toBeUndefined();
     const listed = ctx.fns.runtime.docs.list({ namespace: "runtime.docs" });
-    expect(listed.map((x: any) => x.name)).toEqual(["runtime.docs.get", "runtime.docs.index", "runtime.docs.list", "runtime.docs.ragBenchmark", "runtime.docs.ragCases", "runtime.docs.search", "runtime.docs.validate"]);
+    // exactly the functions in src/runtime/docs/ — no other namespace leaks into the filter
+    const files = [...new Bun.Glob("*.ts").scanSync({ cwd: import.meta.dir })]
+        .filter(f => /^[a-z]\w*\.ts$/.test(f) && !f.endsWith(".test.ts")).map(f => "runtime.docs." + f.slice(0, -3)).sort();
+    expect(listed.map((x: any) => x.name)).toEqual(files);
+    expect(files).toContain("runtime.docs.get");
 });

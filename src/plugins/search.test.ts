@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { testCtx } from "../$test";
 
-const ctx = await testCtx();
+const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });   // official plugins only, not this machine's user plugins
 
 describe("plugins.search", () => {
     test("finds a mounted plugin function and groups by owner", async () => {

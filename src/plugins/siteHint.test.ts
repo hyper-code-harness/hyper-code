@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import forUrl from "./forUrl";
 import siteHint from "./siteHint";
-import fullSystemPrompt from "../agent/fullSystemPrompt";
+import syncWorldState from "../agent/syncWorldState";
 import describe from "../procs/modules/describe";
 import list from "./list";
 import read from "./read";
@@ -10,11 +10,17 @@ function fixture() {
     let modules: any[] = [{ name: "youtube", plugin: true, domains: ["youtube.com", "www.youtube.com", "youtu.be"], description: "Videos and transcripts", namespaces: ["youtube"], fns: [], routes: [] }, { name: "custom", plugin: true, domains: ["*.example.com"], description: "Custom API", namespaces: [], fns: [], routes: [] }];
     let binding: any = null;
     let calls = 0;
-    const ctx: any = { fns: { tools: { promptSection: () => "tools" }, procs: { modules: { list: () => modules } }, plugins: {}, sidebar: { bindingForAgent: async () => binding } } };
+    const rows: string[] = [];
+    const ctx: any = { fns: {
+        procs: { modules: { list: () => modules }, hooks: { run: async () => [] }, log: { warn: () => {} } },
+        plugins: {}, sidebar: { bindingForAgent: async () => binding },
+        agent: { functionRag: async () => null },
+        session: { appendMessage: async ({ message }: any) => { rows.push(message.content); }, syncAgentState: async () => {}, mutateScratchpad: async () => {} },
+    } };
     ctx.fns.plugins.list = () => list(ctx, null, {});
     ctx.fns.plugins.forUrl = (opts: any) => forUrl(ctx, null, opts);
     ctx.fns.plugins.siteHint = (opts: any) => { calls++; return siteHint(ctx, null, opts); };
-    return { ctx, setBinding: (b: any) => binding = b, remove: () => modules = [], calls: () => calls };
+    return { ctx, rows, setBinding: (b: any) => binding = b, remove: () => modules = [], calls: () => calls };
 }
 
 test("exact hosts, explicit subdomains, boundaries and URL validation", async () => {
@@ -39,22 +45,23 @@ test("only installed metadata yields a short, escaped, nonexecuting hint", async
 
 test("fresh binding navigation removes prior hint; null/absent sidebar stays lazy", async () => {
     const f = fixture();
-    const agent: any = { id: 'test', systemPrompt: '' };
-    const prompt = () => fullSystemPrompt(f.ctx, null, {agent});
-    expect(await prompt()).not.toContain('Trusted site plugin routing');
+    const agent: any = { id: 'test', systemPrompt: '', messages: [], scratchpad: {} };
+    // the tab context is the tail row agent.syncWorldState appends; "" when nothing changed
+    const turn = async () => { const n = f.rows.length; await syncWorldState(f.ctx, null, {agent}); return f.rows.slice(n).join("\n"); };
+    expect(await turn()).not.toContain('Trusted site plugin routing');
     expect(f.calls()).toBe(0);
-    f.setBinding({state:'active',url:'https://youtube.com',title:'Untrusted title'});
-    expect(await prompt()).toContain('Trusted site plugin routing');
-    f.setBinding({state:'active',url:'https://unmatched.test',title:'YouTube'});
-    expect(await prompt()).not.toContain('Trusted site plugin routing');
-    f.setBinding({state:'unavailable',url:'https://youtube.com'});
-    expect(await prompt()).not.toContain('Trusted site plugin routing');
+    f.setBinding({bindingId:'b',targetId:'t',cdpSessionName:'s',contextRevision:1,state:'active',url:'https://youtube.com',title:'Untrusted title'});
+    expect(await turn()).toContain('Trusted site plugin routing');
+    f.setBinding({bindingId:'b',targetId:'t',cdpSessionName:'s',contextRevision:2,state:'active',url:'https://unmatched.test',title:'YouTube'});
+    expect(await turn()).not.toContain('Trusted site plugin routing');
+    f.setBinding({bindingId:'b',targetId:'t',cdpSessionName:'s',contextRevision:3,state:'unavailable',url:'https://youtube.com'});
+    expect(await turn()).not.toContain('Trusted site plugin routing');
     f.setBinding(null);
     const calls = f.calls();
-    expect(await prompt()).not.toContain('Bound browser context');
+    expect(await turn()).toContain('stale');   // the unbound tab is announced once, no site hint asked
     expect(f.calls()).toBe(calls);
     delete f.ctx.fns.sidebar;
-    expect(await prompt()).not.toContain('Bound browser context');
+    expect(await turn()).not.toContain('Bound browser context');
     expect(f.calls()).toBe(calls);
 });
 

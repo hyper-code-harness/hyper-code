@@ -3,7 +3,8 @@
  *
  * Applies the effective layout (dock.layout) over each `$dock_` entry's default zone and order: ids listed
  * in layout.top / layout.bottom come first in that zone in the listed order, the rest follow by order then
- * id, and layout.hidden entries are returned separately. The fixed global menu and person entries are not
+ * id, and layout.hidden entries are returned separately. Pinned chats and pages (dock.pinned) take part as
+ * `agent:<id>` / `page:<href>` entries. The fixed global menu and person entries are not
  * part of this list. Use to inspect or test what the Dock will show.
  */
 export default async function (
@@ -11,8 +12,9 @@ export default async function (
     _session: Session | null,
     _opts: {},
 ): Promise<{ top: types.dock.Registered[]; bottom: types.dock.Registered[]; hidden: types.dock.Registered[]; source: "user" | "instance" | "default" }> {
-    const registry = ((ctx.state as any).dock?.items ?? {}) as Record<string, types.dock.Registered>;
     const { layout, source } = await ctx.fns.dock.effectiveLayout({});
+    const registry = { ...((ctx.state as any).dock?.items ?? {}) } as Record<string, types.dock.Registered>;
+    for (const pin of await ctx.fns.dock.pinned({ pages: layout.pins ?? [] })) registry[pin.id] = pin;
     const hiddenIds = new Set(layout.hidden ?? []);
     const all = Object.values(registry);
     const byDefault = (a: types.dock.Registered, b: types.dock.Registered) => Number(a.order ?? 100) - Number(b.order ?? 100) || a.id.localeCompare(b.id);

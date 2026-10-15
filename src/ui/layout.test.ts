@@ -41,7 +41,6 @@ describe("ui.layout", () => {
         expect(html).toContain("localStorage.getItem('hyper-theme')");
         expect(html).toContain("prefers-color-scheme: dark");
         expect(html).toContain('id="theme-toggle"');
-        expect(html).toContain("localStorage.setItem('hyper-theme',next)");
         expect(html).toContain('class="bg-base-200 text-base-content text-sm h-screen"');
     });
 

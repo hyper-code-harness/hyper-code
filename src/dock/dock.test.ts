@@ -40,7 +40,7 @@ test("instance layout reorders, moves between zones and hides; a person's layout
     expect(items.hidden.map((x: any) => x.id)).toEqual(["x.one"]);
 
     const saved = await ctx.fns.dock.saveLayout({ layout: { bottom: ["x.two", "x.two", "menu", "ghost"], hidden: [] } });
-    expect(saved.layout).toEqual({ top: [], bottom: ["x.two"], hidden: [] });
+    expect(saved.layout).toEqual({ top: [], bottom: ["x.two"], hidden: [], pins: [] });
     items = await ctx.fns.dock.items({});
     expect(items.top.map((x: any) => x.id)).toEqual(["x.one"]);
     expect(items.bottom.map((x: any) => x.id)).toEqual(["x.two", "x.three"]);
@@ -82,4 +82,33 @@ test("the shipped entries load from $dock_ files", async () => {
     const ctx: any = await mkTestCtx();
     const ids = Object.keys(ctx.state.dock?.items ?? {});
     for (const id of ["theme", "mentions.mentions", "update.update", "auth.online", "llms.quota"]) expect(ids).toContain(id);
+});
+
+test("pinned chats come from the person's pins and pinned pages from layout.pins; unpin removes them", async () => {
+    const ctx: any = await mkTestCtx();
+    register(ctx, { "q.one": { label: "One", href: "/one" } });
+    ctx.state.nav = { ...(ctx.state.nav ?? {}), apps: { news: { name: "news", label: "News", href: "/news", icon: "ph-newspaper", hint: "", group: "Pages", order: 1 } } };
+    const agent = await ctx.fns.agent.start({ model: "mock:echo" });
+    await ctx.fns.session.save({ agent });
+
+    await ctx.fns.dock.pin({ kind: "agent", target: agent.id });
+    await ctx.fns.dock.pin({ kind: "page", target: "/news" });
+    let items = await ctx.fns.dock.items({});
+    expect(items.top.map((x: any) => x.id)).toEqual(["q.one", `agent:${agent.id}`, "page:/news"]);
+    expect((await ctx.fns.auth.pinnedIds({})).has(agent.id)).toBe(true);
+    const html = await ctx.fns.dock.render({});
+    expect(html).toContain(`data-dock-id="agent:${agent.id}" data-dock-pinned="agent"`);
+    expect(html).toContain(`href="/agent/${agent.id}"`);
+    expect(html).toContain('title="News"');
+
+    // Reordering keeps pinned entries; a page pin survives a layout save that omits pins.
+    await ctx.fns.dock.saveLayout({ layout: { top: ["page:/news", "q.one"] } });
+    items = await ctx.fns.dock.items({});
+    expect(items.top.map((x: any) => x.id)).toEqual(["page:/news", "q.one", `agent:${agent.id}`]);
+
+    await ctx.fns.dock.pin({ kind: "page", target: "/news", pinned: false });
+    await ctx.fns.dock.pin({ kind: "agent", target: agent.id, pinned: false });
+    items = await ctx.fns.dock.items({});
+    expect(items.top.map((x: any) => x.id)).toEqual(["q.one"]);
+    await expect(ctx.fns.dock.pin({ kind: "page", target: "//evil.example" })).rejects.toThrow("local href");
 });

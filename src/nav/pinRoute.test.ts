@@ -18,7 +18,7 @@ describe("web nav pin route", () => {
             method: "POST", url: "/nav/agent/pn/pin", body: new URLSearchParams({ pinned: "1" }),
         });
         expect(pin.status).toBe(204);
-        expect(pin.headers.get("HX-Trigger")).toBe("nav-refresh");
+        expect(JSON.parse(pin.headers.get("HX-Trigger")!)).toEqual({ "nav-refresh": null, "dock-refresh": null });
         let rows = await ctx.fns.procs.db.select({ sql: "SELECT value FROM kv WHERE key = 'mobile-pin-agent:pn'" });
         expect(rows).toHaveLength(1);
 

@@ -84,15 +84,73 @@
         if (item) {
             const id = item.dataset.dockId;
             const inTop = item.parentElement?.id === 'dock-top';
-            entries.push({ icon: 'ph-eye-slash', label: 'Hide ' + (names[id] || id), run: () => { const h = hidden(); h.push(id); item.remove(); save({ hidden: h }); } });
+            const kind = item.dataset.dockPinned;
+            if (kind) entries.push({ icon: 'ph-push-pin-slash', label: 'Unpin ' + (names[id] || id), run: () => { item.remove(); pin(kind, id.slice(kind.length + 1), false); } });
+            else entries.push({ icon: 'ph-eye-slash', label: 'Hide ' + (names[id] || id), run: () => { const h = hidden(); h.push(id); item.remove(); save({ hidden: h }); } });
             entries.push({ icon: inTop ? 'ph-arrow-line-down' : 'ph-arrow-line-up', label: inTop ? 'Move to bottom' : 'Move to top', run: () => { (inTop ? zone('bottom') : zone('top'))?.appendChild(item); save(); } });
             entries.push('-');
         }
         for (const id of hidden()) entries.push({ icon: 'ph-eye', label: 'Show ' + (names[id] || id), run: async () => { await save({ hidden: hidden().filter(x => x !== id) }); location.reload(); } });
+        const here = location.pathname + location.search;
+        const pinnedHere = !!document.querySelector(`#dock [data-dock-id="${CSS.escape('page:' + here)}"]`);
+        const agentHere = /^\/agent\/([A-Za-z0-9_-]+)$/.exec(location.pathname)?.[1];
+        if (agentHere && !document.querySelector(`#dock [data-dock-id="agent:${CSS.escape(agentHere)}"]`)) entries.push({ icon: 'ph-push-pin', label: 'Pin this chat', run: () => pin('agent', agentHere, true) });
+        else if (!agentHere && !pinnedHere) entries.push({ icon: 'ph-push-pin', label: 'Pin this page', run: () => pin('page', here, true) });
         entries.push({ icon: 'ph-arrow-counter-clockwise', label: 'Reset Dock', run: reset });
         open(e.clientX + 2, e.clientY + 2, entries);
     });
 
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+    // ── theme switch (delegated, so it survives a Dock refresh) ──────────────
+    function paintTheme() {
+        const button = document.getElementById('theme-toggle');
+        if (!button) return;
+        const dark = document.documentElement.dataset.theme === 'dark';
+        button.setAttribute('aria-pressed', String(dark));
+        button.title = dark ? 'Use light theme' : 'Use dark theme';
+        const icon = button.querySelector('i');
+        if (icon) icon.className = 'ph ' + (dark ? 'ph-sun' : 'ph-moon');
+    }
+    document.addEventListener('click', e => {
+        if (!e.target.closest?.('#theme-toggle')) return;
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        document.documentElement.style.colorScheme = next;
+        try { localStorage.setItem('hyper-theme', next); } catch (_) {}
+        paintTheme();
+    });
+
+    // ── refresh after a pin changes (HX-Trigger dock-refresh, or the dock.changed event) ──
+    let refreshing = false;
+    async function refresh() {
+        if (refreshing || dragged || document.querySelector('#dock :popover-open')) return;
+        refreshing = true;
+        try {
+            const res = await fetch('/dock', { cache: 'no-store' });
+            if (!res.ok) return;
+            const current = dock();
+            if (!current) return;
+            const tpl = document.createElement('template');
+            tpl.innerHTML = (await res.text()).trim();
+            const next = tpl.content.querySelector('#dock');
+            if (!next) return;
+            next.querySelectorAll('script').forEach(s => s.remove());
+            current.replaceWith(next);
+            window.htmx?.process?.(next);
+            setup();
+        } catch (_) { /* the next change retries */ } finally { refreshing = false; }
+    }
+    window.hyperDock = { refresh, pin };
+    document.body.addEventListener('dock-refresh', refresh);
+    document.addEventListener('hyper-events', e => { if (e.detail?.type === 'dock.changed') refresh(); });
+
+    async function pin(kind, target, pinned = true) {
+        const res = await fetch('/dock/pin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind, target, pinned }) });
+        if (!res.ok) { window.toast?.({ level: 'error', message: 'Could not change the Dock' }); return; }
+        refresh();
+        document.body.dispatchEvent(new CustomEvent('nav-refresh'));
+    }
+
+    const setup = () => { arm(); paintTheme(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
     document.addEventListener('htmx:after:swap', arm);
 })();

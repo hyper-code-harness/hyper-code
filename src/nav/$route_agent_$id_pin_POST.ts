@@ -11,5 +11,5 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const pinned = String(form.get("pinned") ?? "1") !== "0";
     await ctx.fns.auth.setPinned({ agentId: id, pinned });
 
-    return new Response(null, { status: 204, headers: { "HX-Trigger": "nav-refresh" } });
+    return new Response(null, { status: 204, headers: { "HX-Trigger": JSON.stringify({ "nav-refresh": null, "dock-refresh": null }) } });
 }

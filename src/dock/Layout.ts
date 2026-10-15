@@ -7,4 +7,7 @@ export type Layout = {
     bottom?: string[];
     /** Entry ids not shown at all. */
     hidden?: string[];
+    /** Pages the person pinned to the Dock, as local hrefs (`/news`); each becomes entry `page:<href>`.
+     *  Pinned chats are kept per person in user_agent_state (shared with the menu and mobile) and appear as `agent:<id>`. */
+    pins?: string[];
 };

@@ -28,7 +28,7 @@ export default async function (
             ]).finally(() => clearTimeout(timer));
             if (!out) return "";
             const html = typeof out === "string" ? out : await ctx.fns.dock.drawButton({ id: item.id, button: out });
-            return html ? `<div class="dock-item flex w-full flex-col items-center" data-dock-id="${esc(item.id)}">${html}</div>` : "";
+            return html ? `<div class="dock-item flex w-full flex-col items-center" data-dock-id="${esc(item.id)}"${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""}>${html}</div>` : "";
         } catch (error: any) {
             ctx.fns.procs.log.warn({ event: "dock.render.failed", msg: `${item.id}: ${String(error?.message ?? error)}` });
             return "";

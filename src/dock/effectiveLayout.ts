@@ -17,7 +17,7 @@ export default async function (
         if (typeof v === "string") { try { v = JSON.parse(v); } catch { return null; } }
         if (!v || typeof v !== "object" || Array.isArray(v)) return null;
         const ids = (x: unknown) => Array.isArray(x) ? [...new Set(x.map(String).filter(Boolean))] : undefined;
-        return { top: ids(v.top), bottom: ids(v.bottom), hidden: ids(v.hidden) };
+        return { top: ids(v.top), bottom: ids(v.bottom), hidden: ids(v.hidden), pins: ids(v.pins)?.filter(href => href.startsWith("/") && !href.startsWith("//")) };
     };
     if (userId) {
         const mine = parse(await ctx.fns.settings.get({ module: "dock", scopeType: "user", scopeId: userId, key: "layout" }));

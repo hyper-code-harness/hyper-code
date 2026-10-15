@@ -16,6 +16,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         ctx.fns.sharedAgent.list({ query: q }),
         ctx.fns.auth.pinnedIds({}),
     ]);
+    const pinnedPages = new Set((await ctx.fns.dock.effectiveLayout({}).catch(() => ({ layout: { pins: [] as string[] } }))).layout.pins ?? []);
     const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const visibleAgents = agents;
     const names = new Map(users.map((u: any) => [u.id, u.name]));
@@ -48,11 +49,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
   ${badge}
 </a>${pinControl}</div>`;
         }
-        return `<a href="${esc(item.href)}" class="nav-row flex min-h-8 items-center gap-2 rounded px-2 py-1 text-sm outline-none hover:bg-base-200/60">
+        const pagePinned = pinnedPages.has(String(item.href));
+        const pagePin = String(item.href).startsWith("/") ? `<form hx-post="/dock/pin" hx-swap="none" class="shrink-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100"><input type="hidden" name="kind" value="page"><input type="hidden" name="target" value="${esc(item.href)}"><input type="hidden" name="pinned" value="${pagePinned ? "0" : "1"}"><button type="submit" title="${pagePinned ? "Remove from" : "Add to"} Dock" aria-label="${pagePinned ? "Remove" : "Add"} ${esc(item.label)} ${pagePinned ? "from" : "to"} Dock" class="flex size-6 items-center justify-center rounded text-faint hover:bg-base-200 hover:text-muted"><i class="ph ${pagePinned ? "ph-push-pin-slash" : "ph-push-pin"}"></i></button></form>` : "";
+        return `<div class="group flex items-center gap-0.5"><a href="${esc(item.href)}" class="nav-row flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-sm outline-none hover:bg-base-200/60">
   <i class="ph ${esc(item.icon || (group(item) === "Projects & files" ? "ph-folder" : group(item) === "Plugins" ? "ph-plugs" : "ph-gear"))} shrink-0 text-faint"></i>
   <span class="min-w-0 flex-1 truncate">${esc(item.label)}</span>
   ${item.hint ? `<span class="max-w-32 shrink-0 truncate text-3xs text-faint">${esc(item.hint)}</span>` : ""}
-</a>`;
+</a>${pagePin}</div>`;
     };
     let html: string;
     const workspaceLabel = (dir: string) => dir.split("/").filter(Boolean).pop() || dir;

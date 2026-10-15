@@ -123,7 +123,8 @@ bun script/repl.ts -f /tmp/play.js                     # from file; stdin works 
 ## Testing discipline
 
 - `bun test` (436+ tests) and `bunx tsc --noEmit` must both be clean.
-- Shared fixture: `mkTestCtx()` from `src/_testCtx.entry.ts` — boots the real registry (full Proxy ctx, `:memory:` db, migrations, routes), scrubs env for determinism, and stubs `markdown.highlight/render` + `repl.eval`. Override stubs via `ctx.state.registry.<mod>.<fn> = (_c, _s, opts) => …` (raw signature!).
+- **Test Postgres:** tests never use the working db (54393). They run on `hyper-db-test` (127.0.0.1:54399, `docker compose up -d db-test` in `~/.hyper`, fsync off) — `TEST_DATABASE_URL`, or `DATABASE_URL` with the port moved to 54399. The core migrations build one template db (`hyper_test_t_<hash>`, rebuilt when a migration changes); each test process gets its own copy, reset (TRUNCATE + drop extra tables) after every test that made a ctx and before each new file. Full suite: `bun run test` (`--parallel=16 --no-isolate`, ~35 s); code is loaded once per worker and every `testCtx()` gets a copy of that state.
+- Shared fixture: `mkTestCtx()` from `src/_testCtx.entry.ts` — boots the real registry (full Proxy ctx, test db, migrations, routes), scrubs env for determinism, and stubs `markdown.highlight/render` + `repl.eval`. Override stubs via `ctx.state.registry.<mod>.<fn> = (_c, _s, opts) => …` (raw signature!).
 - Route tests go through `ctx.fns.procs.http.dispatch({ method, url, body, headers })` → real `Response`.
 - **All tests use `model: 'mock:*'`** (`streamMock`; drive via `agent.scratchpad.mockLLM` — `echoUser`/`userText`/`defaultText`). Never hit real LLM providers in the suite.
 - Fixtures go to `.test-tmp/` (gitignored) — NEVER into `src/` or `.hyper/` (both are scanned roots).

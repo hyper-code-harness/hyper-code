@@ -56,7 +56,7 @@ test("a slow source gets a placeholder filled from /nav/group/:token; a source p
 test("GET /nav/items draws the tab grid for an empty query and search groups otherwise", async () => {
     const ctx: any = await mkTestCtx();
     const home = await (await ctx.fns.procs.http.dispatch({ url: "/nav/items" })).text();
-    for (const w of ["chats", "shared", "pages", "projects"]) expect(home).toContain(`data-nav-widget="${w}"`);
+    for (const w of ["chats", "pages"]) expect(home).toContain(`data-nav-widget="${w}"`);
     expect(home).toContain("New agent");
     reg(ctx, { only: { title: "Only", search: (_c: any, _s: any, o: any) => [row(o.q)] } });
     const found = await (await ctx.fns.procs.http.dispatch({ url: "/nav/items?q=zz" })).text();

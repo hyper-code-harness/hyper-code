@@ -5,6 +5,7 @@
  * "unavailable" note instead of breaking the menu; null or nothing draws "empty".
  * @param opts.placement The placed widget (from nav.tabs).
  * @param opts.timeoutMs Render budget in milliseconds. @default 2500 @minimum 50 @maximum 10000
+ * @param opts.fresh Skip the ttl cache and render now (the widget preview canvas uses it). @default false
  */
 export default async function (
     ctx: Context,
@@ -14,8 +15,10 @@ export default async function (
         placement: types.nav.Placement;
         /** Render budget in milliseconds. @default 2500 @minimum 50 @maximum 10000 */
         timeoutMs?: number;
+        /** Skip the ttl cache and render now (the widget preview canvas uses it). @default false */
+        fresh?: boolean;
     },
-): Promise<{ ok: boolean; html: string; cached: boolean }> {
+): Promise<{ ok: boolean; html: string; cached: boolean; error?: string; ms?: number }> {
     const state = ((ctx.state as any).nav ??= {});
     const def = (state.widgets ?? {})[opts.placement.widget] as (types.nav.Widget & types.nav.Registered) | undefined;
     const note = (text: string) => `<div class="px-2 py-2 text-xs text-faint">${text}</div>`;
@@ -28,11 +31,12 @@ export default async function (
     const viewer = ttl ? await ctx.fns.auth.viewerId({}).catch(() => null) : null;
     const key = `${viewer ?? ""}|${def.id}|${size}|${JSON.stringify(config)}`;
     const cache: Map<string, { at: number; html: string }> = (state.widgetCache ??= new Map());
-    const hit = ttl ? cache.get(key) : undefined;
+    const hit = ttl && !opts.fresh ? cache.get(key) : undefined;
     if (hit && Date.now() - hit.at < ttl) return { ok: true, html: hit.html, cached: true };
 
     const budget = Math.max(50, Math.min(10_000, opts.timeoutMs ?? 2500));
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const started = performance.now();
     let out: types.nav.WidgetOutput | types.nav.Item[] | string | null;
     try {
         out = await Promise.race([
@@ -41,7 +45,7 @@ export default async function (
         ]);
     } catch (error: any) {
         ctx.fns.procs.log.warn({ event: "nav.widget", msg: `${def.id}: ${String(error?.message ?? error)}`, from: def.rel });
-        return { ok: false, html: note("unavailable"), cached: false };
+        return { ok: false, html: note("unavailable"), cached: false, error: String(error?.stack ?? error?.message ?? error), ms: Math.round(performance.now() - started) };
     } finally { if (timer) clearTimeout(timer); }
 
     const output: types.nav.WidgetOutput = typeof out === "string" ? { html: out } : Array.isArray(out) ? { items: out } : out ?? {};
@@ -74,5 +78,5 @@ export default async function (
     if (sectionParts.length) parts.push(output.columns ? `<div class="gap-x-4 sm:columns-2 lg:columns-3">${sectionParts.join("")}</div>` : sectionParts.join(""));
     const html = parts.join("") || note("empty");
     if (ttl) cache.set(key, { at: Date.now(), html });
-    return { ok: true, html, cached: false };
+    return { ok: true, html, cached: false, ms: Math.round(performance.now() - started) };
 }

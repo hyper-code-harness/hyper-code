@@ -29,7 +29,7 @@ export default async function (
     const unplaced = Object.values(widgets).filter(w => w.module !== "nav" && !placedAnywhere.has(w.id) && !widgetsHidden.has(w.id))
         .sort((a, b) => a.module.localeCompare(b.module) || a.id.localeCompare(b.id));
     const declared: Record<string, types.nav.Tab & { id: string }> = {
-        home: { id: "home", title: "Home", icon: "ph-house", order: 0, widgets: ["chats", "shared", "pages", "projects"].map(w => ({ id: w, widget: w, size: "tall" as const })) },
+        home: { id: "home", title: "Home", icon: "ph-house", order: 0, widgets: ["chats", "pages"].map(w => ({ id: w, widget: w, size: "tall" as const })) },
         plugins: { id: "plugins", title: "Plugins", icon: "ph-plugs", order: 1, widgets: widgets.pluginPages ? [{ id: "pluginPages", widget: "pluginPages", size: "wide" }] : [] },
     };
     const sources = state.search ?? {};

@@ -16,6 +16,16 @@ import { startSshFixture, dockerAvailable, type SshFixture } from "../../test/ss
 
 const enabled = process.env.HYPER_SKIP_DOCKER_TESTS !== "1" && await dockerAvailable();
 if (!enabled) console.warn("[remote.test] Docker unavailable or HYPER_SKIP_DOCKER_TESTS=1 — skipping");
+// Poll instead of sleeping: check every 10ms, give up after 5s.
+async function until<T>(fn: () => Promise<T>, ok: (v: T) => boolean, ms = 5000): Promise<T> {
+    const end = Date.now() + ms;
+    for (;;) {
+        const v = await fn();
+        if (ok(v) || Date.now() > end) return v;
+        await Bun.sleep(10);
+    }
+}
+
 const LOCAL = join(import.meta.dir, "../../.test-tmp/remote");
 
 let fx: SshFixture | null = null;
@@ -73,17 +83,16 @@ describe.skipIf(!enabled)("remote over ssh (docker sshd)", () => {
     });
 
     test("exec keeps the script and exported secrets out of the remote process list", async () => {
-        const r = await T().bash({ host: "plain", command: "sleep 1 & ps -ww -o args | grep -c zz-secret-42", env: { TOKEN: "zz-secret-42" } });
+        const r = await T().bash({ host: "plain", command: "sleep 0.2 & ps -ww -o args | grep -c zz-secret-42", env: { TOKEN: "zz-secret-42" } });
         // only the grep itself matches
         expect(r).toEqual({ output: "1\n", isError: false });
     });
 
     test("exec timeout also kills the remote process tree", async () => {
-        const r = await R().exec({ host: "plain", command: "sleep 97 & sleep 98; echo never", timeout: 1 });
+        const r = await R().exec({ host: "plain", command: "sleep 97 & sleep 98; echo never", timeout: 0.3 });
         expect(r.timedOut).toBe(true);
         expect(r.exitCode).toBeNull();
-        await Bun.sleep(1000);
-        const left = await R().exec({ host: "plain", command: "pgrep -f 'sleep 9[78]' || echo none" });
+        const left = await until(() => R().exec({ host: "plain", command: "pgrep -f 'sleep 9[78]' || echo none" }), (r: any) => r.stdout.trim() === "none");
         expect(left.stdout.trim()).toBe("none");
     });
 
@@ -194,16 +203,19 @@ describe.skipIf(!enabled)("remote over ssh (docker sshd)", () => {
     });
 
     test("background jobs: start, jobs, logs, stop, restart guard", async () => {
-        const s = await R().start({ host: "plain", name: "tick", command: "for i in $(seq 1 60); do echo tick $i \"$X\"; sleep 0.5; done", env: { X: "it's" }, wait: 1.2 });
+        const s = await R().start({ host: "plain", name: "tick", command: "for i in $(seq 1 60); do echo tick $i \"$X\"; sleep 0.05; done", env: { X: "it's" }, wait: 0 });
         expect(s).toMatchObject({ name: "tick", session: "hyper-tick", running: true });
-        expect(s.tail).toContain("tick 1 it's");
+        const first = await until(() => R().logs({ host: "plain", name: "tick", grep: "tick [12] " }), (l: any) => l.tail.includes("tick 2"));
+        expect(first.tail).toContain("tick 1 it's");
         await expect(R().start({ host: "plain", name: "tick", command: "true", wait: 0 })).rejects.toThrow("already running");
         expect((await R().jobs({ host: "plain" })).find((j: any) => j.name === "tick")).toMatchObject({ running: true });
         const l = await R().logs({ host: "plain", name: "tick", grep: "tick [12] " });
         expect(l.tail.trim().split("\n")).toEqual(["tick 1 it's", "tick 2 it's"]);
-        expect(await R().stop({ host: "plain", name: "tick", grace: 2 })).toMatchObject({ wasRunning: true });
+        expect(await R().stop({ host: "plain", name: "tick", grace: 1 })).toMatchObject({ wasRunning: true });
         expect((await R().logs({ host: "plain", name: "tick" })).running).toBe(false);
-        const done = await R().start({ host: "plain", name: "quick", command: "echo hi; exit 3", wait: 1 });
+        await R().start({ host: "plain", name: "quick", command: "echo hi; exit 3", wait: 0 });
+        await until(() => R().logs({ host: "plain", name: "quick" }), (l: any) => !l.running);
+        const done = await R().logs({ host: "plain", name: "quick" });
         expect(done.running).toBe(false);
         expect(done.tail).toContain("[exit 3]");
     });
@@ -243,7 +255,8 @@ describe.skipIf(!enabled)("remote over ssh (docker sshd)", () => {
     });
 
     test("review: remote.start keeps env values out of ps and tmux", async () => {
-        await R().start({ host: "plain", name: "sec", command: "sleep 20", env: { TOK: "zz-start-secret" }, wait: 0.5, restart: true });
+        await R().start({ host: "plain", name: "sec", command: "sleep 20", env: { TOK: "zz-start-secret" }, wait: 0, restart: true });
+        await until(() => R().logs({ host: "plain", name: "sec" }), (l: any) => l.running);
         const seen = await R().exec({ host: "plain", command: "ps -ww -o args | grep -v grep | grep -c zz-start-secret; tmux list-sessions -F '#{session_name} #{pane_start_command}' 2>/dev/null | grep -c zz-start-secret" });
         expect(seen.stdout.trim().split("\n")).toEqual(["0", "0"]);
         // owner-only access; the directory may also carry a setgid bit from its parent
@@ -253,7 +266,7 @@ describe.skipIf(!enabled)("remote over ssh (docker sshd)", () => {
     });
 
     test("review: stopping a job never hits another job with the same prefix", async () => {
-        await R().start({ host: "plain", name: "worker-long", command: "sleep 30", wait: 0.3, restart: true });
+        await R().start({ host: "plain", name: "worker-long", command: "sleep 30", wait: 0, restart: true });
         expect(await R().stop({ host: "plain", name: "worker", grace: 0 })).toMatchObject({ wasRunning: false });
         expect((await R().logs({ host: "plain", name: "worker-long" })).running).toBe(true);
         await R().stop({ host: "plain", name: "worker-long", grace: 0 });
@@ -301,7 +314,7 @@ describe.skipIf(!enabled)("remote over ssh (docker sshd)", () => {
         expect(big.stdout.length).toBe(100_000);
         expect(big.stderr).toContain("output truncated");
         const t = Date.now();
-        const stuck = await R().exec({ host: "plain", command: "sleep 30", stdin: "x".repeat(5_000_000), timeout: 2 });
+        const stuck = await R().exec({ host: "plain", command: "sleep 30", stdin: "x".repeat(5_000_000), timeout: 0.3 });
         expect(stuck.timedOut).toBe(true);
         expect(Date.now() - t).toBeLessThan(10_000);
     });

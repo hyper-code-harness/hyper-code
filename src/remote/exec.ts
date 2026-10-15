@@ -21,7 +21,7 @@ export default async function (
         cwd?: string;
         /** Text piped to the remote command's standard input. */
         stdin?: string;
-        /** Seconds before the local ssh process is killed. @default 120 @minimum 1 */
+        /** Seconds before the local ssh process is killed. @default 120 @minimum 0.1 */
         timeout?: number;
         /** Maximum characters kept per stream (stdout and stderr each); the rest is dropped and noted. @default 10485760 @minimum 1024 */
         maxOutput?: number;
@@ -101,9 +101,9 @@ export default async function (
     if (timedOut && remotePid) {
         // TERM the remote tree, then KILL what is left; bounded so a dead link cannot hang us.
         // Kill the process group when the shell leads its own; otherwise walk the
-        // descendants. TERM first, KILL after a second.
+        // descendants. TERM first, KILL after up to a second (polled every 50ms).
         const kill = remotePgid && remotePgid === remotePid
-            ? "kill -TERM -- -" + remotePgid + " 2>/dev/null; sleep 1; kill -KILL -- -" + remotePgid + " 2>/dev/null; true"
+            ? "kill -TERM -- -" + remotePgid + " 2>/dev/null; for i in $(seq 1 20); do kill -0 -- -" + remotePgid + " 2>/dev/null || exit 0; sleep 0.05; done; kill -KILL -- -" + remotePgid + " 2>/dev/null; true"
             : "kt(){ for c in $(pgrep -P $1); do kt $c $2; done; kill -$2 $1 2>/dev/null; }; kt " + remotePid + " TERM; sleep 1; kt " + remotePid + " KILL; true";
         const k = Bun.spawn({ cmd: [ssh.bin, "-T", ...(await ctx.fns.remote.sshOptions({ persist: false })).args, opts.host, kill], stdout: "ignore", stderr: "ignore" });
         await Promise.race([k.exited, Bun.sleep(5000).then(() => k.kill())]);

@@ -10,6 +10,10 @@ Hyper runs on **Bun + Postgres**, with a procedural TypeScript runtime built on 
 
 > Hyper is under active development. UI composition and plugin interfaces are evolving. It is intended for trusted environments, not for running untrusted agents in a sandbox.
 
+## Video
+
+[Watch on YouTube](https://www.youtube.com/watch?v=ZpzxLonfERc).
+
 ## What you can do
 
 - **Work on code with persistent context.** Inspect a repository, edit files, run commands, and return to a conversation later.

@@ -2,7 +2,7 @@
 // button at the right end of the chat header: a small dashboard about this one chat, laid out as a grid.
 //
 // The framework owns the panel: its grid, card frames, titles, order and what is hidden (setting
-// chat.header). The card owns what is inside. Render runs when the panel opens, with a 1.5 s timeout;
+// chat.layout). The card owns what is inside. Render runs when the panel opens, with a 1.5 s timeout;
 // a throw, a timeout or null only leaves this card out. The "danger" card of the core is always last.
 export type Card = {
     /** Card title. */
@@ -14,7 +14,7 @@ export type Card = {
     /** Width in the two-column grid: S takes one column, L the whole row. @default "S" */
     size?: "S" | "L";
     /** Draws the card: rows drawn by the framework, trusted HTML, or both; null leaves the card out. */
-    render: (ctx: Context, session: Session | null, view: types.chat.RenderContext) =>
+    render: (ctx: Context, session: Session | null, context: types.chat.RenderContext) =>
         types.chat.CardRow[] | { html?: string; rows?: types.chat.CardRow[] } | string | null |
         Promise<types.chat.CardRow[] | { html?: string; rows?: types.chat.CardRow[] } | string | null>;
 };

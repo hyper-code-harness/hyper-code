@@ -67,6 +67,22 @@ graph TB
 
 ---
 
+## Chat parts: header, panel and composer
+
+The chat column (`ui.chatColumn`) is assembled from small part files, the same way the Dock is. The `chat` module owns the frame — the icon, the name, order, hiding, timeouts and the look — and every module may add parts:
+
+| File | Type | Where it shows | Example |
+|---|---|---|---|
+| `$chatbadge_<name>.ts` | `types.chat.Badge` | left of the header, after the name: a fact about the chat | `agent/$chatbadge_workspace.ts` (folder), `agent/$chatbadge_status.ts` (run ring) |
+| `$chatbutton_<name>.ts` | `types.chat.Button` | right of the header, before ⋯: an action | `canvas/$chatbutton_toggle.ts` |
+| `$chatcard_<name>.ts` | `types.chat.Card` | a card in the ⋯ panel (GET `/chat/:id/panel`, 2-column grid, `size: "S"\|"L"`) | `agent/$chatcard_team.ts`, `chat/$chatcard_danger.ts` |
+
+The loaders (`chat/$loader_chat{badge,button,card}.ts` → `chat.register`) collect them into `ctx.state.chat.parts` under the id `<module>.<name>`. Each part default-exports `{ order?, render(ctx, session, context) }`, where `context` is `types.chat.RenderContext` (`{ agent, parent, inheritedCount }`, built once per render by `chat.buildRenderContext`). A badge or button returns trusted HTML or a `types.chat.Item` (`{ icon, label?, title?, href?, popup?, tone? }`) drawn by `chat.renderItem`; a card returns `types.chat.CardRow[]` (drawn by `chat.renderCardRows`), HTML, or both. Every render runs under `chat.withTimeout` (1.5 s): a throw, a timeout or null hides only that part. Keep header renders to cached reads — they run on every chat render; cards run only when the panel opens.
+
+Order and hiding come from the `chat.layout` setting (instance scope, usually `~/.hyper/settings/$settings_chat.json`): `{ "badges": [ids], "buttons": [ids], "cards": [ids], "hidden": [ids] }`. Listed ids go first, the rest follow by their `order`; `chat.listParts({ kind })` shows the result. The icon, the name and the danger card (Archive, Delete; always last) cannot be hidden.
+
+The chat icon is `agents.icon` (sanitized SVG, `chat.sanitizeSvg`; set with `chat.setIcon` or the icon popup), drawn by `chat.icon` everywhere a chat appears (header, Dock pins, lists), with the model logo as fallback. In the header it carries a turning ring while the agent runs (CSS `:has([data-agent-running])`, no re-render). The composer (`ui.chatComposer`) holds attach, the model and effort chips (`chat.modelChip` → `agent.modelPicker` / `agent.effortPicker`, effort only for models with levels), the context ring (`chat.contextRing`, live via GET `/chat/:id/ring`, opens compact) and send/stop. Composer slots for plugins (`$chatcomposer_`) are planned, not built.
+
 ## Principles
 
 1. **The DB is the source of truth.** Messages, events, run-state, scheduling — all in Postgres. Memory is only an execution cache.

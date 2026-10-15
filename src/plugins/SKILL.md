@@ -82,6 +82,7 @@ Within a namespace directory:
 | `$app_example.json` | Navigation entry for a real existing page |
 | `$dock_example.json` / `$dock_example.ts` | Icon or live badge in the left Dock (`example.example`) |
 | `$widget_example.ts` | Tile for the global menu (⌘/) grid (`example.example`) |
+| `$chatbadge_example.ts` / `$chatbutton_example.ts` / `$chatcard_example.ts` | Badge, button or ⋯ panel card in every chat header (`example.example`) |
 | `$search_example.ts` | Result group for the global menu search (`example.example`) |
 | `$setting_enabled.ts` | Declared setting `example.enabled` |
 | `$script_example.js` | Browser asset |
@@ -170,6 +171,37 @@ export default {
 `render` and `search` must only read and must check access for the current viewer. Each runs with its own timeout (2.5 s / 2 s); a throw or timeout shows "unavailable" in that tile or group only. A source slower than 300 ms gets a placeholder that fills in when it answers, so fast groups never wait. Keep `render` a cached read (use `ttl`) — opening the menu must not fan out to a dozen services.
 
 A plugin widget nobody placed lands on the built-in **Plugins** tab automatically, next to the pages plugins declare with `$app_`. The person arranges the rest from the menu (pencil button): add, move, resize, remove tiles, add/rename/move/remove tabs, reset. That is stored in the `nav.layout` setting — for the instance (env `HYPER_NAV`) and per person. Unknown ids are ignored, so removing a plugin never breaks a layout.
+
+### Chat header parts
+
+Every chat has a header (icon · name · badges … buttons · ⋯) and a ⋯ panel of cards about that chat. The icon, the name, the order and hiding belong to the core; a plugin adds parts. Id is `<namespace>.<name>`.
+
+```ts
+// src/example/$chatbadge_pr.ts — a fact about the chat, left, after the name
+export default {
+    order: 50,
+    render(ctx: Context, _s: Session | null, context: types.chat.RenderContext): types.chat.Item | null {
+        const pr = context.agent.scratchpad?.pr;            // cached read only
+        return pr ? { icon: "ph-git-pull-request", label: `#${pr}`, title: `PR #${pr}`, href: `/gh/pr/${pr}` } : null;
+    },
+} satisfies types.chat.Badge;
+
+// src/example/$chatbutton_review.ts — an action, right, before ⋯ (icon-only when label is omitted)
+export default {
+    render: (_c: Context, _s: Session | null, context: types.chat.RenderContext): types.chat.Item =>
+        ({ icon: "ph-magnifying-glass", title: "Review", popup: { method: "example.reviewPopup", params: { agentId: context.agent.id } } }),
+} satisfies types.chat.Button;
+
+// src/example/$chatcard_deploy.ts — a card in the ⋯ panel; rows are drawn by the core
+export default {
+    title: "Deploy", icon: "ph-rocket", size: "S",                // "L" takes the full row
+    render: async (_c: Context, _s: Session | null, context: types.chat.RenderContext): Promise<types.chat.CardRow[]> => [
+        { icon: "ph-play", label: "Deploy to staging", post: `/example/deploy/${context.agent.id}`, confirm: "Deploy?" },
+    ],
+} satisfies types.chat.Card;
+```
+
+Badges and buttons render on every chat render (1.5 s timeout) — keep them to cached reads; cards render only when the panel opens. A throw, a timeout or `null` hides only that part. Returning a `types.chat.Item` / `types.chat.CardRow[]` instead of HTML keeps the look consistent. The person orders and hides parts with the `chat.layout` setting (`{ badges, buttons, cards, hidden }` of ids); `ctx.fns.chat.listParts({ kind: "badge" })` shows what will be drawn. Details: docs/architecture.md, "Chat parts".
 
 ### Settings
 

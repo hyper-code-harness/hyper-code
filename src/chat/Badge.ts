@@ -7,6 +7,6 @@
 export type Badge = {
     /** Position among the badges, lower first; ties are broken by id. @default 100 */
     order?: number;
-    /** Draws the badge: trusted HTML, a chip description, or null/"" to show nothing. */
-    render: (ctx: Context, session: Session | null, view: types.chat.RenderContext) => string | types.chat.Item | null | Promise<string | types.chat.Item | null>;
+    /** Draws the badge: trusted HTML, an item description (types.chat.Item), or null/"" to show nothing. */
+    render: (ctx: Context, session: Session | null, context: types.chat.RenderContext) => string | types.chat.Item | null | Promise<string | types.chat.Item | null>;
 };

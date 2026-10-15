@@ -64,7 +64,7 @@ Watch a job live: `ssh <host> -t tmux attach -t hyper-<name>`.
 
 ## Tests
 
-`src/remote/remote.test.ts` runs against two sshd containers from `test/ssh/`
+`src/remote/remote.it.test.ts` runs against two sshd containers from `test/ssh/`
 (`plain`: no ripgrep → fallbacks; `rg`: with ripgrep). They are started on
 first use and **stay running** (compose project `hyper-ssh-<hash of checkout>`),
 so later runs connect in under a second; a change to the Dockerfile rebuilds
@@ -74,8 +74,8 @@ the two env vars above — the developer's `~/.ssh` is never touched. No Docker 
 the suite is skipped. `HYPER_SSH_FIXTURE_DOWN=1` removes the containers after
 the run. Run it by path: `bun test ./src/remote/`.
 
-- `remote.test.ts` — `remote.*` and the host-aware tools with an explicit host.
-- `workspace.test.ts` — a remote agent workspace: `workspace.set/target`, tools
+- `remote.it.test.ts` — `remote.*` and the host-aware tools with an explicit host.
+- `workspace.it.test.ts` — a remote agent workspace: `workspace.set/target`, tools
   and git without `host`, overrides (`host: "local"`, other aliases), fork/load
   inheritance, the system prompt, the remote Files UI and `ui.previewFile`.
 

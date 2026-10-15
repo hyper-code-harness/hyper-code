@@ -4,6 +4,8 @@ export type TestRun = {
     startedAt: number;
     finishedAt?: number;
     exitCode: number | null;
+    /** which tests: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts), all (fast + it) */
+    kind: TestKind;
     path: string;
     /** tests passed / failed / skipped so far */
     pass: number;
@@ -18,3 +20,6 @@ export type TestRun = {
     /** names of the failed tests so far (last 200) */
     failed: string[];
 };
+
+/** A kind of test, by file name: fast *.test.ts, it *.it.test.ts (real processes), live *.live.test.ts (network); all = fast + it. */
+export type TestKind = "fast" | "it" | "live" | "all";

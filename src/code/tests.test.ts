@@ -13,7 +13,7 @@ test("code.tests reads timings + junit report; null without a run", async () => 
     ctx.state.root = root;
     expect(await ctx.fns.code.tests({})).toBeNull();
     writeFileSync(join(root, "src/m/a.test.ts"), 'test("slow one", () => {\n    expect(1).toBe(1);\n});\n');
-    writeFileSync(join(root, ".runtime/test-report.xml"), `<testsuites name="bun test" tests="2" assertions="2" failures="1" skipped="0" time="1.5">
+    writeFileSync(join(root, ".runtime/test-report-fast.xml"), `<testsuites name="bun test" tests="2" assertions="2" failures="1" skipped="0" time="1.5">
 <testsuite name="src/m/a.test.ts" file="src/m/a.test.ts" tests="2" failures="1" skipped="0" time="1.5">
 <testcase name="slow one" classname="" time="1.2" file="m/a.test.ts" assertions="1" />
 <testcase name="broken" classname="" time="0.1" file="m/a.test.ts" assertions="1">
@@ -26,5 +26,7 @@ test("code.tests reads timings + junit report; null without a run", async () => 
     expect(r.top[0].tests.length).toBe(2);
     expect(r.fails[0]).toMatchObject({ name: "broken", msg: "nope" });
     expect(ctx.fns.code.testRunStatus({})).toEqual({ running: false });
+    // each kind has its own report: no integration run recorded yet
+    expect(await ctx.fns.code.tests({ kind: "it" })).toBeNull();
     rmSync(root, { recursive: true, force: true });
 });

@@ -11,18 +11,23 @@ const unxml = (s: string) => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").r
 /**
  * Summarises the last full test run: totals, slowest files with their slowest tests, slowest tests and failures, each with a highlighted code snippet of the test.
  * Use to look at test speed and failures without rerunning; returns null when no run has been recorded yet. Start a fresh run with code.runTests.
+ * @param opts.kind Which run to read: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts) or all. @default "fast"
  * @param opts.top How many slow files and slow tests to list. @default 10 @minimum 1 @maximum 50
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** How many slow files and slow tests to list. @default 10 @minimum 1 @maximum 50 */
     top?: number;
+    /** Which run to read: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts) or all. @default "fast" */
+    kind?: types.code.TestKind;
 }): Promise<{
     tests: number; failures: number; skipped: number; wall: number; nfiles: number; total: number; at: number | null;
     top: { f: string; ms: number; tests: T[] }[]; slowTests: T[]; fails: F[];
     run: types.code.TestRun | { running: false };
 } | null> {
     const ws = String((ctx.state as any).root);
-    const xf = Bun.file(ws + "/.runtime/test-report.xml");
+    const kind: types.code.TestKind = opts.kind ?? "fast";
+    if (!["fast", "it", "live", "all"].includes(kind)) throw new Error("invalid test kind: " + kind);
+    const xf = Bun.file(`${ws}/.runtime/test-report-${kind}.xml`);
     const run = ctx.fns.code.testRunStatus({});
     if (!(await xf.exists())) return null;
     const xml = await xf.text();

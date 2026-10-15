@@ -122,13 +122,22 @@ bun script/repl.ts -f /tmp/play.js                     # from file; stdin works 
 
 ## Testing discipline
 
-- `bun test` (436+ tests) and `bunx tsc --noEmit` must both be clean.
-- **Test Postgres:** tests never use the working db (54393). They run on `hyper-db-test` (127.0.0.1:54399, `docker compose up -d db-test` in `~/.hyper`, fsync off) — `TEST_DATABASE_URL`, or `DATABASE_URL` with the port moved to 54399. The core migrations build one template db (`hyper_test_t_<hash>`, rebuilt when a migration changes); each test process gets its own copy, reset (TRUNCATE + drop extra tables) after every test that made a ctx and before each new file. Full suite: `bun run test` (`--parallel=16 --no-isolate`, ~35 s); code is loaded once per worker and every `testCtx()` gets a copy of that state.
+- `bun run test` (fast tests) and `bunx tsc --noEmit` must both be clean; run `bun run test:all` before a push or deploy.
+- **Test kinds — the kind is in the file name** (listed by `script/test.ts`, run from the Tests page `/code/tests` with a tab per kind; each kind keeps its own report `.runtime/test-report-<kind>.xml`):
+
+  | file | kind | may touch | run |
+  |---|---|---|---|
+  | `*.test.ts` | fast | code, stubs, the test Postgres (`testCtx`) | `bun run test` — on every change |
+  | `*.it.test.ts` | integration | real processes: git repos, docker sshd (`test/ssh`), tsgo, duckdb, headless Chrome (`test/chrome`) | `bun run test:it` |
+  | `*.live.test.ts` | live | the real network and real accounts | `bun run test:live` — by hand only |
+
+  `bun run test:all` = fast + integration (never live). A new test is fast unless it needs one of the above; a fast file that takes over ~1 s or spawns processes belongs in `.it`. Paths narrow a run: `bun script/test.ts it ./src/remote`.
+- **Test Postgres:** tests never use the working db (54393). They run on `hyper-db-test` (127.0.0.1:54399, `docker compose up -d db-test` in `~/.hyper`, fsync off) — `TEST_DATABASE_URL`, or `DATABASE_URL` with the port moved to 54399. The core migrations build one template db (`hyper_test_t_<hash>`, rebuilt when a migration changes); each test process gets its own copy, reset (TRUNCATE + drop extra tables) after every test that made a ctx and before each new file. Fast suite: `bun run test` (`--parallel=16 --no-isolate`, ~20–40 s); code is loaded once per worker and every `testCtx()` gets a copy of that state.
 - Shared fixture: `mkTestCtx()` from `src/_testCtx.entry.ts` — boots the real registry (full Proxy ctx, test db, migrations, routes), scrubs env for determinism, and stubs `markdown.highlight/render` + `repl.eval`. Override stubs via `ctx.state.registry.<mod>.<fn> = (_c, _s, opts) => …` (raw signature!).
 - Route tests go through `ctx.fns.procs.http.dispatch({ method, url, body, headers })` → real `Response`.
 - **All tests use `model: 'mock:*'`** (`streamMock`; drive via `agent.scratchpad.mockLLM` — `echoUser`/`userText`/`defaultText`). Never hit real LLM providers in the suite.
 - Fixtures go to `.test-tmp/` (gitignored) — NEVER into `src/` or `.hyper/` (both are scanned roots).
-- **Test against a controlled environment, not live machines.** Anything that talks to an external system (SSH hosts, databases, browsers, HTTP services) gets a disposable fixture — preferably Docker — that the test starts, seeds and tears down itself. Never make the suite depend on the user's servers, `~/.ssh`, real accounts or network state. Example: `test/ssh/` (Dockerfile + compose + `fixture.ts`) keeps two sshd containers running for `src/remote/remote.test.ts` (started on first use, reused across runs, remote home reset each run) and points the ctx at a private ssh_config via `HYPER_SSH_CONFIG`/`HYPER_SSH_CONTROL_DIR`. Such suites `describe.skipIf(!dockerAvailable)` so a machine without Docker skips instead of failing; `HYPER_SKIP_DOCKER_TESTS=1` skips them explicitly.
+- **Test against a controlled environment, not live machines.** Anything that talks to an external system (SSH hosts, databases, browsers, HTTP services) gets a disposable fixture — preferably Docker — that the test starts, seeds and tears down itself. Never make the suite depend on the user's servers, `~/.ssh`, real accounts or network state. Example: `test/ssh/` (Dockerfile + compose + `fixture.ts`) keeps two sshd containers running for `src/remote/remote.it.test.ts` (started on first use, reused across runs, remote home reset each run) and points the ctx at a private ssh_config via `HYPER_SSH_CONFIG`/`HYPER_SSH_CONTROL_DIR`. Such suites `describe.skipIf(!dockerAvailable)` so a machine without Docker skips instead of failing; `HYPER_SKIP_DOCKER_TESTS=1` skips them explicitly.
 - Run test files by explicit path (`bun test ./src/remote/`), not as a bare filter (`bun test src/remote`): a filter makes bun scan the whole tree, including `harnesses/`, and the thousands of open descriptors make `Bun.spawn` fail with `EBADF`.
 
 ## Core code placement

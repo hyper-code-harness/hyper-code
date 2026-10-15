@@ -1,9 +1,11 @@
-/** GET /code/tests — the last test run (code.tests) as a page with a Run button; the Tests canvas frames it. */
-export default async function (ctx: Context, _session: Session | null, _opts: { req: Request }) {
-    const data = await ctx.fns.code.tests({});
+/** GET /code/tests?kind=fast|it|live|all — the last run of that kind of tests (code.tests) as a page with kind tabs and a Run button; the Tests canvas frames it. */
+export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
+    const q = new URL(opts.req.url).searchParams.get("kind") ?? "fast";
+    const kind = (["fast", "it", "live", "all"].includes(q) ? q : "fast") as types.code.TestKind;
+    const data = await ctx.fns.code.tests({ kind });
     const json = JSON.stringify(data ?? null).replace(/</g, "\\u003c");
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Tests</title><style>${CSS}</style></head>
-<body><div id=app></div><script>window.TESTS=${json};</script><script src="/code/tests.js"></script></body></html>`;
+<body><div id=app></div><script>window.TESTS=${json};window.TEST_KIND=${JSON.stringify(kind)};</script><script src="/code/tests.js"></script></body></html>`;
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
 
@@ -31,6 +33,10 @@ details[open]>summary .name{color:#2563eb}
 .run{margin-left:auto;border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:5px 14px;font:600 12px Inter,system-ui;cursor:pointer}
 .run[disabled]{background:#93c5fd;border-color:#93c5fd;cursor:default}
 .status{color:#6b7280;font-size:12px}
+.kinds{display:flex;gap:4px;margin:0 0 10px}.kinds a{border:1px solid #e5e7eb;border-radius:8px;padding:4px 10px;color:#374151;text-decoration:none;font-size:12px}
+.kinds a.on{background:#111827;border-color:#111827;color:#fff}.kinds a small{color:#9ca3af;margin-left:4px}.kinds a.on small{color:#d1d5db}
+.empty{color:#6b7280;padding:24px 0}
+body.norun .kpis,body.norun h2,body.norun details{display:none}body.running .empty{display:none}
 body.running .kpis,body.running h2,body.running details,body.running .grp,body.running .f{display:none}
 #prog:not(:empty){margin:4px 0 14px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb}
 .pbar{display:flex;height:14px;border-radius:7px;background:#e5e7eb;overflow:hidden}.pbar i{display:block;height:100%;transition:width .4s}

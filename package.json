@@ -10,7 +10,10 @@
     "cli": "bun script/cli.ts",
     "extension:watch": "bun script/watch-extension.ts",
     "extension:reload": "bun script/watch-extension.ts --once",
-    "test": "bun test --parallel=16 --no-isolate"
+    "test": "bun script/test.ts fast",
+    "test:it": "bun script/test.ts it",
+    "test:live": "bun script/test.ts live",
+    "test:all": "bun script/test.ts all"
   },
   "devDependencies": {
     "@types/bun": "latest",

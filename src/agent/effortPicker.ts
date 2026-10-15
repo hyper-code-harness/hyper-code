@@ -1,5 +1,5 @@
 /**
- * Renders the reasoning effort picker for one agent header
+ * Renders the reasoning effort picker opened from the chat composer
  *
  * Render a compact polished popup listing only the effort levels supported by the agent current model, with descriptions and requested/applied state. Each action posts to the selected agent effort route.
  * @param opts.agentId Agent whose effort can be changed.
@@ -31,7 +31,7 @@ export default async function (
     const rows = caps.supported.map((effort) => {
      const info=copy[effort]!; const selected=effort===requested;
      const html=`<i class="ph ${info.icon} text-base" aria-hidden="true"></i><span class="min-w-0 flex-1"><span class="block text-xs font-medium">${esc(info.label)}</span><span class="block text-3xs text-faint">${esc(info.detail)}</span></span>${selected?'<i class="ph ph-check-circle text-primary" aria-hidden="true"></i>':''}`;
-     return `<form hx-post="/agent/${encodeURIComponent(id)}/effort" hx-swap="none"><input type="hidden" name="effort" value="${effort}">${ctx.fns.procs.ui.button({action:"set-reasoning-effort",html,type:"submit",disabled:selected,class:`flex w-full items-center gap-3 rounded-lg text-left ${selected?"border-primary/30 bg-primary/10 text-primary":"text-muted"}`,attrs:selected?{"aria-current":"true"}:{}})}</form>`;
+     return `<form hx-post="/agent/${encodeURIComponent(id)}/effort" hx-swap="none"><input type="hidden" name="effort" value="${effort}">${ctx.fns.procs.ui.button({action:"set-reasoning-effort",html,type:"submit",active:selected,class:`flex w-full items-center gap-3 rounded-lg text-left ${selected?"border-primary/30 bg-primary/10 text-primary":"text-muted"}`,attrs:selected?{"aria-current":"true"}:{}})}</form>`;
     }).join("");
     const note = resolved.downgraded ? `<div class="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-3xs text-warning">Requested ${esc(requested)}; this model applies ${esc(resolved.applied)}.</div>` : "";
     const html=`<div class="space-y-3"><div><div class="font-mono text-3xs text-faint">${esc(target.model)}</div><div class="mt-1 text-xs text-subtle">Controls model-side reasoning for future turns of this agent.</div></div><div class="grid gap-1.5">${rows}</div>${note}</div>`;

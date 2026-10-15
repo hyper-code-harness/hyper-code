@@ -28,6 +28,10 @@ describe("agent reasoning effort", () => {
         expect(html).toContain('value="high"');
         expect(html).not.toContain('value="xhigh"');
         expect(html).toContain(`/agent/${agent.id}/effort`);
+        const selected = /<button\b[^>]*aria-current="true"[^>]*>/.exec(html)?.[0];
+        expect(selected).toBeDefined();
+        expect(selected).toContain("ui-button--active");
+        expect(selected).not.toContain("disabled");
     });
 
     test("Claude 5 offers low…max without off; auto keeps the model's own thinking", async () => {

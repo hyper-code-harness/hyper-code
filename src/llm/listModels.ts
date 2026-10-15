@@ -6,6 +6,24 @@
  * @param opts.skipNodes Omit hyper/<node> groups and do not refresh node catalogues (host-side catalogue building). @default false
  */
 export default async function (ctx: Context, _session: Session | null, opts?: { /** Omit node groups. @default false */ skipNodes?: boolean }): Promise<Record<string, string[]>> {
+    // The catalogue asks LM Studio, Groq, every Hyper node and each provider's credentials — seconds of
+    // work that the model popup and the new-chat form used to wait for on every open. The last answer is
+    // returned at once and refreshed in the background once it is a minute old; only the very first call
+    // (or a test with a fresh ctx) waits.
+    const key = opts?.skipNodes ? "skipNodes" : "all";
+    if (!(ctx as any).state) return build(ctx, opts);
+    const cache: Record<string, { at: number; value?: Record<string, string[]>; pending?: Promise<Record<string, string[]>> }> =
+        ((ctx.state as any).llmModelCatalog ??= {});
+    const entry = (cache[key] ??= { at: 0 });
+    const refresh = () => entry.pending ??= build(ctx, opts)
+        .then(value => { entry.value = value; entry.at = Date.now(); return value; })
+        .finally(() => { entry.pending = undefined; });
+    if (!entry.value) return refresh();
+    if (Date.now() - entry.at > 60_000) refresh().catch(() => undefined);
+    return entry.value;
+}
+
+async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Record<string, string[]>> {
     const out: Record<string, string[]> = {};
 
     // Local: LM Studio /v1/models

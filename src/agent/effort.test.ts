@@ -29,4 +29,12 @@ describe("agent reasoning effort", () => {
         expect(html).not.toContain('value="xhigh"');
         expect(html).toContain(`/agent/${agent.id}/effort`);
     });
+
+    test("Claude 5 offers low…max without off; auto keeps the model's own thinking", async () => {
+        const ctx:any = await mkTestCtx();
+        const caps = await ctx.fns.llm.reasoningCapabilities({ model: "claude-code:claude-opus-5-5" });
+        expect(caps.supported).toEqual(["auto", "low", "medium", "high", "xhigh"]);
+        expect((await ctx.fns.llm.resolveReasoningEffort({ model: "claude-code:claude-opus-5-5", effort: "auto" })).applied).toBe("off");
+        expect((await ctx.fns.llm.reasoningCapabilities({ model: "claude-code:claude-sonnet-5" })).supported).not.toContain("xhigh");
+    });
 });

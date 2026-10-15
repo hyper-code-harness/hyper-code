@@ -28,6 +28,12 @@ export default async function (
         return { supported: ["auto", "off", "minimal", "low", "medium", "high", "xhigh"], defaultEffort: "medium", mode: "openai-effort" };
     }
 
+    // Claude 5: adaptive thinking is always on (the API rejects thinking.type "disabled"), only its effort is
+    // chosen — low…max. "auto" sends no effort and lets the model decide, as before levels existed.
+    if ((provider === "claude-code" || provider === "anthropic-oauth" || provider === "anthropic") && /(opus|sonnet)-5/.test(modelId)) {
+        const max = /opus-5/.test(modelId);
+        return { supported: ["auto", "low", "medium", "high", ...(max ? ["xhigh" as const] : [])], defaultEffort: "off", mode: "anthropic-adaptive" };
+    }
     if ((provider === "claude-code" || provider === "anthropic-oauth" || provider === "anthropic") && /(opus|sonnet)-4-6/.test(modelId)) {
         const max = /opus-4-6/.test(modelId);
         return { supported: ["auto", "off", "low", "medium", "high", ...(max ? ["xhigh" as const] : [])], defaultEffort: "medium", mode: "anthropic-adaptive" };

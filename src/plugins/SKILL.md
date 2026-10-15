@@ -80,6 +80,7 @@ Within a namespace directory:
 | `$route_$id_GET.ts` | Parameterized route `/example/:id` |
 | `$route_GET.ts` | Namespace root route `/example` |
 | `$app_example.json` | Navigation entry for a real existing page |
+| `$dock_example.json` / `$dock_example.ts` | Icon or live badge in the left Dock (`example.example`) |
 | `$setting_enabled.ts` | Declared setting `example.enabled` |
 | `$script_example.js` | Browser asset |
 | `$migration_<timestamp>_<name>.ts` | Database migration with `up(ctx)` and optional `down(ctx)` |
@@ -98,6 +99,40 @@ An app entry is navigation metadata, not route registration or an authorization 
   "order": 60
 }
 ```
+
+### Dock entries
+
+The Dock is the narrow bar on the left. The global menu button on top and the signed-in person at the bottom are fixed; everything between them comes from `$dock_` files and the person's pins, in a top and a bottom zone. Entry id is `<namespace>.<name>`.
+
+A plain link needs no code:
+
+```json
+// src/example/$dock_status.json
+{ "icon": "ph-heartbeat", "label": "Example status", "href": "/example", "zone": "top", "order": 60 }
+```
+
+A counter or popup renders per request:
+
+```ts
+// src/example/$dock_alerts.ts
+export default {
+    label: "Example alerts",          // name in the Dock's right-click menu
+    zone: "top",                      // "top" | "bottom", default top
+    order: 60,                        // lower first inside the zone, default 100
+    render: async (ctx) => {
+        const n = await ctx.fns.example.alertCount({});
+        return n ? { icon: "ph-bell", label: `${n} alerts`, href: "/example/alerts", badge: n } : null;
+        // or { icon, label, popup: trustedHtml } for a popover beside the Dock,
+        // or a trusted HTML string for full control
+    },
+} satisfies types.dock.Item;
+```
+
+`render` runs on every page render with a short timeout (1.5 s); a throw, a timeout or `null` only leaves that entry out. Keep it to a cached read — never network or discovery on the render path. To keep a badge live, ship a small `$script_*.js` that re-fetches your own fragment on a `hyper-events` event you emit, as `mentions/$dock_mentions.ts` does.
+
+Order and visibility are not the plugin's call: the `dock.layout` setting (`{ "top": [ids], "bottom": [ids], "hidden": [ids], "pins": [hrefs] }`) sets them for the instance (env `HYPER_DOCK`) and, per person, the Dock itself saves the person's copy when they drag, hide, pin or reset. Unknown ids are ignored, so removing a plugin never breaks a layout.
+
+### Settings
 
 Declare settings with the existing `$setting_*.ts` mechanism; do not create a parallel manifest schema for types or defaults:
 

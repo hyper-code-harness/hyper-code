@@ -89,6 +89,9 @@ export default async function (ctx: Context, session: Session | null, opts: {
   backdrop-filter: blur(12px) saturate(115%);
   -webkit-backdrop-filter: blur(12px) saturate(115%);
 }
+/* The top zone scrolls when pins outgrow it; a soft fade at the bottom edge says there is more. */
+#dock-top { scrollbar-width: none; mask-image: linear-gradient(to bottom, black calc(100% - 1.25rem), transparent); padding-bottom: 1rem; }
+#dock-top::-webkit-scrollbar { display: none; }
 .glass-panel {
   box-shadow: inherit;
 }

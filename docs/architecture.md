@@ -6,6 +6,8 @@
 
 A module that owns a user-facing page can publish it to global navigation with a `$app_<name>.json` file. The `nav/$loader_app.ts` loader collects these declarations; `nav.items` merges them with core pages, plugins, and agents.
 
+The left Dock (`dock.render`, called by `ui.layout`) is assembled from `$dock_<name>.ts|json` entries collected by `dock/$loader_dock.ts`, plus the person's pinned chats (`user_agent_state.pinned`) and pages. The global menu button (top) and the person (bottom) are fixed; everything else is placed in a top or bottom zone by the `dock.layout` setting — instance scope `global`, personal scope `user` — over each entry's own `zone`/`order`. Each entry renders in parallel under a timeout and is dropped on error.
+
 ```json
 {
   "label": "cron tasks",

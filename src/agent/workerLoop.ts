@@ -352,16 +352,12 @@ async function releaseWorkerLock(ctx: Context): Promise<void> {
 }
 
 /** Worker loop for the runtime. */
-export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<void> {
-    if ((ctx.state as any).workerLoopRunning) return;
-    (ctx.state as any).workerLoopRunning = true;
-
-    const inflight = new Set<Promise<unknown>>();
-
-    while ((ctx.state as any).workerLoopRunning) {
+// One pass of the worker: hold the lock, run housekeeping, claim and start every due agent, then sleep
+// until the next due time or a wake. Throws on database errors; the loop above retries.
+async function workerPass(ctx: Context, inflight: Set<Promise<unknown>>): Promise<void> {
         if (!(await holdWorkerLock(ctx).catch(() => false))) {
             await waitForWork(ctx, 5_000);
-            continue;
+            return;
         }
         // Drain every claimable agent into a parallel promise. The atomic
         // claim guarantees no two concurrent runs target the same agent.
@@ -428,6 +424,29 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
             await waitForWork(ctx, Math.max(50, Math.min(MAX_IDLE_MS, nextMs)));
         }
         // else: drained > 0 — loop back immediately to look for more.
+    }
+
+export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<void> {
+    if ((ctx.state as any).workerLoopRunning) return;
+    (ctx.state as any).workerLoopRunning = true;
+
+    const inflight = new Set<Promise<unknown>>();
+
+    let failures = 0;
+    while ((ctx.state as any).workerLoopRunning) {
+        // One failed pass (a dropped connection, Postgres "out of shared memory") must not end the
+        // worker: it used to throw out of this loop, leaving workerLoopRunning true and every agent
+        // silently queued until a restart. Log, back off, try again.
+        try {
+            await workerPass(ctx, inflight);
+            failures = 0;
+        } catch (error: any) {
+            failures++;
+            const delay = Math.min(30_000, 500 * 2 ** Math.min(failures, 6));
+            console.error(`[workerLoop] pass failed (${failures}), retrying in ${delay}ms:`, error?.message ?? error);
+            ctx.fns.procs.log.warn({ event: 'agent.worker.passFailed', msg: String(error?.message ?? error) });
+            await waitForWork(ctx, delay);
+        }
     }
 
     // Graceful shutdown: don't return while runOne finalizers still have

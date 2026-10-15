@@ -69,6 +69,28 @@ describe('agent.workerLoop', () => {
         expect(totalSpan).toBeLessThan(250); // 3 × 100ms = 300ms serial; parallel ≈ 100–150ms
     }, 5_000);
 
+    test('a database error in one pass does not end the worker: it retries and still runs queued agents', async () => {
+        const ctx: any = await mkTestCtx();
+        ctx.fns.agent.workerLoop = workerLoop;
+        ctx.fns.agent.wakeWorker = wakeWorker;
+        await seedReadyAgent(ctx, 'r1', Date.now() - 100);
+        const ran: string[] = [];
+        ctx.fns.agent.run = async (_c: any, _s: any, opts: any) => { ran.push(opts.agent.id); };
+        // The first housekeeping call throws outside its own .catch, like a lost connection or
+        // "out of shared memory" from Postgres did in production.
+        let calls = 0;
+        const realSettings = ctx.fns.settings.getNumber;
+        ctx.fns.settings.getNumber = async (o: any) => { if (++calls === 1) throw new Error('out of shared memory'); return realSettings(o); };
+        const loopPromise = workerLoop(ctx, null);
+        const deadline = Date.now() + 4_000;
+        while (!ran.length && Date.now() < deadline) await Bun.sleep(20);
+        (ctx.state as any).workerLoopRunning = false;
+        wakeWorker(ctx, null);
+        await loopPromise;
+        expect(calls).toBeGreaterThan(1);
+        expect(ran).toEqual(['r1']);
+    }, 8_000);
+
     test('atomic claim prevents two concurrent claims of the same agent', async () => {
         const ctx: any = await mkTestCtx();
         ctx.fns.agent.workerLoop = workerLoop;

@@ -22,22 +22,22 @@ export default {
             : s.mode === "password" ? 'autocomplete="new-password" placeholder="••••••••"' : 'autocomplete="off"';
         return `<input name="value" type="${s.mode === "text" ? "text" : "password"}" required maxlength="${Number(s.maxlength)}" ${attrs} `
             + `class="input input-bordered input-sm w-full bg-base-100 ${otp ? "font-mono tracking-[0.3em]" : ""}" aria-label="${esc(opts.input.title)}">`
-            + `<p class="font-mono text-3xs text-faint">→ ${esc(s.saveAs)} · значение не увидит ни агент, ни история чата</p>`;
+            + `<p class="font-mono text-3xs text-faint">→ ${esc(s.saveAs)} · the value is hidden from both the agent and chat history</p>`;
     },
     async submit(ctx: Context, opts: { input: types.input.Row; values: types.input.FormValues }) {
         const s = opts.input.spec;
         let value = String(opts.values.value ?? "");
         if (s.mode !== "password") value = value.trim();
-        if (!value) throw new Error("Введите значение");
+        if (!value) throw new Error("Enter a value");
         if (s.mode === "otp") {
-            if (!/^[0-9 -]{3,16}$/.test(value)) throw new Error("Нужен цифровой код");
+            if (!/^[0-9 -]{3,16}$/.test(value)) throw new Error("Enter a numeric code");
             value = value.replace(/[ -]/g, "");
         }
-        if (value.length > Number(s.maxlength)) throw new Error(`Не длиннее ${s.maxlength} символов`);
+        if (value.length > Number(s.maxlength)) throw new Error(`No more than ${s.maxlength} characters`);
         await ctx.fns.secrets.set({ ref: s.saveAs, value, source: "input" });
         return { result: { ref: s.saveAs }, summary: `secret ${s.saveAs} is stored — use it via bash({ secrets: { VAR: "${s.saveAs}" } })` };
     },
     done(ctx: Context, opts: { input: types.input.Row }) {
-        return `<p class="text-2xs text-muted"><i class="ph ph-lock-simple" aria-hidden="true"></i> сохранено как <code>${ctx.fns.procs.ui.escape({ text: opts.input.result?.ref ?? opts.input.spec.saveAs })}</code></p>`;
+        return `<p class="text-2xs text-muted"><i class="ph ph-lock-simple" aria-hidden="true"></i> saved as <code>${ctx.fns.procs.ui.escape({ text: opts.input.result?.ref ?? opts.input.spec.saveAs })}</code></p>`;
     },
 } satisfies types.input.Kind;

@@ -130,6 +130,6 @@ describe("llm.classifyError", () => {
         const info = call({ provider: "kimi-coding", kind: "subscription", status: 429, body });
         expect(info.kind).toBe("usage_limit");
         expect(info.resetsAt).toBeNull();
-        expect(info.message).toContain("неизвестно");
+        expect(info.message).toContain("unknown");
     });
 });

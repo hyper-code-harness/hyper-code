@@ -57,8 +57,8 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
     // page had.
     const addAccountForm = `
 <form method="POST" action="/llms/anthropic-oauth/connect" class="flex flex-wrap items-center gap-2">
-  <input name="account" required pattern="[\\w.-]{1,40}" placeholder="имя аккаунта, например personal" class="w-56 rounded-md border border-base-300 bg-base-100 px-2 py-1.5 font-mono text-xs" aria-label="Account slot">
-  <input name="label" placeholder="подпись (необязательно)" class="w-48 rounded-md border border-base-300 bg-base-100 px-2 py-1.5 text-xs" aria-label="Account label">
+  <input name="account" required pattern="[\\w.-]{1,40}" placeholder="account name, e.g. personal" class="w-56 rounded-md border border-base-300 bg-base-100 px-2 py-1.5 font-mono text-xs" aria-label="Account slot">
+  <input name="label" placeholder="label (optional)" class="w-48 rounded-md border border-base-300 bg-base-100 px-2 py-1.5 text-xs" aria-label="Account label">
   ${ctx.fns.procs.ui.button({ action: 'add-claude-account', label: 'Add Claude account', type: 'submit' })}
 </form>`;
 
@@ -71,7 +71,7 @@ ${addAccountForm}` : `
   <div class="flex items-start gap-3"><div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg text-primary"><i class="ph ph-sparkle"></i></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold text-base-content">Anthropic subscription</h2>${badge(oauth.connected && !oauth.needsReconnect, oauthLabel)}</div><p class="mt-1 text-xs leading-5 text-subtle">Claude Pro or Max through managed OAuth. Agents use the <code>anthropic-oauth:</code> model prefix.</p></div></div>
   ${oauthError}${pendingPanel}
   <div class="mt-4 flex flex-wrap gap-2">${oauthActions}</div>
-  ${oauth.connected ? `<p class="mt-3 text-2xs text-faint">Каждый аккаунт — своя квота и свой префикс модели: <code>anthropic-oauth:</code> для основного, <code>anthropic-oauth/имя:</code> для остальных. Disconnect удаляет только один аккаунт и не трогает сессии в Claude.</p>` : ""}
+  ${oauth.connected ? `<p class="mt-3 text-2xs text-faint">Each account has its own quota and model prefix: <code>anthropic-oauth:</code> for the primary account, <code>anthropic-oauth/name:</code> for the others. Disconnect removes only that account and leaves Claude sessions untouched.</p>` : ""}
 </article>`;
 
     const main = `<div class="min-h-full bg-base-200">

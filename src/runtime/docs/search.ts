@@ -43,8 +43,8 @@ export default async function (
 // Keyword retrieval over the short `kw_text` field, ranked separately from the
 // prose. BM25 rewards term frequency, so a capability whose generated Russian
 // prose happens to repeat a word fourteen times outranks the one that actually
-// owns the subject — gmail.list mentions "почта" once, inbox.loop fourteen
-// times, and "проверить почту" therefore returned the encrypted-relay inbox.
+// owns the subject — gmail.list mentions "mail" once, inbox.loop fourteen
+// times, and "check mail" therefore returned the encrypted-relay inbox.
 // Scoring the deduplicated keyword field as its own branch removes frequency
 // from the comparison: every capability states each word exactly once, so the
 // question becomes whether the word applies, not how often it was written.

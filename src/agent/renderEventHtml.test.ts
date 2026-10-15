@@ -33,7 +33,7 @@ describe("agent.renderEventHtml", () => {
       eventType: "message.new",
       payload: { chatTitle: "TODO: work", senderName: "Nikolai", text: "что ты делаешь?", chatId: "-42", messageId: 7 },
     });
-    expect(html).toContain("TODO: work · новое сообщение");
+    expect(html).toContain("TODO: work · new message");
     expect(html).toContain("Nikolai");
     expect(html).toContain("что ты делаешь?");
     expect(html).toContain("ph-telegram-logo");

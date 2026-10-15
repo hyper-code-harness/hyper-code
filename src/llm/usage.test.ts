@@ -193,23 +193,23 @@ describe("ui.usageDial", () => {
     test("a parked credential shows the pause mark and says how many wait", () => {
         const html = dial(escCtx, null, { entries: [entry({ usedPercent: 100, tone: "error", parkedAgents: 14 })], now: NOW });
         expect(html).toContain("ph-pause");
-        expect(html).toContain("14 агент(ов) припарковано");
+        expect(html).toContain("14 agent(s) parked");
     });
 
     test("the tooltip interprets the number instead of just stating it", () => {
         const calm = dial(escCtx, null, { entries: [entry({ usedPercent: 20, tone: "neutral" })], now: NOW });
-        expect(calm).toContain("осталось 80%");
-        expect(calm).toContain("запаса хватает");
-        expect(calm).toContain("сброс через 2ч 0м");
+        expect(calm).toContain("80% remaining");
+        expect(calm).toContain("sufficient capacity");
+        expect(calm).toContain("resets in 2h 0m");
 
         const hot = dial(escCtx, null, { entries: [entry({ usedPercent: 78, tone: "error" })], now: NOW });
-        expect(hot).toContain("осталось 22%");
-        expect(hot).toContain("стоит переключить модель");
+        expect(hot).toContain("22% remaining");
+        expect(hot).toContain("consider switching models");
     });
 
     test("no data draws an empty ring instead of a fake zero", () => {
         const html = dial(escCtx, null, { entries: [entry({ usedPercent: null, tone: "neutral" })], now: NOW });
         expect(html).not.toContain("stroke-dasharray");
-        expect(html).toContain("ещё нет данных");
+        expect(html).toContain("no data yet");
     });
 });

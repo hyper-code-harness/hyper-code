@@ -92,7 +92,7 @@ export default function (
             account,
             status: status || undefined,
             retryable: false,
-            message: `${provider}: на счёте закончились средства — пополните баланс или переключите модель`,
+            message: `${provider}: account balance depleted — add funds or switch models`,
             raw: body.slice(0, 2000),
         };
     }
@@ -106,7 +106,7 @@ export default function (
             status: status || undefined,
             retryAfterMs: retryAfterMs ?? 5_000,
             retryable: true,
-            message: `${provider}: слишком часто (429) — повтор через ${Math.round((retryAfterMs ?? 5_000) / 1000)}с`,
+            message: `${provider}: rate limited (429) — retry in ${Math.round((retryAfterMs ?? 5_000) / 1000)}s`,
             raw: body.slice(0, 2000),
         };
     }
@@ -119,7 +119,7 @@ export default function (
             account,
             status: status || undefined,
             retryable: false,
-            message: `${provider}/${account}: авторизация отклонена — обновите ключ или войдите заново`,
+            message: `${provider}/${account}: authorization rejected — update the key or sign in again`,
             raw: body.slice(0, 2000),
         };
     }
@@ -132,7 +132,7 @@ export default function (
             account,
             status: status || undefined,
             retryable: false,
-            message: `${provider}: запрос не помещается в контекст — нужна компактификация`,
+            message: `${provider}: request exceeds the context window — compaction required`,
             raw: body.slice(0, 2000),
         };
     }
@@ -147,7 +147,7 @@ export default function (
             status: status || undefined,
             retryAfterMs: retryAfterMs ?? 1_000,
             retryable: true,
-            message: `${provider}: временный сбой${status ? ` (${status})` : ""} — повтор`,
+            message: `${provider}: temporary failure${status ? ` (${status})` : ""} — retry`,
             raw: body.slice(0, 2000),
         };
     }
@@ -160,7 +160,7 @@ export default function (
         retryable: false,
         message: serverMessage
             ? `${provider}${status ? ` ${status}` : ""}: ${serverMessage.slice(0, 300)}`
-            : `${provider}${status ? ` ${status}` : ""}: ${body.slice(0, 300) || "неизвестная ошибка"}`,
+            : `${provider}${status ? ` ${status}` : ""}: ${body.slice(0, 300) || "unknown error"}`,
         raw: body.slice(0, 2000),
     };
 }
@@ -207,11 +207,11 @@ function subscriptionResetsAt(err: any, header: (n: string) => string | null, no
 }
 
 function usageLimitMessage(provider: string, planType: string | undefined, resetsAt: number | null, now: number): string {
-    const plan = planType ? ` (план ${planType})` : "";
-    if (!resetsAt) return `Лимит подписки ${provider}${plan} исчерпан. Время сброса неизвестно.`;
+    const plan = planType ? ` (plan ${planType})` : "";
+    if (!resetsAt) return `Subscription limit for ${provider}${plan} exhausted. Reset time unknown.`;
     const left = Math.max(0, resetsAt - now);
     const hours = Math.floor(left / 3_600_000);
     const days = Math.floor(hours / 24);
-    const human = days >= 1 ? `${days}д ${hours % 24}ч` : hours >= 1 ? `${hours}ч ${Math.floor((left % 3_600_000) / 60_000)}м` : `${Math.ceil(left / 60_000)}м`;
-    return `Лимит подписки ${provider}${plan} исчерпан. Квота вернётся ${new Date(resetsAt).toLocaleString()} (через ${human}).`;
+    const human = days >= 1 ? `${days}d ${hours % 24}h` : hours >= 1 ? `${hours}h ${Math.floor((left % 3_600_000) / 60_000)}m` : `${Math.ceil(left / 60_000)}m`;
+    return `Subscription limit for ${provider}${plan} exhausted. Quota resets at ${new Date(resetsAt).toLocaleString()} (in ${human}).`;
 }

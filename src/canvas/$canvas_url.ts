@@ -60,10 +60,10 @@ export default {
             return wrap(`<style>.hyper-url-frame{display:none}html[data-hyper-frames] .hyper-url-frame{display:block}html[data-hyper-frames] .hyper-url-notice{display:none}</style>
 ${frame("hyper-url-frame")}
 <div class="hyper-url-notice flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-  <div class="text-base font-medium">${esc(new URL(url).hostname)} не разрешает показывать себя внутри другой страницы</div>
+  <div class="text-base font-medium">${esc(new URL(url).hostname)} does not allow embedding in another page</div>
   <div class="max-w-md text-sm text-faint">${esc(String(a.reason ?? ""))}</div>
-  <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Открыть в новой вкладке</a>
-  <div class="max-w-md text-xs text-faint">Чтобы такие сайты открывались здесь, поставьте расширение Hyper canvas frames (папка extensions/canvas-frames).</div>
+  <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Open in a new tab</a>
+  <div class="max-w-md text-xs text-faint">To open these sites here, install the Hyper canvas frames extension (extensions/canvas-frames directory).</div>
 </div>`);
         }
         return wrap(frame("block"));

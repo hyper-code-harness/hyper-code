@@ -5,8 +5,8 @@
 // next message IS their next move. Guiding is turn-taking, not waiting on a
 // wire: play one step per turn and stop talking until the press arrives.
 //
-//   ctx.fns.screen.step({ say: "Это регистр", open: "/ehr", point: { form: "patient-search" } })
-//   ctx.fns.screen.step({ say: "Нажми на строку", click: { entity: "file", id: "CLAUDE.md" } })
+//   ctx.fns.screen.step({ say: "This is the registry", open: "/ehr", point: { form: "patient-search" } })
+//   ctx.fns.screen.step({ say: "Click the row", click: { entity: "file", id: "CLAUDE.md" } })
 /**
  * Plays one turn of an interactive browser tour.
  * @param opts.say Caption for this tour turn.

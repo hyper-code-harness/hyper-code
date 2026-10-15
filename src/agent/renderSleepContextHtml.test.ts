@@ -22,7 +22,7 @@ describe("renderSleepContextHtml", () => {
                 { type: "user", text: "visible recent", messageIdx: 7 },
             ],
         });
-        expect(html).toContain("Компактный контекст активен");
+        expect(html).toContain("Compact context active");
         expect(html).toContain("kept fact");
         expect(html).toContain("visible recent");
         expect(html).not.toContain("hidden old");

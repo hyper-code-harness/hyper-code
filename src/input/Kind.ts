@@ -16,7 +16,7 @@ export type Kind = {
     done: (ctx: Context, opts: { input: types.input.Row }) => string | Promise<string>;
     /** Optional extra fragment endpoint, served at GET /input/<id>/part?…, e.g. filtered grid rows. */
     part?: (ctx: Context, opts: { input: types.input.Row; query: URLSearchParams }) => string | Promise<string>;
-    /** Submit buttons under the fields; omitted → one primary "Отправить" button, "" → none (fields submit themselves). */
+    /** Submit buttons under the fields; omitted → one primary "Submit" button, "" → none (fields submit themselves). */
     buttons?: (ctx: Context, opts: { input: types.input.Row }) => string | Promise<string>;
     /** Whether the framework shows its own Cancel button. @default true */
     cancel?: boolean;

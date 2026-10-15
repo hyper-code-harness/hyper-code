@@ -31,7 +31,7 @@ function rowsHtml(ctx: Context, input: types.input.Row, rows: any[], picked: Set
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
     const s = input.spec;
     const type = s.multiple ? "checkbox" : "radio";
-    if (!rows.length) return `<tr><td colspan="${s.columns.length + 1}" class="py-3 text-center text-2xs text-muted">ничего не найдено</td></tr>`;
+    if (!rows.length) return `<tr><td colspan="${s.columns.length + 1}" class="py-3 text-center text-2xs text-muted">no results found</td></tr>`;
     return rows.map(r => {
         const value = cell(r[s.valueKey]);
         return `<tr class="cursor-pointer hover:bg-base-200/60 has-[:checked]:bg-primary/10" onclick="if(event.target.tagName!=='INPUT'){const i=this.querySelector('input');i.checked=${s.multiple ? "!i.checked" : "true"}}">`
@@ -72,12 +72,12 @@ export default {
         const input = opts.input;
         const rowsId = `grid-rows-${input.id}`;
         const head = input.spec.columns.map((c: Column) => `<th>${esc(c.label)}</th>`).join("");
-        return `<input type="search" name="q" placeholder="фильтр…" autocomplete="off" class="input input-bordered input-sm w-full bg-base-100" `
+        return `<input type="search" name="q" placeholder="filter…" autocomplete="off" class="input input-bordered input-sm w-full bg-base-100" `
             + `hx-get="/input/${esc(input.id)}/part" hx-trigger="input changed delay:250ms, search" hx-include="closest form" hx-target="#${rowsId}" hx-swap="innerHTML" `
             + `onkeydown="if(event.key==='Enter')event.preventDefault()">`
             + `<div class="max-h-96 overflow-auto rounded-md border border-ui-border"><table class="table table-xs w-full"><thead class="sticky top-0 bg-base-200"><tr><th></th>${head}</tr></thead>`
             + `<tbody id="${rowsId}">${await body(ctx, input, "", new Set())}</tbody></table></div>`
-            + `<p class="text-3xs text-faint">показаны первые ${PAGE} совпадений</p>`;
+            + `<p class="text-3xs text-faint">showing the first ${PAGE} matches</p>`;
     },
     async part(ctx: Context, opts: { input: types.input.Row; query: URLSearchParams }) {
         return body(ctx, opts.input, opts.query.get("q") ?? "", new Set(opts.query.getAll("pick")));
@@ -85,15 +85,15 @@ export default {
     async submit(ctx: Context, opts: { input: types.input.Row; values: types.input.FormValues }) {
         const s = opts.input.spec;
         const picked = [...new Set(([] as string[]).concat(opts.values.pick ?? []))];
-        if (!picked.length) throw new Error("Выберите строку");
-        if (!s.multiple && picked.length > 1) throw new Error("Можно выбрать только одну строку");
+        if (!picked.length) throw new Error("Select a row");
+        if (!s.multiple && picked.length > 1) throw new Error("Select only one row");
         // Resolve the picked values back to rows — from the inline list, or by
         // asking the source again with each value as the filter.
         const rows: any[] = [];
         for (const v of picked) {
             const row = s.rows ? s.rows.find((r: any) => cell(r[s.valueKey]) === v)
                 : (await matches(ctx, s, v)).find((r: any) => cell(r[s.valueKey]) === v);
-            if (!row) throw new Error(`Строка ${v} больше не найдена`);
+            if (!row) throw new Error(`Row ${v} is no longer available`);
             rows.push(row);
         }
         const labels = rows.map(r => cell(r[s.labelKey]) || cell(r[s.valueKey]));

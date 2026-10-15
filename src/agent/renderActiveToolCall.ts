@@ -2,7 +2,7 @@
 //
 // The incident (agent cbad, 2026-10-01): a signed-build script sat inside
 // `notarytool submit --wait` for 30+ minutes. The last thing in the chat was a
-// sentence of prose, so the UI looked dead; the user wrote "ау", "в чем дело?"
+// sentence of prose, so the UI looked dead; the user wrote "hello?", "what is going on?"
 // and those messages queued silently. The database knew the truth the whole
 // time — run_state='running', a fresh heartbeat — it simply was not on screen.
 //

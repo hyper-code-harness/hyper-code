@@ -126,8 +126,8 @@ export default async function (
         await ctx.fns.ui.notify({
             agentId: opts.originAgentId,
             level: "warn",
-            message: `${info.provider}${info.account === "default" ? "" : `/${info.account}`}: лимит исчерпан — ${parked.length} агент(ов) припарковано`,
-            body: `${info.message}\nАгенты продолжат работу сами: ${parked.join(", ")}`,
+            message: `${info.provider}${info.account === "default" ? "" : `/${info.account}`}: limit reached — ${parked.length} agent(s) parked`,
+            body: `${info.message}\nAgents will resume automatically: ${parked.join(", ")}`,
         }).catch(() => {});
     }
 

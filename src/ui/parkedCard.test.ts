@@ -36,7 +36,7 @@ describe("ui.parkedCard", () => {
         expect(html).toContain("Parked · usage limit");
         expect(html).toContain("codex");
         expect(html).toContain("prolite");
-        expect(html).toContain("3д 16ч");
+        expect(html).toContain("3d 16h");
     });
 
     test("offers the same-family alternative billed differently", () => {
@@ -64,6 +64,6 @@ describe("ui.parkedCard", () => {
 
     test("an unknown reset time is admitted, not invented", () => {
         const html = render(ctx, null, { agent: parkedAgent({ resetsAt: null, wakeAt: null }), models: MODELS, now: NOW });
-        expect(html).toContain("время неизвестно");
+        expect(html).toContain("time unknown");
     });
 });

@@ -156,9 +156,9 @@ export default async function (
         const resetsAt = windows.primary?.resetsAt ?? windows.secondary?.resetsAt ?? null;
         await ctx.fns.ui.notify({
             level: "warn",
-            message: `${provider}${account === "default" ? "" : `/${account}`}: использовано ${Math.round(worst)}% квоты`,
+            message: `${provider}${account === "default" ? "" : `/${account}`}: ${Math.round(worst)}% of quota used`,
             body: resetsAt
-                ? `Сброс ${new Date(resetsAt).toLocaleString()}. После исчерпания агенты будут припаркованы до этого момента — можно заранее переключить модель.`
+                ? `Resets at ${new Date(resetsAt).toLocaleString()}. Once the quota is exhausted, agents will park until then — you can switch models in advance.`
                 : undefined,
         }).catch(() => undefined);
     }

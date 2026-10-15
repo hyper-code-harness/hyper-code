@@ -11,7 +11,7 @@ function esc(s: any): string {
 // bubble can no longer swallow the rest of the chat.
 //
 // Some tokenizer errors mean the tag itself is garbage, e.g. the model wrote
-// `<strong Почему это лучше: …` without '>': the browser (and parse5) turn the
+// `<strong Why this is better: …` without '>': the browser (and parse5) turn the
 // following prose into attributes and the text silently disappears. For those
 // we show the plain text in <pre> instead of the mangled tree.
 const FATAL_PARSE_ERRORS = new Set([
@@ -104,7 +104,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         // audit stays visible, dimmed, with an out-of-context chip. Recurse
         // through the registry for the normal rendering of the same event.
         const inner: string = await (ctx as any).fns.agent.renderEventHtml({ event: { ...ev, excludedFromLlm: false }, agentId });
-        return '<div class="relative opacity-50"><span class="absolute -top-2 right-2 z-10 text-3xs px-1.5 py-0.5 rounded-full border border-ui-border bg-base-200 text-subtle">вне контекста</span>' + inner + '</div>';
+        return '<div class="relative opacity-50"><span class="absolute -top-2 right-2 z-10 text-3xs px-1.5 py-0.5 rounded-full border border-ui-border bg-base-200 text-subtle">outside context</span>' + inner + '</div>';
     }
 
     if (ev.type === "user") {
@@ -239,37 +239,37 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         });
     }
 
-    // "Сообщение услышано, вот что мешает". Эта карточка — постоянная запись в
-    // транскрипте; тикающая карточка над композером — живая. Обе могут быть на
-    // экране одновременно, и это правильно: одна история, другая «сейчас».
+    // "Message received; here is what is blocking it." This card is a permanent
+    // transcript entry; the ticking card above the composer is live. Both can
+    // appear at once: one records history, the other shows the current state.
     if (ev.type === "tool_busy") {
         const secs = Number(ev.elapsedSec ?? 0);
         const mins = Math.floor(secs / 60);
-        const been = mins >= 1 ? `${mins} мин` : `${secs} с`;
-        const limit = Number(ev.timeoutMs) > 0 ? ` из лимита ${Math.round(Number(ev.timeoutMs) / 60000)} мин` : '';
+        const been = mins >= 1 ? `${mins} min` : `${secs} s`;
+        const limit = Number(ev.timeoutMs) > 0 ? ` of a ${Math.round(Number(ev.timeoutMs) / 60000)} min limit` : '';
         const stop = ev.runId && agentId
             ? ctx.fns.procs.ui.button({
                 action: 'abort-tool-call',
-                label: `Прервать ${String(ev.name ?? 'tool')}`,
+                label: `Stop ${String(ev.name ?? 'tool')}`,
                 size: 'xs',
                 class: 'mt-2 rounded-full',
-                title: 'Остановить только этот вызов — агент продолжит и прочтёт ваше сообщение',
+                title: 'Stop only this call — the agent will continue and read your message',
                 post: `/agent/${encodeURIComponent(agentId)}/tool/${encodeURIComponent(String(ev.runId))}/abort`,
                 swap: 'none',
             })
             : '';
         return eventCard({
-            title: `Сообщение принято: ${String(ev.name ?? 'tool')} на тот момент шёл ${been}${limit}`,
+            title: `Message received: ${String(ev.name ?? 'tool')} had been running for ${been}${limit}`,
             icon: 'hourglass-high',
             tone: 'warning',
             body: `<div class="font-mono text-3xs text-muted">${esc(String(ev.subject ?? ''))}</div>`
-                + `<div class="mt-1">Сообщение принято и встало в очередь — агент прочтёт его, как только вызов завершится.</div>${stop}`,
+                + `<div class="mt-1">Message received and queued — the agent will read it when the call finishes.</div>${stop}`,
         });
     }
 
     if (ev.type === "tool_aborted") {
         return eventCard({
-            title: `Вызов ${String(ev.name ?? 'tool')} прерван пользователем`,
+            title: `Call ${String(ev.name ?? 'tool')} stopped by the user`,
             icon: 'hand-palm',
             tone: 'warning',
             badge: badge(`${Number(ev.elapsedSec ?? 0)}s`, 'warning'),
@@ -301,7 +301,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const chat = String(payload.chatTitle ?? payload.chatId ?? source);
         const sender = String(payload.senderName ?? payload.senderId ?? "");
         const text = String(payload.text ?? payload.summary ?? "");
-        const title = isTelegram ? `${chat} · новое сообщение` : `${source} · ${String(ev.eventType ?? "новое событие")}`;
+        const title = isTelegram ? `${chat} · new message` : `${source} · ${String(ev.eventType ?? "new event")}`;
         const body = `${sender ? `<div class="mb-1 text-3xs font-medium text-muted">${esc(sender)}</div>` : ""}<div class="whitespace-pre-wrap break-words">${esc(text)}</div>`;
         const details = `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(JSON.stringify(payload, null, 2))}</pre>`;
         return eventCard({ title, icon: isTelegram ? "telegram-logo" : "broadcast", tone: "info", badge: badge(source, "info"), body, details });
@@ -323,29 +323,29 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         // whose doing — otherwise a silent agent reads as a hang.
         const account = ev.account && ev.account !== "default" ? `/${ev.account}` : "";
         const resetsAt = Number(ev.resetsAt ?? ev.wakeAt ?? 0);
-        const when = resetsAt ? new Date(resetsAt).toLocaleString() : "время неизвестно";
+        const when = resetsAt ? new Date(resetsAt).toLocaleString() : "time unknown";
         return eventCard({
-            title: "Припаркован — лимит подписки",
+            title: "Parked — subscription limit",
             icon: "pause-circle",
             tone: "warning",
             badge: badge(`${ev.provider ?? "provider"}${account}`, "warning"),
-            body: `${esc(ev.message ?? "Квота исчерпана.")}<div class="mt-1 text-subtle">Проснусь сам ${esc(when)} и продолжу. Можно не ждать: переключите модель или аккаунт.</div>`,
+            body: `${esc(ev.message ?? "Quota exhausted.")}<div class="mt-1 text-subtle">I will wake automatically at ${esc(when)} and continue. To resume sooner, switch models or accounts.</div>`,
         });
     }
 
     if (ev.type === "unparked") {
-        const why = ev.reason === "wake" ? "квота вернулась" : ev.reason === "model-switch" ? "смена модели" : "снято вручную";
+        const why = ev.reason === "wake" ? "quota restored" : ev.reason === "model-switch" ? "model changed" : "cleared manually";
         return eventCard({
-            title: "Парковка снята",
+            title: "Unparked",
             icon: "play-circle",
             tone: "info",
-            body: `${esc(why)}${ev.resumed ? " — продолжаю незаконченную работу" : ""}`,
+            body: `${esc(why)}${ev.resumed ? " — resuming unfinished work" : ""}`,
         });
     }
 
     if (ev.type === "model_changed") {
         return eventCard({
-            title: "Модель изменена",
+            title: "Model changed",
             icon: "swap",
             tone: "info",
             body: `<span class="font-mono text-2xs">${esc(ev.from ?? "?")}</span> → <span class="font-mono text-2xs">${esc(ev.to ?? "?")}</span>`,

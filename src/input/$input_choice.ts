@@ -24,7 +24,7 @@ export default {
         const cards = (s.options as Option[]).map(o => `<label class="flex cursor-pointer items-start gap-2 rounded-md border border-ui-border bg-base-100 px-3 py-2 text-sm hover:border-primary has-[:checked]:border-primary has-[:checked]:bg-primary/5">`
             + `<input type="${type}" name="pick" value="${esc(o.value)}" class="${type} ${type}-sm ${type}-primary mt-0.5">`
             + `<span class="min-w-0"><span class="block font-medium">${esc(o.label)}</span>${o.description ? `<span class="block text-2xs text-muted">${esc(o.description)}</span>` : ""}</span></label>`).join("");
-        const other = s.allowOther ? `<input name="other" maxlength="2000" placeholder="свой вариант" class="input input-bordered input-sm w-full bg-base-100">` : "";
+        const other = s.allowOther ? `<input name="other" maxlength="2000" placeholder="other option" class="input input-bordered input-sm w-full bg-base-100">` : "";
         return `<div class="grid gap-2 sm:grid-cols-2">${cards}</div>${other}`;
     },
     submit(_ctx: Context, opts: { input: types.input.Row; values: types.input.FormValues }) {
@@ -32,7 +32,7 @@ export default {
         const known = new Set((s.options as Option[]).map(o => o.value));
         const picked = ([] as string[]).concat(opts.values.pick ?? []).filter(v => known.has(v));
         const other = String(opts.values.other ?? "").trim();
-        if (!picked.length && !other) throw new Error(s.allowOther ? "Выберите вариант или напишите свой" : "Выберите вариант");
+        if (!picked.length && !other) throw new Error(s.allowOther ? "Select an option or enter your own" : "Select an option");
         const result: Record<string, any> = s.multiple ? { values: picked } : picked.length ? { value: picked[0] } : {};
         if (other) result.other = other;
         const label = (v: string) => (s.options as Option[]).find(o => o.value === v)?.label ?? v;
@@ -46,6 +46,6 @@ export default {
         const picked: string[] = r.values ?? (r.value != null ? [r.value] : []);
         const label = (v: string) => (s.options as Option[]).find(o => o.value === v)?.label ?? v;
         const chips = picked.map(v => `<span class="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs"><i class="ph ph-check" aria-hidden="true"></i>${esc(label(v))}</span>`).join(" ");
-        return `<div class="flex flex-wrap gap-1">${chips}</div>` + (r.other ? `<p class="mt-1 text-2xs text-muted">свой вариант: «${esc(r.other)}»</p>` : "");
+        return `<div class="flex flex-wrap gap-1">${chips}</div>` + (r.other ? `<p class="mt-1 text-2xs text-muted">other option: «${esc(r.other)}»</p>` : "");
     },
 } satisfies types.input.Kind;

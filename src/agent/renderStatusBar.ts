@@ -62,7 +62,7 @@ initialUsage?: any;
         const until = Number(parked.resetsAt ?? parked.wakeAt ?? 0);
         const left = until ? humanDelay(until - now) : null;
         label = `<i class="ph ph-pause-circle" aria-hidden="true"></i><span>parked${left ? ` · ${left}` : ''}</span>`;
-        title = `${parked.message ?? 'usage limit'} Агент проснётся сам.`;
+        title = `${parked.message ?? 'usage limit'} The agent will wake automatically.`;
         cls = 'text-warning bg-warning/10 border-ui-border';
     } else if (row?.last_error) {
         // A failed run does NOT auto-retry (by design) — without this badge it

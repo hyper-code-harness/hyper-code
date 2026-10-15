@@ -10,8 +10,8 @@ export default {
     prepare(_ctx: Context, opts: { spec: Record<string, any> }) {
         return {
             details: String(opts.spec.details ?? ""),
-            confirmLabel: String(opts.spec.confirmLabel ?? "Подтвердить"),
-            declineLabel: String(opts.spec.declineLabel ?? "Отклонить"),
+            confirmLabel: String(opts.spec.confirmLabel ?? "Confirm"),
+            declineLabel: String(opts.spec.declineLabel ?? "Decline"),
             danger: opts.spec.danger === true,
         };
     },
@@ -19,7 +19,7 @@ export default {
         const details = opts.input.spec.details
             ? `<div class="max-h-80 overflow-auto rounded-md border border-ui-border bg-base-200/40 px-3 py-2 prose prose-sm max-w-none text-base-content prose-p:my-1">${await ctx.fns.markdown.render({ source: opts.input.spec.details })}</div>`
             : "";
-        return details + `<input name="comment" maxlength="2000" placeholder="комментарий (необязательно)" class="input input-bordered input-sm w-full bg-base-100">`;
+        return details + `<input name="comment" maxlength="2000" placeholder="comment (optional)" class="input input-bordered input-sm w-full bg-base-100">`;
     },
     buttons(ctx: Context, opts: { input: types.input.Row }) {
         const s = opts.input.spec;
@@ -28,7 +28,7 @@ export default {
     },
     submit(_ctx: Context, opts: { input: types.input.Row; values: types.input.FormValues }) {
         const decision = String(opts.values.decision ?? "");
-        if (decision !== "yes" && decision !== "no") throw new Error("Нажмите одну из кнопок");
+        if (decision !== "yes" && decision !== "no") throw new Error("Click one of the buttons");
         const comment = String(opts.values.comment ?? "").trim();
         const confirmed = decision === "yes";
         return { result: { confirmed, ...(comment ? { comment } : {}) }, summary: (confirmed ? "confirmed" : "declined") + (comment ? ` — ${comment}` : "") };
@@ -36,7 +36,7 @@ export default {
     done(ctx: Context, opts: { input: types.input.Row }) {
         const r = opts.input.result ?? {};
         const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
-        return `<p class="text-sm">${r.confirmed ? '<i class="ph ph-check-circle text-success" aria-hidden="true"></i> Подтверждено' : '<i class="ph ph-x-circle text-error" aria-hidden="true"></i> Отклонено'}</p>`
+        return `<p class="text-sm">${r.confirmed ? '<i class="ph ph-check-circle text-success" aria-hidden="true"></i> Confirmed' : '<i class="ph ph-x-circle text-error" aria-hidden="true"></i> Declined'}</p>`
             + (r.comment ? `<p class="mt-1 text-2xs text-muted">«${esc(r.comment)}»</p>` : "");
     },
 } satisfies types.input.Kind;

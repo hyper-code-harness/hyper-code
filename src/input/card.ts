@@ -19,8 +19,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const kind = (ctx.state as any).input?.kinds?.[input.kind] as types.input.Registered | undefined;
 
     const badges: Record<string, [string, "neutral" | "info" | "success" | "warning" | "error"]> = {
-        open: ["ждёт ответа", "info"], processing: ["сохраняю…", "warning"],
-        submitted: ["отвечено", "success"], cancelled: ["отменено", "neutral"],
+        open: ["awaiting response", "info"], processing: ["saving…", "warning"],
+        submitted: ["answered", "success"], cancelled: ["cancelled", "neutral"],
     };
     const [label, tone] = badges[input.state] ?? [input.state, "neutral"];
     const badge = ctx.fns.ui.statusBadge({ label, tone });
@@ -32,10 +32,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     else if (input.state === "open") {
         const fields = await kind.open(ctx, { input, error: opts.error ?? null });
         const buttons = kind.buttons ? await kind.buttons(ctx, { input })
-            : ctx.fns.procs.ui.button({ action: "input-submit", label: "Отправить", type: "submit", tone: "primary", size: "sm" });
+            : ctx.fns.procs.ui.button({ action: "input-submit", label: "Submit", type: "submit", tone: "primary", size: "sm" });
         // formnovalidate: a required field left empty must not block "cancel".
         const cancel = kind.cancel === false ? "" : ctx.fns.procs.ui.button({
-            action: "input-cancel", label: "Отмена", type: "submit", tone: "ghost", size: "sm", name: "_action", value: "cancel",
+            action: "input-cancel", label: "Cancel", type: "submit", tone: "ghost", size: "sm", name: "_action", value: "cancel",
         }).replace("<button", "<button formnovalidate");
         const error = opts.error ? `<p class="text-2xs text-error" role="alert">${esc(opts.error)}</p>` : "";
         // The CSRF token rides in a header read from the page meta at submit time:
@@ -47,8 +47,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             + (buttons || cancel ? `<div class="flex flex-wrap items-center justify-end gap-2 pt-1">${cancel}${buttons}</div>` : "")
             + `</form>`;
     } else if (input.state === "submitted") body = `<div class="mt-2">${await kind.done(ctx, { input })}</div>`;
-    else if (input.state === "processing") body = `<p class="mt-2 text-2xs text-muted">обрабатываю ответ…</p>`;
-    else body = `<p class="mt-2 text-2xs text-muted">${esc(input.error || "Отменено — ответа не будет.")}</p>`;
+    else if (input.state === "processing") body = `<p class="mt-2 text-2xs text-muted">processing response…</p>`;
+    else body = `<p class="mt-2 text-2xs text-muted">${esc(input.error || "Cancelled — no response will be provided.")}</p>`;
 
     const tones = { open: "border-info/40 bg-base-100", processing: "border-warning/40 bg-base-100", submitted: "border-ui-border bg-base-200/45", cancelled: "border-ui-border bg-base-200/30 opacity-80" } as Record<string, string>;
     const inner = `<div class="flex items-start gap-2"><span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-base-200"><i class="ph ph-${esc(icon)} text-info" aria-hidden="true"></i></span>`

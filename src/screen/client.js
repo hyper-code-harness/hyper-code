@@ -344,7 +344,7 @@
         // A step that names nothing is talking about the page it is on — so the
         // page is what lights up. Without this, a narration step dimmed nothing
         // and lit nothing, and a step that navigated changed the screen with no
-        // mark on it at all: "экраны просто меняются, ничего непонятно".
+        // mark on it at all: "the screens just change; nothing makes sense".
         return heading();
     }
 

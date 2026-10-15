@@ -53,19 +53,19 @@ export default function (
         // what happens next. A bare "78%" answers none of those.
         const remaining = known ? Math.max(0, 100 - percent) : null;
         const verdict = !known
-            ? "ещё нет данных — появятся после первого ответа модели"
+            ? "no data yet — available after the first model response"
             : parked
-                ? `квота исчерпана · ${entry.parkedAgents} агент(ов) припарковано`
+                ? `quota exhausted · ${entry.parkedAgents} agent(s) parked`
                 : entry.tone === "error"
-                    ? `осталось ${remaining}% — стоит переключить модель до длинной задачи`
+                    ? `${remaining}% remaining — consider switching models before a long task`
                     : entry.tone === "warning"
-                        ? `осталось ${remaining}%`
-                        : `осталось ${remaining}% — запаса хватает`;
+                        ? `${remaining}% remaining`
+                        : `${remaining}% remaining — sufficient capacity`;
         const title = [
             `${entry.label}${entry.planType ? ` · ${entry.planType}` : ""}`,
-            known ? `использовано ${percent}%` : null,
+            known ? `${percent}% used` : null,
             verdict,
-            left ? `сброс через ${left}` : null,
+            left ? `resets in ${left}` : null,
         ].filter(Boolean).join(" · ");
 
         return `<a href="/llms" class="flex flex-col items-center gap-0.5 rounded-md px-0.5 py-1 hover:bg-base-300" title="${esc(title)}" aria-label="${esc(title)}">
@@ -89,7 +89,7 @@ function humanDelay(ms: number): string {
     const minutes = Math.floor(left / 60_000);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    if (days >= 1) return `${days}д ${hours % 24}ч`;
-    if (hours >= 1) return `${hours}ч ${minutes % 60}м`;
-    return `${minutes}м`;
+    if (days >= 1) return `${days}d ${hours % 24}h`;
+    if (hours >= 1) return `${hours}h ${minutes % 60}m`;
+    return `${minutes}m`;
 }

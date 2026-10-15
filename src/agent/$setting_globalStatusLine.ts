@@ -1,6 +1,6 @@
 export default {
     type: "text",
-    default: "Отвечай кратко, по делу, простыми понятными словами — 1–2 абзаца.",
+    default: "Reply briefly and to the point, in clear, simple language — 1–2 paragraphs.",
     title: "Global Status Line",
     description: "Injected after every real user message for agents whose Status Line mode is Global.",
 };

@@ -22,4 +22,11 @@ butler
 
 The block body is just the drawing name. Before the first open there is no preview, so the fence shows only the editor link.
 
+## Drawing together on the canvas
+
+- Open a board beside the chat: `canvas.show({ kind: "excalidraw.board", args: { name } })` — a new name starts a blank board. Never use a `url` or `html` tab for Excalidraw.
+- See what the person drew: `excalidraw.read({ name })` → `outline` (shapes, labels, arrows); to actually look, render `<root>/<name>.svg` to PNG (`qlmanage -t -s 900 -o /tmp <name>.svg`) and read the image.
+- Add to their drawing without losing it: `excalidraw.read({ name, scene: true })`, keep `scene.elements`, append new full elements, `excalidraw.write({ name, elements })`. A `skeleton`/`mermaid` write REPLACES the whole drawing.
+- `excalidraw.write` reloads any open board tab of that name on your canvas, so the person sees the change at once.
+
 `/excalidraw` lists all drawings. The editor loads Excalidraw from esm.sh, so it needs internet access in the browser.

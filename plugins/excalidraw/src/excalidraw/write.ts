@@ -40,5 +40,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     await Bun.write(f.scene, JSON.stringify(scene, null, 2));
     // The old preview no longer matches the scene; the editor re-exports it on the next save.
     await unlink(f.svg).catch((e: any) => { if (e?.code !== "ENOENT") throw e; });
+    // An open excalidraw.board tab on the calling agent's canvas reloads its editor to show the new scene.
+    const me = await ctx.fns.agent.current({}).catch(() => null);
+    if (me?.id) {
+        const tabs = (await ctx.fns.canvas.list({ agentId: me.id })).filter(i => i.kind === "excalidraw.board" && i.args.name === f.name);
+        for (const t of tabs) await ctx.fns.canvas.setState({ agentId: me.id, itemId: t.id, state: { rev: Date.now() } });
+        if (tabs.length) await ctx.fns.canvas.notify({ agentId: me.id });
+    }
     return { name: f.name, path: f.scene, url: `/excalidraw/${f.name}`, pending: Boolean(opts.skeleton || opts.mermaid) };
 }

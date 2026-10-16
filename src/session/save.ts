@@ -1,4 +1,4 @@
-/** Persist agent state, own transcript rows and events, retaining result references and durable scratchpad plans. A synchronized fork's inherited prefix is not duplicated. */
+/** Create or update the agent's settings and durable state, including scratchpad and plans. Never writes messages or events: use session.appendMessage/appendEvent for new history and session.replaceMessages/replaceEvents for explicit imports or replacements. Safe to call with a stale in-memory transcript. */
 export default async function (ctx: Context, session: Session | null, opts: {
         /** Live agent instance to operate on. */
 agent: types.agent.Agent }): Promise<void> {
@@ -67,36 +67,4 @@ agent: types.agent.Agent }): Promise<void> {
         ],
     });
 
-    // A live fork's synchronized transcript includes its inherited prefix; only
-    // its own suffix belongs in this agent's rows. Fresh forks have no messages.
-    const inheritedCount = agent.parentId ? (agent.inheritedMessageCount ?? 0) : 0;
-    const messages: types.session.Message[] = (agent.messages ?? []).slice(inheritedCount);
-    await ctx.fns.procs.db.run({ sql: 'DELETE FROM messages WHERE agent_id = ?', params: [agent.id] });
-    for (let idx = 0; idx < messages.length; idx++) {
-        const message: any = messages[idx];
-        await ctx.fns.procs.db.run({
-            sql: 'INSERT INTO messages (agent_id, idx, role, content, tool_calls, tool_call_id, message_type, ts, excluded_from_llm, excluded_from_cursor, author, result_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)',
-            params: [
-                agent.id,
-                idx,
-                message.role,
-                typeof message.content === 'string' ? message.content : (message.content == null ? null : JSON.stringify(message.content)),
-                message.tool_calls?.length ? JSON.stringify(message.tool_calls) : null,
-                message.tool_call_id ?? null,
-                message.message_type ?? 'message',
-                now + idx,
-                message.excluded_from_llm ? 1 : 0,
-                message.excluded_from_cursor ? 1 : 0,
-                message.author ?? null,
-                message.result_ref == null ? null : JSON.stringify(message.result_ref),
-            ],
-        });
-    }
-
-    await ctx.fns.procs.db.run({ sql: 'DELETE FROM events WHERE agent_id = ?', params: [agent.id] });
-    const events: any[] = agent.events ?? [];
-    for (let idx = 0; idx < events.length; idx++) {
-        const event: any = events[idx];
-        await ctx.fns.procs.db.run({ sql: 'INSERT INTO events (agent_id, idx, type, payload, ts, actor) VALUES (?, ?, ?, ?, ?, ?)', params: [agent.id, idx, event.type, JSON.stringify(event), now + idx, event.actor ?? null] });
-    }
 }

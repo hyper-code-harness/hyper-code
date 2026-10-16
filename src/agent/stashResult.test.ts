@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import stashResult from './stashResult';
+import prepare from '../resultStore/prepare';
 
 function harness(fail = false) {
     const writes: any[] = [];
@@ -10,6 +11,7 @@ function harness(fail = false) {
         if (fail) throw new Error('disk unavailable');
         return ref;
     } } } };
+    ctx.fns.resultStore.prepare = (o: any) => prepare(ctx, null, o);
     return { writes, ref, agent, run: (output: string, kind = 'read') => stashResult(ctx, null, { agent, output, kind }) };
 }
 

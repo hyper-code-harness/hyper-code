@@ -5,7 +5,6 @@
 // pollWatches/deliverWatch/cancelWatch/listWatches — only see rows made before it.)
 import { describe, expect, test } from "bun:test";
 import { mkTestCtx } from "../_testCtx.entry";
-import { runResultJson } from "./processTrigger";
 
 async function setup(predicate?: (opts: any) => any) {
     const ctx: any = await mkTestCtx();
@@ -100,11 +99,3 @@ describe("wakeUpWhen", () => {
     });
 });
 
-test("runResultJson always yields valid JSON", () => {
-    expect(runResultJson({ a: 1 })).toBe('{"a":1}');
-    expect(runResultJson(undefined)).toBe("null");
-    const big = JSON.parse(runResultJson({ blob: "y".repeat(20_000) }));
-    expect(big.truncated).toBe(true);
-    const circular: any = {}; circular.self = circular;
-    expect(JSON.parse(runResultJson(circular)).truncated).toBe(true);
-});

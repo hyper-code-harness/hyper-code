@@ -1,5 +1,4 @@
 const LIMIT = 6_000;
-const PREVIEW = 2_500;
 
 /** Keep small tool outputs inline and store larger outputs as immutable result files.
  * Returns bounded transcript content and, only after a successful write, its structured
@@ -23,13 +22,10 @@ export default async function (
     if (output.length <= LIMIT) return { content: output };
 
     const fromTail = kind === "bash";
-    const preview = fromTail ? output.slice(-PREVIEW) : output.slice(0, PREVIEW);
+    const { preview, ref: result_ref, storageError } = await ctx.fns.resultStore.prepare({ownerAgentId:agent.id,kind,text:output,inlineLimit:LIMIT,tail:fromTail});
     const label = `${fromTail ? "tail" : "head"} preview of ${output.length} characters`;
-    let result_ref: types.agent.ResultRef;
-    try {
-        result_ref = await ctx.fns.resultStore.write({ ownerAgentId: agent.id, kind, text: output });
-    } catch (error) {
-        const reason = String(error instanceof Error ? error.message : error).slice(0, 300);
+    if (!result_ref) {
+        const reason = storageError ?? "unavailable";
         const note = `[${label} — result storage failed: ${reason}. Full output was NOT saved; no retrieval reference is available.]`;
         return { content: fromTail ? `${note}\n${preview}` : `${preview}\n${note}` };
     }

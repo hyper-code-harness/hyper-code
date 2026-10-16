@@ -2,35 +2,43 @@
  * Read and verify an authorized immutable result through bounded TTL LRU memory
  *
  * Storage primitive that independently authorizes references against the calling agent's visible history before every cache access. Verifies metadata, UTF-8 bytes and SHA-256, limits serialized reads to 200 MiB, and deduplicates concurrent loads. Cache is process state only; two-minute idle TTL, 64 MiB accounting and 8 MiB per entry, never scratchpad.
- * @param opts.ref Already authorized structured message reference. Never accept an untrusted path.
+ * @param opts.ref Optional expected reference; all metadata must match durable authorization.
+ * @param opts.id Result UUID resolved from visible messages or owned trigger runs.
  */
 export default async function (
     ctx: Context,
     session: Session | null,
     opts: {
-        /** Already authorized structured message reference. Never accept an untrusted path. */
-        ref: types.agent.ResultRef;
+        /** Optional expected reference; all metadata must match durable authorization. */
+        ref?: types.agent.ResultRef;
+        /** Result UUID resolved from visible messages or owned trigger runs. */
+        id?: string;
     },
 ): Promise<{text:string;totalChars:number}> {
     const { LRUCache } = await import('lru-cache');
     const { open, realpath } = await import('node:fs/promises');
     const { join, sep } = await import('node:path');
     const { createHash } = await import('node:crypto');
-    const ref = opts.ref;
-    if (ref.version !== 1 || !/^[a-zA-Z0-9_-]{1,128}$/.test(ref.ownerAgentId) || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(ref.id) || !/^[a-f0-9]{64}$/.test(ref.sha256) || !Number.isSafeInteger(ref.bytes) || ref.bytes < 0) throw new Error('corrupt');
-    if (ref.bytes > 32 * 1024 * 1024) throw new Error('too_large');
-    const caller = await ctx.fns.agent.current({});
+    const validate = (ref: types.agent.ResultRef) => {
+        if (ref.version !== 1 || !/^[a-zA-Z0-9_-]{1,128}$/.test(ref.ownerAgentId) || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(ref.id) || !/^[a-f0-9]{64}$/.test(ref.sha256) || !Number.isSafeInteger(ref.bytes) || ref.bytes < 0) throw new Error('corrupt');
+        if (ref.bytes > 32 * 1024 * 1024) throw new Error('too_large');
+    };
+    if (opts.ref) validate(opts.ref);
+    const id = opts.id ?? opts.ref?.id;
+    if (!id || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id)) throw new Error('not_found');
+    let caller;
+    try { caller = await ctx.fns.agent.current({}); } catch { throw new Error('forbidden'); }
+    const matches = (ref: types.agent.ResultRef) => !opts.ref || (ref.version === opts.ref.version && ref.id === opts.ref.id && ref.ownerAgentId === opts.ref.ownerAgentId && ref.sha256 === opts.ref.sha256 && ref.bytes === opts.ref.bytes && ref.kind === opts.ref.kind);
     const messages = await ctx.fns.session.getFullMessages({id:caller.id});
-    let authorized = messages.some((message) => {
-        const visible = message.result_ref;
-        return visible?.version === ref.version && visible.id === ref.id && visible.ownerAgentId === ref.ownerAgentId && visible.sha256 === ref.sha256 && visible.bytes === ref.bytes && visible.kind === ref.kind;
-    });
-    if (!authorized && ref.ownerAgentId === caller.id) {
-        // Recheck durable ownership before cache/pending lookup; an owner string alone is not a grant.
-        const rows = await ctx.fns.procs.db.select({sql:`SELECT 1 FROM agent_trigger_runs r JOIN agent_triggers t ON t.id=r.trigger_id WHERE t.agent_id=? AND to_jsonb(r)->'result_ref'=?::jsonb LIMIT 1`,params:[caller.id,JSON.stringify(ref)]});
-        authorized = rows.length > 0;
+    let ref = messages.find(message => message.result_ref?.id === id && matches(message.result_ref))?.result_ref;
+    if (!ref) {
+        // Resolve ownership on every read before cache or pending-load lookup.
+        const rows = await ctx.fns.procs.db.select({sql:`SELECT to_jsonb(r)->'result_ref' AS ref FROM agent_trigger_runs r JOIN agent_triggers t ON t.id=r.trigger_id WHERE t.agent_id=? AND to_jsonb(r)->'result_ref'->>'id'=? LIMIT 1`,params:[caller.id,id]});
+        const candidate = rows[0]?.ref as types.agent.ResultRef | undefined;
+        if (candidate?.ownerAgentId === caller.id && matches(candidate)) ref = candidate;
     }
-    if (!authorized) throw new Error('not_found');
+    if (!ref) throw new Error('not_found');
+    validate(ref);
     const root = await ctx.fns.resultStore.root({});
     const state = ctx.state.resultStore ??= {};
     state.cache ??= new LRUCache<string,{text:string;totalChars:number}>({maxSize:64*1024*1024,maxEntrySize:8*1024*1024,ttl:120000,ttlAutopurge:true,updateAgeOnGet:true,sizeCalculation:(value,key)=>value.text.length*2+key.length*2+256});

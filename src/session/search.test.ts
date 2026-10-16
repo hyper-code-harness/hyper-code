@@ -5,12 +5,10 @@ describe("session.search", () => {
     test("matches substring in user messages across all agents", async () => {
         const ctx: any = await mkTestCtx();
         const a = await ctx.fns.agent.start({ model: "m" });
-        a.messages.push({ role: "user", content: "how to deploy the telescope" });
-        await ctx.fns.session.save({ agent: a });
+        await ctx.fns.session.appendMessage({ id: a.id, message: { role: "user", content: "how to deploy the telescope" } });
 
         const b = await ctx.fns.agent.start({ model: "m" });
-        b.messages.push({ role: "user", content: "what is the weather" });
-        await ctx.fns.session.save({ agent: b });
+        await ctx.fns.session.appendMessage({ id: b.id, message: { role: "user", content: "what is the weather" } });
 
         const hits = await ctx.fns.session.search({ query: "telescope" });
         expect(hits).toHaveLength(1);
@@ -22,12 +20,11 @@ describe("session.search", () => {
     test("matches assistant and tool content too, case-insensitive", async () => {
         const ctx: any = await mkTestCtx();
         const a = await ctx.fns.agent.start({ model: "m" });
-        a.messages.push(
+        await ctx.fns.session.replaceMessages({ id: a.id, messages: [
             { role: "user", content: "hi" },
             { role: "assistant", content: "The ANSWER is forty-two" },
             { role: "tool", tool_call_id: "c1", content: "42" },
-        );
-        await ctx.fns.session.save({ agent: a });
+        ] });
         const hits = await ctx.fns.session.search({ query: "answer" });
         expect(hits.map((h: any) => h.role)).toContain("assistant");
     });
@@ -35,8 +32,7 @@ describe("session.search", () => {
     test("empty query or no matches → []", async () => {
         const ctx: any = await mkTestCtx();
         const a = await ctx.fns.agent.start({ model: "m" });
-        a.messages.push({ role: "user", content: "hello" });
-        await ctx.fns.session.save({ agent: a });
+        await ctx.fns.session.appendMessage({ id: a.id, message: { role: "user", content: "hello" } });
         expect(await ctx.fns.session.search({ query: "xyzzy" })).toEqual([]);
     });
 });

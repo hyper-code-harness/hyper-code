@@ -19,25 +19,15 @@ export default async function (
     },
 ): Promise<{ok:true;text:string;totalChars:number;offset:number;truncated:boolean}|{ok:false;error:'legacy_unavailable'|'expired'|'not_found'|'forbidden'|'corrupt'|'too_large'}> {
     if (/^r[0-9]+$/.test(opts.id)) return {ok:false,error:'legacy_unavailable'};
-    let caller; try {caller=await ctx.fns.agent.current({});} catch {return {ok:false,error:'forbidden'};}
-    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(opts.id)) return {ok:false,error:'not_found'};
-    const messages = await ctx.fns.session.getFullMessages({id:caller.id});
-    let ref = messages.find((message)=>message.result_ref?.id===opts.id)?.result_ref as types.agent.ResultRef | undefined;
-    if (!ref) {
-        // to_jsonb supports the pre-migration schema without referencing a missing column.
-        const rows = await ctx.fns.procs.db.select({sql:`SELECT to_jsonb(r)->'result_ref' AS ref FROM agent_trigger_runs r JOIN agent_triggers t ON t.id=r.trigger_id WHERE t.agent_id=? AND to_jsonb(r)->'result_ref'->>'id'=? LIMIT 1`,params:[caller.id,opts.id]});
-        ref = rows[0]?.ref as types.agent.ResultRef | undefined;
-    }
-    if (!ref) return {ok:false,error:'not_found'};
     const offset = Number.isFinite(opts.offset) ? Math.max(0,Math.trunc(opts.offset!)) : 0;
     const limit = Number.isFinite(opts.limit) ? Math.min(16000,Math.max(1,Math.trunc(opts.limit!))) : 4000;
     try {
-     const result = await ctx.fns.resultStore.read({ref});
+     const result = await ctx.fns.resultStore.read({id:opts.id});
      const start = Math.min(offset,result.totalChars);
      const text=result.text.slice(start,start+limit);
      return {ok:true,text,totalChars:result.totalChars,offset:start,truncated:start+text.length<result.totalChars};
     } catch (error) {
      const message = error instanceof Error ? error.message : '';
-     return {ok:false,error:message==='too_large'?'too_large':message==='not_found'?'not_found':'corrupt'};
+     return {ok:false,error:message==='forbidden'?'forbidden':message==='too_large'?'too_large':message==='not_found'?'not_found':'corrupt'};
     }
 }

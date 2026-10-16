@@ -234,3 +234,28 @@ describe('agent.readResult authorization and ranges', () => {
         }
     });
 });
+
+test('UUID API authorizes once per read, including cold cache and revoked warm cache',async()=>{
+    const f=await fixture();const ref=await f.put('visible');
+    let lookups=0;const original=f.ctx.fns.session.getFullMessages;
+    f.ctx.fns.session.getFullMessages=async(o:any)=>{lookups++;return original(o);};
+    expect(await f.api({id:ref.id})).toMatchObject({ok:true,text:'visible'});
+    expect(lookups).toBe(1);
+    f.ctx.state.resultStore.cache.clear();
+    expect(await f.api({id:ref.id})).toMatchObject({ok:true,text:'visible'});
+    expect(lookups).toBe(2);
+    f.messages.owner=[];
+    expect(await f.api({id:ref.id})).toEqual({ok:false,error:'not_found'});
+    expect(lookups).toBe(3);
+});
+
+test('foreign trigger UUID stays inaccessible on cold cache',async()=>{
+    const f=await fixture();const ref=await f.put('private','foreign');
+    let reads=0;
+    f.ctx.fns.procs.db.select=async(o:any)=>{
+        if(o.sql.includes('agent_trigger_runs')){reads++;expect(o.params[0]).toBe('owner');return [{ref}];}
+        return [];
+    };
+    expect(await f.api({id:ref.id})).toEqual({ok:false,error:'not_found'});
+    expect(reads).toBe(1);expect(f.ctx.state.resultStore?.cache).toBeUndefined();
+});

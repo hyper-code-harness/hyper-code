@@ -8,8 +8,8 @@ event: any;
 ts?: number }): Promise<{ idx: number }> {
     const { id, event } = opts;
     const ts = opts.ts ?? Date.now();
-    // Who caused this event. Kept in the payload too, so full rewrites (session.save,
-    // replaceEvents) preserve it and the UI can show it without a join.
+    // Who caused this event. Kept in the payload too, so explicit replaceEvents
+    // preserves it and the UI can show it without a join.
     if (event.actor === undefined) {
         const actor = await ctx.fns.auth.actorId({ agentId: id });
         if (actor) event.actor = actor;

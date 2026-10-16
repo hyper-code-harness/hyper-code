@@ -9,11 +9,17 @@ function agent(id: string, messages: any[], extra: any = {}) {
   };
 }
 
+// Fixtures explicitly import own rows; inherited prefixes are assembled only on read.
+async function seedHistory(ctx: any, { agent }: { agent: any }) {
+  await ctx.fns.session.save({ agent });
+  await ctx.fns.session.replaceMessages({ id: agent.id, messages: agent.messages });
+}
+
 describe("session.getFullMessages", () => {
   test("chains parent messages for child", async () => {
     const ctx: any = await mkTestCtx();
-    await ctx.fns.session.save({ agent: agent("parent", [{ role: "user", content: "Hello" }, { role: "assistant", content: "Hi" }, { role: "user", content: "What is 2+2?" }]) });
-    await ctx.fns.session.save({ agent: agent("child", [{ role: "user", content: "Child question" }, { role: "assistant", content: "Child answer" }], { parentId: "parent", forkOffset: 3 }) });
+    await seedHistory(ctx, { agent: agent("parent", [{ role: "user", content: "Hello" }, { role: "assistant", content: "Hi" }, { role: "user", content: "What is 2+2?" }]) });
+    await seedHistory(ctx, { agent: agent("child", [{ role: "user", content: "Child question" }, { role: "assistant", content: "Child answer" }], { parentId: "parent", forkOffset: 3 }) });
     const full = await ctx.fns.session.getFullMessages({ id: "child" });
     expect(full.length).toBe(5);
     expect(full[0].content).toBe("Hello");
@@ -24,13 +30,13 @@ describe("session.getFullMessages", () => {
 
   test("respects offset for mid-conversation fork", async () => {
     const ctx: any = await mkTestCtx();
-    await ctx.fns.session.save({ agent: agent("parent", [
+    await seedHistory(ctx, { agent: agent("parent", [
       { role: "user", content: "msg1" },
       { role: "user", content: "msg2" },
       { role: "user", content: "msg3" },
       { role: "user", content: "msg4" },
     ]) });
-    await ctx.fns.session.save({ agent: agent("child", [{ role: "user", content: "child msg" }], { parentId: "parent", forkOffset: 2 }) });
+    await seedHistory(ctx, { agent: agent("child", [{ role: "user", content: "child msg" }], { parentId: "parent", forkOffset: 2 }) });
     const full = await ctx.fns.session.getFullMessages({ id: "child" });
     expect(full.length).toBe(3);
     expect(full[0].content).toBe("msg1");
@@ -40,9 +46,9 @@ describe("session.getFullMessages", () => {
 
   test("chains grandparent -> parent -> child", async () => {
     const ctx: any = await mkTestCtx();
-    await ctx.fns.session.save({ agent: agent("gp", [{ role: "user", content: "gp msg" }]) });
-    await ctx.fns.session.save({ agent: agent("parent", [{ role: "user", content: "parent msg" }], { parentId: "gp", forkOffset: 1 }) });
-    await ctx.fns.session.save({ agent: agent("child", [{ role: "user", content: "child msg" }], { parentId: "parent", forkOffset: 2 }) });
+    await seedHistory(ctx, { agent: agent("gp", [{ role: "user", content: "gp msg" }]) });
+    await seedHistory(ctx, { agent: agent("parent", [{ role: "user", content: "parent msg" }], { parentId: "gp", forkOffset: 1 }) });
+    await seedHistory(ctx, { agent: agent("child", [{ role: "user", content: "child msg" }], { parentId: "parent", forkOffset: 2 }) });
     const full = await ctx.fns.session.getFullMessages({ id: "child" });
     expect(full.length).toBe(3);
     expect(full[0].content).toBe("gp msg");
@@ -52,8 +58,8 @@ describe("session.getFullMessages", () => {
 
   test("getMessages returns only own messages", async () => {
     const ctx: any = await mkTestCtx();
-    await ctx.fns.session.save({ agent: agent("parent", [{ role: "user", content: "parent msg" }]) });
-    await ctx.fns.session.save({ agent: agent("child", [{ role: "user", content: "child msg" }], { parentId: "parent", forkOffset: 1 }) });
+    await seedHistory(ctx, { agent: agent("parent", [{ role: "user", content: "parent msg" }]) });
+    await seedHistory(ctx, { agent: agent("child", [{ role: "user", content: "child msg" }], { parentId: "parent", forkOffset: 1 }) });
     const own = await ctx.fns.session.getMessages({ id: "child" });
     expect(own.length).toBe(1);
     expect(own[0].content).toBe("child msg");

@@ -1,4 +1,3 @@
-/** Performs the ui.createAgent runtime operation. */
 /**
  * Create an agent and optionally open or seed its conversation.
  * @param opts.model Model identifier.
@@ -11,10 +10,10 @@ export default async function (
     _session: Session | null,
     opts: {
         /** Model identifier to use. */ model?: string;
-        /** Value used for the system prompt option. */ systemPrompt?: string;
-        /** Whether to open the agent after sending. */ open?: boolean;
-        /** Value used for the start text option. */ startText?: string } = {},
-) {
+        /** Additional system instructions for the new conversation. */ systemPrompt?: string;
+        /** Navigate to the new conversation. @default true */ open?: boolean;
+        /** Initial user text; a nonblank value starts a background turn. */ startText?: string } = {},
+): Promise<{ id: string; model: string; opened: boolean; started: boolean; offset?: number }> {
     // Priority: explicit opts.model > declared setting (DB → env → default).
     const fromSettings = await ctx.fns?.settings?.getString?.({
         module: 'llm', scopeType: 'global', key: 'defaultModel',
@@ -29,11 +28,15 @@ export default async function (
     if (opts.startText?.trim()) {
         const text = opts.startText.trim();
         const offset = agent.events.length;
-        agent.events.push({ type: 'user', text });
+        await ctx.fns.session.appendEvent({ id: agent.id, event: { type: 'user', text } });
+        await ctx.fns.session.syncAgentState({ agent });
         agent.isStreaming = true;
         queueMicrotask(async () => {
             try { await ctx.fns.agent.run({ agent, userText: text }); }
-            catch (e: any) { agent.events.push({ type: 'error', error: e.message }); }
+            catch (e: any) {
+                await ctx.fns.session.appendEvent({ id: agent.id, event: { type: 'error', error: e.message } });
+                await ctx.fns.session.syncAgentState({ agent });
+            }
             finally { agent.isStreaming = false; }
         });
         return { id: agent.id, model: agent.model, opened: opts.open !== false, started: true, offset };

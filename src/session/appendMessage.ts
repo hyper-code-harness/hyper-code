@@ -13,11 +13,19 @@ export default async function (
     clientRequestId?: string },
 ): Promise<{ idx: number; duplicate?: boolean }> {
     const { id, message } = opts;
-    // Postgres text refuses NUL bytes — scrub at the boundary so one stray \0
-    // in a marker result / pasted text can't fail the INSERT and kill a run.
-    if (typeof message.content === 'string' && message.content.includes('\u0000')) {
-        message.content = message.content.replaceAll('\u0000', '\uFFFD');
-    }
+    // PostgreSQL UTF-8/jsonb rejects NUL and unpaired UTF-16 surrogates. Provider
+    // output can contain either, so scrub every string destined for text or JSONB.
+    const safe = (text: string) => ctx.fns.session.scrubUnicode({ text });
+    const safeValue = async (value: any): Promise<any> => {
+        if (typeof value === "string") return await safe(value);
+        if (Array.isArray(value)) return await Promise.all(value.map(safeValue));
+        if (value && typeof value === "object") return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, entry]) => [key, await safeValue(entry)])));
+        return value;
+    };
+    if (typeof message.content === 'string') message.content = await safe(message.content);
+    const content = typeof message.content === "string" ? message.content : (message.content == null ? null : JSON.stringify(await safeValue(message.content)));
+    const toolCalls = message.tool_calls?.length ? JSON.stringify(await safeValue(message.tool_calls)) : null;
+    const resultRef = message.result_ref == null ? null : JSON.stringify(await safeValue(message.result_ref));
     const ts = opts.ts ?? Date.now();
     // Only human turns carry an author; assistant and tool rows are the agent's own.
     if (message.role === "user" && message.author === undefined) message.author = await ctx.fns.auth.actorId({ agentId: id });
@@ -38,8 +46,8 @@ export default async function (
         params: [
             id,
             message.role,
-            typeof message.content === "string" ? message.content : (message.content == null ? null : JSON.stringify(message.content)),
-            message.tool_calls?.length ? JSON.stringify(message.tool_calls) : null,
+            content,
+            toolCalls,
             message.tool_call_id ?? null,
             // Order follows the column list above — message_type sits BETWEEN
             // tool_call_id and ts. Swapping the two put the string "message"
@@ -50,7 +58,7 @@ export default async function (
             message.excluded_from_cursor ? 1 : 0,
             message.author ?? null,
             opts.clientRequestId?.trim() || null,
-            message.result_ref == null ? null : JSON.stringify(message.result_ref),
+            resultRef,
             id,
         ],
             });

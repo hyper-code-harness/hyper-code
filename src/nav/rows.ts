@@ -54,6 +54,6 @@ export default async function (
         const dot = item.unread ? `<span class="size-2 shrink-0 rounded-full bg-success" title="New activity" aria-label="New activity"></span>` : "";
         const size = compact ? "min-h-7 gap-1.5 px-1.5 py-0.5" : `min-h-8 gap-2 px-2 py-1 text-sm${item.detail ? " items-start" : ""}`;
         const safeHref = local(href) || /^https?:\/\//.test(href) ? href : "#";
-        return `<div class="group flex items-center gap-0.5"><a href="${esc(safeHref)}"${item.id ? ` data-nav-id="${esc(item.id)}"` : ""} class="nav-row flex ${size} min-w-0 flex-1 items-center rounded text-left outline-none hover:bg-base-200/60">${icon}${label}${owner}${hint}${dot}</a>${pin}</div>`;
+        return `<div class="group flex items-center gap-0.5"><a href="${esc(safeHref)}"${item.newTab ? ' target="_blank" rel="noopener"' : ""}${item.id ? ` data-nav-id="${esc(item.id)}"` : ""} class="nav-row flex ${size} min-w-0 flex-1 items-center rounded text-left outline-none hover:bg-base-200/60">${icon}${label}${owner}${hint}${dot}</a>${pin}</div>`;
     }).join("");
 }

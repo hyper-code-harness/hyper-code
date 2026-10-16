@@ -58,7 +58,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     const row = rows()[sel];
     const href = row?.getAttribute('href');
     if (!href) return;
-    if (beside) window.open(href, '_blank', 'noopener');
+    if (beside || row.getAttribute('target') === '_blank') window.open(href, '_blank', 'noopener');
     else location.href = href;
   };
   const tabs = () => Array.from(document.querySelectorAll('#nav-results [data-nav-tab]'));

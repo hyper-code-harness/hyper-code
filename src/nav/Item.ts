@@ -30,4 +30,6 @@ export type Item = {
     plugin?: boolean;
     /** What 📌 toggles: `page:<href>` (Dock page) or `agent:<id>` (pinned chat); omit when the row cannot be pinned. */
     pin?: string;
+    /** Open the row in a new browser tab (click and ↵) — for external destinations such as GitHub. @default false */
+    newTab?: boolean;
 };

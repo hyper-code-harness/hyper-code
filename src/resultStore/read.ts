@@ -21,10 +21,15 @@ export default async function (
     if (ref.bytes > 32 * 1024 * 1024) throw new Error('too_large');
     const caller = await ctx.fns.agent.current({});
     const messages = await ctx.fns.session.getFullMessages({id:caller.id});
-    const authorized = messages.some((message) => {
+    let authorized = messages.some((message) => {
         const visible = message.result_ref;
         return visible?.version === ref.version && visible.id === ref.id && visible.ownerAgentId === ref.ownerAgentId && visible.sha256 === ref.sha256 && visible.bytes === ref.bytes && visible.kind === ref.kind;
     });
+    if (!authorized && ref.ownerAgentId === caller.id) {
+        // Recheck durable ownership before cache/pending lookup; an owner string alone is not a grant.
+        const rows = await ctx.fns.procs.db.select({sql:`SELECT 1 FROM agent_trigger_runs r JOIN agent_triggers t ON t.id=r.trigger_id WHERE t.agent_id=? AND to_jsonb(r)->'result_ref'=?::jsonb LIMIT 1`,params:[caller.id,JSON.stringify(ref)]});
+        authorized = rows.length > 0;
+    }
     if (!authorized) throw new Error('not_found');
     const root = await ctx.fns.resultStore.root({});
     const state = ctx.state.resultStore ??= {};

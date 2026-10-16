@@ -20,7 +20,7 @@ async function fixture() {
         settings: { getString: async () => instance },
         agent: { current: async () => caller },
         session: { getMessages: async ({ id }: any) => messages[id] ?? [] },
-        procs: { db: { select: async ({ params }: any) => agents[params[0]] ? [agents[params[0]]] : [] } },
+        procs: { db: { select: async ({ sql, params }: any) => sql.includes('agent_trigger_runs') ? [] : agents[params[0]] ? [agents[params[0]]] : [] } },
         resultStore: {},
     } };
     ctx.fns.resultStore.root = (o: any) => root(ctx, null, o);
@@ -34,6 +34,26 @@ async function fixture() {
     const path = (ref: any) => join(instance, '.hyper/results', ref.ownerAgentId, ref.id + '.json');
     return { instance, ctx, caller, messages, agents, put, path, get: (ref: any) => read(ctx, null, { ref }), api: (opts: any) => readResult(ctx, null, opts) };
 }
+
+test('trigger ownership is rechecked on cache hit without messages', async () => {
+    const f = await fixture();
+    const ref = await f.put('trigger data');
+    f.messages.owner = [];
+    let linked = true;
+    const original = f.ctx.fns.procs.db.select;
+    f.ctx.fns.procs.db.select = async (o: any) => o.sql.includes('agent_trigger_runs')
+        ? linked && o.params[0] === 'owner' && (o.params[1] === ref.id || o.params[1] === JSON.stringify(ref)) ? [{ref}] : []
+        : original(o);
+    expect(await f.api({id:ref.id})).toMatchObject({ok:true,text:'trigger data'});
+    f.caller.id = 'foreign';
+    expect(await f.api({id:ref.id})).toEqual({ok:false,error:'not_found'});
+    await expect(f.get(ref)).rejects.toThrow('not_found');
+    f.caller.id = 'owner'; linked = false;
+    expect(await f.api({id:ref.id})).toEqual({ok:false,error:'not_found'});
+    await expect(f.get(ref)).rejects.toThrow('not_found');
+    f.messages.owner = [{result_ref:ref}];
+    expect(await f.api({id:ref.id})).toMatchObject({ok:true,text:'trigger data'});
+});
 
 describe('private immutable result storage', () => {
     test('root is absolute, instance based and independent of workspace/remote host', async () => {

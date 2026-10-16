@@ -23,11 +23,11 @@ export default async function (
         sql: `SELECT t.id,t.kind,t.prompt,t.config,t.timezone,t.mode,t.status,
                      t.next_at AS "nextAt",t.timeout_at AS "timeoutAt",t.last_ready AS "lastReady",
                      t.attempts,t.last_error AS "lastError",t.created_at AS "createdAt",t.finished_at AS "finishedAt",
-                     r.outcome AS "lastOutcome",r.result AS "lastResult",r.error AS "lastRunError",
+                     r.outcome AS "lastOutcome",r.result AS "lastResult",r.result_ref AS "lastResultRef",r.error AS "lastRunError",
                      r.scheduled_at AS "lastScheduledAt",r.created_at AS "lastRunAt"
                 FROM agent_triggers t
                 LEFT JOIN LATERAL (
-                    SELECT outcome,result,error,scheduled_at,created_at
+                    SELECT outcome,result,result_ref,error,scheduled_at,created_at
                       FROM agent_trigger_runs WHERE trigger_id=t.id ORDER BY id DESC LIMIT 1
                 ) r ON TRUE
                WHERE ${where} ORDER BY t.created_at DESC`,

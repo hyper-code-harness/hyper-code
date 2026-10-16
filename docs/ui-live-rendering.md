@@ -19,7 +19,7 @@ The implementation follows three rules:
 - `hx-trigger`: `hyper-live from:body` plus a watchdog interval;
 - configurable element tag and HTMX swap mode.
 
-The browser keeps one topic-filtered SSE connection only while the tab is visible; hidden tabs close it to avoid exhausting Chrome's per-origin connection pool and reconnect/catch up on visibility. Signals carry invalidation, not HTML. Signals within 100 ms are coalesced. Matching visible regions receive `hyper-live`; HTMX asks the server for current markup.
+The browser keeps one topic-filtered SSE connection per tab. Over HTTP/2 it stays open while the tab is hidden; over HTTP/1.1 a hidden tab closes it (Chrome's six-connections-per-origin pool) and resyncs on return. Transport, gaps and the `window.hyperLive` subscriber contract for non-region UI are in [live-updates.md](live-updates.md). Signals carry invalidation, not HTML. Signals within 100 ms are coalesced. Matching visible regions receive `hyper-live`; HTMX asks the server for current markup.
 
 Current topics:
 

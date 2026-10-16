@@ -239,11 +239,12 @@ export default async function (_ctx: Context, _session: Session | null, _opts?: 
         "",
         "  window.__hyperUiApplyEvent = applyEvent;",
         "",
-        "  // procs/events/client.js re-dispatches every SSE message as a",
-        "  // 'hyper-events' DOM event — that is our transport now (the old build",
-        "  // monkey-patched window.EventSource instead).",
-        "  document.addEventListener('hyper-events', (e) => applyEvent(e.detail));",
-        "  document.addEventListener('hyper-ui-event', (e) => applyEvent(e.detail));",
+        "  // One-shot instructions from the server (navigate, toast, run code, chat tick)",
+        "  // arrive through procs/events/client.js. They are commands, not state: one",
+        "  // missed while the stream was down is not replayed — ui.eval/screen.eval",
+        "  // callers own their timeout. See docs/live-updates.md.",
+        "  // A bare page without the event stream (an embedded test page) still gets toasts and dialogs.",
+        "  window.hyperLive?.command({ name: 'ui-control', types: ['ui.navigate', 'ui.notify', 'ui.eval', 'ui.action', 'eval', 'agent.event_appended'], onEvent: applyEvent });",
         "})();",
     ].join('\n');
 }

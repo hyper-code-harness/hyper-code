@@ -10,7 +10,7 @@ import ts from "typescript";
  * directly only to check text that is not on disk yet.
  *
  * @param opts.text Source of the file to check.
- * @param opts.rel Project-relative path, used for reporting and to skip test files.
+ * @param opts.rel Project-relative path, used for reporting and to skip test files; a `.js` browser script gets only the text-level rules.
  * @returns Violations found in this file, each with line, rule, severity and detail.
  */
 export default function (
@@ -19,6 +19,23 @@ export default function (
     opts: { text: string; rel: string },
 ): Array<{ line: number; rule: string; severity: "error" | "warn"; detail: string }> {
     const out: Array<{ line: number; rule: string; severity: "error" | "warn"; detail: string }> = [];
+
+    // Browser code that listens to the live-update stream directly. Such a
+    // listener hears events but is never told when it MISSED some (tab hidden on
+    // HTTP/1.1, network drop, frozen tab), so it silently shows stale state — the
+    // canvas did exactly that. Subscribe through window.hyperLive.subscribe with a
+    // resync, or hyperLive.command for one-shot instructions (docs/live-updates.md).
+    // Text-level on purpose: browser scripts are .js, and a .ts file may carry a
+    // script as a string (ui.controlScript). Only the stream itself may dispatch.
+    if (!/(^|\/)procs\/events\/client\.js$/.test(opts.rel)) {
+        opts.text.split("\n").forEach((text, i) => {
+            if (/addEventListener\(\s*\\?['"`]hyper-(events|ui-event)\\?['"`]/.test(text)) {
+                out.push({ line: i + 1, rule: "live-subscribe", severity: "error", detail: "listens to 'hyper-events' directly and never catches up after a gap — use window.hyperLive.subscribe({ types, onEvent, resync }) or hyperLive.command (docs/live-updates.md)" });
+            }
+        });
+    }
+    // Browser scripts get only the text-level rules above; the AST rules below are for TypeScript.
+    if (/\.(m?js)$/.test(opts.rel)) return out;
     const sf = ts.createSourceFile(opts.rel, opts.text, ts.ScriptTarget.Latest, true,
         opts.rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const lineOf = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;

@@ -221,6 +221,16 @@ export default async function (
         }
     }
 
+    // Browser scripts ($script_*.js and a module's client.js) are not functions and
+    // have no call edges, but they are code: the text-level rules (live-subscribe)
+    // must see them, or a stale-UI bug ships unflagged.
+    for (const e of entries.filter(x => inScope(x) && x.abs.endsWith(".js") && !x.abs.includes("/node_modules/") && (x.kind === "script" || /\/client\.js$/.test(x.abs)))) {
+        const text = await Bun.file(e.abs).text();
+        for (const f of ctx.fns.code.rules({ text, rel: e.projectRel })) {
+            findingRows.push([e.projectRel, f.line, f.rule, f.severity, f.detail, e.root, now]);
+        }
+    }
+
     // Test files produce edges but no node: a test is not something the runtime
     // can call, so it must never appear in code_functions as a candidate.
     for (const e of testFiles) {

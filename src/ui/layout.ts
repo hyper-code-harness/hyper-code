@@ -304,8 +304,9 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
 </style>
 ${((ctx.state as any).procs?.styles ?? []).map((st: any) => `<link rel="stylesheet" href="${esc(st.href)}">`).join("\n")}
 ${opts.headExtra ?? ""}
-<script src="/ui/control.js" defer></script>
+<!-- client.js first: every later script subscribes through window.hyperLive (docs/live-updates.md). -->
 <script src="/procs/events/client.js" defer></script>
+<script src="/ui/control.js" defer></script>
 <script src="/ui/hotkeys.js" defer></script>
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>

@@ -76,13 +76,10 @@
 
     // Secure-input events belong to the popup subsystem. control.js only owns
     // generic runtime UI actions and must not duplicate this lifecycle.
-    const applySecureInputEvent = event => {
-        const detail = event.detail;
-        if (detail?.type !== 'secure-input.prompt' && detail?.type !== 'secure-input.prompt.closed') return;
-        document.body.dispatchEvent(new Event('secure-input-refresh'));
-    };
-    document.addEventListener('hyper-events', applySecureInputEvent);
-    document.addEventListener('hyper-ui-event', applySecureInputEvent);
+    // The prompt lives on the server (secureInput.current), so after a gap the tab simply asks again:
+    // a prompt opened while the tab was away still shows up.
+    const refreshSecureInput = () => document.body.dispatchEvent(new Event('secure-input-refresh'));
+    window.hyperLive.subscribe({ name: 'secure-input', types: ['secure-input.prompt', 'secure-input.prompt.closed'], onEvent: refreshSecureInput, resync: refreshSecureInput });
 
     // Escape is cancellation for a secure prompt, not merely visual closure.
     document.getElementById('app-popup')?.addEventListener('cancel', event => {

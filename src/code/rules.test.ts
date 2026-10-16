@@ -62,4 +62,20 @@ describe("code.rules", () => {
         const hits = await check(`export default function () {\n    return 42;\n}\n`);
         expect(hits).toEqual([]);
     });
+
+    test("a browser script listening to the live stream directly is an error (live-subscribe)", async () => {
+        // Such a listener hears events but is never told it missed some — the canvas stayed closed that way.
+        const hits = await check(`document.addEventListener('hyper-events', e => refresh());\n`, "src/dock/$script_dock.js");
+        expect(hits.map(h => [h.rule, h.severity, h.line])).toEqual([["live-subscribe", "error", 1]]);
+    });
+
+    test("a script embedded as a string in TypeScript is checked too", async () => {
+        const hits = await check(`export default () => ["  document.addEventListener('hyper-ui-event', (e) => go(e));"].join("");\n`, "src/ui/controlScript.ts");
+        expect(hits.map(h => h.rule)).toEqual(["live-subscribe"]);
+    });
+
+    test("subscribing through hyperLive is fine, and the stream itself may dispatch", async () => {
+        expect(await check(`window.hyperLive.subscribe({ types: ['dock.changed'], onEvent: refresh, resync: refresh });\n`, "src/dock/$script_dock.js")).toEqual([]);
+        expect(await check(`document.addEventListener('hyper-events', compat);\n`, "src/procs/events/client.js")).toEqual([]);
+    });
 });

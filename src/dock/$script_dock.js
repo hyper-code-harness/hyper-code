@@ -141,7 +141,7 @@
     }
     window.hyperDock = { refresh, pin };
     document.body.addEventListener('dock-refresh', refresh);
-    document.addEventListener('hyper-events', e => { if (e.detail?.type === 'dock.changed') refresh(); });
+    window.hyperLive.subscribe({ name: 'dock', types: ['dock.changed'], onEvent: refresh, resync: refresh });
 
     async function pin(kind, target, pinned = true) {
         const res = await fetch('/dock/pin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind, target, pinned }) });

@@ -78,9 +78,8 @@
         }).catch(() => {});
     }
 
-    document.addEventListener('hyper-events', event => {
-        const data = event.detail;
-        if (data?.type !== 'ui.metaSection' || !data.agentId) return;
+    const onEvent = data => {
+        if (!data.agentId) return;
         const sections = data.section && data.section !== 'all' ? [data.section] : SECTIONS;
         for (const section of sections) {
             const slot = document.getElementById(`agent-meta-${section}-${data.agentId}`);
@@ -88,5 +87,8 @@
             clearTimeout(pending.get(slot));
             pending.set(slot, setTimeout(() => { pending.delete(slot); redraw(slot); }, 150));
         }
-    });
+    };
+    // After a gap every section on the page is redrawn from the server.
+    const resync = () => document.querySelectorAll('[data-meta-section][id^="agent-meta-"]').forEach(slot => redraw(slot));
+    window.hyperLive.subscribe({ name: 'agent-meta', types: ['ui.metaSection'], onEvent, resync });
 })();

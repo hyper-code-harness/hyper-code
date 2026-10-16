@@ -23,9 +23,7 @@
         }
     }
     const me = () => document.querySelector('[data-me]')?.getAttribute('data-me') || '';
-    document.addEventListener('hyper-events', event => {
-        const ev = event.detail;
-        if (ev?.type !== 'mentions.changed') return;
+    const onEvent = ev => {
         const mine = me();
         if (mine && Array.isArray(ev.to) && !ev.to.includes(mine)) return;
         refresh();
@@ -33,6 +31,8 @@
         if (ev.agentId && ev.agentId !== document.body.dataset.agentId && mine && ev.to?.includes(mine)) {
             window.toast?.({ level: 'info', message: 'You were mentioned', html: `<a class="underline" href="/agent/${encodeURIComponent(ev.agentId)}">open chat ${ev.agentId}</a>` });
         }
-    });
+    };
+    // After a gap the badge is re-read; a toast for a mention missed meanwhile is not replayed — the badge shows it.
+    window.hyperLive.subscribe({ name: 'mentions', types: ['mentions.changed'], onEvent, resync: refresh });
     document.addEventListener('htmx:after:swap', event => { if (event.detail?.ctx?.target?.id === 'main') refresh(); });
 })();

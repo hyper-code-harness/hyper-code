@@ -51,6 +51,26 @@ function senderName(sender: any): string {
     return "Unknown";
 }
 
+
+function mediaInfo(msg: any) {
+    const document = msg.document ?? msg.media?.document;
+    const photo = msg.photo ?? msg.media?.photo;
+    if (photo) return { kind: "photo", mimeType: "image/jpeg", fileName: `telegram-${msg.id}.jpg`, size: null };
+    if (!document) return null;
+
+    const attrs = Array.isArray(document.attributes) ? document.attributes : [];
+    const fileName = attrs.find((a: any) => typeof a?.fileName === "string")?.fileName ?? null;
+    const mimeType = typeof document.mimeType === "string" ? document.mimeType : "application/octet-stream";
+    const isVoice = attrs.some((a: any) => a?.voice === true);
+    const isRoundVideo = attrs.some((a: any) => a?.roundMessage === true);
+    const isAnimated = attrs.some((a: any) => a?.className === "DocumentAttributeAnimated");
+    const isSticker = attrs.some((a: any) => a?.className === "DocumentAttributeSticker");
+    const kind = isSticker ? "sticker" : isVoice ? "voice" : isRoundVideo ? "video" : isAnimated ? "animation"
+        : mimeType.startsWith("image/") ? "image" : mimeType.startsWith("video/") ? "video"
+        : mimeType.startsWith("audio/") ? "audio" : "document";
+    return { kind, mimeType, fileName, size: Number(document.size ?? 0) || null };
+}
+
 /**
  * Lists recent messages in a Telegram chat.
  *
@@ -74,10 +94,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
             id: msg.id,
             date: new Date(msg.date * 1000).toISOString(),
             sender: senderName(msg.sender),
-            text: msg.message || "[media/no text]",
-            hasPhoto: !!(msg as any).photo,   /**
- * a downloadable photo (see telegram.photo)
- */
+            senderId: (msg.senderId as any)?.toString?.() ?? null,
+            outgoing: !!msg.out,
+            text: msg.message || "",
+            media: mediaInfo(msg),
+            hasPhoto: !!(msg as any).photo,
             replyTo: (msg.replyTo as any)?.replyToMsgId,
         });
     }

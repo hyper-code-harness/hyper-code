@@ -9,15 +9,41 @@
 // directory — a style file under WORKDIR could not resolve it on its own. It is
 // compiled once per run and cached for the rest of it; `styles.rebuild` forces
 // another after a hot reload.
-import { mkdir } from "node:fs/promises";
+//
+// A failed build keeps the site styled: the last good sheet is served and the
+// failure is logged, instead of a 500 that leaves every page unstyled.
+import { mkdir, rename } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
+// The Tailwind CLI entry inside the framework's own node_modules, run by the
+// SAME bun binary that runs this server (process.execPath). Neither `bunx` nor
+// `node` is looked up on PATH: a Homebrew `bunx` ignored `--bun` and started a
+// Homebrew node whose libllhttp had been upgraded under it — every *.css
+// answered 500 after a restart.
+async function tailwindCli(framework: string): Promise<string> {
+    const pkgPath = Bun.resolveSync("@tailwindcss/cli/package.json", framework);
+    const pkg = await Bun.file(pkgPath).json();
+    const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.tailwindcss;
+    if (!bin) throw new Error(`@tailwindcss/cli at ${pkgPath} declares no tailwindcss bin`);
+    return join(dirname(pkgPath), bin);
+}
 
 /**
- * Build the styles subsystem operation.
- * @param opts.abs The abs value used by the operation.
- * @param opts.key The lookup key.
- * @param opts.force Whether to bypass normal safety checks.
+ * Compiles one module stylesheet with Tailwind and returns the served CSS file path
+ *
+ * Wraps a `$style_<name>.css` input with the Tailwind import, the typography plugin and a source line per scanned module root, then runs the Tailwind CLI on the same bun binary as the server (never a node or bunx from PATH). Builds once per process unless forced; a failed rebuild keeps serving the last good stylesheet and logs a warning, and only a first build that fails throws.
+ * @param opts.abs Absolute path of the `$style_<name>.css` source file to compile.
+ * @param opts.key Stable file-safe identifier of the stylesheet, used for the cached input and output file names.
+ * @param opts.force Rebuild even when this process already compiled the stylesheet. @default false
  */
-export default async function (ctx: Context, _session: Session | null, opts: { abs: string; key: string; force?: boolean }): Promise<string> {
+export default async function (ctx: Context, _session: Session | null, opts: {
+    /** Absolute path of the `$style_<name>.css` source file to compile. */
+    abs: string;
+    /** Stable file-safe identifier of the stylesheet, used for the cached input and output file names. */
+    key: string;
+    /** Rebuild even when this process already compiled the stylesheet. @default false */
+    force?: boolean;
+}): Promise<string> {
     const repo = ctx.fns.procs.project.projectRoot({});
     // What this run already compiled. Not a file check: the sheet is generated
     // from every class in the tree, so one left over from an earlier run is only
@@ -52,13 +78,27 @@ export default async function (ctx: Context, _session: Session | null, opts: { a
     // own package. (An app that installs procs has it hoisted above both, and an
     // app whose node_modules is elsewhere would otherwise fail with "can't
     // resolve tailwindcss" and no stylesheet at all.)
-    // `--bun` runs the CLI on bun rather than whatever `node` is on PATH: the
-    // native lightningcss it loads is the one bun installed, for bun's own
-    // architecture. (An x64 node on an arm64 mac otherwise fails to resolve it,
-    // and the only symptom is a 500 on the stylesheet.)
-    const proc = Bun.spawn(["bunx", "--bun", "@tailwindcss/cli", "-i", input, "-o", output, "--minify"], { cwd: framework, stdout: "pipe", stderr: "pipe" });
-    const err = await new Response(proc.stderr).text();
-    if (await proc.exited !== 0) throw new Error(`tailwind build failed for ${opts.abs}:\n${err.trim()}`);
+    // Running on bun (not a node from PATH) also means the native lightningcss
+    // it loads is the one bun installed, for bun's own architecture.
+    // The CLI writes to a temp file renamed over the output only on success, so
+    // a broken build never replaces the last good sheet.
+    const temp = `${output}.${process.pid}.tmp`;
+    let failure = "";
+    try {
+        const proc = Bun.spawn([process.execPath, await tailwindCli(framework), "-i", input, "-o", temp, "--minify"], { cwd: framework, stdout: "pipe", stderr: "pipe", env: { ...process.env, BUN_BE_BUN: "1" } });
+        const err = await new Response(proc.stderr).text();
+        if (await proc.exited !== 0 || !(await Bun.file(temp).exists())) failure = err.trim() || "no output written";
+        else await rename(temp, output);
+    } catch (error: any) {
+        failure = String(error?.message ?? error);
+    }
+    if (failure) {
+        await Bun.file(temp).delete().catch(() => undefined);
+        const message = `tailwind build failed for ${opts.abs}:\n${failure}`;
+        if (!(await Bun.file(output).exists())) throw new Error(message);
+        ctx.fns.procs.log.warn({ event: "styles.build", msg: `${message}\nserving the last good stylesheet ${output}` });
+        return output;
+    }
     if (record) record.built = output;
     return output;
 }

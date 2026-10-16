@@ -31,7 +31,7 @@ async function tailwindCli(framework: string): Promise<string> {
 /**
  * Compiles one module stylesheet with Tailwind and returns the served CSS file path
  *
- * Wraps a `$style_<name>.css` input with the Tailwind import, the typography plugin and a source line per scanned module root, then runs the Tailwind CLI on the same bun binary as the server (never a node or bunx from PATH). Builds once per process unless forced; a failed rebuild keeps serving the last good stylesheet and logs a warning, and only a first build that fails throws.
+ * Wraps a `$style_<name>.css` input with the Tailwind import, the typography plugin and a source line per scanned module root, then runs the Tailwind CLI on the same bun binary as the server (never a node or bunx from PATH). Builds once per process unless forced; a failed build keeps serving the last good stylesheet (from this run or, after a restart, the previous one) and logs a warning; it throws only when no stylesheet was ever built.
  * @param opts.abs Absolute path of the `$style_<name>.css` source file to compile.
  * @param opts.key Stable file-safe identifier of the stylesheet, used for the cached input and output file names.
  * @param opts.force Rebuild even when this process already compiled the stylesheet. @default false
@@ -95,8 +95,15 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (failure) {
         await Bun.file(temp).delete().catch(() => undefined);
         const message = `tailwind build failed for ${opts.abs}:\n${failure}`;
+        // Nothing to fall back to — the stylesheet has never been built here.
         if (!(await Bun.file(output).exists())) throw new Error(message);
-        ctx.fns.procs.log.warn({ event: "styles.build", msg: `${message}\nserving the last good stylesheet ${output}` });
+        // A sheet from this run or, right after a restart, from the previous
+        // one: slightly stale styling beats a 500 that leaves every page bare.
+        // Marked built so each request does not respawn a failing build; the
+        // next `styles.rebuild` (any source change) tries again.
+        const stale = record?.built === output ? "" : " (left from an earlier run)";
+        ctx.fns.procs.log.warn({ event: "styles.build", msg: `${message}\nserving the last good stylesheet${stale} ${output}` });
+        if (record) record.built = output;
         return output;
     }
     if (record) record.built = output;

@@ -76,3 +76,22 @@ test("a failed rebuild serves the last good stylesheet; with none it throws", as
         await cleanup();
     }
 }, 60_000);
+
+test("after a restart a failing first build serves the sheet left by the previous run", async () => {
+    const { dir, ctx, warnings, cleanup } = await setup();
+    try {
+        const abs = join(dir, "app.css");
+        await writeFile(abs, `.good-rule { color: red; }`);
+        const out = await build(ctx, null, { abs, key: "probe" });
+        // A new process: same app and files on disk, nothing built in this run.
+        const restarted: any = { ...ctx, state: { procs: { styles: [{ key: "probe" }] } } };
+        await writeFile(abs, `.bad { @apply no-such-utility-xyz; }`);
+        expect(await build(restarted, null, { abs, key: "probe" })).toBe(out);
+        expect(await Bun.file(out).text()).toContain("good-rule");
+        expect(warnings.join("\n")).toContain("left from an earlier run");
+        // Marked built: the next request does not respawn the failing build.
+        expect(restarted.state.procs.styles[0].built).toBe(out);
+    } finally {
+        await cleanup();
+    }
+}, 60_000);

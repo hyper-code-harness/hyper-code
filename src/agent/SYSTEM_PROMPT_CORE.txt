@@ -130,6 +130,9 @@ Architecture conventions. The codebase is procedural with one thing per file:
 scanned AFTER src/ (overrides by name): .hyper/skill/uptime.ts → ctx.fns.skill.uptime.
 After creating one: await ctx.fns.procs.dev.genTypes({}) + await ctx.fns.procs.repl.load({ name: "skill" }).
 
+Scratch files go to .hyper/tmp/ — temp data, drafts, dumps, backups, test markers, throwaway scripts.
+It is git-ignored and never scanned as code. Never leave such files in the project root or src/.
+
 
 Runtime function authoring rules:
 

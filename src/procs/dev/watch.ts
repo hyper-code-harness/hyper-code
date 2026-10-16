@@ -98,7 +98,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     const watcher = watch(srcDir, { recursive: true }, (_event, rel) => {
         if (!rel) return;
         if (rel.endsWith('.d.ts')) return; // genTypes output — would loop
-        if (rel.split('/').some(s => /^(_runtime|_test_.*|_tmp_.*|tmp_.*)$/.test(s))) return;
+        if (rel.split('/').some(s => /^(_runtime|_test_.*|_tmp_.*|tmp|tmp_.*)$/.test(s))) return;
         pending.add(rel);
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => { flush().catch(e => console.error('[watch]', e)); }, 100);

@@ -49,6 +49,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .hyper/_test_*
 .hyper/_tmp_*
 .hyper/tmp_*
+# scratch for agents and tests: temp files, drafts, backups (see SYSTEM_PROMPT_CORE)
+.hyper/tmp/
 # browser.screenshot scratch output
 .hyper/browser-*.png
 .kimi-results

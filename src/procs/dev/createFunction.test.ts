@@ -22,8 +22,8 @@ test("createFunction dry run renders documented typed source without writing", a
 
 test("createFunction refuses an existing function without overwrite", async () => {
     await expect(ctx.fns.procs.dev.createFunction({
-        module: "agent", name: "reflect", summary: "Reflects over an agent conversation",
-        description: "Use this function to reflect over recent messages for an existing agent.",
+        module: "agent", name: "compact", summary: "Compacts an agent conversation",
+        description: "Use this function to compact recent messages for an existing agent.",
         params: [], returnType: "Promise<void>", body: "return;",
     })).rejects.toThrow("already exists");
 });

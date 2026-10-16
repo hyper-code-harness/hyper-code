@@ -29,7 +29,7 @@ describe("agent durable triggers", () => {
   test("edge watch fires only on false-to-true transitions", async () => {
     const ctx: any = await mkTestCtx();
     const agent = await ctx.fns.agent.start({ model: "mock:test" });
-    const marker = `.hyper-test-${crypto.randomUUID()}`;
+    const marker = `.hyper/tmp/trigger-test-${crypto.randomUUID()}`;
     const made = await ctx.fns.agent.watch({ id: agent.id, predicate: "file.exists", opts: { path: marker }, prompt: "File ready", everyMs: 5000, mode: "edge" });
     await ctx.fns.agent.pollTriggers({ now: made.nextAt }); await Bun.sleep(30);
     await ctx.fns.files.write({ path: marker, content: "ok" });

@@ -72,7 +72,7 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
 
     // hyper-code2: `.hyper/` is the runtime-writable overlay (agent-written
     // extensions). Scanned AFTER src so a `.hyper/<mod>/<fn>.ts` overrides
-    // `src/<mod>/<fn>.ts` by the same name. `_runtime`/`_test_*`/`tmp_*` inside
+    // `src/<mod>/<fn>.ts` by the same name. `_runtime`/`_test_*`/`tmp`/`tmp_*` inside
     // it are dropped by the scanner's IGNORED_SEGMENT rule.
     const hyperDir = resolve(projectRoot, ".hyper");
     if (await readdir(hyperDir).then(() => true).catch(() => false)) {

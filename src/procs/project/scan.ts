@@ -5,7 +5,7 @@ import classify from "./classify";
 import type { ProjectEntry } from "./classify";
 
 // Directory segments that are runtime/test/scratch — never part of the app.
-const IGNORED_SEGMENT = /^(_runtime|_test_.*|_tmp_.*|tmp_.*|node_modules)$/;
+const IGNORED_SEGMENT = /^(_runtime|_test_.*|_tmp_.*|tmp|tmp_.*|node_modules)$/;
 function isIgnoredPath(rel: string): boolean {
     return rel.split('/').some(seg => IGNORED_SEGMENT.test(seg));
 }

@@ -249,6 +249,22 @@
         // The event follows every committed change (ours too), so it alone drives the refresh.
         if (ev.rev && ev.rev !== shownRev(root)) refreshPanel(root);
     });
+    // A hidden tab has no event stream (events/client.js drops it), so a canvas the agent opened or
+    // changed meanwhile never arrived. Catch up when the tab is shown again and whenever the stream
+    // (re)connects — its `hello` also follows a lost connection.
+    const catchUp = () => {
+        const root = page();
+        if (!root || document.visibilityState !== 'visible') return;
+        fetch(`/canvas/${encodeURIComponent(agentOf(root))}/state`, { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(state => {
+                if (!state || page() !== root) return;
+                apply(root, state);
+                if (state.rev && state.rev !== shownRev(root)) refreshPanel(root);
+            }).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', catchUp);
+    document.addEventListener('hyper-events', event => { if (event.detail?.type === 'hello') catchUp(); });
     // Links in the chat open beside it instead of navigating the page away: a file link (/files/absolute/…,
     // what the markdown renderer makes of a path) becomes a file tab, a web link a url tab. A modifier
     // or middle click keeps the browser's own behaviour, and so does any link the server refuses.

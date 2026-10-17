@@ -41,11 +41,15 @@
     // fetch the panel again. Only the latest request may swap, and when the active body is unchanged the
     // live one is kept (the framed file keeps its scroll and unsaved edits) and only the strip changes.
     let refreshing = 0;
-    const refreshPanel = async (root, force = false) => {
+    // `given` is a panel the server already sent (the answer of a tab action), so no second request is made.
+    const refreshPanel = async (root, force = false, given = null) => {
         const ticket = ++refreshing;
-        const r = await fetch(`/canvas/${encodeURIComponent(agentOf(root))}/panel`, { headers: { accept: 'text/html' } }).catch(() => null);
-        if (!r?.ok || ticket !== refreshing) return;
-        const html = await r.text();
+        let html = given;
+        if (html == null) {
+            const r = await fetch(`/canvas/${encodeURIComponent(agentOf(root))}/panel`, { headers: { accept: 'text/html' } }).catch(() => null);
+            if (!r?.ok || ticket !== refreshing) return;
+            html = await r.text();
+        }
         if (ticket !== refreshing) return;
         const panel = root.querySelector(':scope > [data-canvas-panel]');
         if (!panel) return;
@@ -59,6 +63,8 @@
             panel.replaceWith(next);
             runBodyScripts(next);
             window.htmx?.process?.(next);
+            // A view tab may bring a live region (a `@live` view): the event stream must watch its topic.
+            document.dispatchEvent(new CustomEvent('hyper:regions'));
             return;
         }
         // Same body: change only what is around it. Moving an iframe in the DOM reloads it, so the live
@@ -100,9 +106,22 @@
         const msg = event.data;
         if (!msg || msg.hyperCanvas !== 1) return;
         const root = page();
-        const frame = root && [...root.querySelectorAll('iframe[data-canvas-frame]')].find(f => f.contentWindow === event.source);
+        const frame = root && [...root.querySelectorAll('[data-canvas-body] iframe')].find(f => f.contentWindow === event.source);
         if (!frame) return;
-        const itemId = frame.getAttribute('data-canvas-frame');
+        const body = frame.closest('[data-canvas-body]');
+        const itemId = frame.getAttribute('data-canvas-frame') || body?.getAttribute('data-canvas-item');
+        if (!itemId) return;
+        // A page framed by a view (rpc.frame) moves its tab to the same view with other params: a new address,
+        // with history. In a tab of an older kind the params are its state, as before.
+        if (msg.type === 'navigate' && msg.params && typeof msg.params === 'object' && !Array.isArray(msg.params)) {
+            const fn = frame.closest('[data-rpc-view]')?.getAttribute('data-rpc-view');
+            if (body?.getAttribute('data-canvas-kind') === 'view' && fn) {
+                tabAction(root, { navigate: { itemId: Number(itemId), url: `/rpc/${fn}?${encodeURIComponent(JSON.stringify(msg.params))}` } });
+                return;
+            }
+            msg.type = 'state'; msg.state = msg.params;
+        }
+        if (!frame.hasAttribute('data-canvas-frame')) return;
         const url = `/canvas/${encodeURIComponent(agentOf(root))}/item/${encodeURIComponent(itemId)}`;
         const post = body => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
             .then(async r => { if (!r.ok) console.warn(`canvas tab ${itemId}:`, await r.text()); return r.ok ? r.json() : null; }).catch(() => null);
@@ -125,22 +144,31 @@
             });
         } else if (msg.type === 'ping') {
             post({ ping: { text: String(msg.text ?? ''), data: msg.data } });
-        } else if (msg.type === 'navigate' && frame.hasAttribute('data-canvas-view') && typeof msg.url === 'string' && msg.url.startsWith('/rpc/')) {
-            // A /rpc link clicked in a view page: the same tab moves to it (the sandboxed page cannot load it itself).
-            tabAction(root, { navigate: { itemId: Number(itemId), url: msg.url } });
         } else if (msg.type === 'error') {
             console.warn(`canvas tab ${itemId}:`, msg.message);
         }
     });
     const shownRev = root => root.querySelector(':scope > [data-canvas-panel]')?.getAttribute('data-canvas-rev') || '';
-    const tabAction = (root, body) => fetch(`/canvas/${encodeURIComponent(agentOf(root))}`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-    }).then(r => r.ok ? r.json() : null).then(state => {
-        if (!state) return;
-        apply(root, state);
-        // Usually the canvas.changed event already refreshed; this covers a page without the event stream.
-        if (state.rev && state.rev !== shownRev(root)) refreshPanel(root);
-    }).catch(() => {});
+    // A tab action (select, close, navigate, back/forward) is ONE request: the answer carries the new panel,
+    // its view fragment already drawn on the server. While it is in flight the canvas.changed event of the
+    // same change is not followed (it would fetch the panel a second time).
+    let acting = 0;
+    // The body shows it is loading (canvas.css: faded content, a running bar) until the answer is drawn.
+    const busy = (root, on) => root.querySelector('[data-canvas-body]')?.toggleAttribute('aria-busy', on);
+    const tabAction = (root, body) => {
+        acting++;
+        busy(root, true);
+        return fetch(`/canvas/${encodeURIComponent(agentOf(root))}`, {
+            method: 'POST', headers: { 'content-type': 'application/json', 'x-canvas-panel': '1' }, body: JSON.stringify(body),
+        }).then(r => r.ok ? r.json() : null).then(state => {
+            if (!state) return;
+            apply(root, state);
+            // The busy mark stays until the new body is in the page: an answer without the panel (an older
+            // server) fetches it first, so the old body never shows again between the click and the new one.
+            if (typeof state.panel === 'string') return refreshPanel(root, false, state.panel);
+            if (state.rev && state.rev !== shownRev(root)) return refreshPanel(root);
+        }).catch(() => {}).finally(() => { if (!--acting) busy(root, false); });
+    };
 
     document.addEventListener('click', event => {
         const root = page();
@@ -150,6 +178,10 @@
         if (tab && root.contains(tab) && !event.target.closest('[data-canvas-close-item]')) {
             event.preventDefault();
             if (tab.hasAttribute('aria-current')) return;
+            // Show the choice at once; the panel with its body follows in the one answer.
+            const ON = ['bg-base-100', 'text-base-content'], OFF = ['border-b', 'bg-base-300/60', 'text-muted', 'hover:bg-base-300'];
+            root.querySelectorAll('[data-canvas-tab][aria-current]').forEach(t => { t.removeAttribute('aria-current'); t.classList.remove(...ON); t.classList.add(...OFF); });
+            tab.setAttribute('aria-current', 'true'); tab.classList.remove(...OFF); tab.classList.add(...ON);
             tabAction(root, { activeItemId: Number(tab.getAttribute('data-canvas-tab')) });
             return;
         }
@@ -271,7 +303,8 @@
             const root = page();
             if (!root || agentOf(root) !== ev.agentId) return;
             apply(root, ev);
-            // The event follows every committed change (ours too), so it alone drives the refresh.
+            // The event follows every committed change; our own tab actions bring their panel themselves.
+            if (acting) return;
             if (ev.rev && ev.rev !== shownRev(root)) refreshPanel(root);
         },
         resync: catchUp,
@@ -327,6 +360,23 @@
         if (!itemId) return;
         event.preventDefault();
         tabAction(root, { navigate: { itemId, file: target } });
+    });
+    // A view tab: a /rpc link inside its fragment moves the same tab (canvas.navigate keeps the tab's history);
+    // other links open a new browser tab, so the chat is never navigated away.
+    document.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const a = event.target.closest?.('[data-canvas-view] a[href]');
+        const root = page();
+        // Files viewer links (inside files.page) are the file handler's: they move the tab to the other file.
+        if (!a || !root || !root.contains(a) || a.hasAttribute('download') || a.closest('[data-canvas-files]')) return;
+        const href = a.getAttribute('href') || '';
+        if (href.startsWith('#')) return;
+        let u;
+        try { u = new URL(href, location.href); } catch { return; }
+        const itemId = Number(a.closest('[data-canvas-view]').getAttribute('data-canvas-view'));
+        event.preventDefault();
+        if (u.origin === location.origin && u.pathname.startsWith('/rpc/')) tabAction(root, { navigate: { itemId, url: u.pathname + u.search } });
+        else window.open(u.href, '_blank', 'noopener');
     });
     // The editor of an Edit view comes as <script> in the body. A refreshed panel is parsed from a template,
     // where scripts are inert, so they are recreated to run (a first page load runs them itself).

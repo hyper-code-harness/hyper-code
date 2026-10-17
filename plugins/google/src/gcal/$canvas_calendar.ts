@@ -5,6 +5,7 @@
 export const hint = "one day of the person's Google Calendar (own calendars of all accounts, live), each event with details — args `{ date?: \"YYYY-MM-DD\" }` (default today)";
 
 export default {
+    view: "gcal.dayPage",
     icon: "calendar-blank",
     live: true,
     liveState: true,

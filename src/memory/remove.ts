@@ -23,5 +23,7 @@ export default async function (
     let fileRemoved = false;
     if (r.type !== "jsonb" && found.path && await Bun.file(found.path).exists()) { const { rm } = await import("node:fs/promises"); await rm(found.path); fileRemoved = true; }
     await ctx.fns.procs.db.run({ sql: "delete from memory where id = ?", params: [r.id] });
+    // Open memory pages (memory.view, memory.table — `@live memory`) re-fetch themselves.
+    ctx.fns.procs.events.refresh({ topic: "memory", reason: "memory changed" });
     return { id: Number(r.id), key: r.key, fileRemoved };
 }

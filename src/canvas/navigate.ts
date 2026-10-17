@@ -28,6 +28,12 @@ export default async function (
     const itemId = Number(opts.itemId);
     const current = (await ctx.fns.canvas.list({ agentId })).find(i => i.id === itemId);
     if (!current) throw new Error(`canvas.navigate: no tab ${itemId} on ${agentId}'s canvas`);
+    // A file link inside a view tab of files.page moves that tab to the other file (its address).
+    if (opts.file && current.kind === "view") {
+        const host = opts.file.host && opts.file.host !== "local" ? opts.file.host : undefined;
+        const url = ctx.fns.rpc.url({ fn: "files.page", params: { path: opts.file.path, ...(host ? { host } : {}), ...(opts.file.tab ? { tab: opts.file.tab } : {}) } });
+        return ctx.fns.canvas.navigate({ agentId, itemId, url });
+    }
     const target = opts.file ? "file" : current.kind === "view" ? "view" : "url";
     if (target !== current.kind) throw new Error(`canvas.navigate: tab ${itemId} is a ${current.kind} tab, not a ${target} tab`);
     if (opts.history && target !== "view") throw new Error("canvas.navigate: history works on view tabs only");

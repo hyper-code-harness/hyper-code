@@ -84,7 +84,9 @@
     }
 
     const inCanvas = init.embed && window.parent !== window;
-    const report = () => { if (inCanvas) window.parent.postMessage({ hyperCanvas: 1, type: 'state', state: { date: ymd(cur) } }, location.origin); };
+    // In a canvas tab the day is the tab's address (gcal.dayPage?{date}): ask the canvas to move the tab there, so
+    // ◀ ▶ step through the days seen. A tab of the old gcal.calendar kind takes it as its state instead.
+    const report = () => { if (inCanvas) window.parent.postMessage({ hyperCanvas: 1, type: 'navigate', params: { date: ymd(cur) } }, location.origin); };
     if (inCanvas) window.addEventListener('message', ev => {
         const m = ev.data; if (ev.source !== window.parent || !m || m.hyperCanvas !== 1 || m.type !== 'state' || !m.state) return;
         const d = m.state.date; if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== ymd(cur)) { cur = parseYmd(d); load(); }

@@ -45,5 +45,7 @@ export default async function (
               returning id, version`,
         params: [lv.visibility, lv.projectId, lv.userId, lv.agentId, opts.key, opts.kind ?? null, opts.title, opts.description ?? "", JSON.stringify(meta), JSON.stringify(opts.data ?? null), lv.writer, now, now],
     });
+    // Open memory pages (memory.view, memory.table — `@live memory`) re-fetch themselves.
+    ctx.fns.procs.events.refresh({ topic: "memory", reason: "memory changed" });
     return { id: Number(rows[0].id), key: opts.key, visibility: lv.visibility, version: Number(rows[0].version) };
 }

@@ -54,7 +54,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (chatWidth !== undefined && !Number.isFinite(chatWidth)) return new Response("invalid chatWidth", { status: 400 });
     try {
         const view = await ctx.fns.canvas.update({ agentId, open, chatWidth, activeItemId });
-        return Response.json({ ...view, rev: (await ctx.fns.canvas.revision({ agentId })).panel });
+        // A tab action from canvas.js asks for the new panel in the same answer (x-canvas-panel: 1): one round
+        // trip instead of POST, then GET /panel, then the view's own fetch.
+        const wantsPanel = opts.req.headers.get("x-canvas-panel") === "1";
+        const [rev, panel] = await Promise.all([ctx.fns.canvas.revision({ agentId }), wantsPanel ? ctx.fns.canvas.panelHtml({ agentId }) : Promise.resolve(undefined)]);
+        return Response.json({ ...view, rev: rev.panel, ...(panel !== undefined ? { panel } : {}) });
     } catch (error: any) {
         return new Response(String(error?.message ?? error), { status: 400 });
     }

@@ -114,6 +114,7 @@ Current subscribers:
 | subscriber | file | events | resync reads |
 |---|---|---|---|
 | live regions | `procs/events/client.js` (built in) | any event with a `topic` | each region's own `hx-get` |
+| `@live` views | `rpc/render.ts` (a live region around the view) | `memory` and other view topics | the view's own `/rpc/<fn>?<json>` |
 | canvas | `canvas/$script_canvas.js` | `canvas.changed` | `GET /canvas/:id/state`, then `/canvas/:id/panel` if the revision differs |
 | dock | `dock/$script_dock.js` | `dock.changed` | `GET /dock` |
 | mentions badge | `mentions/$script_live.js` | `mentions.changed` | `GET /mentions/badge` |

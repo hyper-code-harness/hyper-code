@@ -6,6 +6,7 @@
  * memory.list, visible levels per memory.visible (an agent: its four levels; a person: their own, projects, their
  * agents). Records show their `status` when their data has one.
  * @view
+ * @live memory
  * @param opts.prefix Only keys starting with this prefix, e.g. notes/ or todo/.
  * @param opts.kind Only entries of this free-form kind.
  * @param opts.visibility Only entries of this level.

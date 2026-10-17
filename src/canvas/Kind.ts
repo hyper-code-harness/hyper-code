@@ -11,6 +11,10 @@ export type Kind = {
     render: (ctx: Context, opts: { agentId: string; item: types.canvas.Item }) => string | Promise<string>;
     /** One short line for the agent describing what the tab shows; defaults to the title and arguments. */
     describe?: (ctx: Context, opts: { item: types.canvas.Item }) => string | Promise<string>;
+    /** The kind is an alias of a `@view` function: canvas.show opens a `view` tab of this function, its params
+     *  being what `prepare` returns as args (and its title). The tab then has an address, ◀ ▶ history and opens in
+     *  a browser tab; `render` only draws tabs of this kind opened before it became an alias. */
+    view?: string;
     /** Phosphor icon name for the tab. */
     icon?: string;
     /** The tab shows its source as it is now (a file, a site, data read on every display) rather than a fixed

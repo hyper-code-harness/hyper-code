@@ -34,5 +34,7 @@ export default async function (
         if (!String(r.description ?? "").trim() || r.description === r.meta?.name) throw new Error("memory.setStatus: a ready function needs a JSDoc summary (first line of the /** */ block)");
     }
     await ctx.fns.procs.db.run({ sql: "update memory set meta = meta || jsonb_build_object('status', ?::text), updated_at = ? where id = ?", params: [status, Date.now(), r.id] });
+    // Open memory pages (memory.view, memory.table — `@live memory`) re-fetch themselves.
+    ctx.fns.procs.events.refresh({ topic: "memory", reason: "memory changed" });
     return { id: Number(r.id), key: r.key, status };
 }

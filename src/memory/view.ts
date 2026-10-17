@@ -1,5 +1,6 @@
 /**
- * Shows one memory entry as a page: a note rendered from markdown, a saved html page (pages/*.html) as it is,
+ * Shows one memory entry as a page: a note rendered from markdown, a saved html page (pages/*.html) with its own
+ * styles,
  * a record's data, or a function's source.
  *
  * Use to open a note on the canvas or by link: `canvas.show({ kind: "view", args: { fn: "memory.view", params:
@@ -7,6 +8,7 @@
  * (its four levels, nearest first) and for a signed-in person in the browser (memory.visible). `[[name]]` links
  * and relative `.md` links in a note open the other note in the same tab.
  * @view
+ * @live memory
  * @param opts.key Memory key, e.g. notes/canvas-model.md or todo/x; nearest level first.
  * @param opts.id Index row id instead of a key.
  */
@@ -36,10 +38,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const f = path ? Bun.file(path) : null;
     if (!f || !(await f.exists())) return `${head}<h1>${esc(r.title ?? r.key)}</h1><p class="rpc-error">the file is missing: ${esc(path)}</p>`;
     const text = await f.text();
-    // A saved page (pages/*.html, e.g. a former canvas html tab) is shown as the page itself, its own styles kept.
+    // A saved page (pages/*.html, e.g. a former canvas html tab) keeps its own look: its <style> is scoped to
+    // this block, scripts and handlers are removed. A page that needs its scripts is an html canvas tab.
     if (r.type === "file" && /\.html?$/i.test(path)) {
-        return /^\s*(<!doctype|<html)/i.test(text) ? text
-            : `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(r.title ?? r.key)}</title></head><body>${text}</body></html>`;
+        const scope = `[data-memory-page="${Number(r.id)}"]`;
+        return `<div data-memory-page="${Number(r.id)}">${ctx.fns.rpc.cleanHtml({ html: text, scope })}</div>`;
     }
     if (r.type === "code" || !/\.(md|markdown)$/i.test(path)) return `${head}<h1>${esc(r.title ?? r.key)}</h1><pre>${esc(text)}</pre>`;
 
@@ -48,6 +51,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
     let md = text.replace(/^---\n[\s\S]*?\n---\n/, "");
     md = md.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, name: string, label?: string) => `[${label ?? name}](${link(dir + name.trim().replace(/\.md$/, "") + ".md")})`);
     md = md.replace(/\]\((?!https?:|\/|#|mailto:)([^)\s]+\.md)\)/g, (_m, rel: string) => `](${link((dir + rel).replace(/(^|\/)\.\//g, "$1"))})`);
-    const html = await ctx.fns.markdown.render({ source: md });
+    // Notes are written by agents: raw html inside the markdown is cleaned before it joins the app page.
+    const html = ctx.fns.rpc.cleanHtml({ html: await ctx.fns.markdown.render({ source: md }) });
     return `${head}${html}`;
 }

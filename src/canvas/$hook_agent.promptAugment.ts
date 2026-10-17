@@ -17,7 +17,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         const kind = kinds[item.kind];
         let what = `${item.kind} ${JSON.stringify(item.args)}`;
         if (kind?.describe) what = await Promise.resolve(kind.describe(ctx, { item })).catch(() => what);
-        const state = Object.keys(item.state).length ? ` — state ${JSON.stringify(item.state).slice(0, 1000)}` : "";
+        // A view tab's history (back/forward) and page version are the tab's own bookkeeping, not what is on screen.
+        const shown = Object.fromEntries(Object.entries(item.state).filter(([k]) => !(item.kind === "view" && ["back", "forward", "page"].includes(k))));
+        const state = Object.keys(shown).length ? ` — state ${JSON.stringify(shown).slice(0, 1000)}` : "";
         const live = typeof kind?.live === "function" ? kind.live(item) : kind?.live;
         const mark = live === true ? "live, " : live === false ? `snapshot from ${new Date(item.updatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC, ` : "";
         return `- [${item.id}] "${item.title}": ${mark}${what}${item.active ? " (active)" : ""}${state}`;

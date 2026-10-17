@@ -1,0 +1,45 @@
+/* Canvas loading state. A tab action (select, link, back/forward, address bar) marks the body busy until the
+   panel answer is in. The old content goes away at once, together with the tab highlight — the body never shows
+   the previous tab under the new one's name. The spinner and the top bar come only after a delay, so a fast
+   switch is just: blank for a moment, then the new tab. */
+[data-canvas-body] { position: relative; }
+[data-canvas-body][aria-busy] > * {
+    visibility: hidden;
+    pointer-events: none;
+}
+[data-canvas-body][aria-busy]::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    z-index: 5;
+    background: linear-gradient(90deg, transparent 0%, var(--color-primary, #0969da) 40%, var(--color-primary, #0969da) 60%, transparent 100%);
+    background-size: 40% 100%;
+    background-repeat: no-repeat;
+    opacity: 0;
+    animation: canvas-busy-in .01s linear .25s forwards, canvas-busy-run 1s ease-in-out .25s infinite;
+}
+[data-canvas-body][aria-busy]::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+    border-radius: 50%;
+    border: 2px solid color-mix(in oklab, currentColor 15%, transparent);
+    border-top-color: var(--color-primary, #0969da);
+    opacity: 0;
+    animation: canvas-busy-in .01s linear .25s forwards, canvas-busy-spin .7s linear infinite;
+}
+@keyframes canvas-busy-in { to { opacity: 1; } }
+@keyframes canvas-busy-run {
+    from { background-position: -40% 0; }
+    to { background-position: 140% 0; }
+}
+@keyframes canvas-busy-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    [data-canvas-body][aria-busy]::before { animation: canvas-busy-in .01s linear .25s forwards; background-size: 100% 100%; }
+    [data-canvas-body][aria-busy]::after { animation: canvas-busy-in .01s linear .25s forwards; }
+}

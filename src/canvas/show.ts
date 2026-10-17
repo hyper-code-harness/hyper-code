@@ -4,10 +4,12 @@
  * Use to put a file, a document or any other catalog kind (canvas.kinds) in front of the person, beside
  * the chat. The kind checks and normalises its args; the tab persists with the agent across reloads, and
  * every open page of that chat follows at once. Showing the same kind with the same args again just
- * switches to the existing tab — or brings it back if it was closed, with its state. A static `html` page (no
- * `load`, no `hyper.*` page API) is saved to memory as `pages/<slug of the title>.html` (project level, or the
+ * switches to the existing tab — or brings it back if it was closed, with its state. An `html` page without
+ * scripts or `load` is saved to memory as `pages/<slug of the title>.html` (project level, or the
  * agent's without a project) and opened as a `view` tab at `/rpc/memory.view?{"key":…}`, so it has an address;
- * showing a page with the same title again updates that page and its tab.
+ * showing a page with the same title again updates that page and its tab. A `file` opens as a `view` tab of
+ * `files.page` (path pinned absolute in the agent's workspace), and a kind that names a `view` (plugin kinds such
+ * as architectureMap.map, code.tests, gcal.calendar, icons.browser) opens a `view` tab of that function.
  * @param opts.kind Canvas kind from the catalog, e.g. file.
  * @param opts.args Arguments of that kind, e.g. { path } for file.
  * @param opts.title Tab title; defaults to the kind's suggestion.
@@ -26,8 +28,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const agentId = String(opts.agentId ?? (await ctx.fns.agent.current({})).id);
     // A static html page is a document with an address: it is saved to memory (pages/<slug>.html — the
     // project's level, or the agent's without a project) and opened as a view tab, /rpc/memory.view?{key}.
-    // Pages with server `load` data or the `hyper.*` page API stay html tabs — they need the html frame bridge.
-    if (opts.kind === "html" && typeof opts.args?.html === "string" && opts.args.html.trim() && !opts.args.load && !/\bhyper\s*\.\s*(state|setState|onState|ping|data)\b/.test(opts.args.html)) {
+    // A page with scripts (an animation, the `hyper.*` page API) or server `load` data stays an html tab: a view
+    // shows memory pages without their scripts (rpc.cleanHtml).
+    if (opts.kind === "html" && typeof opts.args?.html === "string" && opts.args.html.trim() && !opts.args.load && !/<script\b|\son[a-z]+\s*=/i.test(opts.args.html)) {
         const html: string = opts.args.html;
         const title = String(opts.title ?? html.match(/<title>([^<]{1,120})<\/title>/i)?.[1]?.trim() ?? "Page").slice(0, 200);
         const slug = title.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 60)
@@ -40,9 +43,21 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         // Same address, new content: a new page version in the tab state re-renders the frame.
         return page.version > 1 ? await ctx.fns.canvas.setState({ agentId, itemId: item.id, state: { page: page.version } }) : item;
     }
+    // A file is an address too: the file kind pins the path (absolute, in the target agent's workspace, with
+    // its host) and the tab is a view of files.page — address bar, history, open in a browser tab.
+    if (opts.kind === "file") {
+        const fileKind = ((ctx.state as any).canvas?.kinds ?? {}).file as types.canvas.Registered | undefined;
+        if (!fileKind?.prepare) throw new Error("canvas.show: the file kind is not loaded");
+        const pinned = await fileKind.prepare(ctx, { agentId, args: opts.args ?? {} });
+        const a = pinned.args;
+        const params = { path: a.path, ...(a.host && a.host !== "local" ? { host: a.host } : {}), ...(a.tab ? { tab: a.tab } : {}) };
+        return ctx.fns.canvas.show({ agentId, kind: "view", title: opts.title ?? pinned.title, args: { fn: "files.page", params } });
+    }
     const kind = ((ctx.state as any).canvas?.kinds ?? {})[opts.kind] as types.canvas.Registered | undefined;
     if (!kind) throw new Error(`canvas.show: unknown kind "${opts.kind}" — loaded: ${(await ctx.fns.canvas.kinds({})).map(k => k.name).join(", ") || "none"}`);
     const prepared = kind.prepare ? await kind.prepare(ctx, { agentId, args: opts.args ?? {} }) : { args: opts.args ?? {} };
+    // A kind that is an alias of a `@view` opens that view: the tab gets the view's address and history.
+    if (kind.view) return ctx.fns.canvas.show({ agentId, kind: "view", title: opts.title ?? prepared.title, args: { fn: kind.view, params: prepared.args ?? {} } });
     const title = String(opts.title ?? prepared.title ?? opts.kind).slice(0, 200);
     const payload = JSON.stringify(prepared.args ?? {});
 

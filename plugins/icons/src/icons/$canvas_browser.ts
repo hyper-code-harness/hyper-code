@@ -1,6 +1,7 @@
 export const hint = 'Search and preview the local Lucide SVG catalogue, inspect tags and download icons — args `{}`; English name and tag search.';
 
 export default {
+    view: "icons.page",
     icon: "shapes",
     async prepare(_ctx: Context, _opts: { agentId: string; args: Record<string, any> }) {
         return { args: {}, title: "Lucide Icons" };

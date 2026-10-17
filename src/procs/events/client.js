@@ -233,7 +233,8 @@
   // here made a request cause a swap, a swap cause a sweep, and a sweep cause a
   // request — two hundred fetches a second, on an idle page.
   let resubscribe = null;
-  document.addEventListener('htmx:after:swap', () => {
+  // `hyper:regions` — the same, for code that puts markup in place itself (the canvas panel).
+  const regionsChanged = () => {
     clearTimeout(resubscribe);
     resubscribe = setTimeout(() => {
       const want = topics().join(',');
@@ -243,7 +244,9 @@
       disconnect();
       connect();
     }, 500);
-  });
+  };
+  document.addEventListener('htmx:after:swap', regionsChanged);
+  document.addEventListener('hyper:regions', regionsChanged);
 
   lastTopics = topics().join(',');
   connect();

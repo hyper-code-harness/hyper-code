@@ -1,5 +1,6 @@
 export const hint = "last project test run of each kind (fast, integration, live) — totals, slowest files and tests, failures with their code, and a Run button — args `{}`";
 export default {
+    view: "code.testsPage",
     icon: "flask",
     live: true,
     prepare() { return { args: {}, title: "Tests" }; },

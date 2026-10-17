@@ -1,5 +1,6 @@
 export const hint = "live churn-versus-complexity map for Hyper source files — args `{ root?: string }`";
 export default {
+  view: "architectureMap.turbulencePage",
   icon: "chart-scatter",
   live: true,
   prepare(_ctx: Context, opts: { agentId: string; args: Record<string, any> }) { return { args: opts.args.root ? { root: String(opts.args.root) } : {}, title: "Hyper Turbulence" }; },

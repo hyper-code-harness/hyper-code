@@ -48,5 +48,7 @@ export default async function (
     const meta = { hash: new Bun.CryptoHasher("sha256").update(text).digest("hex"), size: Buffer.byteLength(text) };
     const out: any[] = await ctx.fns.procs.db.select({ sql: "update memory set meta = meta || ?::jsonb, title = coalesce(?, title), description = coalesce(?, description), updated_at = ?, version = version + 1 where id = ? returning version",
         params: [JSON.stringify(meta), opts.title ?? null, opts.description ?? null, Date.now(), r.id] });
+    // Open memory pages (memory.view, memory.table — `@live memory`) re-fetch themselves.
+    ctx.fns.procs.events.refresh({ topic: "memory", reason: "memory changed" });
     return { id: Number(r.id), key: r.key, version: Number(out[0].version), replaced };
 }

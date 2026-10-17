@@ -69,8 +69,10 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     await expect(ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "no/such/file.ts" } })).rejects.toThrow("file not found");
 
     const one = await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "package.json" } });
-    expect(one).toMatchObject({ kind: "file", title: "package.json", active: true });
-    expect(one.args.path).toEndWith("/package.json");
+    // A file tab is a view of files.page at its address.
+    expect(one).toMatchObject({ kind: "view", title: "package.json", active: true, args: { fn: "files.page" } });
+    expect(one.args.params.path).toEndWith("/package.json");
+    expect(one.args.url).toStartWith("/rpc/files.page?");
     const two = await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "README.md", mode: "preview" } });
     expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: true, activeItemId: two.id });
     // The same file again switches back to its tab instead of adding one.
@@ -93,14 +95,15 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     expect(panel).toMatch(/href="\/files\/absolute\/[^"]*\/README\.md\?tab=code"/);
 
     // A link inside the file tab moves the same tab: README → its Code view, then to the folder.
-    const readmePath = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!.args.path;
+    const readmePath = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!.args.params.path;
     await post({ navigate: { itemId: two.id, file: { path: readmePath, tab: "code" } } });
     let moved = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!;
-    expect(moved.args).toMatchObject({ path: readmePath, tab: "code" });
+    expect(moved.args.params).toMatchObject({ path: readmePath, tab: "code" });
+    expect(moved.state.back).toHaveLength(1);
     const dir = readmePath.replace(/\/README\.md$/, "");
     await post({ navigate: { itemId: two.id, file: { path: dir } } });
     moved = (await ctx.fns.canvas.list({ agentId: a.id })).find((i: any) => i.id === two.id)!;
-    expect(moved.args.path).toBe(dir);
+    expect(moved.args.params.path).toBe(dir);
     const listing = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/panel` })).text();
     expect(listing).toContain("README.md");
     expect(listing).toMatch(/item[s]?<\/span>/);
@@ -133,8 +136,8 @@ test("review: concurrent canvas changes do not lose each other, files resolve in
     // Two identical shows at once make one tab; the path is pinned absolute with an explicit local host.
     const [x, y] = await Promise.all([1, 2].map(() => ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "package.json" } })));
     expect(x.id).toBe(y.id);
-    expect(x.args).toMatchObject({ host: "local" });
-    expect(x.args.path).toStartWith("/");
+    expect(x.args.params.host).toBeUndefined();
+    expect(x.args.params.path).toStartWith("/");
     expect((await ctx.fns.canvas.list({ agentId: a.id })).length).toBe(1);
     // Two state patches at once keep both keys.
     await Promise.all([ctx.fns.canvas.setState({ agentId: a.id, itemId: x.id, state: { a: 1 } }), ctx.fns.canvas.setState({ agentId: a.id, itemId: x.id, state: { b: 2 } })]);
@@ -271,12 +274,12 @@ test("chat links open as file/url tabs, canvas.search lists kinds, tabs say live
     // Only file and url: a browser request must not open an html page or a plugin kind.
     expect((await post({ show: { kind: "html", args: { html: "<p>x</p>" } } })).status).toBe(400);
     const items = await ctx.fns.canvas.list({ agentId: a.id });
-    expect(items.map((i: any) => i.kind)).toEqual(["url", "file"]);
+    expect(items.map((i: any) => i.kind)).toEqual(["url", "view"]);
 
     const found = await r.fns.canvas.search({ query: "web page address" });
     expect(found[0]).toMatchObject({ type: "kind", name: "url" });
 
-    const html = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>fixed</p><script>hyper.onState(() => {})</script>" } });
+    const html = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>fixed</p><script>1</script>" } });
     const handler = ctx.state.procs.hooks.handlers["agent.promptAugment"].get("canvas");
     const block = await handler(ctx, null, { agentId: a.id, text: "" });
     expect(block).toContain(`[${html.id}] "${html.title}": snapshot from `);

@@ -1,6 +1,8 @@
-// A view tab: the page of a `@view` function at its address, GET /rpc/<fn>?<json>, in a sandboxed frame. The
-// address is the tab: it has an address bar, back and forward through the addresses this tab has shown,
-// "open in a new browser tab", and /rpc links inside the page move the same tab (canvas.navigate { view }).
+// A view tab: the page of a `@view` function at its address, GET /rpc/<fn>?<json>, drawn into the tab body on the
+// server (rpc.render) — opening or switching the tab is the one panel request, no second fetch, no frame (the
+// fragment may carry its own iframe when it needs isolated scripts). The address is
+// the tab: an address bar, back and forward through the addresses this tab has shown, "open in a new browser
+// tab", and /rpc links inside the fragment move the same tab (canvas.js → canvas.navigate).
 
 export const hint = "the page of a `@view` function by its address — args `{ fn, params? }` or `{ url: \"/rpc/<fn>?<json>\" }`; the tab has an address bar, ◀ ▶ and open-in-new-tab, and /rpc links inside it move the tab. canvas.search lists the view functions";
 
@@ -36,12 +38,20 @@ export default {
     live: true,
     async prepare(ctx: Context, opts: { agentId: string; args: Record<string, any> }) {
         const t = await target(ctx, opts.args);
+        if (t.fn === "files.page") {
+            const name = String(t.params.path ?? "").split("/").filter(Boolean).pop() || String(t.params.path ?? "/");
+            return { args: t, title: t.params.host ? `${t.params.host}:${name}` : name };
+        }
         const short = Object.values(t.params).filter(v => typeof v === "string" || typeof v === "number").map(String)[0];
         return { args: t, title: short ? `${t.fn.split(".").pop()}: ${short}`.slice(0, 120) : t.fn };
     },
-    render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
+    async render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
         const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
         const url = String(opts.item.args.url ?? "");
+        // The address bar shows the call as people read it — /rpc/memory.view?{"key":"notes/a.md"} — not
+        // percent-encoded; typing either form works (the view kind parses both).
+        const q = url.indexOf("?");
+        const shown = q < 0 ? url : (() => { try { return url.slice(0, q + 1) + decodeURIComponent(url.slice(q + 1)); } catch { return url; } })();
         const back = Array.isArray(opts.item.state.back) ? opts.item.state.back.length : 0;
         const fwd = Array.isArray(opts.item.state.forward) ? opts.item.state.forward.length : 0;
         const btn = (attr: string, icon: string, label: string, on: boolean) =>
@@ -50,15 +60,16 @@ export default {
   ${btn(`data-canvas-step="back"`, "arrow-left", "Back", back > 0)}
   ${btn(`data-canvas-step="forward"`, "arrow-right", "Forward", fwd > 0)}
   ${btn("data-canvas-reload", "arrow-clockwise", "Reload page", true)}
-  <input name="url" value="${esc(url)}" spellcheck="false" autocomplete="off" aria-label="Address" class="min-w-0 flex-1 rounded-md bg-base-200/70 px-2 py-1 font-mono text-xs outline-none focus:bg-base-200 focus:ring-1 focus:ring-ui-border">
+  <input name="url" value="${esc(shown)}" spellcheck="false" autocomplete="off" aria-label="Address" class="min-w-0 flex-1 rounded-md bg-base-200/70 px-2 py-1 font-mono text-xs outline-none focus:bg-base-200 focus:ring-1 focus:ring-ui-border">
   <a href="${esc(url)}" target="_blank" rel="noopener" title="Open in a new browser tab" aria-label="Open in a new browser tab" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>
 </form>`;
-        // No allow-same-origin: the page is opaque (the response's CSP sandbox says so too). Its /rpc links
-        // post a `navigate` message instead of loading in the frame (see rpc.page).
-        const frame = `<iframe data-canvas-frame="${opts.item.id}" data-canvas-view src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" class="block h-full w-full border-0 bg-white"></iframe>`;
-        return `<div class="flex h-full flex-col">${bar}<div class="relative min-h-0 flex-1">${frame}</div></div>`;
+        const r = await ctx.fns.rpc.render({ url });
+        const frag = `<div data-canvas-view="${opts.item.id}" data-rpc-status="${r.status}" class="min-h-0 flex-1 overflow-auto">${r.html}</div>`;
+        return `<div class="flex h-full flex-col">${bar}${frag}</div>`;
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
-        return `view ${opts.item.args.url}`;
+        const a = opts.item.args;
+        if (a.fn === "files.page") return `file ${a.params?.host ? a.params.host + ":" : ""}${a.params?.path}${a.params?.tab ? ` (${a.params.tab})` : ""}`;
+        return `view ${a.url}`;
     },
 } satisfies types.canvas.Kind;

@@ -215,6 +215,7 @@ Vendored `src/procs/` is upstream code: keep local patches minimal and marked wi
 ## UI script routes
 
 - `$script_*.js` files are served as bundled browser assets by `procs/http/$loader_script.ts`, not as fns. After changing one, `ctx.fns.procs.http.loadRoutes({})` (or dev.sync) and verify the actually served HTTP output (e.g. `/agent/chat.js`), including `.hyper` overrides — not just the file on disk.
+- Projects and memory: an agent may belong to a project (`projects`, `agents.project_id`, workspace = `defaultDir`); memory has four levels (system, user, project, agent), all under `~/.hyper` — files in `~/.hyper/memory/`, functions in `~/.hyper/src/{user_,project_,agent_}*/`, index in the `memory` table, through `ctx.fns.memory.*`. Read `docs/projects-and-memory.md` before changing either.
 - Live updates: browser code never listens to `hyper-events` directly. A server fragment is a live region (`ui.live`); anything else that mirrors server state uses `window.hyperLive.subscribe({ types, onEvent, resync })` — `resync` re-reads the state after a gap in the stream (hidden tab on HTTP/1.1, network drop) and is required. One-shot instructions use `hyperLive.command`. Enforced by the `live-subscribe` code.quality rule. Read `docs/live-updates.md` before adding anything that updates by itself.
 - The app layout is `src/ui/layout.ts` (procs `toResponse` picks `registry.ui.layout` over the framework default). String / `{main, title}` returns from routes are wrapped by it; `Response` passes through.
 

@@ -104,6 +104,42 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         timer = setTimeout(() => { flush().catch(e => console.error('[watch]', e)); }, 100);
     });
     st.watcher = watcher;
+    // Functions of the memory levels: `~/.hyper/src/{user_<id>,project_<slug>,agent_<id>}/<fn>.ts` load on save
+    // like src/, and their `type = code` rows in `memory` follow (memory.syncCode). Created lazily: the folder
+    // may not exist on a fresh clone; an agent's first function makes it.
+    const fnDir = resolve(await ctx.fns.memory.home({}), 'src');
+    const fnPending = new Set<string>();
+    let fnTimer: ReturnType<typeof setTimeout> | null = null;
+    const fnFlush = async () => {
+        fnTimer = null;
+        const mods = new Set<string>();
+        for (const rel of fnPending) {
+            const m = /^((?:user_[A-Za-z0-9_]+|project_[A-Za-z0-9]+|agent_[a-z0-9]+))\/[^/]+\.ts$/.exec(rel);
+            if (m && !rel.endsWith('.test.ts')) mods.add(m[1]!);
+        }
+        const any = fnPending.size > 0;
+        fnPending.clear();
+        const errors: Map<string, string> = ((ctx.state.procs.dev ??= {}).errors ??= new Map());
+        for (const mod of mods) {
+            try { await ctx.fns.procs.repl.load({ name: mod }); errors.delete('~/.hyper/src/' + mod); }
+            catch (e: any) { errors.set('~/.hyper/src/' + mod, String(e?.message ?? e)); console.error(`[watch] ~/.hyper/src/${mod}: ${e?.message ?? e}`); }
+        }
+        if (!any) return;
+        try {
+            if (mods.size) await ctx.fns.procs.dev.genTypes({});
+            await ctx.fns.memory.syncCode({});
+        } catch (e: any) { console.error(`[watch] ~/.hyper/src post: ${e?.message ?? e}`); }
+    };
+    const { mkdirSync } = await import('node:fs');
+    try {
+        mkdirSync(fnDir, { recursive: true });
+        st.fnWatcher = watch(fnDir, { recursive: true }, (_event, rel) => {
+            if (!rel || !rel.endsWith('.ts')) return;
+            fnPending.add(rel);
+            if (fnTimer) clearTimeout(fnTimer);
+            fnTimer = setTimeout(() => { fnFlush().catch(e => console.error('[watch]', e)); }, 150);
+        });
+    } catch (e: any) { console.error(`[watch] ~/.hyper/src: ${e?.message ?? e}`); }
     // Seed the baseline now, while the tree is still as committed. If the first
     // measurement happened on the first save instead, that save would be compared
     // against nothing and the problem it introduced would pass in silence —

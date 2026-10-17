@@ -6,6 +6,7 @@
  * @param opts.parentId Optional parent agent identifier.
  * @param opts.forkOffset Optional inherited parent transcript offset.
  * @param opts.visibility Listing policy: nav, team, or hidden. @default nav
+ * @param opts.projectId Project id or slug to attach the agent to; its defaultDir becomes the workspace unless workspaceDir is given.
 */
 export default async function (
     ctx: Context,
@@ -28,8 +29,16 @@ export default async function (
         /** Listing policy; this does not grant or restrict access. @default nav */
     visibility?: "nav" | "team" | "hidden";
         /** Fork offset used by the operation. */
-    forkOffset?: number | null },
+    forkOffset?: number | null;
+        /** Project id or slug to attach the agent to; its defaultDir becomes the workspace unless workspaceDir is given. */
+    projectId?: string | null },
 ): Promise<types.agent.Agent> {
+    const project = opts.projectId
+        ? (await ctx.fns.project.get({ id: opts.projectId })) ?? (await ctx.fns.project.get({ slug: opts.projectId }))
+        : null;
+    if (opts.projectId && !project) throw new Error(`agent.start: unknown project ${opts.projectId}`);
+    // A project agent works in the project's folder unless the caller chose a workspace explicitly.
+    if (project?.defaultDir && !opts.workspaceDir) opts = { ...opts, workspaceDir: project.defaultDir, workspaceHost: project.defaultHost };
     const id = await ctx.fns.agent.nextId({});
     const workspaceHost = String(opts.workspaceHost ?? "").trim();
     const workspaceDir = workspaceHost && opts.workspaceDir?.startsWith("/")
@@ -69,6 +78,7 @@ export default async function (
     (ctx.state as any).agent ??= {};
     (ctx.state as any).agent[id] = agent;
     await ctx.fns.session?.save?.({ agent });
+    if (project) await ctx.fns.procs.db.run({ sql: "UPDATE agents SET project_id = ? WHERE id = ?", params: [project.id, id] });
     ctx.fns.events?.emitAgentsChanged?.({ agentId: agent.id, reason: "create" });
     return agent;
 }

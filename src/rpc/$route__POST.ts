@@ -42,6 +42,10 @@ async function dispatch(ctx: Context, req: Request): Promise<Response> {
     try { for (const part of parts) fn = fn[part]; }
     catch { fn = null; }
     if (typeof fn !== 'function') return Response.json({ error: `rpc method not found: ${method}` }, { status: 404 });
+    // Project and agent functions (ctx.fns.project_<slug>.*, ctx.fns.agent_<id>.*) are memory, not platform:
+    // only their project's people and agents, or the agent and its person, may call them.
+    const access = await ctx.fns.project.canCall({ name: method });
+    if (!access.allowed) return Response.json({ error: `rpc forbidden: ${access.reason}` }, { status: 403 });
 
     const started = performance.now();
     try {

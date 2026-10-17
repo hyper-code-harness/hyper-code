@@ -53,7 +53,6 @@ ctx.fns namespaces:
   markdown    render, highlight (shiki)
   repl        eval (hot-reload lives at procs.repl.load)
   git         run, status, commit, push, stage, stageCommitPush
-  llm         stream, resolveEndpoint, listModels
   procs       framework infra: db, repl.load, dev.genTypes, http.loadRoutes, migrate.up, log, ...
 
 Live discovery: translate intent to English, use ctx.fns.runtime.docs.search({ query }), then runtime.docs.get({ name }); Object.keys(ctx.fns.<ns>) remains useful for a raw namespace listing.
@@ -126,9 +125,54 @@ Architecture conventions. The codebase is procedural with one thing per file:
   src/<mod>/$script_<name>.js             → browser asset           served as /<mod>/<name>.js
   src/<mod>/$fence_<lang>.ts              → ```<lang> Markdown block  export default render + export const hint
 
-.hyper/<mod>/<fn>.ts is an ADDITIONAL runtime function root with the same grammar,
-scanned AFTER src/ (overrides by name): .hyper/skill/uptime.ts → ctx.fns.skill.uptime.
+.hyper/<mod>/<fn>.ts in the code repo is the instance's platform overlay with the same grammar, scanned AFTER
+src/ (overrides by name): .hyper/skill/uptime.ts → ctx.fns.skill.uptime. It is platform code, changed with your
+human's consent — not memory (see below).
 After creating one: await ctx.fns.procs.dev.genTypes({}) + await ctx.fns.procs.repl.load({ name: "skill" }).
+
+Memory: four levels, three kinds, all on this instance under ~/.hyper (like ~/.claude), never in a repo.
+
+  level     who sees it                                files (memory.write)            functions (~/.hyper/src/)
+  system    everyone                                   ~/.hyper/memory/                ctx.fns.<mod> (platform, plugins)
+  user      your person and ALL their agents,          ~/.hyper/memory/users/<uid>/    user_<uid>/<fn>.ts → ctx.fns.user_<uid>.<fn>
+            in every project and without one
+  project   agents and people of your project          ~/.hyper/memory/projects/<slug>/ project_<slug>/<fn>.ts → ctx.fns.project_<slug>.<fn>
+  agent     you (and your person)                      ~/.hyper/memory/agents/<id>/    agent_<id>/<fn>.ts → ctx.fns.agent_<id>.<fn>
+
+  Records (memory.put) live in Postgres on the same four levels. The "Your memory" block in your context gives
+  your uid, project slug, the folders and the functions you can call; no project there = no project level.
+  - Choose the level by who needs it later: a preference or habit of the person ("answers in Russian", "never
+    commit") → user; a decision, fact or convention of the project → project; your own working state and
+    experience in this task → agent (the default); system only when the instance owner asks for it.
+  - Choose the kind: prose someone reads and edits (a decision with its why, a fact, a page) is a file —
+    memory.write({ path: "notes/<topic>.md", content, title, description, kind, visibility }); many similar items
+    you filter (todos, bugs with a status, people) are records — memory.put({ key: "todo/<x>", data, title, kind,
+    visibility }); code you or others will run again is a function, never a snippet in a note. `kind` is a free
+    word; the usual ones are decision, preference, fact, todo, page.
+  - Look before you write: memory.list({}) or memory.list({ prefix: "notes/" }) first; if a note on the topic
+    exists, extend it with memory.edit({ key, oldText, newText }) instead of starting a second one.
+  - visibility is the level: "agent" (default), "user", "project", "system". A key found on several levels
+    resolves nearest first: agent, project, user, system. memory.list({}) is the table of contents of all you
+    can see (each row says its level); memory.file({ ref }) / memory.read({ key }) open, memory.edit fixes,
+    memory.remove deletes. Your person sees your agent level through you (they talk to you); other agents don't.
+  - No project in your block but the work belongs to one: project.list({}) finds it, project.assign({ project:
+    "<id>" }) joins it — ask your person first if unsure.
+  - Functions: write the file with the write tool at its absolute path (your workspace is the repo, memory is not):
+    ~/.hyper/src/<level>_<owner>/<fn>.ts, same grammar as src/<mod>/<fn>.ts (procs.dev.createFunction is for
+    src/ only). It loads on save by itself (no genTypes/repl.load) and gets an index row "fn/<full name>", e.g.
+    "fn/project_hyperDesign.tables", status draft. To make it ready, put <fn>.test.ts next to it (bun:test,
+    calls it through mkTestCtx like any src/ test; run with bun test <path>) and give it a JSDoc summary, then
+    memory.setStatus({ key: "fn/project_hyperDesign.tables", status: "ready" }) — it refuses without the test
+    file and the summary; ready functions are listed to every agent that may call them. Put it straight on the
+    level it is for; move the file to another level later if that changes (the name changes; typecheck and
+    code.callers find the callers). Something everyone should have goes into the code repo (src/ or a plugin)
+    through a normal commit.
+  - Always the full name — the same in code, grep, code.callers and POST /rpc { method }, which checks the
+    level: user_ for the person and their agents, project_ for its agents and people, agent_ for you and your
+    person. Canvas tabs as GET /rpc/<fn>?<json> links are planned, not built: today show results with
+    canvas.show.
+  - Never secrets. Keep the project note notes/where-we-stopped.md current before long pauses and read it
+    first after a compaction. Details: docs/projects-and-memory.md.
 
 Scratch files go to your own .hyper/tmp/<agent-id>/ — temp data, drafts, dumps, backups, test markers,
 throwaway scripts: const p = await ctx.fns.workspace.tmp({ path: "dump.json" }) returns the absolute path

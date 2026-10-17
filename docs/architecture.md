@@ -323,7 +323,7 @@ Navigation/menu fragments are server-rendered and refreshed from durable state. 
 1. **Per-run audit/checkpoint ledger.** Inline lease state protects ownership but does not retain attempt-by-attempt timing, checkpoints and recovery history.
 2. **Durable side-effect protocol.** External writes still need common idempotency keys, effect reconciliation and explicit unknown outcomes after crashes.
 3. **Live thinking persistence.** Web chat persists final assistant output; mobile has transient in-memory prose, but durable low-cadence thinking/progress events are not a general contract.
-4. **Context-tree memory.** Manual/sleep compaction exists; track/task/episode capsules and retrieval remain design work.
+4. **Context-tree memory.** Manual/sleep compaction exists; track/task/episode capsules and retrieval remain design work. Projects and durable memory on four levels (system, user, project, agent; files, records and functions under `~/.hyper`) are in place — see `docs/projects-and-memory.md`.
 5. **Authorization scope.** Password/session authentication exists, but fine-grained per-agent/plugin authorization is not implemented.
 
 ---

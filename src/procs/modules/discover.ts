@@ -1,4 +1,5 @@
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { readdir, realpath } from "node:fs/promises";
 // Bootstrap path: this runs before the registry exists, so these are imported
 // directly rather than called through ctx.fns.
@@ -77,6 +78,20 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
     const hyperDir = resolve(projectRoot, ".hyper");
     if (await readdir(hyperDir).then(() => true).catch(() => false)) {
         out.push({ name: "hyper", dir: hyperDir, self: true });
+    }
+    // Functions of the memory levels — code as memory. All live on this instance under ~/.hyper/src
+    // (HYPER_HOME overrides ~/.hyper): `user_<id>/<fn>.ts` is `ctx.fns.user_<id>.<fn>`, `project_<slug>/…` is
+    // `ctx.fns.project_<slug>.<fn>`, `agent_<id>/…` is `ctx.fns.agent_<id>.<fn>`. procs/project/scan keeps only
+    // those folders from this root. Who may call them from outside is project.canCall's business.
+    const home = resolve(String(ctx.env.HYPER_HOME ?? "").trim() || join(String(ctx.env.HOME || homedir()), ".hyper"));
+    const fnRoots = new Map<string, string>([[resolve(home, "src"), "memorySrc"]]);
+    // Tests mount a temporary home of their own here (boot runs before a test can set HYPER_HOME).
+    for (const [name, dir] of Object.entries(((ctx.state as any)?.procs?.project?.fnRoots ?? {}) as Record<string, string>)) {
+        const abs = resolve(dir, "src");
+        if (!fnRoots.has(abs)) fnRoots.set(abs, `memorySrc_${name}`);
+    }
+    for (const [dir, name] of fnRoots) {
+        if (await readdir(dir).then(() => true).catch(() => false)) out.push({ name, dir, self: true });
     }
 
     // An app declared `runtime: "in-process"` in workspace.json is mounted from

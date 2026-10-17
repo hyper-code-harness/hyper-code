@@ -9,6 +9,10 @@ const IGNORED_SEGMENT = /^(_runtime|_test_.*|_tmp_.*|tmp|tmp_.*|node_modules)$/;
 function isIgnoredPath(rel: string): boolean {
     return rel.split('/').some(seg => IGNORED_SEGMENT.test(seg));
 }
+// Roots that carry project/agent functions (see procs/modules/discover) and the folders they may contain.
+// ~/.hyper/src (procs/modules/discover): functions of the memory levels only — user, project, agent folders.
+const FN_ROOT = /^memorySrc(_.+)?$/;
+const FN_FOLDER = /^(user_[A-Za-z0-9_]{1,64}|project_[a-z][A-Za-z0-9]{0,62}|agent_[a-z0-9]{1,16})\//;
 
 export type ScanEntry = ProjectEntry & { root: string; rootDir: string; namespace: string; module: string; projectRel: string; abs: string; fn?: any };
 
@@ -46,10 +50,15 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
             // Check the absolute path too: a .hyper source root hides that segment
             // from rel0, and a symlink may hide the entire result-store path.
             const absolute = resolve(root.dir, rel0);
-            if ((absolute + '/').includes('/.hyper/results/')) continue;
+            // Memory files (~/.hyper/memory/, and a repo's old .hyper/memory/) are data: a snippet there is no fn.
+            if ((absolute + '/').includes('/.hyper/results/') || (absolute + '/').includes('/.hyper/memory/')) continue;
             const canonical = await realpath(absolute).catch(() => absolute);
-            if ((canonical + '/').includes('/.hyper/results/')) continue;
+            if ((canonical + '/').includes('/.hyper/results/') || (canonical + '/').includes('/.hyper/memory/')) continue;
             if (isIgnoredPath(rel0)) continue;
+            // ~/.hyper/src takes nothing but `user_*/`, `project_<slug>/` and `agent_<id>/` folders — never a
+            // platform namespace. A repo's own `.hyper/src` is not a module either.
+            if (root.name === "hyper" && rel0.split('/')[0] === "src") continue;
+            if (FN_ROOT.test(root.name) && !FN_FOLDER.test(rel0)) continue;
             // A template's own placeholder, in the PATH. Provisioning fills
             // `{{project}}` into a new workspace's name — including in file names
             // — but a template mounted where it stands (the EHR's demo apps are

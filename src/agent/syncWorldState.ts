@@ -120,7 +120,9 @@ export default async function (
         for (let i = messages.length - 1; i >= 0; i--) {
             const message: any = messages[i];
             if (message?.role !== "user" || typeof message.content !== "string") continue;
-            if (message.excluded_from_cursor || (message.message_type && message.message_type !== "message")) continue;
+            // A message from another agent is the turn's request too: an agent started or tasked by another agent
+            // never gets a human message, and without this it never learned its project.
+            if (message.excluded_from_cursor || (message.message_type && message.message_type !== "message" && message.message_type !== "agent_message")) continue;
             return String(message.content);
         }
         return "";

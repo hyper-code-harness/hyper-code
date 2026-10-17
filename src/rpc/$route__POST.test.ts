@@ -4,6 +4,7 @@ import route from './$route__POST';
 const ctx: any = { fns: {
     auth: { verifyCsrf: ({ token }: any) => token === 'valid', currentUser: async () => ({ user: { id: 'test', name: 'Test' }, required: true }) },
     demo: { hello: ({ name }: any) => `<b>Hello ${name}</b>` },
+    project: { canCall: async () => ({ allowed: true, scope: 'system', owner: null, reason: 'system function' }) },
     procs: {
         log: { info: () => {}, warn: () => {} },
         http: { toResponse: ({ value }: any) => new Response(value, { headers: { 'content-type': 'text/html' } }) },

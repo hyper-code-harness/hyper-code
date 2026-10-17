@@ -45,7 +45,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         if (!Number.isInteger(itemId)) return new Response("invalid item id", { status: 400 });
         const f = body.navigate.file;
         const file = f && typeof f === "object" ? { path: String(f.path ?? ""), host: f.host ? String(f.host) : undefined, tab: (["preview", "code", "edit"].includes(f.tab) ? f.tab : "") as "" | "preview" | "code" | "edit" } : undefined;
-        try { await ctx.fns.canvas.navigate({ agentId, itemId, ...(file ? { file } : { url: String(body.navigate.url ?? "") }) }); }
+        const history = body.navigate.history === "back" || body.navigate.history === "forward" ? body.navigate.history : undefined;
+        try { await ctx.fns.canvas.navigate({ agentId, itemId, ...(file ? { file } : history ? { history } : { url: String(body.navigate.url ?? "") }) }); }
         catch (error: any) { return new Response(String(error?.message ?? error), { status: 400 }); }
     }
     const open = typeof body.open === "boolean" ? body.open : body.open === "1" || body.open === "true" ? true : body.open === "0" || body.open === "false" ? false : undefined;

@@ -35,6 +35,8 @@ export async function mkTestCtx(opts: { db?: string | false; env?: Record<string
         ...(ctx.env.DATABASE_URL ? { DATABASE_URL: ctx.env.DATABASE_URL } : {}),
         // the suite's headless Chrome (testCtx), never the developer's browser
         CDP_BROWSER_URL: ctx.env.CDP_BROWSER_URL,
+        // Memory files (memory.write, canvas html pages) go to a throwaway home, never the real ~/.hyper.
+        HYPER_HOME: await (await import("node:fs/promises")).mkdtemp((await import("node:path")).join((await import("node:os")).tmpdir(), "hyper-home-")),
         ...(typeof opts.db === "string" ? { DATABASE_URL: opts.db } : {}),
         ...opts.env,
     };

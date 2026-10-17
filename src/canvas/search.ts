@@ -24,6 +24,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     for (const item of ctx.fns.runtime.docs.list({})) {
         let meta: Record<string, any>;
         try { meta = ctx.fns.runtime.docs.get({ name: item.name }); } catch { continue; }
+        if (meta.view) out.push({ type: "function", name: meta.name, kind: "view", summary: String(meta.summary ?? ""), usage: `canvas.show({ kind: "view", args: { fn: "${meta.name}", params } }) — or the link /rpc/${meta.name}?<json>`, text: `${meta.name} view page ${meta.doc ?? ""}` });
         if (!meta.canvas) continue;
         out.push({ type: "function", name: meta.name, kind: String(meta.canvas), summary: String(meta.summary ?? ""), usage: `${meta.name}({ …, canvas: true })`, text: `${meta.name} ${meta.canvas} ${meta.doc ?? ""}` });
     }

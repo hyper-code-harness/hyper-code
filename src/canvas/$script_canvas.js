@@ -125,6 +125,9 @@
             });
         } else if (msg.type === 'ping') {
             post({ ping: { text: String(msg.text ?? ''), data: msg.data } });
+        } else if (msg.type === 'navigate' && frame.hasAttribute('data-canvas-view') && typeof msg.url === 'string' && msg.url.startsWith('/rpc/')) {
+            // A /rpc link clicked in a view page: the same tab moves to it (the sandboxed page cannot load it itself).
+            tabAction(root, { navigate: { itemId: Number(itemId), url: msg.url } });
         } else if (msg.type === 'error') {
             console.warn(`canvas tab ${itemId}:`, msg.message);
         }
@@ -160,6 +163,14 @@
         if (reload && root.contains(reload)) {
             event.preventDefault();
             refreshPanel(root, true);
+            return;
+        }
+        // ◀ ▶ of a view tab: step through the addresses this tab has shown (canvas.navigate history).
+        const step = event.target.closest?.('[data-canvas-step]');
+        if (step && root.contains(step)) {
+            event.preventDefault();
+            const form = step.closest('[data-canvas-navigate]');
+            if (form) tabAction(root, { navigate: { itemId: Number(form.getAttribute('data-canvas-navigate')), history: step.getAttribute('data-canvas-step') } });
             return;
         }
         const reopen = event.target.closest?.('[data-canvas-reopen]');

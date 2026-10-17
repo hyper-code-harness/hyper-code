@@ -1,7 +1,7 @@
 # Projects and memory
 
 **Status:** implemented — four levels under `~/.hyper`, `memory.*`, functions of the levels with access
-checks in `/rpc`, the code index and the prompt block. Search across levels, GET links for canvas tabs,
+checks in `/rpc`, the code index and the prompt block. Search across levels,
 backup and publishing are not built yet — see [Not done yet](#not-done-yet).
 
 ## Why
@@ -143,7 +143,6 @@ it changes; agents started by another agent get it too (`syncWorldState` counts 
 
 - Search across levels with the same filter: `runtime.docs.search` dropping other people's, projects' and
   agents' functions, and `memory.search` (bm25) over files and records.
-- `GET /rpc/<fn>?<json>` for canvas tabs.
 - `memory.publish` (note → `docs/`), `~/.hyper/memory` as a git repo with auto-commit for history and backup,
   `memory.export/import` of a project between instances.
 - `memory.sync` — re-index files edited outside `memory.*` (today `stale` is only reported).

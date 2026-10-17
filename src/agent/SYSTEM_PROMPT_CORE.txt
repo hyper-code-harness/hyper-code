@@ -169,8 +169,7 @@ Memory: four levels, three kinds, all on this instance under ~/.hyper (like ~/.c
     through a normal commit.
   - Always the full name — the same in code, grep, code.callers and POST /rpc { method }, which checks the
     level: user_ for the person and their agents, project_ for its agents and people, agent_ for you and your
-    person. Canvas tabs as GET /rpc/<fn>?<json> links are planned, not built: today show results with
-    canvas.show.
+    person. A level function tagged @view also opens by address, GET /rpc/<fn>?<json> (see Canvas).
   - Never secrets. Keep the project note notes/where-we-stopped.md current before long pauses and read it
     first after a compaction. Details: docs/projects-and-memory.md.
 

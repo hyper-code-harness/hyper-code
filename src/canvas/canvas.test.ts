@@ -166,6 +166,16 @@ test("html tab runs sandboxed, keeps its state live, and pings wake the agent", 
     await ctx.fns.settings.set({ module: "canvas", scopeType: "global", key: "allowEval", value: true });
     await expect(ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>x</p>", load: "throw new Error('boom')" } })).rejects.toThrow("boom");
 
+    // A static page becomes a memory page with an address, opened as a view tab; showing it again updates it.
+    const page = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<title>Plan A</title><p>one</p>" } });
+    expect(page).toMatchObject({ kind: "view", title: "Plan A", args: { fn: "memory.view", params: { key: "pages/plan-a.html" } } });
+    const as = Object.create(ctx); as.session = { kind: "agent", agentId: a.id };
+    expect(await as.fns.memory.view({ key: "pages/plan-a.html" })).toContain("<p>one</p>");
+    const again = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<title>Plan A</title><p>two</p>" } });
+    expect(again.id).toBe(page.id);
+    expect(again.state.page).toBe(2);
+    expect(await as.fns.memory.view({ key: "pages/plan-a.html" })).toContain("<p>two</p>");
+
     const it = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<title>Board</title><canvas id=c></canvas><script>hyper.setState({n:1})</script>", load: "return { rows: [1, 2, 3], tag: '</script>' }" } });
     expect(it.title).toBe("Board");
     const panel = await ctx.fns.canvas.panelHtml({ agentId: a.id });
@@ -266,7 +276,7 @@ test("chat links open as file/url tabs, canvas.search lists kinds, tabs say live
     const found = await r.fns.canvas.search({ query: "web page address" });
     expect(found[0]).toMatchObject({ type: "kind", name: "url" });
 
-    const html = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>fixed</p>" } });
+    const html = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>fixed</p><script>hyper.onState(() => {})</script>" } });
     const handler = ctx.state.procs.hooks.handlers["agent.promptAugment"].get("canvas");
     const block = await handler(ctx, null, { agentId: a.id, text: "" });
     expect(block).toContain(`[${html.id}] "${html.title}": snapshot from `);

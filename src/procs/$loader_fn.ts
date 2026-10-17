@@ -80,10 +80,13 @@ function reflectSource(ts: any, entry: any): any {
         // `@canvas <kind>`: the function can show its result to the person on that canvas tab kind
         // (it takes `canvas: true`); canvas.search and the canvas prompt rule are built from it.
         const canvas = (ts.getJSDocTags(decl) as any[]).filter(t => t.tagName?.text === "canvas").map(t => commentText(t.comment).trim().split(/\s+/)[0]).filter(Boolean)[0];
+        // `@view`: the function only reads and returns a page (html, or data shown as a table), so it may be
+        // opened by address — GET /rpc/<fn>?<json> and the canvas `view` tab. Without it GET refuses.
+        const view = (ts.getJSDocTags(decl) as any[]).some(t => t.tagName?.text === "view");
         return {
             summary: firstLine(doc), doc,
             signature: `(${optsType}) => ${returnType}`,
-            optsType, paramsSchema, returnType, ...(canvas ? { canvas } : {}),
+            optsType, paramsSchema, returnType, ...(canvas ? { canvas } : {}), ...(view ? { view: true } : {}),
             line: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line + 1,
         };
     } catch {

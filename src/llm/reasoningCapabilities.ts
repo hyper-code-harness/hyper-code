@@ -16,6 +16,14 @@ export default async function (
     const m = /^([a-z][\w-]*)(?:\/[\w.-]+)?:(.+)$/.exec(model);
     const provider = m?.[1] ?? "lmstudio";
     const modelId = String(m?.[2] ?? model).toLowerCase();
+    // hyper/<node>:<model> relays to the node's upstream provider: answer for that route.
+    if (provider === "hyper") {
+        const account = /^hyper\/([\w.-]+):/.exec(model)?.[1] ?? "default";
+        const node = await ctx.fns.node.get({ name: account }).catch(() => null);
+        const upstream = node?.catalog?.find((e) => e.id.toLowerCase() === modelId)?.provider;
+        if (upstream && upstream !== "hyper") return ctx.fns.llm.reasoningCapabilities({ model: `${upstream}:${m?.[2]}` });
+        if (/^gpt-6/.test(modelId)) return ctx.fns.llm.reasoningCapabilities({ model: `codex:${m?.[2]}` });
+    }
     // gpt-6 family rejects effort "none"/"minimal": only low..max on the wire.
     if ((provider === "codex" || provider === "openai") && /^gpt-6/.test(modelId)) {
         return { supported: ["auto", "low", "medium", "high", "xhigh"], defaultEffort: "medium", mode: "openai-effort" };

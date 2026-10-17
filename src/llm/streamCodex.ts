@@ -47,7 +47,10 @@ export default async function (
         prompt_cache_key: await ctx.fns.agent.cacheRoot({ agent }),
     };
 
-    body.reasoning = { effort: reasoning.applied === "off" ? "none" : reasoning.applied, summary: "auto" };
+    // gpt-6 rejects "none"/"minimal" — clamp to its lowest level rather than fail with a 400.
+    const gpt6 = /^gpt-6/i.test(String(ep.modelId));
+    const effort = reasoning.applied === "off" ? (gpt6 ? "low" : "none") : (gpt6 && reasoning.applied === "minimal" ? "low" : reasoning.applied);
+    body.reasoning = { effort, summary: "auto" };
     // Native function_call items, in JSON protocol mode only (agent.wireTools).
     const tools = ctx.fns.agent.wireTools({ agent, api: "responses" });
     if (tools.length) {

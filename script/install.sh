@@ -89,7 +89,11 @@ if [ -f "$COMPOSE" ] && ! cmp -s docker-compose.yml "$COMPOSE"; then
     cp "$COMPOSE" "$COMPOSE.bak-$(date +%Y%m%d%H%M%S)"
 fi
 # The password: keep the one already generated; otherwise a new one (48 hex).
-DB_PW="$(sed -n 's/^HYPER_DB_PASSWORD=//p' "$DBENV" 2>/dev/null | tail -1)"
+DB_PW=""
+# A missing file is normal on first install; other read errors must still abort.
+if [ -e "$DBENV" ] || [ -L "$DBENV" ]; then
+    DB_PW="$(sed -n 's/^HYPER_DB_PASSWORD=//p' "$DBENV" | tail -1)"
+fi
 if [ -z "$DB_PW" ]; then
     DB_PW="$(openssl rand -hex 24)"
     (umask 077; touch "$DBENV"; grep -v '^HYPER_DB_PASSWORD=' "$DBENV" > "$DBENV.new" || true; echo "HYPER_DB_PASSWORD=$DB_PW" >> "$DBENV.new"; mv "$DBENV.new" "$DBENV")

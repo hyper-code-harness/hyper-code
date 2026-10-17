@@ -74,6 +74,16 @@ await ctx.fns.browser.liveView({});                                  // the most
 await ctx.fns.browser.liveView({ tab, cdp: "http://127.0.0.1:9230" }); // another Chrome, if allowed
 ```
 
+When the person is in the chat, show the tab on the canvas instead of a link: the `browser.live` kind is the
+same live page in a canvas tab (Chrome's own tabs, back, forward and address bar, no second canvas bar). It is also
+how a site that forbids framing (Google, GitHub, sign-in pages) is shown on the canvas. `browser.page` is the same
+page at an address, `/rpc/browser.page?{"target":"<id>"}`, for a chat link or a browser tab.
+
+```ts
+await ctx.fns.canvas.show({ kind: "browser.live", args: { url: "https://www.google.com" } }); // a new Chrome tab
+await ctx.fns.canvas.show({ kind: "browser.live", args: { tab: "main" } });                   // an open one
+```
+
 How it works: `/browser/live` (page) and `/browser/live/socket` (`$ws_` WebSocket route) are ordinary
 Hyper routes behind the same sign-in. Per viewer the socket opens its own CDP connection, attaches to
 the target, enables `Emulation.setFocusEmulationEnabled` (so a background tab keeps painting) and starts

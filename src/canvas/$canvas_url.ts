@@ -2,7 +2,7 @@
 // frame-ancestors); the browser then shows an empty frame, so the tab checks the headers when it is opened
 // and shows a plain notice with an "open in a new tab" link instead.
 
-export const hint = "a web page by address — args `{ url }` (http/https), live in a frame; sites that forbid framing (Google, GitHub, most logins) show a notice with a link to open them in a new browser tab instead, unless the person's Chrome has the Hyper canvas frames extension, which lets them show live too";
+export const hint = "a web page by address — args `{ url }` (http/https), live in a frame; sites that forbid framing (Google, GitHub, most logins) show a notice with a link to open them in a new browser tab instead, unless the person's Chrome has the Hyper canvas frames extension, which lets them show live too. For such a site, or to work in it together, open the `browser.live` kind instead (a live tab of the shared Chrome)";
 
 /** Reads the response headers of the page and says whether a foreign page may frame it. */
 async function framing(url: string): Promise<{ embeddable: boolean; reason?: string; finalUrl: string }> {
@@ -21,7 +21,7 @@ async function framing(url: string): Promise<{ embeddable: boolean; reason?: str
 }
 
 export default {
-    icon: "globe",
+    icon: "browser",
     live: true,
     async prepare(_ctx: Context, opts: { agentId: string; args: Record<string, any> }) {
         let raw = String(opts.args.url ?? "").trim();

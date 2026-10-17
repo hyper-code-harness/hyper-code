@@ -27,7 +27,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
         "Some functions return data AND can show the same selection on the canvas (`@canvas <kind>` in their docs; `canvas.search({ query })` finds them). When you answer from such data, call them with `canvas: true` so the person sees exactly what you read; they reuse the tab and return its `itemId`. What the person then changes in that tab (filter, opened record) arrives in the Canvas block — repeat the call without `canvas` to read the same data."
             + (shows.length ? ` Loaded: ${shows.map(n => `\`${n}\``).join(", ")}.` : ""),
         "",
-        "A page you or the person will open again belongs at an address: a function tagged `@view` in its JSDoc (it only reads, returns html or rows) opens at `/rpc/<fn>?<json>` — on the canvas as a `view` tab, in a chat link, in a browser tab — and links inside move the same tab. Write one instead of a one-off html tab when the content comes from data."
+        "A page you or the person will open again belongs at an address: a function tagged `@view` in its JSDoc (it only reads, returns html or rows) opens at `/rpc/<fn>?<json>` — on the canvas as a `view` tab, in a chat link, in a browser tab — and links inside move the same tab. Write one instead of a one-off html tab when the content comes from data. It returns an html fragment (no scripts; an app that needs its own scripts returns `rpc.frame({ src })`); add `@live <topic>` and call `procs.events.refresh({ topic })` where the data changes, and every open copy re-fetches itself (memory pages are `@live memory`)."
             + (views.length ? ` Views: ${views.map(n => `\`${n}\``).join(", ")}.` : ""),
     ].join("\n");
 }

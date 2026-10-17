@@ -142,4 +142,22 @@ describe("canvas = url", () => {
         off();
         expect(heard.some(e => e.topic === "memory" && e.type === "refresh")).toBe(true);
     });
+
+    test("a tab action answers with the new panel, its view already drawn: one request per click", async () => {
+        const one = await r.fns.canvas.show({ agentId, kind: "view", args: { fn: "memory.table", params: { prefix: "todo/" } } });
+        const two = await r.fns.canvas.show({ agentId, kind: "view", args: { fn: "memory.view", params: { key: "notes/b.md" } } });
+        // The handler itself (this file's instance has an owner, so the HTTP door asks for sign-in).
+        const route = ctx.state.procs.http.routes["/canvas/:id"].POST;
+        const post = (headers: Record<string, string>) => route(ctx, { kind: "http" }, { req: new Request(`http://localhost/canvas/${agentId}`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ activeItemId: one.id }) }), params: { id: agentId } });
+        const res = await post({});
+        expect(res.status).toBe(200);
+        const plain = await res.json();
+        expect(plain.panel).toBeUndefined();
+        await r.fns.canvas.update({ agentId, activeItemId: two.id });
+        const answer = await (await post({ "x-canvas-panel": "1" })).json();
+        expect(answer.activeItemId).toBe(one.id);
+        expect(answer.panel).toContain(`data-canvas-view="${one.id}" data-rpc-status="200"`);
+        expect(answer.panel).toContain("Memory: todo/");
+        expect(answer.panel).toContain(`data-canvas-rev="${answer.rev}"`);
+    });
 });

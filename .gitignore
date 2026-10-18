@@ -92,3 +92,6 @@ drawings/
 /research/
 /doonto/
 /dhh-rails-world-2026-keynote-transcript.md
+
+# Private instance overlay; never publish local functions or artifacts.
+/.hyper/

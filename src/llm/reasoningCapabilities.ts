@@ -16,6 +16,8 @@ export default async function (
     const m = /^([a-z][\w-]*)(?:\/[\w.-]+)?:(.+)$/.exec(model);
     const provider = m?.[1] ?? "lmstudio";
     const modelId = String(m?.[2] ?? model).toLowerCase();
+    if (provider === "ssh-claude-code") return ctx.fns.llm.reasoningCapabilities({ model: `claude-code:${m?.[2]}` });
+    if (provider === "ssh-codex") return ctx.fns.llm.reasoningCapabilities({ model: `codex:${m?.[2]}` });
     // hyper/<node>:<model> relays to the node's upstream provider: answer for that route.
     if (provider === "hyper") {
         const account = /^hyper\/([\w.-]+):/.exec(model)?.[1] ?? "default";

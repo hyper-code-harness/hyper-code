@@ -13,7 +13,7 @@
  */
 export default async function (
     ctx: Context,
-    _session: Session | null,
+    session: Session | null,
     opts: {
         /** Currently selected model route ("<provider>[/<account>]:<model>"); empty selects nothing. */
         current: string;
@@ -28,26 +28,37 @@ export default async function (
     const esc = (value: unknown) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
     const current = String(opts.current ?? "");
     const currentRoute = parseRoute(current);
-    const [listed, accountRows] = await Promise.all([
+    const [listed, listedAccounts] = await Promise.all([
         ctx.fns.llm.listModels({}),
         ctx.fns.llm.listAccounts({}).catch(() => [] as any[]),
     ]);
 
+    const accountRows = [...listedAccounts];
+    const sshAllowed = !session || session.user?.role === 'owner' || (!session.req && !session.user && (session.kind === 'agent' || session.kind === 'repl'));
+    const isSsh = (provider: string) => provider === 'ssh-codex' || provider === 'ssh-claude-code';
     const groups: Record<string, string[]> = {};
     for (const [group, models] of Object.entries(listed ?? {})) {
         // Hyper nodes are not one provider here: each node becomes its own proxy
         // entry below, with the host's providers as its accounts.
         if (group.startsWith("hyper/") || group === "hyper") continue;
         const provider = group.split("/")[0]!;
+        if (isSsh(provider)) {
+            if (!sshAllowed) continue;
+            const account = group.slice(provider.length + 1);
+            if (!account) continue;
+            accountRows.push({ provider, account, available: true });
+        }
         const values = Array.from(new Set((models ?? []).map(String).filter(Boolean)));
         if (values.length) groups[provider] = Array.from(new Set([...(groups[provider] ?? []), ...values]));
     }
     if (current && !Object.values(groups).some(models => models.some(model => sameBaseModel(model, current)))) {
-        if (currentRoute.provider !== "hyper") (groups[currentRoute.provider] ??= []).unshift(stripAccount(current));
+        if (currentRoute.provider !== "hyper" && (!isSsh(currentRoute.provider) || sshAllowed)) (groups[currentRoute.provider] ??= []).unshift(stripAccount(current));
     }
 
     const labels: Record<string, string> = {
         "claude-code": "Claude Code",
+        "ssh-codex": "Codex CLI via SSH",
+        "ssh-claude-code": "Claude Code CLI via SSH",
         "anthropic-oauth": "Claude managed",
         anthropic: "Anthropic API",
         codex: "Codex",

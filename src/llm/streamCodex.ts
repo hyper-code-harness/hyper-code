@@ -29,10 +29,11 @@ export default async function (
     // Through a Hyper node the bearer is our node token and the host adds the
     // ChatGPT account headers itself (docs/hyper-node.md).
     const viaNode = ep.provider === "hyper";
-    const apiKey = viaNode ? ep.apiKey : (await ctx.fns.llm.refreshCodex({ account: ep.account }) ?? ep.apiKey);
+    const viaSsh = ep.provider === "ssh-codex";
+    const apiKey = viaSsh ? null : viaNode ? ep.apiKey : (await ctx.fns.llm.refreshCodex({ account: ep.account }) ?? ep.apiKey);
     const reasoning = await ctx.fns.llm.resolveReasoningEffort({ model: agent.model, effort: agent.reasoningEffort ?? "auto" });
-    if (!apiKey) throw new Error("codex: no access_token (run /settings → login)");
-    const accountId = viaNode ? "" : extractAccountId(apiKey);
+    if (!viaSsh && !apiKey) throw new Error("codex: no access_token (run /settings → login)");
+    const accountId = viaNode || viaSsh ? "" : extractAccountId(apiKey!);
 
     const { system: instructions, messages: convo } = await ctx.fns.agent.buildLlmRequest({ agent });
     const { input } = ctx.fns.llm.toCodexInput({ messages: convo as any });
@@ -61,7 +62,7 @@ export default async function (
     // ChatGPT backend occasionally returns 5xx / "upstream connect error"
     // before any bytes ship. Retry pre-stream with exponential backoff.
     const headers = {
-        "authorization": `Bearer ${apiKey}`,
+        ...(!viaSsh ? { "authorization": `Bearer ${apiKey}` } : {}),
         ...(accountId ? { "chatgpt-account-id": accountId } : {}),
         "originator": "codex_cli_rs",
         "version": await ctx.fns.llm.codexCliVersion({}),
@@ -71,13 +72,15 @@ export default async function (
         "session_id": agent.id,
     };
     const bodyJson = JSON.stringify(body);
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = viaSsh ? 0 : 3; // SSH failure may follow remote generation; never replay.
     let res: Response | null = null;
     let lastErr: any = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         if (opts.signal?.aborted) throw new Error("aborted");
         try {
-            res = await ctx.fns.llm.connectFetch({ url: ep.url, init: { method: "POST", headers, body: bodyJson, signal: opts.signal } });
+            res = viaSsh
+                ? await ctx.fns.sshCli.fetch({ host: ep.account, provider: "codex", init: { headers, body: bodyJson, signal: opts.signal } })
+                : await ctx.fns.llm.connectFetch({ url: ep.url, init: { method: "POST", headers, body: bodyJson, signal: opts.signal } });
             if (res.ok) {
                 await ctx.fns.llm.accountAuthHealth({ action: "clear", provider: ep.provider, account: ep.account });
                 break;
@@ -121,10 +124,11 @@ export default async function (
     // instead of after it.
     let rateLimits: any = null;
 
+    let terminal = false;
     for await (const { data } of ctx.fns.llm.parseSSE({ body: res.body })) {
         if (!data || data === "[DONE]") continue;
         let ev: any;
-        try { ev = JSON.parse(data); } catch { continue; }
+        try { ev = JSON.parse(data); } catch { if (viaSsh) throw new Error("Malformed SSH Codex SSE"); continue; }
         const t = ev.type;
         if (t === "response.output_text.delta" && typeof ev.delta === "string") {
             text += ev.delta;
@@ -137,6 +141,7 @@ export default async function (
         } else if (t === "response.output_item.done" && ev.item?.type === "function_call") {
             toolCalls.push({ id: ev.item.call_id ?? ev.item.id, name: ev.item.name, args: parseArgs(ev.item.arguments) });
         } else if (t === "response.completed" || t === "response.incomplete") {
+            terminal = true;
             rateLimits = ev.response?.rate_limits ?? ev.rate_limits ?? rateLimits;
             const u = ev.response?.usage;
             if (u) {
@@ -161,6 +166,8 @@ export default async function (
             throw failure({ ...info, message: info.kind === "fatal" ? `codex ${t}: ${msg}` : `${info.message}: ${msg}` });
         }
     }
+
+    if (viaSsh && !terminal) throw new Error("SSH Codex stream ended before terminal event");
 
     // Recording is a side effect of work already done: never its own request,
     // and never a reason to fail a completed turn.

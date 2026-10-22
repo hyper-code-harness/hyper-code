@@ -79,7 +79,7 @@ export default async function (
     let system = '';
     let bodyText = fullPrompt;
     const upstream = ep.provider === 'hyper' ? (ep.upstream ?? '') : ep.provider;
-    if (upstream === 'claude-code' || upstream === 'anthropic-oauth') {
+    if (upstream === 'ssh-claude-code' || upstream === 'claude-code' || upstream === 'anthropic-oauth') {
         system = claudeCodeHeader;
         if (bodyText.startsWith(claudeCodeHeader)) {
             bodyText = bodyText.slice(claudeCodeHeader.length).trimStart();

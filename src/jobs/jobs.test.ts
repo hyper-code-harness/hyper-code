@@ -136,28 +136,48 @@ describe("jobs", () => {
         expect(r.output).toContain('unknown option "background.after"');
     });
 
-    test("eval background: output and the result come back as a job message", async () => {
+    test("eval background: its own process — ctx.fns over /jobs/eval, quick result, errors, cancel kills it", async () => {
         const { ctx, a } = await setup();
-        // mkTestCtx stubs repl.eval; this one sleeps, prints or throws as the code says
-        ctx.state.registry.repl.eval = async (_c: any, _s: any, o: { code: string }) => {
-            const ms = Number(/sleep\((\d+)\)/.exec(o.code)?.[1] ?? 0);
-            if (ms) await Bun.sleep(ms);
-            if (o.code.includes("throw")) throw new Error("boom");
-            return o.code.includes("crawled") ? "crawled 3" : "2";
-        };
-        const r = await ctx.fns.tools.call({ name: "eval", args: { code: "await Bun.sleep(300); console.log('crawled', 3)", background: true }, agent: a });
-        expect(String(r.output ?? r)).toContain("Started background job");
-        const id = /job (j[0-9a-f]+)/.exec(String(r.output ?? r))![1];
-        expect(await until(ctx, id)).toMatchObject({ status: "succeeded", runner: "attached" });
-        expect((await inbox(ctx, a.id))[0].content).toContain("crawled 3");
+        const { default: route } = await import("./$route_eval_POST");
+        const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: (req) => route(ctx, null, { req }) });
+        ctx.state.procs.http.server = { server, port: server.port };
+        // Some sandboxes refuse loopback connections to a server started by the test process: nothing to test there.
+        if (!await fetch(`http://127.0.0.1:${server.port}/`).then(() => true, () => false)) { server.stop(true); console.warn("eval background test skipped: loopback refused"); return; }
+        await ctx.fns.settings.set({ module: "repl", scopeType: "global", key: "typecheckEval", value: false });
+        try {
+            const run = (code: string, background: any) => ctx.fns.tools.call({ name: "eval", args: { code, background }, agent: a });
+            const quick = await run("const r = await ctx.fns.jobs.list({ status: 'all' }); console.log('jobs', r.length, agent.id)", { afterMs: 15_000 });
+            expect(quick).toMatchObject({ isError: false });
+            expect(String(quick.output)).toBe(`jobs 1 ${a.id}`);
 
-        const quick = await ctx.fns.tools.call({ name: "eval", args: { code: "console.log(1 + 1)", background: { afterMs: 3000 } }, agent: a });
-        expect(String(quick.output ?? quick)).toBe("2");
+            const bad = await run("throw new Error('boom')", { afterMs: 15_000 });
+            expect(bad.isError).toBe(true);
+            expect(String(bad.output)).toContain("boom");
 
-        const bad = await ctx.fns.tools.call({ name: "eval", args: { code: "await Bun.sleep(200); throw new Error('boom')", background: true }, agent: a });
-        const badId = /job (j[0-9a-f]+)/.exec(String(bad.output ?? bad))![1];
-        expect(await until(ctx, badId)).toMatchObject({ status: "failed", result: { exitCode: 1 } });
-    }, 20_000);
+            const r = await run("console.log('pid=' + process.pid); await new Promise(r => setTimeout(r, 600_000))", true);
+            const id = /job (j[0-9a-f]+)/.exec(String(r.output))![1]!;
+            let pid = 0;
+            for (let i = 0; i < 50 && !pid; i++) { await Bun.sleep(100); pid = Number(/pid=(\d+)/.exec((await ctx.fns.jobs.logs({ id })).text)?.[1] ?? 0); }
+            expect(pid).toBeGreaterThan(0);
+            expect((await ctx.fns.jobs.cancel({ id })).status).toBe("cancelled");
+            await Bun.sleep(500);
+            expect(() => process.kill(pid, 0)).toThrow();
+            // the script that carried the token deleted itself
+            expect((await Array.fromAsync(new Bun.Glob("*.mjs").scan(`${ctx.fns.procs.project.runtimeDir({})}/eval-jobs`))).length).toBe(0);
+        } finally {
+            server.stop(true);
+        }
+    }, 30_000);
+
+    test("/jobs/eval refuses a call without this run's eval token", async () => {
+        const { ctx } = await setup();
+        const { default: route } = await import("./$route_eval_POST");
+        const call = (token?: string) => route(ctx, null, { req: new Request("http://127.0.0.1/jobs/eval", { method: "POST", headers: token ? { authorization: "Bearer " + token } : {}, body: JSON.stringify({ method: "jobs.list", params: {} }) }) });
+        expect((await call()).status).toBe(403);
+        expect((await call(await ctx.fns.procs.repl.token({}))).status).toBe(403);
+        const ok = await call(await ctx.fns.procs.auth.sign({ sub: "zz", name: "eval", kind: "eval", seconds: 60 }));
+        expect(ok.status).toBe(200);
+    });
 
     test("a command that cannot start fails the call instead of messaging later", async () => {
         const { ctx, a } = await setup();

@@ -10,7 +10,7 @@ ends its turn and the message arrives.
 |---|---|---|
 | run a long command (here or on an SSH host) | `bash({ command, background: true })` | `exec` / `bash` |
 | run it, but get the result directly if it is quick | `bash({ command, background: { afterMs, wake } })` | `exec` / `bash` |
-| run long in-process code | `eval({ code, background: true })` | `exec` / `attached` |
+| run long eval code | `eval({ code, background: true \| { afterMs, wake } })` | `exec` / `bash` |
 | be woken once, at a time or after a delay | `agent.wake({ id, at \| inMs, prompt })` | `schedule` / `at` |
 | be woken on a cron schedule | `agent.cron({ id, expression, timezone, prompt })` | `schedule` / `cron` |
 | be woken when a condition turns true | `agent.watch({ id, predicate, opts, prompt, … })` | `schedule` / `watch` |
@@ -40,9 +40,13 @@ eval({ code: "await crawl(); console.log('done')", background: true })
   never see them, and secret values are replaced with `[REDACTED]` in everything the agent reads.
 - Past `timeout` (default 24 h) a job is stopped and reported as `timeout`; a vanished process is `lost`.
   Unreachable SSH hosts are retried with backoff until the deadline.
-- `eval` in the background runs inside the server (`attached`): printed output goes to the job log, exit 0, or 1
-  when it threw. It is a promise, not a process: cancel stops reporting it but cannot interrupt it, and a server
-  restart reports it `lost`. The "to background" button on a running local bash call makes the same kind of job.
+- `eval` in the background is its own bun process, started as a background bash job: the code is transpiled (and
+  typechecked) at the call, written to a self-deleting 0600 script, and run with `bun`. Its `ctx.fns` calls go to
+  `POST /jobs/eval` (loopback only, a token signed by this run for the agent, the same access check as `/rpc`)
+  and run with the agent's session; `agent` is a JSON snapshot, `ctx.state` is not available. Printed output goes
+  to the job log; exit 0, or 1 with the stack when it threw. Cancel kills it; a server restart does not.
+- The "to background" button on a running local bash call adopts a call already running inside the server
+  (`attached`): it cannot be moved to another process, so a server restart reports it `lost`.
 
 ## Wake-ups, cron, watches
 

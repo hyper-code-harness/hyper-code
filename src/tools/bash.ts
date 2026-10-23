@@ -9,6 +9,7 @@
  * @param opts.env Additional environment variables.
  * @param opts.secrets Secret references exposed as environment variables; values are redacted from output.
  * @param opts.timeout Timeout in seconds.
+ * @param opts.title With background — short label for the job; defaults to the first line of the command. Set by callers that wrap a command (background eval).
  * @param opts.background Run as a background job (jobs.start) and return its id at once; the agent is messaged when it ends. An object { afterMs, wake } waits afterMs first: a command done by then returns its normal result, one still running keeps running as the job.
  */
 export default async function (
@@ -29,6 +30,8 @@ export default async function (
         timeout?: number;
         /** Run as a background job (jobs.start) and return its id at once; the agent is messaged when it ends. An object { afterMs, wake } waits afterMs first: a command done by then returns its normal result, one still running keeps running as the job. @default false */
         background?: boolean | { afterMs?: number; wake?: string };
+        /** With background — short label for the job; defaults to the first line of the command. Set by callers that wrap a command (background eval). */
+        title?: string;
     },
 ): Promise<{ output: string; isError: boolean }> {
     if (opts.background) {
@@ -38,7 +41,7 @@ export default async function (
         // either way, so a command still running at afterMs simply goes on — the same process, not a restart.
         const job = await ctx.fns.jobs.start({
             command: opts.command, host: opts.host, cwd: opts.cwd, env: opts.env, secrets: opts.secrets,
-            timeout: opts.timeout, prompt: bg.wake, originToolCallId: (ctx as any).toolRun?.toolCallId, quietMs: afterMs,
+            timeout: opts.timeout, title: opts.title, prompt: bg.wake, originToolCallId: (ctx as any).toolRun?.toolCallId, quietMs: afterMs,
         });
         if (afterMs > 0) {
             const waited = await waitFor(ctx, job.id, afterMs);

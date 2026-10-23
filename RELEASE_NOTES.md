@@ -42,6 +42,12 @@ what to do (if anything). Internal refactors without visible effect do not need 
 - `wake`, `cron` and `watch` return a `hint` with how to list and cancel; the bash background result points
   to `jobs.list`. A command with no output now says "Output: none".
 
+### Background eval runs as its own process
+- `eval({ code, background })` now starts a bun process like a background bash job instead of a promise inside
+  the server: `jobs.cancel` kills it, a server restart does not lose it, and a heavy loop no longer slows the
+  server. Its `ctx.fns` calls go over `POST /jobs/eval` with the agent's session; `agent` is a snapshot and
+  `ctx.state` is not available there. Type and parse errors fail the call before a job starts.
+
 ### One way for each thing (jobs)
 - Background work and wake-ups have one call each: `bash/eval({ background })`, `agent.wake`, `agent.cron`,
   `agent.watch`, `agent.attach`; one list `jobs.list`, one stop `jobs.cancel({ id })` for every kind; output

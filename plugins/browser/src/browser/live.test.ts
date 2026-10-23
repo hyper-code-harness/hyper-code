@@ -99,7 +99,7 @@ test("liveConnect: screencast frames reach the viewer as header+JPEG and are ack
         http.get(String(u), (res) => { let body = ""; res.on("data", (c) => body += c); res.on("end", () => resolve(new Response(body))); }).on("error", reject);
     })) as any;
     try {
-        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}`, targetId: "T2", quality: 55 });
+        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}`, targetId: "T2", quality: 55, fitWindow: false });
         expect(conn.targetId()).toBe("T2");
         const names = commands.map((c) => c.method);
         expect(names).toEqual(expect.arrayContaining(["Target.getTargets", "Target.setDiscoverTargets", "Target.attachToTarget", "Page.enable", "Emulation.setFocusEmulationEnabled", "Page.startScreencast"]));
@@ -188,7 +188,7 @@ test("liveConnect: auto quality steps down when frames are dropped", async () =>
         http.get(String(u), (res) => { let body = ""; res.on("data", (c) => body += c); res.on("end", () => resolve(new Response(body))); }).on("error", reject);
     })) as any;
     try {
-        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}` });
+        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}`, fitWindow: false });
         await conn.handle(JSON.stringify({ t: "view", width: 1000, height: 600, dpr: 2 }));
         expect(conn.stats()).toMatchObject({ mode: "auto", level: 1, quality: 60, maxWidth: 1000 });
         buffered = 2 << 20;
@@ -206,3 +206,113 @@ test("liveConnect: auto quality steps down when frames are dropped", async () =>
         expect(commands.filter((c) => c.method === "Emulation.clearDeviceMetricsOverride")).toMatchObject([{ sessionId: "S1" }]);
     } finally { globalThis.fetch = realFetch; fake.stop(true); }
 }, 10000);
+
+// A lost tab session (Chrome detached it) must not turn the buttons into
+// "'Page.reload' wasn't found": reload re-attaches first. The viewer also gets a
+// health report with Chrome's answer time, so "live" means Chrome answers.
+test("liveConnect: reload after a lost session re-attaches; health reports reach the viewer", async () => {
+    const commands: any[] = [];
+    let chrome: any = null;
+    let attaches = 0;
+    const fake = Bun.serve({
+        port: Number(process.env.TEST_FAKE_CDP_PORT) || 0, hostname: "127.0.0.1",
+        fetch(req, srv) {
+            if (new URL(req.url).pathname === "/json/version") return Response.json({ webSocketDebuggerUrl: `ws://localhost:1/devtools/browser/x`, Browser: "Chrome/test" });
+            return srv.upgrade(req) ? undefined : new Response("no", { status: 400 });
+        },
+        websocket: {
+            open(ws) { chrome = ws; },
+            message(ws, raw) {
+                const m = JSON.parse(String(raw));
+                commands.push(m);
+                // A command with no session is what the browser target would reject.
+                if (m.method === "Page.reload" && !m.sessionId) return ws.send(JSON.stringify({ id: m.id, error: { message: "'Page.reload' wasn't found" } }));
+                const result: any = m.method === "Target.getTargets" ? { targetInfos: [{ targetId: "T1", type: "page", title: "One", url: "https://one.test/" }] }
+                    : m.method === "Target.attachToTarget" ? { sessionId: `S${++attaches}` }
+                    : {};
+                ws.send(JSON.stringify({ id: m.id, result }));
+            },
+        },
+    });
+    const sent: string[] = [];
+    const viewer = { send: (d: any) => { if (typeof d === "string") sent.push(d); return 1; }, getBufferedAmount: () => 0, close: () => {} };
+    const ctx = { fns: {
+        browser: { liveProfile: (o: any) => liveProfile(noCtx, null, o) },
+        procs: { log: { debug: () => {}, info: () => {} } },
+    } } as unknown as Context;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((u: any) => new Promise<Response>((resolve, reject) => {
+        http.get(String(u), (res) => { let body = ""; res.on("data", (c) => body += c); res.on("end", () => resolve(new Response(body))); }).on("error", reject);
+    })) as any;
+    try {
+        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}`, targetId: "T1" });
+        await Bun.sleep(100);
+        const health = sent.map((s) => JSON.parse(s)).find((m) => m.t === "health");
+        expect(health).toMatchObject({ ok: true, chrome: "Chrome/test", target: "T1", attached: true });
+        expect(health.chromeMs).toBeGreaterThanOrEqual(0);
+
+        chrome.send(JSON.stringify({ method: "Target.detachedFromTarget", params: { sessionId: "S1" } }));
+        await Bun.sleep(20);
+        await conn.handle(JSON.stringify({ t: "reload" }));
+        const reload = commands.filter((c) => c.method === "Page.reload").at(-1);
+        expect(reload.sessionId).toBe("S2");
+        expect(sent.some((s) => s.includes("wasn't found"))).toBe(false);
+        await conn.close();
+
+        // After a Chrome restart the viewer comes back with a target id that no longer exists:
+        // it gets the most recent tab instead of an error.
+        sent.length = 0;
+        const again = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}`, targetId: "GONE" });
+        expect(again.targetId()).toBe("T1");
+        await again.close();
+    } finally { globalThis.fetch = realFetch; fake.stop(true); }
+});
+
+// A VM Chrome (Linux, Xvfb): the window follows the viewer's canvas and the top level renders at its DPR.
+test("liveConnect: a fitted Chrome resizes its page area to the viewer and renders at the viewer's DPR", async () => {
+    const commands: any[] = [];
+    const fake = Bun.serve({
+        port: Number(process.env.TEST_FIT_CDP_PORT ?? 0),
+        fetch(req, server) {
+            if (new URL(req.url).pathname === "/json/version") return Response.json({ webSocketDebuggerUrl: `ws://localhost:1/devtools/browser/x`, "User-Agent": "Mozilla/5.0 (X11; Linux aarch64)" });
+            return server.upgrade(req) ? undefined : new Response("no", { status: 400 });
+        },
+        websocket: {
+            message(ws, raw) {
+                const m = JSON.parse(String(raw));
+                commands.push(m);
+                const result: any = m.method === "Target.getTargets" ? { targetInfos: [{ targetId: "T1", type: "page", title: "One", url: "https://one.test/" }] }
+                    : m.method === "Target.attachToTarget" ? { sessionId: "S1" }
+                    : m.method === "Browser.getWindowForTarget" ? { windowId: 5, bounds: { windowState: "maximized" } } : {};
+                ws.send(JSON.stringify({ id: m.id, result }));
+            },
+        },
+    });
+    const noCtx = {} as Context;
+    const ctx = { fns: {
+        browser: { liveMouse: (o: any) => liveMouse(noCtx, null, o), liveKey: (o: any) => liveKey(noCtx, null, o), liveProfile: (o: any) => liveProfile(noCtx, null, o) },
+        procs: { log: { debug: () => {} } },
+    }, state: {} } as unknown as Context;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((u: any) => new Promise<Response>((resolve, reject) => {
+        http.get(String(u), (res) => { let body = ""; res.on("data", (c) => body += c); res.on("end", () => resolve(new Response(body))); }).on("error", reject);
+    })) as any;
+    try {
+        const viewer = { send: () => 0, getBufferedAmount: () => 0, close: () => {} };
+        const conn = await liveConnect(ctx, null, { viewer, browserUrl: `http://127.0.0.1:${fake.port}`, targetId: "T1" });
+        await conn.handle(JSON.stringify({ t: "view", mode: "high", width: 800, height: 600, dpr: 2 }));
+        await Bun.sleep(600);
+        expect(commands.find((c) => c.method === "Browser.setWindowBounds")).toMatchObject({ params: { windowId: 5, bounds: { windowState: "normal" } } });
+        expect(commands.filter((c) => c.method === "Browser.setContentsSize").at(-1)).toMatchObject({ params: { windowId: 5, width: 800, height: 600 } });
+        expect(commands.filter((c) => c.method === "Emulation.setDeviceMetricsOverride").at(-1)).toMatchObject({ sessionId: "S1", params: { deviceScaleFactor: 2 } });
+        // A change under 16 px does not resize again.
+        const before = commands.filter((c) => c.method === "Browser.setContentsSize").length;
+        await conn.handle(JSON.stringify({ t: "view", width: 808, height: 600 }));
+        await Bun.sleep(400);
+        expect(commands.filter((c) => c.method === "Browser.setContentsSize")).toHaveLength(before);
+        await conn.close();
+    } finally {
+        globalThis.fetch = realFetch;
+        fake.stop(true);
+    }
+});

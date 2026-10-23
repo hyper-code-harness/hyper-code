@@ -7,9 +7,36 @@
     const tabs = $("lv-tabs"), address = $("lv-address"), status = $("lv-status");
     const params = new URLSearchParams(location.search);
     let target = params.get("target") || "";
-    let ws = null, meta = null, decoding = false, latest = null, retry = 500, lastError = "", opened = false;
+    let ws = null, meta = null, decoding = false, latest = null, retry = 1000, lastError = "", opened = false;
+    // What the status pill and the info panel show: the socket to Hyper, the last
+    // health report from the server (Chrome's answer time) and when a frame came.
+    const diag = { socket: "connecting", openedAt: 0, lastFrameAt: 0, health: null, closes: 0, lastClose: "" };
+    const banner = $("lv-banner"), stage = canvas.parentElement;
 
-    const setStatus = (text, cls) => { status.textContent = text; status.dataset.state = cls || ""; };
+    // The pill carries a short, stable word; the full reason lives in the info panel (and the
+    // pill's tooltip), so a reconnect loop does not make the toolbar jump. Nothing is laid over
+    // the picture: a stale picture is only greyed out.
+    const setStatus = (text, cls, detail) => {
+        if (status.textContent !== text) status.textContent = text;
+        status.dataset.state = cls || "";
+        status.title = detail ? `${detail} — click for details` : "Connection details";
+        renderInfo();
+    };
+    const showBanner = (text) => { banner.hidden = true; stage.dataset.stale = text ? "1" : ""; };
+    // "live" only when Chrome answers; a static page sends no frames, so the
+    // server's health ping (every 3 s) is the proof of life, frames are a bonus.
+    function judge() {
+        if (diag.socket !== "open") return;
+        const h = diag.health;
+        const quiet = h ? Date.now() - diag.lastHealthAt : Date.now() - diag.openedAt;
+        if (!h && quiet < 8000) { if (status.dataset.state !== "bad") setStatus("connecting", "wait"); return; }
+        if (!h || quiet > 8000) { lastError = `no report from Chrome for ${Math.round(quiet / 1000)} s`; setStatus("Chrome not responding", "bad", lastError); showBanner("stale"); return; }
+        if (!h.ok) { lastError = h.error; setStatus("Chrome not responding", "bad", h.error); showBanner("stale"); return; }
+        if (!h.attached) { setStatus("reattaching", "wait"); return; }
+        setStatus(h.chromeMs > 1000 ? "slow" : "live", h.chromeMs > 1000 ? "wait" : "ok", h.chromeMs > 1000 ? `Chrome answers in ${(h.chromeMs / 1000).toFixed(1)} s` : "");
+        showBanner("");
+    }
+    setInterval(judge, 1000);
     const send = (m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
     const modifiers = (e) => (e.altKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.metaKey ? 4 : 0) | (e.shiftKey ? 8 : 0);
 
@@ -20,21 +47,31 @@
         ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/browser/live/socket?${q}`);
         ws.binaryType = "arraybuffer";
         opened = false;
-        setStatus("connecting…", "wait");
-        ws.onopen = () => { opened = true; retry = 500; lastError = ""; setStatus("live", "ok"); sendView(); };
+        diag.socket = "connecting"; diag.health = null;
+        // While retrying after a failure the pill keeps saying so instead of blinking "connecting".
+        if (status.dataset.state !== "bad") setStatus("connecting", "wait");
+        // The backoff is reset only by a healthy report, not by the socket opening: a server that
+        // accepts and then fails to reach Chrome must not turn into a reconnect loop.
+        ws.onopen = () => { opened = true; diag.socket = "open"; diag.openedAt = Date.now(); sendView(); };
         ws.onclose = (e) => {
+            diag.socket = "closed"; diag.closes++; diag.lastClose = `${e.code}${e.reason ? " " + e.reason : ""}`;
             if (e.code === 4000) { setStatus("stopped — reload the page to view again", "bad"); return; }
             // The server explains a failed attach in an error message before closing; keep it visible.
             // Never opened and no server message: the handshake itself was refused on the way
             // (a proxy or an HTTPS port without HTTP/1.1), not a Chrome problem.
             const why = lastError || (e.reason ? "disconnected: " + e.reason
                 : opened ? "disconnected" : `WebSocket blocked: the connection to ${location.host} never opened (refused by the server, a proxy, or an HTTPS port without HTTP/1.1)`);
-            setStatus(`${why} — retrying`, "bad");
-            setTimeout(connect, retry);
-            retry = Math.min(retry * 2, 8000);
+            lastError = why;
+            setStatus(opened ? "offline" : "blocked", "bad", `${why} — retrying`);
+            showBanner("stale");
+            // 1 s, 2 s, 4 s … up to 30 s, with jitter so several viewers do not hit together.
+            const wait = Math.round(retry * (0.8 + Math.random() * 0.4));
+            diag.nextRetryAt = Date.now() + wait;
+            setTimeout(connect, wait);
+            retry = Math.min(retry * 2, 30000);
         };
         ws.onmessage = (e) => {
-            if (typeof e.data !== "string") { latest = e.data; if (!decoding) draw(); return; }
+            if (typeof e.data !== "string") { diag.lastFrameAt = Date.now(); latest = e.data; if (!decoding) draw(); return; }
             const m = JSON.parse(e.data);
             if (m.t === "tabs") renderTabs(m.tabs, m.current);
             else if (m.t === "target") {
@@ -44,7 +81,8 @@
                 const u = new URL(location.href); u.searchParams.set("target", m.id); history.replaceState(null, "", u);
             } else if (m.t === "nav") { if (document.activeElement !== address) address.value = m.url || ""; }
             else if (m.t === "profile") quality.title = `${m.mode} · JPEG ${m.quality}${m.maxWidth ? ` · ≤${m.maxWidth}×${m.maxHeight}` : ""}`;
-            else if (m.t === "error") { lastError = m.message; setStatus(m.message, "bad"); }
+            else if (m.t === "error") { lastError = m.message; setStatus("error", "bad", m.message); }
+            else if (m.t === "health") { diag.health = m; diag.lastHealthAt = Date.now(); if (m.ok) { lastError = ""; retry = 1000; } judge(); }
         };
     }
 
@@ -75,13 +113,31 @@
         canvas.style.height = `${Math.floor(canvas.height * k)}px`;
     }
 
+    // Tabs menu: "New tab" first, always; then Chrome's open tabs, the shown one marked.
+    const tabMenu = $("lv-tabmenu"), tabsLabel = $("lv-tabs-label");
+    let tabList = [], tabCurrent = "";
     function renderTabs(list, current) {
-        tabs.replaceChildren(...list.map((t) => {
-            const o = document.createElement("option");
-            o.value = t.id; o.textContent = (t.title || t.url || t.id).slice(0, 80); o.title = t.url;
-            o.selected = t.id === current;
-            return o;
-        }));
+        tabList = list; tabCurrent = current;
+        const cur = list.find((t) => t.id === current);
+        tabsLabel.textContent = cur ? (cur.title || cur.url || "Tab") : "Tabs";
+        tabs.title = `${list.length} Chrome tab${list.length === 1 ? "" : "s"}`;
+        const item = (cls, html, onclick) => {
+            const b = document.createElement("button");
+            b.type = "button"; b.setAttribute("role", "menuitem"); if (cls) b.className = cls;
+            b.append(...html); b.onclick = onclick;
+            return b;
+        };
+        const fresh = item("new", ["＋ New tab"], () => { closePops(); send({ t: "new" }); address.value = ""; address.focus(); });
+        const rows = list.map((t) => {
+            const box = document.createElement("span"); box.className = "t";
+            const title = document.createElement("b"); title.textContent = t.title || t.url || t.id;
+            const url = document.createElement("small"); url.textContent = t.url;
+            box.append(title, url);
+            const b = item("", [box], () => { closePops(); if (t.id !== tabCurrent) send({ t: "switch", id: t.id }); canvas.focus(); });
+            if (t.id === current) b.setAttribute("aria-current", "true");
+            return b;
+        });
+        tabMenu.replaceChildren(fresh, document.createElement("hr"), ...rows);
     }
 
     // Canvas position → page CSS pixels. The canvas keeps the frame's aspect, so
@@ -138,18 +194,65 @@
     let resizeTimer = null;
     new ResizeObserver(() => { fit(); clearTimeout(resizeTimer); resizeTimer = setTimeout(sendView, 250); }).observe(main);
 
+    // Info panel: the whole path at a glance — what to look at when the picture is wrong.
+    const info = $("lv-info"), infoList = $("lv-info-list");
+    const ago = (t) => t ? `${((Date.now() - t) / 1000).toFixed(1)} s ago` : "never";
+    function renderInfo() {
+        if (!info || info.hidden) return;
+        const h = diag.health || {};
+        const rows = [
+            ["Page", location.host],
+            ["Socket", `${diag.socket}${diag.closes ? ` · ${diag.closes} reconnects, last ${diag.lastClose}` : ""}${diag.socket === "closed" && diag.nextRetryAt > Date.now() ? ` · retry in ${Math.ceil((diag.nextRetryAt - Date.now()) / 1000)} s` : ""}`, diag.socket === "open" ? "ok" : "bad"],
+            ["Chrome", h.browserUrl ? `${h.browserUrl} · ${h.chrome || "?"}` : "—"],
+            ["Answers in", h.ok === false ? `no answer: ${h.error}` : h.chromeMs >= 0 ? `${h.chromeMs} ms` : "—", h.ok === false ? "bad" : h.chromeMs >= 0 ? "ok" : ""],
+            ["Last report", ago(diag.lastHealthAt)],
+            ["Tab", h.target ? `${h.target.slice(0, 8)} · ${h.attached ? "attached" : "detached"}` : "—", h.attached === false ? "bad" : ""],
+            ["URL", h.url || "—"],
+            ["Frames", h.frames != null ? `${h.frames} · dropped ${h.dropped} · last ${ago(diag.lastFrameAt)}` : "—"],
+            ["Picture", h.mode ? `${h.mode} · level ${h.level} · JPEG ${h.quality}${h.maxWidth ? ` · ≤${h.maxWidth}×${h.maxHeight}` : ""}` : "—"],
+            ["Input", h.inputs != null ? `${h.inputs} events` : "—"],
+            ["Error", lastError || "—", lastError ? "bad" : ""],
+        ];
+        infoList.replaceChildren(...rows.flatMap(([k, v, cls]) => {
+            const dt = document.createElement("dt"); dt.textContent = k;
+            const dd = document.createElement("dd"); dd.textContent = v; if (cls) dd.className = cls;
+            return [dt, dd];
+        }));
+    }
+    setInterval(renderInfo, 1000);
+    status.onclick = () => { info.hidden = !info.hidden; status.setAttribute("aria-pressed", String(!info.hidden)); $("lv-paste").hidden = true; tabMenu.hidden = true; tabs.setAttribute("aria-expanded", "false"); renderInfo(); };
+
     $("lv-back").onclick = () => send({ t: "back" });
     $("lv-forward").onclick = () => send({ t: "forward" });
     $("lv-reload").onclick = () => send({ t: "reload" });
-    tabs.onchange = () => { send({ t: "switch", id: tabs.value }); canvas.focus(); };
+    tabs.onclick = () => {
+        const open = tabMenu.hidden;
+        closePops();
+        tabMenu.hidden = !open; tabs.setAttribute("aria-expanded", String(open));
+    };
     address.addEventListener("keydown", (e) => { if (e.key === "Enter") { send({ t: "navigate", url: address.value }); canvas.focus(); } });
     const pasteBox = $("lv-paste");
-    $("lv-insert").onclick = () => { pasteBox.hidden = !pasteBox.hidden; if (!pasteBox.hidden) $("lv-paste-text").focus(); };
+    $("lv-insert").onclick = () => {
+        pasteBox.hidden = !pasteBox.hidden; info.hidden = true; tabMenu.hidden = true; tabs.setAttribute("aria-expanded", "false");
+        $("lv-insert").setAttribute("aria-pressed", String(!pasteBox.hidden));
+        if (!pasteBox.hidden) $("lv-paste-text").focus();
+    };
     $("lv-paste-send").onclick = () => {
         const text = $("lv-paste-text").value;
         if (text) send({ t: "insert", text });
-        $("lv-paste-text").value = ""; pasteBox.hidden = true; canvas.focus();
+        $("lv-paste-text").value = ""; pasteBox.hidden = true; $("lv-insert").setAttribute("aria-pressed", "false"); canvas.focus();
     };
+    // Popups close on Escape and on a click anywhere outside them and their buttons.
+    const closePops = () => {
+        pasteBox.hidden = true; info.hidden = true; tabMenu.hidden = true;
+        $("lv-insert").setAttribute("aria-pressed", "false"); status.setAttribute("aria-pressed", "false"); tabs.setAttribute("aria-expanded", "false");
+    };
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (!pasteBox.hidden || !info.hidden || !tabMenu.hidden)) { e.stopPropagation(); closePops(); canvas.focus(); } }, true);
+    document.addEventListener("mousedown", (e) => {
+        const t = e.target;
+        if (pasteBox.contains(t) || info.contains(t) || tabMenu.contains(t) || tabs.contains(t) || $("lv-insert").contains(t) || status.contains(t)) return;
+        closePops();
+    }, true);
 
     connect();
     canvas.focus();

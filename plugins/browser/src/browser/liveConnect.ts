@@ -13,6 +13,14 @@ const MAX_BUFFERED = 1 << 20;
 // were dropped, climb one back after CALM_WINDOWS calm windows in a row.
 const WINDOW_MS = 2000;
 const CALM_WINDOWS = 3;
+// Health: every HEALTH_MS one cheap browser-level call measures Chrome's answer time
+// and the result goes to the viewer, so "live" means Chrome answers, not just that
+// the socket to Hyper is open (a static page sends no frames at all).
+const HEALTH_MS = 3000;
+const HEALTH_TIMEOUT_MS = 4000;
+// Window fitting: wait for the viewer's resize to settle, ignore changes under FIT_STEP CSS px.
+const FIT_DELAY_MS = 250;
+const FIT_STEP = 16;
 
 /**
  * Opens the CDP side of one live-view viewer and returns a handle that bridges it to the viewer socket.
@@ -24,12 +32,16 @@ const CALM_WINDOWS = 3;
  * newest frame is kept. Frame size and quality follow the viewer (`view` message: mode auto/high/low and
  * canvas box); in `auto` the level drops when frames pile up and climbs back after a calm stretch. In
  * `auto` below its top level and in `low` the tab renders at device scale factor 1 (same layout, fewer
- * pixels); the override belongs to this CDP session and is cleared when the viewer leaves.
- * Viewer messages: mouse, key, insert, navigate, back, forward, reload, switch, view.
+ * pixels); the override belongs to this CDP session and is cleared when the viewer leaves. With `fitWindow`
+ * (default for a non-macOS Chrome, e.g. a VM on Xvfb) the Chrome window is resized to the viewer's canvas, so
+ * the page lays out at that size and frames arrive 1:1, rendered at the viewer's devicePixelRatio at the top level.
+ * Viewer messages: mouse, key, insert, navigate, back, forward, reload, switch, new (open a blank tab and show it), view. Every few seconds the
+ * viewer gets a `health` message (Chrome answer time, frames, the shown target, last error) for its status and
+ * info panel. Navigation buttons re-attach to the shown tab first when its session was lost.
  * No script is evaluated in the page.
  * @param opts.viewer Viewer socket: send, getBufferedAmount and close.
  * @param opts.browserUrl Chrome DevTools HTTP endpoint, such as `http://127.0.0.1:9222`.
- * @param opts.targetId Page target to show first; the most recently used page when omitted.
+ * @param opts.targetId Page target to show first; the most recently used page when omitted or no longer open (Chrome restarted).
  * @param opts.quality JPEG quality of screencast frames. @default 70 @minimum 10 @maximum 100
  * @param opts.focusEmulation Emulate focus so background tabs keep painting. @default true
  */
@@ -41,12 +53,14 @@ export default async function (
         viewer: Viewer;
         /** Chrome DevTools HTTP endpoint, such as `http://127.0.0.1:9222`. */
         browserUrl: string;
-        /** Page target to show first; the most recently used page when omitted. */
+        /** Page target to show first; the most recently used page when omitted or no longer open (Chrome restarted). */
         targetId?: string;
         /** JPEG quality of screencast frames. @default 70 @minimum 10 @maximum 100 */
         quality?: number;
         /** Emulate focus so background tabs keep painting. @default true */
         focusEmulation?: boolean;
+        /** Resize the Chrome window to the viewer's canvas so the page lays out at that size and frames come 1:1. @default true for a Chrome not on macOS (a VM/Xvfb Chrome nobody looks at directly), false on macOS */
+        fitWindow?: boolean;
     },
 ): Promise<types.browser.LiveConn> {
     const viewer = opts.viewer;
@@ -65,6 +79,8 @@ export default async function (
     wsUrl.host = base.host;
     if (base.protocol === "https:") wsUrl.protocol = "wss:";
     const remoteMac = /Macintosh/.test(String(version["User-Agent"] ?? ""));
+    const chromeVersion = String(version.Browser ?? "");
+    const fit = opts.fitWindow ?? !remoteMac;
 
     const cdp = new WebSocket(wsUrl.toString());
     await new Promise<void>((ok, fail) => {
@@ -80,11 +96,20 @@ export default async function (
         pending.set(id, { ok, fail });
         cdp.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
     });
+    const callWithin = (ms: number, method: string, params: Record<string, unknown> = {}, sessionId?: string): Promise<any> => new Promise((ok, fail) => {
+        const timer = setTimeout(() => fail(new Error(`Chrome did not answer ${method} in ${ms / 1000} s`)), ms);
+        call(method, params, sessionId).then((v) => { clearTimeout(timer); ok(v); }, (e) => { clearTimeout(timer); fail(e); });
+    });
     // Input is fired in order without waiting for each answer: a human's pointer
     // trajectory must not be paced by round trips. Failures are only logged.
     const fire = (method: string, params: Record<string, unknown>) => {
         if (!sessionId) return;
         stats.inputs++;
+        // The person acting in this viewer gets the window at their size.
+        if (fit && (method === "Input.dispatchKeyEvent" || params.type === "mousePressed" || params.type === "mouseWheel")) {
+            const f = fits.get(fitKey());
+            if (!f || Math.abs(f.w - view.width) >= FIT_STEP || Math.abs(f.h - view.height) >= FIT_STEP) fitWindow();
+        }
         call(method, params, sessionId).catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.input", msg: `${method}: ${e.message}` }));
     };
 
@@ -93,7 +118,9 @@ export default async function (
     let sessionId = "";
     let closed = false;
     let held: { bytes: Uint8Array; ack: number; session: string } | null = null;
-    const stats = { frames: 0, dropped: 0, inputs: 0, since: Date.now() };
+    const stats = { frames: 0, dropped: 0, inputs: 0, since: Date.now(), lastFrameAt: 0 };
+    const health = { chromeMs: -1, ok: true, checkedAt: 0, error: "" };
+    let healthTimer: ReturnType<typeof setInterval> | undefined;
 
     // Picture profile: what the viewer asked for and the adaptive level in auto.
     const view = { mode: "auto" as "auto" | "high" | "low", width: 0, height: 0, dpr: 1, level: 1 };
@@ -102,17 +129,56 @@ export default async function (
     // Device scale 1 while watching in auto/low: same CSS layout, a quarter of
     // the pixels to paint and encode on a Retina screen. width/height 0 keep the
     // window's own size, so the page does not re-layout.
-    let lowDensityOn = false;
-    const setDensity = async (s: string, low: boolean) => {
-        if (low === lowDensityOn) return;
-        lowDensityOn = low;
-        if (low) await call("Emulation.setDeviceMetricsOverride", { width: 0, height: 0, deviceScaleFactor: 1, mobile: false }, s);
+    // A fitted (VM) Chrome has a device scale of 1 on its virtual screen: at the top level it renders at
+    // the viewer's devicePixelRatio instead, so text is sharp on a Retina screen. 0 = Chrome's own scale.
+    let appliedScale = 0;
+    const scaleFor = (p: { lowDensity: boolean }) => p.lowDensity ? 1 : fit ? Math.round(view.dpr * 4) / 4 : 0;
+    const setDensity = async (s: string, scale: number) => {
+        if (scale === appliedScale) return;
+        appliedScale = scale;
+        if (scale) await call("Emulation.setDeviceMetricsOverride", { width: 0, height: 0, deviceScaleFactor: scale, mobile: false }, s);
         else await call("Emulation.clearDeviceMetricsOverride", {}, s);
+    };
+    // Fit the window to the viewer: the page then lays out at the canvas size (like a browser window of
+    // that size) and the screencast needs no scaling. Coalesced, and only for changes over FIT_STEP px.
+    let fitTimer: ReturnType<typeof setTimeout> | null = null;
+    // Shared by every viewer of this Chrome: with two viewers of different sizes the window follows the one
+    // that last resized or used it (clicked, typed), not whichever socket happened to speak last.
+    const shared: any = (ctx as any).state ? ((ctx.state as any).browser ??= {}) : {};
+    const fits: Map<string, { w: number; h: number }> = (shared.liveFit ??= new Map());
+    const fitKey = () => `${browserUrl} ${targetId}`;
+    const fitWindow = () => {
+        if (!fit || !view.width || !view.height) return;
+        if (fitTimer) clearTimeout(fitTimer);
+        fitTimer = setTimeout(async () => {
+            fitTimer = null;
+            const s = sessionId, t = targetId;
+            const w = Math.round(view.width), h = Math.round(view.height);
+            const fitted = fits.get(fitKey());
+            if (!s || closed || (fitted && Math.abs(w - fitted.w) < FIT_STEP && Math.abs(h - fitted.h) < FIT_STEP)) return;
+            try {
+                const { windowId, bounds } = await call("Browser.getWindowForTarget", { targetId: t });
+                if (bounds.windowState !== "normal") await call("Browser.setWindowBounds", { windowId, bounds: { windowState: "normal" } });
+                // Browser.setContentsSize sizes the page area exactly (Chrome 131+); older Chrome: add the
+                // window frame and toolbars (outer size minus the page's CSS viewport) by hand.
+                const done = await call("Browser.setContentsSize", { windowId, width: w, height: h }).then(() => true, () => false);
+                if (!done) {
+                    const m = await call("Page.getLayoutMetrics", {}, s);
+                    const cur = (await call("Browser.getWindowBounds", { windowId })).bounds;
+                    const vp = m.cssLayoutViewport ?? m.layoutViewport;
+                    await call("Browser.setWindowBounds", { windowId, bounds: { width: w + Math.max(0, cur.width - vp.clientWidth), height: h + Math.max(0, cur.height - vp.clientHeight) } });
+                }
+                fits.set(`${browserUrl} ${t}`, { w, h });
+                ctx.fns.procs.log.debug({ event: "browser.live.fit", msg: `page area ${w}x${h}${done ? "" : " (window bounds)"}` });
+            } catch (e: any) {
+                ctx.fns.procs.log.debug({ event: "browser.live.fit", msg: e.message });
+            }
+        }, FIT_DELAY_MS);
     };
     const screencastParams = () => ({ format: "jpeg", everyNthFrame: 1, quality: profile.quality, ...(profile.maxWidth ? { maxWidth: profile.maxWidth, maxHeight: profile.maxHeight } : {}) });
     const applyProfile = () => {
         const next = ctx.fns.browser.liveProfile({ ...view, baseQuality: quality });
-        const changed = next.quality !== profile.quality || next.maxWidth !== profile.maxWidth || next.maxHeight !== profile.maxHeight || next.lowDensity !== profile.lowDensity;
+        const changed = next.quality !== profile.quality || next.maxWidth !== profile.maxWidth || next.maxHeight !== profile.maxHeight || next.lowDensity !== profile.lowDensity || scaleFor(next) !== appliedScale;
         profile = next;
         sendJson({ t: "profile", mode: view.mode, ...profile });
         if (!changed || !sessionId) return;
@@ -124,7 +190,7 @@ export default async function (
             if (!s || closed) return;
             held = null;
             void call("Page.stopScreencast", {}, s)
-                .then(() => s === sessionId && !closed ? setDensity(s, profile.lowDensity) : undefined)
+                .then(() => s === sessionId && !closed ? setDensity(s, scaleFor(profile)) : undefined)
                 .then(() => s === sessionId && !closed ? call("Page.startScreencast", screencastParams(), s) : undefined)
                 .catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.profile", msg: e.message }));
         }, 150);
@@ -160,6 +226,7 @@ export default async function (
     const deliver = (bytes: Uint8Array, ack: number, session: string) => {
         viewer.send(bytes);
         stats.frames++;
+        stats.lastFrameAt = Date.now();
         call("Page.screencastFrameAck", { sessionId: ack }, session).catch(() => {});
     };
 
@@ -207,12 +274,18 @@ export default async function (
                 }
                 return;
             case "Target.detachedFromTarget":
-                if (p.sessionId === sessionId) sessionId = "";
+                if (p.sessionId === sessionId) {
+                    sessionId = "";
+                    // Chrome let go of the tab (crash, swap): pick it up again so frames resume.
+                    setTimeout(() => { if (!closed && !sessionId) ensureSession().catch((e) => sendJson({ t: "error", message: e.message })); }, 300);
+                }
                 return;
         }
     };
     cdp.onclose = () => {
         clearInterval(adaptTimer);
+        if (fitTimer) clearTimeout(fitTimer);
+        clearInterval(healthTimer);
         for (const w of pending.values()) w.fail(new Error("CDP socket closed"));
         pending.clear();
         if (!closed) { closed = true; try { viewer.close(1011, "Chrome connection lost"); } catch { /* gone */ } }
@@ -224,7 +297,7 @@ export default async function (
         sessionId = "";
         held = null;
         await call("Page.stopScreencast", {}, old).catch(() => {});
-        await setDensity(old, false).catch(() => {});
+        await setDensity(old, 0).catch(() => {});
         if (focusEmulation) await call("Emulation.setFocusEmulationEnabled", { enabled: false }, old).catch(() => {});
         await call("Target.detachFromTarget", { sessionId: old }).catch(() => {});
     };
@@ -235,23 +308,60 @@ export default async function (
         sessionId = attached.sessionId;
         await call("Page.enable", {}, sessionId);
         if (focusEmulation) await call("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId).catch(() => {});
-        lowDensityOn = false;
-        await setDensity(sessionId, profile.lowDensity).catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.density", msg: e.message }));
+        appliedScale = 0;
+        await setDensity(sessionId, scaleFor(profile)).catch((e) => ctx.fns.procs.log.debug({ event: "browser.live.density", msg: e.message }));
         await call("Page.startScreencast", screencastParams(), sessionId);
+        fitWindow();
         const info = targets.get(id);
         sendJson({ t: "target", id, url: info?.url ?? "", title: info?.title ?? "" });
         pushTabs();
     };
 
+    const checkHealth = async () => {
+        if (closed) return;
+        const t0 = Date.now();
+        try {
+            await callWithin(HEALTH_TIMEOUT_MS, "Browser.getVersion");
+            health.chromeMs = Date.now() - t0; health.ok = true; health.error = "";
+        } catch (e: any) {
+            health.chromeMs = -1; health.ok = false; health.error = e.message;
+        }
+        health.checkedAt = Date.now();
+        const info = targets.get(targetId);
+        sendJson({
+            t: "health", ok: health.ok, chromeMs: health.chromeMs, error: health.error,
+            browserUrl, chrome: chromeVersion, target: targetId, url: info?.url ?? "", attached: !!sessionId,
+            frames: stats.frames, dropped: stats.dropped, inputs: stats.inputs,
+            lastFrameAgoMs: stats.lastFrameAt ? Date.now() - stats.lastFrameAt : -1, connectedMs: Date.now() - stats.since,
+            mode: view.mode, level: profile.level, quality: profile.quality, maxWidth: profile.maxWidth ?? 0, maxHeight: profile.maxHeight ?? 0,
+        });
+    };
+    healthTimer = setInterval(() => { void checkHealth(); }, HEALTH_MS);
+
     const listed = await call("Target.getTargets");
     for (const t of listed.targetInfos ?? []) targets.set(t.targetId, t);
     await call("Target.setDiscoverTargets", { discover: true });
-    const first = opts.targetId || pages()[0]?.targetId;
+    // A target id lives only as long as its Chrome: after a restart (crash, hyperd) the viewer
+    // reconnects with the old id from its URL. Show the most recent tab instead of failing forever.
+    const asked = opts.targetId && targets.has(opts.targetId) ? opts.targetId : "";
+    const first = asked || pages()[0]?.targetId;
     if (!first) throw new Error(`No page target in Chrome at ${browserUrl}`);
-    if (!targets.has(first)) throw new Error(`Target ${first} is not open in Chrome at ${browserUrl}`);
+    if (opts.targetId && !asked) ctx.fns.procs.log.info({ event: "browser.live.target", msg: `target ${opts.targetId} is gone (Chrome restarted?); showing ${first}` });
     await show(first);
+    void checkHealth();
 
+    // A tab's session can be lost (renderer crash, Chrome detaching it, an error page
+    // swap). Without a session a command would go to the browser target and fail with
+    // "'Page.reload' wasn't found"; re-attach to the shown tab, or the first one left.
+    const ensureSession = async () => {
+        if (sessionId) return sessionId;
+        const id = targets.has(targetId) ? targetId : pages()[0]?.targetId;
+        if (!id) throw new Error("No open tab in Chrome to show");
+        await show(id);
+        return sessionId;
+    };
     const history = async (step: number) => {
+        await ensureSession();
         const h = await call("Page.getNavigationHistory", {}, sessionId);
         const entry = h.entries?.[h.currentIndex + step];
         if (entry) await call("Page.navigateToHistoryEntry", { entryId: entry.id }, sessionId);
@@ -259,7 +369,7 @@ export default async function (
 
     return {
         targetId: () => targetId,
-        stats: () => ({ ...stats, mode: view.mode, level: profile.level, quality: profile.quality, maxWidth: profile.maxWidth ?? 0, maxHeight: profile.maxHeight ?? 0 }),
+        stats: () => ({ frames: stats.frames, dropped: stats.dropped, inputs: stats.inputs, since: stats.since, lastFrameAt: stats.lastFrameAt, chromeMs: health.chromeMs, chromeOk: health.ok, mode: view.mode, level: profile.level, quality: profile.quality, maxWidth: profile.maxWidth ?? 0, maxHeight: profile.maxHeight ?? 0 }),
         drain: () => {
             if (!held || viewer.getBufferedAmount() > MAX_BUFFERED) return;
             const h = held;
@@ -291,12 +401,18 @@ export default async function (
                         const raw = String(m.url ?? "").trim();
                         if (!raw) return;
                         const url = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : /^[^\s/]+\.[^\s/]+/.test(raw) ? `https://${raw}` : `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
-                        await call("Page.navigate", { url }, sessionId);
+                        await call("Page.navigate", { url }, await ensureSession());
                         return;
                     }
                     case "back": return await history(-1);
                     case "forward": return await history(1);
-                    case "reload": await call("Page.reload", {}, sessionId); return;
+                    case "reload": await call("Page.reload", {}, await ensureSession()); return;
+                    case "new": {
+                        // A new blank tab, shown at once; the viewer then types its address.
+                        const created = await call("Target.createTarget", { url: "about:blank" });
+                        await show(String(created.targetId));
+                        return;
+                    }
                     case "switch":
                         if (typeof m.id === "string" && targets.has(m.id)) await show(m.id);
                         return;
@@ -310,6 +426,7 @@ export default async function (
                         view.height = num(m.height, 0, 8192) ?? view.height;
                         view.dpr = num(m.dpr, 1, 3) ?? view.dpr;
                         applyProfile();
+                        fitWindow();
                         return;
                     }
                 }
@@ -324,6 +441,8 @@ export default async function (
             if (tabsTimer) clearTimeout(tabsTimer);
             if (restartTimer) clearTimeout(restartTimer);
             clearInterval(adaptTimer);
+            if (fitTimer) clearTimeout(fitTimer);
+            clearInterval(healthTimer);
             try { cdp.close(); } catch { /* gone */ }
         },
     };

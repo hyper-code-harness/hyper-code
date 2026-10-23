@@ -94,6 +94,29 @@ evaluated in the page (no `Runtime.evaluate`, no `addScriptToEvaluateOnNewDocume
 profiles watched by anti-bot checks. Paste in the viewer and the "Insert text" button type text through
 `Input.insertText`; copying out of the page is not supported.
 
+Status and introspection. The status pill says `live` only while Chrome answers: every 3 s the socket
+sends a `health` report (Chrome's answer time to `Browser.getVersion`, the shown tab and whether it is
+attached, frames, dropped frames, picture profile). No report for 8 s or a failed check turns the pill red
+("Chrome not responding") and greys out the last picture; the pill holds one short word, the reason is in
+its tooltip and the info panel; a socket that never opened says "blocked". Reconnects back off 1 s → 30 s. Click the pill for the full path: page host, socket,
+Chrome endpoint and version, answer time, tab, URL, frames, picture, input count, last error.
+`browser.liveViewStatus({})` returns the same numbers per viewer (`chromeMs`, `chromeOk`, `lastFrameAgoMs`).
+When Chrome drops the tab's session (crash, error-page swap) the bridge re-attaches by itself, and back,
+forward, reload and navigate re-attach first, so they never land on the browser target.
+
+Window fitting: for a Chrome not on macOS (a Linux VM on Xvfb) the bridge resizes the window's page area to
+the viewer's canvas (`Browser.setContentsSize`, after 250 ms, only for changes of 16 px or more; with two
+viewers the one that clicks or types wins), so the page lays out at the canvas size and frames come 1:1; at
+the top quality level the tab renders at the viewer's devicePixelRatio. A macOS Chrome keeps its window
+(`fitWindow` option of `browser.liveConnect`).
+
+Chrome itself: `chrome.start` / `chrome.ensure` never launch a second Chrome on the same profile beside its
+owner. On macOS a launchd agent in the user's GUI session (`~/Library/LaunchAgents/xyz.hyper.chrome-cdp.plist`,
+or `CHROME_LAUNCH_AGENT`) wins and is kickstarted: Chrome started outside an Aqua session (by a system daemon)
+stalls ~10 s on every macOS system view (ViewBridge `HostCallsAuxiliary: Connection interrupted`) and may crash.
+Otherwise a hyperd unit (`~/.hyper/units/chrome-cdp.yaml`, or `CHROME_UNIT`) is restarted through hyperd;
+without either Chrome starts in tmux as before.
+
 Why not VNC: an RFB server plus noVNC was the first plan and was dropped. noVNC translates keysyms back to
 DOM keys and re-frames JPEG tiles; a web viewer already has DOM `key`/`code`, coalesced pointer events and
 the clipboard, and Chrome already produces JPEG frames, so the page draws `Page.screencastFrame` on a canvas

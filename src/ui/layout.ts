@@ -186,13 +186,13 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [class*="text-white"] { color: color-mix(in oklab, var(--color-base-100) 60%, transparent); }
   /* Tool calls (Replit-style): a run of calls is one rounded pill of icon cells split by hairlines; the folded
      "N tool calls" toggle and the running call sit in the same pill. */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray { display: inline-flex; width: auto; max-width: 100%; gap: 0; flex-wrap: wrap; border: 1px solid var(--color-ui-border); border-radius: .6rem; overflow: hidden; background: var(--color-base-100); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray { display: inline-flex; width: auto; max-width: 100%; gap: 0; flex-wrap: wrap; border: 1px solid var(--color-ui-border); border-radius: .45rem; overflow: hidden; background: var(--color-base-100); }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > * + * { border-left: 1px solid var(--color-ui-border) !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > #active-tool-call:empty { display: none; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray .tool-tray-toggle { height: 1.75rem; border: 0; border-radius: 0; background: transparent; padding: 0 .6rem; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { width: 1.9rem !important; height: 1.75rem !important; border-radius: 0 !important; background: transparent !important; background-image: none !important; box-shadow: none !important; border-top: 0 !important; border-right: 0 !important; border-bottom: 0 !important; backdrop-filter: none !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray .tool-tray-toggle { height: 1.375rem; font-size: 11px; border: 0; border-radius: 0; background: transparent; padding: 0 .6rem; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { width: 1.5rem !important; height: 1.375rem !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; background-image: none !important; box-shadow: none !important; border-top: 0 !important; border-right: 0 !important; border-bottom: 0 !important; backdrop-filter: none !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > :first-child { border-left: 0 !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool > i { font-size: .8rem; filter: none; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool > i { font-size: .7rem; filter: none; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool.text-error { color: var(--color-error); }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool:hover { background: color-mix(in oklab, var(--color-base-content) 6%, var(--color-base-100)) !important; transform: none !important; box-shadow: none !important; }
   /* Author line: a quiet small name, not a coloured headline; the avatar beside the bubble is smaller. */

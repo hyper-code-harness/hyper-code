@@ -47,10 +47,11 @@ async function runIndex(
     const provider = await ctx.fns.embeddings.provider({});
     const model = provider === "off" ? null : await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "model", fallback: "text-embedding-3-large" });
     const localizationModel = await ctx.fns.llm.localizationModel({});
-    const locales = [...new Set(String(await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "locales", fallback: "ru" }) || "ru").split(",").map(x => x.trim()).filter(Boolean))];
+    const locales = [...new Set(String(await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "locales", fallback: "" }) || "").split(",").map(x => x.trim()).filter(Boolean))];
     const localesKey = locales.join(",");
     const localizationIdentity = (hash: string) => Bun.hash(`${hash}|${localizationModel}|${localesKey}`).toString(16);
-    const todo = canonical.filter(item => opts.force || previous.get(item.plugin.name)?.localization_hash !== localizationIdentity(item.hash) || !valid(previous.get(item.plugin.name)?.localized_text));
+    // No locales (the default) = translation off.
+    const todo = !locales.length ? [] : canonical.filter(item => opts.force || previous.get(item.plugin.name)?.localization_hash !== localizationIdentity(item.hash) || !valid(previous.get(item.plugin.name)?.localized_text));
     const batch = todo.slice(0, Math.max(1, Math.min(50, Number(opts.localizationBatch ?? 10))));
     const generated = new Map<string, string>();
     const localizationFailed = new Set<string>();

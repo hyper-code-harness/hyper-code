@@ -139,7 +139,7 @@ The Russian query проверять почту retrieves gmail.list in top five
 - embeddings.provider: off or openai;
 - embeddings.model: text-embedding-3-large;
 - embeddings.dimensions: 1536;
-- embeddings.locales: localized retrieval locales, currently ru;
+- embeddings.locales: locales for LLM-translated retrieval text, e.g. ru; empty by default = translation off (no LLM calls at indexing, English-only index);
 - llm.defaultModel: provider-qualified model used by llm.localize when no override is passed; subscription-backed Codex or Claude models are supported;
 - agent.function_rag_enabled: persisted per agent, default false.
 

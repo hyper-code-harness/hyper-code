@@ -44,3 +44,24 @@ test("hybrid mode degrades to BM25 while embeddings are off", async () => {
     expect(hits[0]?.name).toBe("telegram.send");
     expect(hits[0]?.similarity).toBeNull();
 });
+
+test("translation is off by default and runs only when embeddings.locales is set", async () => {
+    const reg: any = (ctx.state as any).registry;
+    const original = reg.llm.localize;
+    const sent: any[] = [];
+    reg.llm.localize = async (_c: any, _s: any, o: any) => { sent.push(o); return { provider: "test", model: "test", localized: {}, failed: o.functions.map((f: any) => f.name) }; };
+    try {
+        const off = await ctx.fns.runtime.docs.index({});
+        expect(sent).toEqual([]);
+        expect(off.pendingLocalization).toBe(0);
+        await ctx.fns.settings.set({ module: "embeddings", scopeType: "global", key: "locales", value: "ru" });
+        // settings.set on embeddings.* starts its own index pass; this call may join it (in-flight guard).
+        const on = await ctx.fns.runtime.docs.index({});
+        expect(sent.length).toBeGreaterThan(0);
+        expect(sent.every(o => o.locales.join() === "ru" && o.functions.length > 0)).toBe(true);
+        expect(on.pendingLocalization).toBeGreaterThan(0);
+    } finally {
+        reg.llm.localize = original;
+        await ctx.fns.settings.set({ module: "embeddings", scopeType: "global", key: "locales", value: "" });
+    }
+});

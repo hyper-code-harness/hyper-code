@@ -46,14 +46,15 @@ async function runIndex(
     const provider = await ctx.fns.embeddings.provider({});
     const model = provider === "off" ? null : await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "model", fallback: "text-embedding-3-large" });
     const localizationModel = await ctx.fns.llm.localizationModel({});
-    const locales = parseLocales(await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "locales", fallback: "ru" }));
+    const locales = parseLocales(await ctx.fns.settings.getString({ module: "embeddings", scopeType: "global", key: "locales", fallback: "" }));
     const localesKey = locales.join(",");
     const canonical: Array<{ doc: any; namespace: string; text: string; hash: string }> = docs.map((doc: any) => {
         const namespace = doc.name.split(".").slice(0, -1).join(".");
         const text = [doc.name, splitName(doc.name), doc.summary, doc.doc, doc.signature, JSON.stringify(doc.paramsSchema ?? {})].filter(Boolean).join("\n").slice(0, 30_000);
         return { doc, namespace, text, hash: Bun.hash(text).toString(16) };
     });
-    const localizationTodo = canonical.filter(item => {
+    // No locales (the default) = translation off: nothing is pending, nothing is sent to an LLM.
+    const localizationTodo = !locales.length ? [] : canonical.filter(item => {
         const old: any = previous.get(item.doc.name);
         const wanted = localizationIdentity(item.hash, localizationModel, localesKey);
         return opts.force || old?.localization_hash !== wanted || !validLocalizedText(old?.localized_text);

@@ -15,6 +15,13 @@ import { join } from "node:path";
 export default async function (ctx: Context, _session: Session | null, opts: { entries: any[] }): Promise<void> {
     // hyper-code2: the compiler is imported only when some file actually has to be parsed — with the
     // on-disk cache below a boot of unchanged files parses nothing and never loads it (~60 MB).
+    // The live cache outlives a hot reload of this loader; a changed parser must not serve metadata the old one
+    // made. Checked before the disk cache, which then loads only if it was written by this same parser.
+    if ((globalThis as any).__hyperReflectVersion !== version()) {
+        reflectCache.clear();
+        (globalThis as any).__hyperReflectVersion = version();
+        (globalThis as any).__hyperReflectDiskLoaded = false;
+    }
     loadDiskCache();
     const ts = opts.entries.some((e: any) => e.source || !reflectCache.has(cacheKey(e))) ? await import("typescript") : null;
     const parsedBefore = parsedCount;
@@ -121,19 +128,22 @@ function reflectSource(ts: any, entry: any): any {
         const optsType = opts?.type?.getText(sf) ?? "unknown";
         const returnType = decl.type?.getText(sf) ?? "unknown";
         const paramsSchema = opts?.type ? schemaOf(ts, opts.type, sf, paramDocs(decl, sf)) : emptySchema();
-        // `@canvas <kind>`: the function can show its result to the person on that canvas tab kind
-        // (it takes `canvas: true`); canvas.search and the canvas prompt rule are built from it.
-        const canvas = (ts.getJSDocTags(decl) as any[]).filter(t => t.tagName?.text === "canvas").map(t => commentText(t.comment).trim().split(/\s+/)[0]).filter(Boolean)[0];
-        // `@view`: the function only reads and returns a page (html, or data shown as a table), so it may be
-        // opened by address — GET /rpc/<fn>?<json> and the canvas `view` tab. Without it GET refuses.
-        const view = (ts.getJSDocTags(decl) as any[]).some(t => t.tagName?.text === "view");
-        // `@live <topic>`: a view whose page follows that live-update topic — when the server refreshes the topic
-        // (procs.events.refresh), every open copy of the page re-fetches itself.
-        const live = (ts.getJSDocTags(decl) as any[]).filter(t => t.tagName?.text === "live").map(t => commentText(t.comment).trim().split(/\s+/)[0]).filter(Boolean)[0];
+        // Function tags: every JSDoc block tag that is not standard JSDoc (@param, @default, @see, …) is kept as
+        // `tags: { name: [values] }` — `@view` → { view: [] }, `@live memory` → { live: ["memory"] }. Which tags
+        // exist is declared by `$tag_<name>.ts` files (docs/function-tags.md); the loader keeps what is written
+        // and code.quality reports tags nobody declared, so a typo is named instead of silently ignored.
+        const tags = functionTags(ts, decl);
+        // The three framework tags stay readable as plain fields, derived from `tags` (one source):
+        // `@canvas <kind>` — shows its result on that canvas tab kind (takes `canvas: true`);
+        // `@view` — only reads and returns a page, so it opens by address (GET /rpc/<fn>?<json>, canvas view tab);
+        // `@live <topic>` — that page re-fetches itself when the server refreshes the topic.
+        const canvas = tags.canvas?.[0];
+        const view = !!tags.view;
+        const live = tags.live?.[0];
         return {
             summary: firstLine(doc), doc,
             signature: `(${optsType}) => ${returnType}`,
-            optsType, paramsSchema, returnType, ...(canvas ? { canvas } : {}), ...(view ? { view: true } : {}), ...(live ? { live } : {}),
+            optsType, paramsSchema, returnType, tags, ...(canvas ? { canvas } : {}), ...(view ? { view: true } : {}), ...(live ? { live } : {}),
             line: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line + 1,
         };
     } catch {
@@ -178,6 +188,34 @@ function schemaOf(ts: any, node: any, sf: any, docs: Record<string, string> = {}
         return { "x-typescript-type": node.getText(sf) };
     }
     return { "x-typescript-type": node.getText(sf) };
+}
+
+// Standard JSDoc/TSDoc block tags: documentation, not function tags. Everything else is a function tag.
+const STANDARD_TAGS = new Set([
+    "param", "arg", "argument", "returns", "return", "default", "minimum", "maximum", "example", "deprecated", "see",
+    "throws", "exception", "template", "type", "typedef", "callback", "property", "prop", "since", "author", "version",
+    "link", "linkcode", "linkplain", "internal", "private", "public", "protected", "readonly", "override", "remarks",
+    "privateRemarks", "inheritDoc", "module", "file", "fileoverview", "license", "copyright", "todo", "async", "yields",
+    "satisfies", "this", "enum", "class", "constructor", "augments", "extends", "implements", "abstract", "category",
+    "packageDocumentation", "defaultValue", "experimental", "beta", "alpha", "summary", "description", "format", "pattern",
+    "minLength", "maxLength", "minItems", "maxItems", "multipleOf", "exclusiveMinimum", "exclusiveMaximum", "nullable",
+]);
+function functionTags(ts: any, decl: any): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    const text: string = decl.getSourceFile().text;
+    for (const tag of ts.getJSDocTags(decl) as any[]) {
+        const name = String(tag.tagName?.text ?? "");
+        if (!name || STANDARD_TAGS.has(name)) continue;
+        // Only a tag that opens its own line counts. TypeScript also reads "the @mentions badge" in the middle
+        // of a sentence as a tag; nobody wrote that as one.
+        const at = tag.getStart();
+        const lineStart = text.lastIndexOf("\n", at - 1) + 1;
+        if (!/^\s*\*?\s*$/.test(text.slice(lineStart, at))) continue;
+        const value = commentText(tag.comment).trim().split(/\s+/)[0] ?? "";
+        const values = (out[name] ??= []);
+        if (value) values.push(value);
+    }
+    return out;
 }
 
 function jsDoc(ts: any, node: any): string {

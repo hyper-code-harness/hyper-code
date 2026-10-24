@@ -39,8 +39,8 @@ type Finding = {
  *
  * @param opts.root Limit findings to one scan root, such as `core` for `src/`. Defaults to `core` for the dead-code checks, whose answer is meaningless for plugins.
  * @param opts.severity Only report this severity: `error` or `warn`.
- * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise","untested"]
- * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`.
+ * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise","untested","tags"]
+ * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`, `unknown-tag`, `tag-arg`.
  * @param opts.limit Maximum findings to return. @default 50 @minimum 1 @maximum 500
  */
 export default async function (
@@ -49,7 +49,7 @@ export default async function (
     opts?: {
         root?: string;
         severity?: "error" | "warn";
-        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise" | "untested">;
+        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise" | "untested" | "tags">;
         rule?: string;
         limit?: number;
     },
@@ -65,7 +65,7 @@ export default async function (
     // `rule` narrows by the finding's kind, whichever check produced it, so
     // `{ rule: "dead" }` and `{ rule: "empty-catch" }` behave the same way.
     const wantRule = (kind: string) => !opts?.rule || kind === opts.rule;
-    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise", "untested"]);
+    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise", "untested", "tags"]);
     const findings: Finding[] = [];
 
     if (include.has("boundary") && wantRule("boundary")) {
@@ -208,6 +208,30 @@ export default async function (
                     ? `only its own test calls it (${f.testCallers} call site(s))`
                     : "nothing calls it, and it is not an entry point",
             });
+        }
+    }
+
+    // Function tags (docs/function-tags.md), read from the running functions' metadata against the `$tag_`
+    // declarations: a tag nobody declared is most often a typo (`@veiw`), so it is named here instead of being
+    // silently ignored; a tag used against its declaration (a missing or extra argument, a repeated single tag)
+    // would make its consumers pick an arbitrary value.
+    if (include.has("tags") && (wantRule("unknown-tag") || wantRule("tag-arg"))) {
+        const declared: Record<string, types.runtime.docs.RegisteredTag> = (ctx.state as any).tags ?? {};
+        for (const item of ctx.fns.runtime.docs.list({})) {
+            const meta = ctx.fns.runtime.docs.get({ name: item.name });
+            if (opts?.root && meta.root && meta.root !== opts.root) continue;
+            for (const [name, values] of Object.entries((meta.tags ?? {}) as Record<string, string[]>)) {
+                const tag = declared[name];
+                const at = { name: meta.name, rel: String(meta.rel ?? ""), line: Number(meta.line ?? 1) };
+                if (!tag) {
+                    if (wantRule("unknown-tag")) findings.push({ kind: "unknown-tag", severity: "warn", ...at, detail: `@${name} is not a declared tag — known: ${Object.keys(declared).sort().map(n => "@" + n).join(", ")}; declare it in a $tag_${name}.ts file or fix the spelling` });
+                    continue;
+                }
+                if (!wantRule("tag-arg")) continue;
+                if (tag.arg && values.length === 0) findings.push({ kind: "tag-arg", severity: "warn", ...at, detail: `@${name} needs its <${tag.arg}>, e.g. @${name} <${tag.arg}>` });
+                if (!tag.arg && values.length > 0) findings.push({ kind: "tag-arg", severity: "warn", ...at, detail: `@${name} takes no argument (the rest of the line is ignored by the index)` });
+                if (tag.arg && !tag.repeatable && values.length > 1) findings.push({ kind: "tag-arg", severity: "warn", ...at, detail: `@${name} appears ${values.length} times but is not repeatable — consumers use only the first (${values[0]})` });
+            }
         }
     }
 

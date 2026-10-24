@@ -40,7 +40,7 @@ async function runIndex(
     const existing = await ctx.fns.procs.db.select({
         sql: `SELECT name, content_hash, localized_text, localization_hash, localization_provider, localization_model,
                      localization_locales, embedding IS NOT NULL AS embedded, embedding_provider, embedding_model,
-                     namespace, opts_type, return_type, rel, line FROM functions`, params: [],
+                     namespace, opts_type, return_type, rel, line, tags FROM functions`, params: [],
     });
     const previous = new Map(existing.map((row: any) => [row.name, row]));
     const provider = await ctx.fns.embeddings.provider({});
@@ -90,7 +90,7 @@ async function runIndex(
             return_type: doc.returnType ?? "", params_schema: doc.paramsSchema ?? {}, rel: doc.rel ?? "", line: doc.line ?? null, search_text: searchText,
             content_hash: retrievalHash, localized_text: localizedText, localization_provider: localizedText ? localizationModel.split(":")[0] : null,
             localization_model: localizedText ? localizationModel : null, localization_locales: localizedText ? localesKey : null,
-            localization_hash: localizationHash, updated_at: now };
+            localization_hash: localizationHash, tags: canonicalTags(doc.tags), updated_at: now };
         // content_hash covers name, summary, doc, signature, params schema and localized text; the rest is
         // compared field by field. An unchanged row is not rewritten: no write, no BM25 reindex of 1300+ rows.
         if (opts.force || !unchanged(old, row)) rows.push(row);
@@ -100,18 +100,18 @@ async function runIndex(
     for (let offset = 0; offset < rows.length; offset += 500) {
         await ctx.fns.procs.db.run({
             sql: `INSERT INTO functions (name, namespace, summary, doc, signature, opts_type, return_type, params_schema, rel, line,
-                        search_text, content_hash, localized_text, localization_provider, localization_model, localization_locales, localization_hash, updated_at)
+                        search_text, content_hash, localized_text, localization_provider, localization_model, localization_locales, localization_hash, tags, updated_at)
                   SELECT name, namespace, summary, doc, signature, opts_type, return_type, params_schema, rel, line,
-                        search_text, content_hash, localized_text, localization_provider, localization_model, localization_locales, localization_hash, updated_at
+                        search_text, content_hash, localized_text, localization_provider, localization_model, localization_locales, localization_hash, tags, updated_at
                   FROM jsonb_to_recordset(?::jsonb) AS r(name text, namespace text, summary text, doc text, signature text, opts_type text, return_type text,
                         params_schema jsonb, rel text, line int, search_text text, content_hash text, localized_text text, localization_provider text,
-                        localization_model text, localization_locales text, localization_hash text, updated_at bigint)
+                        localization_model text, localization_locales text, localization_hash text, tags jsonb, updated_at bigint)
                   ON CONFLICT (name) DO UPDATE SET namespace=excluded.namespace, summary=excluded.summary, doc=excluded.doc,
                     signature=excluded.signature, opts_type=excluded.opts_type, return_type=excluded.return_type,
                     params_schema=excluded.params_schema, rel=excluded.rel, line=excluded.line, search_text=excluded.search_text,
                     content_hash=excluded.content_hash, localized_text=excluded.localized_text,
                     localization_provider=excluded.localization_provider, localization_model=excluded.localization_model,
-                    localization_locales=excluded.localization_locales, localization_hash=excluded.localization_hash, updated_at=excluded.updated_at,
+                    localization_locales=excluded.localization_locales, localization_hash=excluded.localization_hash, tags=excluded.tags, updated_at=excluded.updated_at,
                     embedding=CASE WHEN functions.content_hash = excluded.content_hash THEN functions.embedding ELSE NULL END,
                     embedding_provider=CASE WHEN functions.content_hash = excluded.content_hash THEN functions.embedding_provider ELSE NULL END,
                     embedding_model=CASE WHEN functions.content_hash = excluded.content_hash THEN functions.embedding_model ELSE NULL END`,
@@ -137,11 +137,20 @@ async function runIndex(
     }
 }
 
-// Every stored column except search_text/summary/doc/signature/params_schema (all inside content_hash) and updated_at.
+// Every stored column except search_text/summary/doc/signature/params_schema (all inside content_hash), tags (compared
+// separately in unchanged) and updated_at.
 const COMPARED = ["content_hash", "namespace", "opts_type", "return_type", "rel", "line", "localized_text", "localization_provider", "localization_model", "localization_locales", "localization_hash"] as const;
 function unchanged(old: any, row: Record<string, any>): boolean {
-    return !!old && COMPARED.every(key => (old[key] ?? null) === (row[key] ?? null));
+    // Tags are jsonb: compared as their canonical JSON text (sorted names, sorted unique values), not by identity.
+    return !!old && COMPARED.every(key => (old[key] ?? null) === (row[key] ?? null)) && tagsKey(old.tags) === tagsKey(row.tags);
 }
+// `{ live: ["memory"], view: [] }` in one order whatever the source order, so an unchanged function compares equal.
+function canonicalTags(tags: any): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    for (const name of Object.keys(tags ?? {}).sort()) out[name] = [...new Set((Array.isArray(tags[name]) ? tags[name] : []).map(String))].sort();
+    return out;
+}
+function tagsKey(tags: any): string { return JSON.stringify(canonicalTags(typeof tags === "string" ? JSON.parse(tags) : tags)); }
 function splitName(name: string): string { return name.replaceAll(".", " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase(); }
 function parseLocales(value: string | undefined): string[] { return [...new Set(String(value ?? "").split(",").map(item => item.trim().toLowerCase()).filter(Boolean))]; }
 function localizationIdentity(contentHash: string, model: string, locales: string): string { return Bun.hash(`${contentHash}|openai|v7|${model}|${locales}`).toString(16); }

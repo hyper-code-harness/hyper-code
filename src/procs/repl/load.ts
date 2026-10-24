@@ -43,7 +43,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
     return { reloaded: target, count: loaded.length, fns: loaded, ...(others.length ? { files: others } : {}) };
 }
 
-const HOT_KINDS = new Set(['canvas', 'fence', 'input', 'hook', 'point', 'tool', 'setting', 'compaction', 'app']);
+const HOT_KINDS = new Set(['canvas', 'tag', 'fence', 'input', 'hook', 'point', 'tool', 'setting', 'compaction', 'app']);
 
 // Reindex after a reload, once per burst: a series of repl.load calls (an agent reloading five functions,
 // the watcher on a save) gives one pass DOCS_INDEX_DEBOUNCE_MS after the last one. Without LLM

@@ -50,6 +50,9 @@ does this for ‹ ›, so ◀ ▶ step through days).
 refresh `memory`. The canvas panel announces new regions with the `hyper:regions` event so the stream subscribes
 to their topics.
 
+`@view`, `@canvas` and `@live` are function tags declared by `$tag_` files; every view can be found with
+`runtime.docs.search({ tag: "view", query })` — see [function-tags.md](function-tags.md).
+
 ## Pieces
 
 | piece | file | what |

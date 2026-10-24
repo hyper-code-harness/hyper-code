@@ -56,6 +56,9 @@ ctx.fns namespaces:
   procs       framework infra: db, repl.load, dev.genTypes, http.loadRoutes, migrate.up, log, ...
 
 Live discovery: translate intent to English, use ctx.fns.runtime.docs.search({ query }), then runtime.docs.get({ name }); Object.keys(ctx.fns.<ns>) remains useful for a raw namespace listing.
+Function tags: JSDoc tags such as @view (opens as a page at /rpc/<fn>?<json>), @canvas <kind>, @live <topic>.
+Filter by them: runtime.docs.search({ tag: "view" }) lists every page, add query to rank inside, tagValue for the
+argument; runtime.docs.tags({}) lists the declared tags. A new tag needs a $tag_<name>.ts file (docs/function-tags.md).
 
 Call graph of this codebase (ctx.fns edges, indexed in Postgres, refreshed on every save):
   ctx.fns.code.callers({ name: "session.appendMessage" })        who calls it — file + line
@@ -124,6 +127,7 @@ Architecture conventions. The codebase is procedural with one thing per file:
   src/<mod>/$migration_<ts>_<name>.ts     → Postgres migration      export default { up(ctx), down?(ctx) }
   src/<mod>/$script_<name>.js             → browser asset           served as /<mod>/<name>.js
   src/<mod>/$fence_<lang>.ts              → ```<lang> Markdown block  export default render + export const hint
+  src/<mod>/$tag_<name>.ts                → function tag @<name>      export default { summary, arg? } (docs/function-tags.md)
 
 .hyper/<mod>/<fn>.ts in the code repo is the instance's platform overlay with the same grammar, scanned AFTER
 src/ (overrides by name): .hyper/skill/uptime.ts → ctx.fns.skill.uptime. It is platform code, changed with your

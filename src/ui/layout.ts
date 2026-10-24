@@ -492,9 +492,9 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
   html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]) > i.ph { font-size: 15px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *) > i.ph { font-size: 15px; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
   html[data-chrome="flat"] #chat-panel > header.chat-header .chat-icon { transform: none; }
   html[data-chrome="flat"] #dock-panel > div > div:first-child { padding-left: .75rem !important; padding-right: .375rem !important; }
@@ -533,7 +533,7 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] .canvas-tab span,
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 12px !important; line-height: 1rem; }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px !important; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]) > i.ph { font-size: 14px !important; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *) > i.ph { font-size: 14px !important; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
   /* The menu circle in the bar's header cell: the same 28px button as every header button, centred in the cell. */
   html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button { transform: none !important; width: 1.75rem !important; height: 1.75rem !important; }

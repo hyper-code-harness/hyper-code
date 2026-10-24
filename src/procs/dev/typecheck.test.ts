@@ -22,7 +22,10 @@ test("procs.dev.typecheck runs tsc on this bun, not on a node or bunx from PATH;
         const script = `
             import typecheck from ${JSON.stringify(join(framework, "src/procs/dev/typecheck.ts"))};
             const ctx = { fns: { procs: { project: { projectRoot: () => ${JSON.stringify(app)} } } } };
-            console.log(JSON.stringify({ all: await typecheck(ctx, null, {}), good: await typecheck(ctx, null, { filter: "good.ts" }) }));`;
+            console.log(JSON.stringify({
+                all: await typecheck(ctx, null, {}), good: await typecheck(ctx, null, { filter: "good.ts" }),
+                tsc: await typecheck(ctx, null, { engine: "tsc" }), tsgo: await typecheck(ctx, null, { engine: "tsgo" }),
+            }));`;
         await Bun.write(join(dir, "run.ts"), script);
         const proc = Bun.spawn([process.execPath, join(dir, "run.ts")], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, stdout: "pipe", stderr: "pipe" });
         const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
@@ -32,7 +35,13 @@ test("procs.dev.typecheck runs tsc on this bun, not on a node or bunx from PATH;
         expect(result.all.ok).toBe(false);
         expect(result.all.errors.join("\n")).toContain("bad.ts");
         expect(result.all.errors.join("\n")).toContain("TS2322");
-        expect(result.good).toEqual({ ok: true, errors: [] });
+        expect(result.all.engine).toBe("tsgo");   // auto prefers the native compiler when it is installed
+        expect(result.good).toEqual({ ok: true, errors: [], engine: "tsgo" });
+        // Both engines find the same diagnostics, line for line.
+        expect(result.tsc.engine).toBe("tsc");
+        expect(result.tsgo.engine).toBe("tsgo");
+        expect(result.tsgo.errors).toEqual(result.tsc.errors);
+        expect(result.tsc.errors.join("\n")).toContain("bad.ts(1,14): error TS2322");
     } finally {
         await rm(dir, { recursive: true, force: true });
     }
@@ -46,7 +55,14 @@ test("a project tsc cannot check is not reported as clean", async () => {
         const ctx: any = { fns: { procs: { project: { projectRoot: () => dir } } } };
         const result = await typecheck(ctx, null, {});
         expect(result.ok).toBe(false);
-        expect(result.errors.length).toBeGreaterThan(0);
+        // tsgo prints its help and exits 1 here: that is a failure to run, not diagnostics —
+        // auto falls back to tsc, which fails too, and both reasons are reported.
+        expect(result.engine).toBe("tsc");
+        expect(result.errors[0]).toStartWith("tsc failed to run");
+        expect(result.errors.join("\n")).toContain("tsgo failed to run");
+        const forced = await typecheck(ctx, null, { engine: "tsgo" });
+        expect(forced.ok).toBe(false);
+        expect(forced.errors[0]).toStartWith("tsgo failed to run");
     } finally {
         await rm(dir, { recursive: true, force: true });
     }

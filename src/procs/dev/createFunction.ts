@@ -57,20 +57,26 @@ export default async function (
     if (opts.dryRun) return { ok: true, name: `${module.replaceAll("/", ".")}.${name}`, path: rel, source, written: false };
     if (await Bun.file(path).exists() && !opts.overwrite) throw new Error(`createFunction: ${rel} already exists; use edit for updates or pass overwrite explicitly`);
     const previous = await Bun.file(path).exists() ? await Bun.file(path).text() : null;
-    // Staging lives under host src so the host tsconfig also checks user-plugin functions.
-    const temp = join(project, "src", ".authoring", module, `${name}.${crypto.randomUUID()}.ts`);
+    // Staging lives under host src so the host tsconfig also checks user-plugin functions. Not in a dot
+    // folder: tsc and tsgo skip those in `include` globs, so the old `src/.authoring/` was never checked.
+    // `_tmp_*` is skipped by project.scan and dev.watch, so the staged copy never loads as a function.
+    const staging = join(project, "src", "_tmp_authoring", crypto.randomUUID());
+    const temp = join(staging, module, `${name}.ts`);
     await mkdir(dirname(temp), { recursive: true });
     await Bun.write(temp, source);
     const filter = temp.startsWith(project + "/") ? temp.slice(project.length + 1) : temp;
     const preflight = await ctx.fns.procs.dev.typecheck({ filter });
-    if (!preflight.ok) { await rm(temp, { force: true }); throw new Error(`createFunction typecheck failed:\n${preflight.errors.join("\n")}`); }
+    if (!preflight.ok) { await rm(staging, { recursive: true, force: true }); throw new Error(`createFunction typecheck failed:\n${preflight.errors.join("\n")}`); }
     await mkdir(dirname(path), { recursive: true });
     try {
         await rename(temp, path);
         await ctx.fns.procs.dev.genTypes({});
         const runtimeName = `${module.replaceAll("/", ".")}.${name}`;
         await ctx.fns.procs.repl.load({ name: runtimeName });
-        const validation = await ctx.fns.runtime.docs.validate({ name: runtimeName, strict: true, typecheck: true });
+        // No second whole-project typecheck: the preflight above already checked this exact source
+        // against the same globals (and a plugin file outside src/ is not in the host tsconfig at all,
+        // so a check by its real path would see nothing). genTypes only adds this function's own entry.
+        const validation = await ctx.fns.runtime.docs.validate({ name: runtimeName, strict: true });
         if (!validation.ok) throw new Error(`createFunction validation failed: ${JSON.stringify(validation.errors)}`);
         const index = opts.index ? await ctx.fns.runtime.docs.index({ localizationBatch: 1 }) : null;
         return { ok: true, name: runtimeName, path: rel, created: previous == null, typecheck: preflight, validation, index };
@@ -78,7 +84,7 @@ export default async function (
         if (previous == null) await rm(path, { force: true }); else await Bun.write(path, previous);
         await ctx.fns.procs.dev.genTypes({});
         throw error;
-    } finally { await rm(temp, { force: true }); }
+    } finally { await rm(staging, { recursive: true, force: true }); }
 }
 
 function assertInput(module: string, name: string, opts: any): void {

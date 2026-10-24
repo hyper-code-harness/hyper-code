@@ -61,6 +61,30 @@ test('createFunction preflight stages external plugin code inside checked host s
  const raw=(await import('./createFunction')).default;
  const mock:any={fns:{procs:{project:{projectRoot:()=>project},modules:{discover:async()=>[{name:'private',source:'user',dir:`${project}/private/src`}]},dev:{typecheck:async({filter}:any)=>{checked=filter;return {ok:false,errors:['intentional test rejection']};}}}}};
  await expect(raw(mock,null,{...authoring,root:'plugin:private',dryRun:false})).rejects.toThrow('typecheck failed');
- expect(checked).toStartWith('src/.authoring/');expect(await Bun.file(`${project}/private/src/demo/ping.ts`).exists()).toBe(false);
+ expect(checked).toStartWith('src/_tmp_authoring/');expect(await Bun.file(`${project}/private/src/demo/ping.ts`).exists()).toBe(false);
  }finally{await fs.rm(project,{recursive:true,force:true});}
 });
+
+test('createFunction type-checks the whole project once, not again inside validate',async()=>{
+ const fs=await import('node:fs/promises');const project=await fs.mkdtemp('/tmp/authoring-once-');
+ try {await fs.mkdir(`${project}/src`);const typechecks:string[]=[];const validations:any[]=[];
+ const raw=(await import('./createFunction')).default;
+ const mock:any={fns:{procs:{project:{projectRoot:()=>project},dev:{typecheck:async({filter}:any)=>{typechecks.push(filter);return {ok:true,errors:[]};},genTypes:async()=>({})},repl:{load:async()=>({})}},
+  runtime:{docs:{validate:async(o:any)=>{validations.push(o);return {ok:true,errors:[]};}}}}};
+ const result=await raw(mock,null,{...authoring,dryRun:false});
+ expect(result.ok).toBe(true);
+ expect(typechecks.length).toBe(1);expect(typechecks[0]).toStartWith('src/_tmp_authoring/');
+ expect(validations).toEqual([{name:'demo.ping',strict:true}]);
+ expect(await Bun.file(`${project}/src/demo/ping.ts`).exists()).toBe(true);
+ }finally{await fs.rm(project,{recursive:true,force:true});}
+});
+
+test('createFunction stages where the compiler looks: a type error in the body is rejected and nothing is written',async()=>{
+ const raw=(await import('./createFunction')).default;
+ const project=ctx.fns.procs.project.projectRoot({});
+ const module=`zzTypecheckProbe${Date.now()}`;const leftovers=async()=>(await Array.fromAsync(new Bun.Glob('**/*').scan({cwd:`${project}/src/_tmp_authoring`,onlyFiles:false}))).filter(p=>p.includes(module));
+ const mock:any={fns:{procs:{project:{projectRoot:()=>project},dev:{typecheck:(o:any)=>ctx.fns.procs.dev.typecheck(o)}}}};
+ await expect(raw(mock,null,{...authoring,module,dryRun:false,returnType:'Promise<number>'})).rejects.toThrow('TS2322');
+ expect(await Bun.file(`${project}/src/${module}/ping.ts`).exists()).toBe(false);
+ expect(await leftovers().catch(()=>[])).toEqual([]);   // the staging copy is gone, folders included
+},120_000);

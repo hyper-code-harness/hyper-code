@@ -48,6 +48,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 **/.hyper/results/
 .hyper/_test_*
 .hyper/_tmp_*
+# createFunction staging (deleted after each call)
+src/_tmp_authoring/
 .hyper/tmp_*
 # scratch for agents and tests: temp files, drafts, backups (see SYSTEM_PROMPT_CORE)
 .hyper/tmp/

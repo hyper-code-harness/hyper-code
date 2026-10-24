@@ -107,6 +107,16 @@ export default async function (ctx: Context, session: Session | null, opts: {
 #dock { transition: width .16s ease; }
 /* Menu: the thin Dock stays; a ChatGPT-like panel with projects and recent chats opens beside it
    (#dock-panel, drawn by dock.panel, loaded on first open and kept live on the agents topic). */
+/* One type scale for the whole shell: the same family and smoothing everywhere (the composer's textarea used
+   Tailwind's font-sans stack), UI chrome — menu rows, tabs, chat header — at 13px regular, reading text at 14px. */
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+#input, .chat-composer textarea, .chat-composer button { font-family: inherit; }
+#dock-panel .nav-row { font-size: 13px; font-weight: 400; min-height: 1.875rem; }
+#dock-panel .nav-row > span, #dock-panel .nav-row .text-xs { font-size: 13px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 85%, transparent); }
+#dock-panel .nav-row:hover > span { color: var(--color-base-content); }
+#dock-panel h4, #dock-panel section > h3 { font-size: 11px; font-weight: 500; letter-spacing: .02em; text-transform: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
+.canvas-tab, #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 13px; }
+#chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; }
 .dock-panel { display: none; }
 .inplace-popup-panel[data-dock-settings-panel] { width: 15rem; }
 /* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */
@@ -159,7 +169,7 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel { margin: .5rem .5rem .5rem 0; border: 1px solid var(--color-ui-border); border-radius: 1rem; overflow: hidden; background: var(--color-base-100); }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-canvas-open]) > #chat-panel { margin-left: .25rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header { position: relative; inset: auto; margin: 0 !important; width: 100% !important; max-width: none; height: 2rem; border: 0; border-bottom: 1px solid var(--color-ui-border); border-radius: 0; padding-left: .5rem; padding-right: .375rem; background: color-mix(in oklab, var(--color-base-300) 60%, transparent) !important; background-image: none !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; font-family: inherit; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header [data-chat-part="name"] { font-family: inherit; font-size: .75rem; font-weight: 600; color: var(--color-base-content); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header [data-chat-part="name"] { font-family: inherit; font-size: 13px; font-weight: 500; color: var(--color-base-content); }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header .chat-icon { transform: scale(.85); }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header button,
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header a { max-height: 1.5rem; }
@@ -172,11 +182,24 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   /* Answers sit right on the page, ChatGPT-style: no bubble, border or shadow; the person's message stays a soft pill on the right. */
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .assistant.chat-glass { background: none; border: 0; box-shadow: none; padding: .25rem .25rem; border-radius: 0; }
   /* The person's message is the one inverted shape: the page's text colour as its fill (dark in light theme, light in dark). */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary { background-color: color-mix(in oklab, var(--color-base-content) 72%, var(--color-base-100)); color: var(--color-base-100); border: 0; box-shadow: none; border-radius: 1.25rem; padding: .5rem .9rem; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary { background-color: var(--color-base-content); color: var(--color-base-100); border: 0; box-shadow: none; border-radius: .75rem; padding: .5rem .85rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [class*="text-white"] { color: color-mix(in oklab, var(--color-base-100) 60%, transparent); }
-  /* Tool calls: just their icon on the page — no circle, shading or lift; a soft round highlight on hover. */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { background: transparent !important; background-image: none !important; box-shadow: none !important; border-color: transparent !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool:hover { background: color-mix(in oklab, var(--color-base-content) 5%, var(--color-base-100)) !important; transform: none !important; box-shadow: none !important; }
+  /* Tool calls (Replit-style): a run of calls is one rounded pill of icon cells split by hairlines; the folded
+     "N tool calls" toggle and the running call sit in the same pill. */
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray { display: inline-flex; width: auto; max-width: 100%; gap: 0; flex-wrap: wrap; border: 1px solid var(--color-ui-border); border-radius: .6rem; overflow: hidden; background: var(--color-base-100); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > * + * { border-left: 1px solid var(--color-ui-border) !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > #active-tool-call:empty { display: none; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray .tool-tray-toggle { height: 1.75rem; border: 0; border-radius: 0; background: transparent; padding: 0 .6rem; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { width: 1.9rem !important; height: 1.75rem !important; border-radius: 0 !important; background: transparent !important; background-image: none !important; box-shadow: none !important; border-top: 0 !important; border-right: 0 !important; border-bottom: 0 !important; backdrop-filter: none !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > :first-child { border-left: 0 !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool > i { font-size: .8rem; filter: none; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool.text-error { color: var(--color-error); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool:hover { background: color-mix(in oklab, var(--color-base-content) 6%, var(--color-base-100)) !important; transform: none !important; box-shadow: none !important; }
+  /* Author line: a quiet small name, not a coloured headline; the avatar beside the bubble is smaller. */
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [data-author] { color: color-mix(in oklab, var(--color-base-100) 65%, transparent) !important; font-weight: 500; font-size: 11px; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages [id^="m-"] > img.size-8, body:not([data-presentation="sidebar"]) [data-page="agent"] #messages [id^="m-"] > span.size-8 { width: 1.5rem; height: 1.5rem; font-size: 10px; }
+  /* Comfortable reading width in a wide column, centred like ChatGPT. */
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > * { max-width: 46rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer:focus-within { border-top-color: rgb(59 130 246 / .55); box-shadow: inset 0 1px 0 rgb(59 130 246 / .55); }
 }
 /* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the

@@ -381,7 +381,8 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
 
 
     if (ev.type === "compaction_start") {
-        return eventCard({ title: `Compacting context · v${Number(ev.revision ?? 0)}`, icon: 'arrows-in-line-vertical', tone: 'info', badge: badge('working', 'info') });
+        // A quiet divider in the conversation, not a card: the work itself is shown when it completes.
+        return `<div class="chat-divider flex items-center gap-3 py-1 text-3xs text-faint" role="separator"><span class="h-px flex-1 bg-base-300"></span><span class="inline-flex items-center gap-1.5"><i class="ph ph-arrows-in-line-vertical" aria-hidden="true"></i>Compacting context · v${Number(ev.revision ?? 0)}<span class="loading loading-dots loading-xs"></span></span><span class="h-px flex-1 bg-base-300"></span></div>`;
     }
     if (ev.type === "compaction_completed") {
         const before = Math.round(Number(ev.tokensBefore ?? 0) / 1000);

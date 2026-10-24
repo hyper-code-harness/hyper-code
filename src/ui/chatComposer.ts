@@ -40,7 +40,7 @@ export default async function (
       <div class="chat-box glass-input rounded-[22px] px-1.5 pb-1.5 pt-1">
         ${opts.aboveHtml ? `<div data-chat-above class="flex min-w-0 flex-wrap items-center gap-1 px-2 pt-1">${opts.aboveHtml}</div>` : ""}
         <input id="files" name="files" type="file" multiple class="hidden" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,.md,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.yml,.yaml,.csv,.log">
-        <textarea id="input" name="text" rows="1" placeholder="Message agent…" title="Enter to send · Shift+Enter new line · ⌘J/K scroll · Ctrl J next unread"
+        <textarea id="input" name="text" rows="1" placeholder="Ask the agent…" title="Enter to send · Shift+Enter new line · ⌘J/K scroll · Ctrl J next unread"
           class="block max-h-[40vh] min-h-10 w-full resize-none overflow-y-auto bg-transparent [field-sizing:content] border-0 px-2.5 py-2 font-sans text-sm leading-[22px] text-base-content placeholder:text-faint focus:outline-none"></textarea>
         <div class="flex min-w-0 items-center gap-1">
           <button type="button" data-attach-button class="flex size-8 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-primary" title="Attach files" aria-label="Attach files"><i class="ph ph-plus"></i></button>

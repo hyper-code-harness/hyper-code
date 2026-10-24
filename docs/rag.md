@@ -60,6 +60,15 @@ The canonical English retrieval document combines the dotted and split camelCase
 
 Localization happens during indexing, never through query-time regex rewriting.
 
+**Off by default.** `embeddings.locales` is empty unless set, and empty means no translation at all: `runtime.docs.index` and `plugins.index` make no LLM calls, report `pendingLocalization: 0`, and the index holds English text only (BM25 still uses the Russian stemmer on it). Translation cost ~1.6 s of model calls per index pass and silently failed without an LLM key, so it is opt-in. To turn it on, set the locales and let the nightly job fill the cache:
+
+```ts
+await ctx.fns.settings.set({ module: "embeddings", scopeType: "global", key: "locales", value: "ru" }) // or env EMBEDDINGS_LOCALES=ru
+await ctx.fns.runtime.docs.localizeNightly({ anyTime: true })                                            // translate now instead of at night
+```
+
+Set it back to `""` to turn it off; already translated text stays in the rows until the function changes. Reload-time passes (`procs.repl.load`, `procs.modules.reload`) never translate, even when locales are set — only `runtime.docs.localizeNightly` and explicit `runtime.docs.index({})` calls do.
+
 `llm.localize` uses the configured `llm.defaultModel` (including subscription-backed Codex or Claude providers) to generate Russian retrieval text for each function containing its exact capability, synonyms and grammatical forms, specific requests, broad intents where the function is the correct first operation, and colloquial examples.
 
 Structured JSON Schema output requires `{name, text}`. One function is generated per response, with up to five requests concurrent.
@@ -122,7 +131,9 @@ The exact injected block and function records are saved in event payload metadat
 
 runtime.docs.index uses a process mutex so concurrent callers share one run instead of overwriting each other. Localization is bounded by localizationBatch and saves each completed batch to Postgres. Failures preserve completed work, allowing the next invocation to resume.
 
-A clean cached run over 588 functions currently takes about 0.4 seconds and reports localized: 0 and embedded: 0.
+Only changed rows are written: each row is compared with the stored one (`content_hash` plus the columns outside it) and unchanged rows are skipped, so a pass does not rewrite and BM25-reindex the whole table. `procs.repl.load` schedules one `index({ localize: false })` 500 ms after the last reload of a burst.
+
+A clean cached run over ~1360 functions takes about 15–20 ms (localization off) and reports localized: 0 and embedded: 0.
 
 ## Benchmark
 
@@ -139,7 +150,7 @@ The Russian query проверять почту retrieves gmail.list in top five
 - embeddings.provider: off or openai;
 - embeddings.model: text-embedding-3-large;
 - embeddings.dimensions: 1536;
-- embeddings.locales: locales for LLM-translated retrieval text, e.g. ru; empty by default = translation off (no LLM calls at indexing, English-only index);
+- embeddings.locales (env EMBEDDINGS_LOCALES): locales for LLM-translated retrieval text, e.g. ru; **empty by default = translation off** (no LLM calls at indexing, English-only index) — see Index-time localization;
 - llm.defaultModel: provider-qualified model used by llm.localize when no override is passed; subscription-backed Codex or Claude models are supported;
 - agent.function_rag_enabled: persisted per agent, default false.
 

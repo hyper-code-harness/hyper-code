@@ -16,7 +16,7 @@ The configured model is cached with every vector. Provider or model changes inva
 Query-time regex expansion or hard-coded intent translation is forbidden. Instead, indexing builds a durable retrieval document:
 
 1. canonical English metadata from code: name, split camelCase name, summary, docstring, signature, parameter schema;
-2. locale enrichment generated once per changed function: a concise localized description and natural-language search phrases;
+2. optional locale enrichment (only when `embeddings.locales` is set; empty by default = off, no LLM calls) generated once per changed function: a concise localized description and natural-language search phrases;
 3. `search_text` is the canonical and localized text combined;
 4. the same combined retrieval document is used by BM25 and embeddings.
 

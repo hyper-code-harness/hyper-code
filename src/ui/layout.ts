@@ -113,7 +113,13 @@ export default async function (ctx: Context, session: Session | null, opts: {
 @media (max-width: 700px) { html[data-dock-mode] .dock-panel { display: none !important; } }
 body[data-presentation="sidebar"] .dock-panel { display: none !important; }
 html[data-dock-mode="menu"] #dock [data-dock-panel-toggle] { background: color-mix(in oklab, var(--color-base-content) 9%, transparent); color: var(--color-base-content); }
-html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: 16.5rem; flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-radius: 1rem; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
+html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: 16.5rem; flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-left: 0; border-radius: 0 1rem 1rem 0; overflow: hidden; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
+/* Bar and panel are one card: the bar gives up its right corners and gap, its right border is the divider. */
+html[data-dock-mode="menu"] #dock { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
+/* The grey header cell of the bar (in bar and menu mode alike, so opening the panel moves nothing); with the panel it runs across both: the menu circle sits in the bar's part of it, under it the same hairline. */
+html:not([data-dock-mode="dot"]) #dock { padding-top: 0; overflow: hidden; }
+html:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] { display: grid; place-items: center; height: 2rem; flex: none; border-bottom: 1px solid var(--color-ui-border); background: color-mix(in oklab, var(--color-base-300) 60%, transparent); margin-bottom: .375rem; }
+html:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button { width: 1.5rem; height: 1.5rem; margin: 0; transform: translateY(3px); }
 .dock-panel-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 .dock-panel-project[open] > summary { color: var(--color-base-content); }
 /* Dot: the strip goes away and the menu circle moves into the top row of the page — the canvas tab row

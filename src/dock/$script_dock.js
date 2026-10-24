@@ -77,6 +77,8 @@
     document.addEventListener('contextmenu', e => {
         const bar = e.target.closest?.('#dock');
         if (!bar) return;
+        // The fixed buttons (menu circle, pin, panel) have no context menu: everything they offer is a click.
+        if (e.target.closest('.dock-fixed')) return;
         e.preventDefault();
         const item = e.target.closest('.dock-item[data-dock-id]');
         const names = labels();
@@ -96,10 +98,6 @@
         const agentHere = /^\/agent\/([A-Za-z0-9_-]+)$/.exec(location.pathname)?.[1];
         if (agentHere && !document.querySelector(`#dock [data-dock-id="agent:${CSS.escape(agentHere)}"]`)) entries.push({ icon: 'ph-push-pin', label: 'Pin this chat', run: () => pin('agent', agentHere, true) });
         else if (!agentHere && !pinnedHere) entries.push({ icon: 'ph-push-pin', label: 'Pin this page', run: () => pin('page', here, true) });
-        entries.push('-');
-        for (const [m, icon, label] of [['menu', 'ph-sidebar-simple', 'Projects and chats panel'], ['bar', 'ph-dots-three-vertical', 'Icon bar'], ['dot', 'ph-circle', 'Only the circle']]) {
-            if (m !== mode()) entries.push({ icon, label: label + ' (⌘B)', run: () => setMode(m) });
-        }
         entries.push({ icon: 'ph-arrow-counter-clockwise', label: 'Reset Dock', run: reset });
         open(e.clientX + 2, e.clientY + 2, entries);
     });

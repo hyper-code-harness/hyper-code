@@ -41,10 +41,10 @@ export default async function (
                 + (source === "user" ? form({ op: "reset" }, '<button type="submit" class="mt-2 rounded px-1.5 py-0.5 text-3xs text-subtle hover:bg-base-200">Reset to default</button>', ' hx-confirm="Reset the panel to Recent by project?"') : "")
                 + "</section>");
         }
-        const icon = (ph: string, title: string, attrs: string) => `<button type="button" class="flex size-7 items-center justify-center rounded-md text-faint hover:bg-base-200 hover:text-base-content${ph === "ph-check" ? " bg-primary text-primary-content hover:bg-primary hover:text-primary-content" : ""}" title="${esc(title)}" aria-label="${esc(title)}" ${attrs}><i class="ph ${ph}" aria-hidden="true"></i></button>`;
+        const icon = (ph: string, title: string, attrs: string) => `<button type="button" class="flex size-6 items-center justify-center rounded-md text-faint hover:bg-base-200 hover:text-base-content${ph === "ph-check" ? " bg-primary text-primary-content hover:bg-primary hover:text-primary-content" : ""}" title="${esc(title)}" aria-label="${esc(title)}" ${attrs}><i class="ph ${ph}" aria-hidden="true"></i></button>`;
         const editToggle = icon(edit ? "ph-check" : "ph-pencil-simple", edit ? "Done" : "Choose widgets", `hx-get="/dock/panel${edit ? "" : "?edit=1"}" hx-target="#dock-panel" hx-swap="innerHTML"`);
         return `<div class="flex h-full min-h-0 flex-col" data-dock-panel-edit="${edit}">
-      <div class="flex h-11 shrink-0 items-center gap-0.5 border-b border-ui-border pl-3 pr-1.5"><span class="flex-1 text-sm font-semibold tracking-tight">Hyper</span>${icon("ph-magnifying-glass", "Search — ⌘/", 'onclick="window.__navOpen?.()"')}${editToggle}${icon("ph-sidebar-simple", "Close — ⌘B", 'data-dock-mode-set="bar"')}</div>
+      <div class="flex h-8 shrink-0 items-center gap-0.5 border-b border-ui-border bg-base-300/60 pl-3 pr-1"><span class="flex-1 text-xs font-semibold tracking-tight">Hyper</span>${icon("ph-magnifying-glass", "Search — ⌘/", 'onclick="window.__navOpen?.()"')}${editToggle}${icon("ph-sidebar-simple", "Close — ⌘B", 'data-dock-mode-set="bar"')}</div>
       <div class="min-h-0 flex-1 overflow-y-auto px-1.5 pb-3 [scrollbar-width:thin]">${tiles.join("") || '<div class="px-2 py-4 text-xs text-faint">No widgets. Press ✎ to add some.</div>'}</div>
     </div>`;
 }

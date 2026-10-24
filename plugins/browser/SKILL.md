@@ -117,6 +117,11 @@ stalls ~10 s on every macOS system view (ViewBridge `HostCallsAuxiliary: Connect
 Otherwise a hyperd unit (`~/.hyper/units/chrome-cdp.yaml`, or `CHROME_UNIT`) is restarted through hyperd;
 without either Chrome starts in tmux as before.
 
+Passkeys: `browser.passkeyGuard` (started at boot, setting `browser.virtualPasskeys`, env
+`BROWSER_VIRTUAL_PASSKEYS=0` to disable) puts a WebAuthn virtual authenticator on every tab, so a page asking
+for a passkey never opens the macOS passkey / iCloud Keychain window nobody can see on a shared machine.
+Real passkeys are then not usable in that Chrome.
+
 Why not VNC: an RFB server plus noVNC was the first plan and was dropped. noVNC translates keysyms back to
 DOM keys and re-frames JPEG tiles; a web viewer already has DOM `key`/`code`, coalesced pointer events and
 the clipboard, and Chrome already produces JPEG frames, so the page draws `Page.screencastFrame` on a canvas

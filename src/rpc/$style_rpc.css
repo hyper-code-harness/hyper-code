@@ -15,10 +15,11 @@
     .rpc-view table:not([class], .prose *) { border-collapse: collapse; width: 100%; font-size: 13px; }
     .rpc-view th:not([class], .prose *), .rpc-view td:not([class], .prose *) { border: 1px solid var(--color-base-300, #d0d7de); padding: 5px 8px; text-align: left; vertical-align: top; }
     .rpc-view th:not([class], .prose *) { font-weight: 600; }
-    .rpc-view code:not([class], .prose *), .rpc-view pre:not([class], .prose *) { background: var(--color-base-200, #f6f8fa); border-radius: 4px; font: 12px ui-monospace, monospace; }
-    .rpc-view code:not([class], .prose *) { padding: 1px 4px; }
+    /* Inline code only: the bare <code> inside a highlighted <pre class="shiki"> (Files code tab) must not get a
+       background and padding, or every wrapped line shows as a grey box. */
+    .rpc-view code:not([class], .prose *, pre *), .rpc-view pre:not([class], .prose *) { background: var(--color-base-200, #f6f8fa); border-radius: 4px; font: 12px ui-monospace, monospace; }
+    .rpc-view code:not([class], .prose *, pre *) { padding: 1px 4px; }
     .rpc-view pre:not([class], .prose *) { padding: 10px; overflow: auto; }
-    .rpc-view pre:not([class], .prose *) code:not([class], .prose *) { padding: 0; background: none; }
     .rpc-view blockquote:not([class], .prose *) { border-left: 3px solid var(--color-base-300, #d0d7de); padding-left: 10px; opacity: .85; }
     .rpc-view .rpc-error { color: var(--color-error, #cf222e); }
     .rpc-view .rpc-muted { opacity: .6; font-size: 12px; }

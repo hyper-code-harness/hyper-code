@@ -192,3 +192,51 @@
     document.addEventListener('htmx:after:swap', restore);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore); else restore();
 })();
+
+// Unsent text survives leaving the chat: what you type in a chat's composer is kept per chat in this browser
+// (localStorage hyper-draft:<agentId>) and put back when you come back — after navigating away, a reload or a
+// server restart. A successful send clears it; an empty field removes it.
+(() => {
+    if (window.__hyperDraftsInstalled) return;
+    window.__hyperDraftsInstalled = true;
+    const key = id => 'hyper-draft:' + id;
+    const agentOf = input => input.closest('#chat-panel')?.dataset.agentId || document.body.dataset.agentId || '';
+    const save = input => {
+        const id = agentOf(input);
+        if (!id) return;
+        try { input.value.trim() ? localStorage.setItem(key(id), input.value) : localStorage.removeItem(key(id)); } catch (_) {}
+    };
+    let timer = 0;
+    document.addEventListener('input', e => {
+        if (e.target?.id !== 'input' || !e.target.closest('.chat-composer')) return;
+        clearTimeout(timer);
+        const input = e.target;
+        timer = setTimeout(() => save(input), 250);
+    });
+    // Leaving the page (or the chat via htmx) writes the latest text at once.
+    window.addEventListener('pagehide', () => { const i = document.querySelector('.chat-composer #input'); if (i) save(i); });
+    document.addEventListener('htmx:before:swap', () => { const i = document.querySelector('.chat-composer #input'); if (i) save(i); }, true);
+    // Sent: the form clears the field; forget the draft.
+    document.addEventListener('htmx:after:request', e => {
+        const form = e.target?.closest?.('.chat-composer');
+        const status = e.detail?.ctx?.response?.status ?? e.detail?.xhr?.status ?? 0;
+        if (!form || !(status > 0 && status < 400)) return;
+        const input = form.querySelector('#input');
+        const id = input && agentOf(input);
+        if (id) try { localStorage.removeItem(key(id)); } catch (_) {}
+    });
+    const restore = () => {
+        const input = document.querySelector('.chat-composer #input');
+        if (!input || input.value) return;
+        const id = agentOf(input);
+        let text = null;
+        try { text = id ? localStorage.getItem(key(id)) : null; } catch (_) {}
+        if (!text) return;
+        input.value = text;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.setSelectionRange?.(text.length, text.length);
+    };
+    document.addEventListener('htmx:after:swap', restore);
+    document.addEventListener('htmx:afterSwap', restore);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore); else restore();
+})();

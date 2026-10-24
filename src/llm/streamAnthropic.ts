@@ -79,7 +79,8 @@ export default async function (
         apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: ep.account });
     }
 
-    const upstream = ep.provider === "hyper" ? (ep.upstream ?? "") : ep.provider;
+    const viaSsh = ep.provider === "ssh-claude-code";
+    const upstream = viaSsh ? "claude-code" : ep.provider === "hyper" ? (ep.upstream ?? "") : ep.provider;
     const claudeSubscription = upstream === "claude-code" || upstream === "anthropic-oauth";
     if (apiKey) {
         // Authentication semantics come from the selected provider, not from a
@@ -107,7 +108,7 @@ export default async function (
         headers["anthropic-beta"] = [headers["anthropic-beta"], "compact-2026-09-04"].filter(Boolean).join(",");
     }
 
-    const res = await ctx.fns.llm.connectFetch({ url: ep.url, init: {
+    const res = viaSsh ? await ctx.fns.sshCli.fetch({ host: ep.account, provider: "claude-code", init: { headers, body: JSON.stringify(body), signal: opts.signal } }) : await ctx.fns.llm.connectFetch({ url: ep.url, init: {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -135,10 +136,12 @@ export default async function (
     // JSON string across input_json_delta events, keyed by content-block index.
     const slots = new Map<number, { id: string; name: string; buf: string }>();
 
+    let terminal = false;
     for await (const { event, data } of ctx.fns.llm.parseSSE({ body: res.body })) {
         let msg: any;
-        try { msg = JSON.parse(data); } catch { continue; }
+        try { msg = JSON.parse(data); } catch { if (viaSsh) throw new Error("Malformed SSH Claude SSE"); continue; }
         const type = event ?? "message";
+        if (type === "message_stop") terminal = true;
         if (type === "message_start") {
             const u = msg.message?.usage;
             if (u) {
@@ -169,6 +172,8 @@ export default async function (
             if (msg.usage?.output_tokens != null) usage.completion_tokens = msg.usage.output_tokens;
         }
     }
+
+    if (viaSsh && !terminal) throw new Error("SSH Claude stream ended before terminal event");
 
     const toolCalls = [...slots.entries()]
         .sort((a, b) => a[0] - b[0])

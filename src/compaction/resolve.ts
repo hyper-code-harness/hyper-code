@@ -14,6 +14,7 @@ export default function (
 ): types.compaction.CompactorEntry & { fallback: boolean } {
     const compactors = (ctx.state as any).compaction?.compactors as types.compaction.State["compactors"] ?? {};
     const provider = /^([^:/]+)(?:\/[^:]+)?:/.exec(String(opts.model ?? ""))?.[1]?.toLowerCase() ?? "";
+    if ((provider === "ssh-codex" || provider === "ssh-claude-code")) throw new Error("SSH CLI compaction is not supported by this example; start a new chat");
     const own = provider ? compactors[provider] : undefined;
     if (own) return { ...own, fallback: false };
     const fallback = compactors.default;

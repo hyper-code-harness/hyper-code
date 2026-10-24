@@ -30,6 +30,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     // hyper/<node>:<model> — another Hyper relays the call through its own
     // provider (docs/hyper-node.md). The wire api and billing kind come from the
     // node's cached catalogue; the bearer is our client token for that node.
+    if (provider === "ssh-codex" || provider === "ssh-claude-code") {
+        ctx.fns.sshCli.authorize({});
+        if (!(await ctx.fns.sshCli.hosts({})).includes(account)) throw new Error("SSH CLI instance is not enabled");
+        const claude = provider === "ssh-claude-code";
+        return { url: claude ? "https://api.anthropic.com/v1/messages" : "https://chatgpt.com/backend-api/codex/responses", apiKey: null, modelId, provider, account, kind: "subscription", api: claude ? "anthropic" : "responses" };
+    }
     if (provider === "hyper") {
         const node = await ctx.fns.node.get({ name: account });
         if (!node || !node.enabled) throw new Error(`hyper node not configured: ${account}`);

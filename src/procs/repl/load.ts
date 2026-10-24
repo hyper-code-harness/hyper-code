@@ -45,10 +45,20 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
 
 const HOT_KINDS = new Set(['canvas', 'fence', 'input', 'hook', 'point', 'tool', 'setting', 'compaction', 'app']);
 
+// Reindex after a reload, once per burst: a series of repl.load calls (an agent reloading five functions,
+// the watcher on a save) gives one pass DOCS_INDEX_DEBOUNCE_MS after the last one. Without LLM
+// localization, like procs.modules.reload — that pass cost ~1.6 s of model calls on every reload and is
+// left to runtime.docs.localizeNightly.
+const DOCS_INDEX_DEBOUNCE_MS = 500;
 function scheduleDocsIndex(ctx: Context): void {
     if (!(ctx.fns as any).runtime?.docs?.index) return;
-    queueMicrotask(() => (ctx.fns as any).runtime.docs.index({}).catch((error: any) =>
-        ctx.fns.procs.log.warn({ event: "runtime.docs.index.failed", msg: String(error?.message ?? error) })));
+    const state = ((ctx.state as any).replDocsIndex ??= {});
+    clearTimeout(state.timer);
+    state.timer = setTimeout(() => {
+        state.timer = undefined;
+        (ctx.fns as any).runtime.docs.index({ localize: false }).catch((error: any) =>
+            ctx.fns.procs.log.warn({ event: "runtime.docs.index.failed", msg: String(error?.message ?? error) }));
+    }, DOCS_INDEX_DEBOUNCE_MS);
 }
 
 

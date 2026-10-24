@@ -48,3 +48,16 @@ test('an unknown function is reported by name', async () => {
     const { ctx } = mkCtx([]);
     await expect(load(ctx, null, { name: 'demo.missing' })).rejects.toThrow('no file for demo/missing');
 });
+
+test('a burst of reloads reindexes docs once, after the burst, without LLM localization', async () => {
+    const entries = [fnFile('d1', '1'), fnFile('d2', '2')];
+    const { ctx } = mkCtx(entries);
+    const calls: any[] = [];
+    ctx.fns.runtime = { docs: { index: async (o: any) => { calls.push(o); return {}; } } };
+    await load(ctx, null, { name: 'demo.d1' });
+    await load(ctx, null, { name: 'demo.d2' });
+    await load(ctx, null, { name: 'demo' });
+    expect(calls).toEqual([]);            // nothing yet: still inside the burst
+    await Bun.sleep(700);
+    expect(calls).toEqual([{ localize: false }]);
+});

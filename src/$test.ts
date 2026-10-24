@@ -162,11 +162,16 @@ export function reqCtx(ctx: Context, opts?: { params?: Record<string, string>; r
 }
 
 // The test Postgres URL: TEST_DATABASE_URL, else DATABASE_URL moved to the test server's port (54399).
-// Refuses the working port, so a missing test server fails loudly instead of quietly loading the live one.
+// Refuses the working server, so a missing test server fails loudly instead of quietly loading the live one.
+// A unix-socket URL (`?path=/tmp/.s.PGSQL.<port>`, hyperdb) names its server in `path`, not in the port:
+// moving the port alone kept tests on the live socket, so the socket goes too and both are compared.
 export function testDatabaseUrl(env: Record<string, string | undefined>): string {
     const explicit = env.TEST_DATABASE_URL;
     const url = new URL(explicit || String(env.DATABASE_URL));
-    if (!explicit) url.port = "54399";
-    if (url.port === "54393") throw new Error("tests must not run on the working database (port 54393); set TEST_DATABASE_URL");
+    if (!explicit) { url.port = "54399"; url.searchParams.delete("path"); url.searchParams.delete("host"); }
+    const server = (u: URL) => u.searchParams.get("path") ?? u.searchParams.get("host") ?? `${u.hostname}:${u.port || "5432"}`;
+    const live = env.DATABASE_URL ? new URL(env.DATABASE_URL) : null;
+    if ((live && server(url) === server(live)) || url.port === "54393")
+        throw new Error(`tests must not run on the working database (${live ? server(live) : "port 54393"}); set TEST_DATABASE_URL`);
     return url.toString();
 }

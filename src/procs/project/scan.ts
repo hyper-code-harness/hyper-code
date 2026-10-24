@@ -1,13 +1,34 @@
 import { Glob } from "bun";
 import { resolve } from "node:path";
-import { realpath } from "node:fs/promises";
+import { readdir, realpath } from "node:fs/promises";
 import classify from "./classify";
 import type { ProjectEntry } from "./classify";
 
 // Directory segments that are runtime/test/scratch — never part of the app.
 const IGNORED_SEGMENT = /^(_runtime|_test_.*|_tmp_.*|tmp|tmp_.*|node_modules)$/;
-function isIgnoredPath(rel: string): boolean {
-    return rel.split('/').some(seg => IGNORED_SEGMENT.test(seg));
+// Memory files (~/.hyper/memory/, a repo's old .hyper/memory/) and private tool-result payloads are data.
+const DATA_DIR = /\/\.hyper\/(results|memory)\//;
+
+/**
+ * Files under `dir`, relative to it. Never enters a scratch or data folder (agents' tmp holds 100k+ files),
+ * and a folder it may not read is skipped with a warning instead of failing the whole scan — one root-owned
+ * backup under some agent's tmp used to break genTypes, code.index and every page that scans. Like the glob it
+ * replaces: no dot entries, symlinks are not followed.
+ */
+async function walk(dir: string, canonical: string, rel = "", out: string[] = []): Promise<string[]> {
+    let items;
+    try { items = await readdir(rel ? resolve(dir, rel) : dir, { withFileTypes: true }); }
+    catch (e: any) { console.warn(`[project.scan] skipped ${resolve(dir, rel)}: ${e?.code ?? e?.message ?? e}`); return out; }
+    for (const item of items) {
+        if (item.name.startsWith(".") || item.isSymbolicLink()) continue;
+        const path = rel ? `${rel}/${item.name}` : item.name;
+        if (item.isDirectory()) {
+            if (IGNORED_SEGMENT.test(item.name)) continue;
+            if (DATA_DIR.test(resolve(dir, path) + "/") || DATA_DIR.test(`${canonical}/${path}/`)) continue;
+            await walk(dir, canonical, path, out);
+        } else if (item.isFile()) out.push(path);
+    }
+    return out;
 }
 // Roots that carry project/agent functions (see procs/modules/discover) and the folders they may contain.
 // ~/.hyper/src (procs/modules/discover): functions of the memory levels only — user, project, agent folders.
@@ -44,17 +65,11 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
         // package or as the app itself. Only a host mounting somebody else's
         // project under a name of its own sets a prefix.
         const ns: string = root.prefix ?? "";
-        const glob = new Glob('**/*');
-        for await (const rel0 of glob.scan(root.dir)) {
-            // Private tool-result payloads are data, never executable runtime files.
-            // Check the absolute path too: a .hyper source root hides that segment
-            // from rel0, and a symlink may hide the entire result-store path.
-            const absolute = resolve(root.dir, rel0);
-            // Memory files (~/.hyper/memory/, and a repo's old .hyper/memory/) are data: a snippet there is no fn.
-            if ((absolute + '/').includes('/.hyper/results/') || (absolute + '/').includes('/.hyper/memory/')) continue;
-            const canonical = await realpath(absolute).catch(() => absolute);
-            if ((canonical + '/').includes('/.hyper/results/') || (canonical + '/').includes('/.hyper/memory/')) continue;
-            if (isIgnoredPath(rel0)) continue;
+        // The root itself may be a symlink (a mounted plugin); nothing inside is followed, so its realpath
+        // is the one place a data folder could hide behind a link.
+        const rootCanonical = await realpath(root.dir).catch(() => root.dir);
+        if (DATA_DIR.test(resolve(root.dir) + "/") || DATA_DIR.test(rootCanonical + "/")) continue;
+        for (const rel0 of await walk(root.dir, rootCanonical)) {
             // ~/.hyper/src takes nothing but `user_*/`, `project_<slug>/` and `agent_<id>/` folders — never a
             // platform namespace. A repo's own `.hyper/src` is not a module either.
             if (root.name === "hyper" && rel0.split('/')[0] === "src") continue;

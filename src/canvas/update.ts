@@ -7,6 +7,8 @@
  * @param opts.agentId Agent whose canvas to change.
  * @param opts.open Show (true) or hide (false) the canvas; omit to keep.
  * @param opts.chatWidth Chat column width in px while the canvas is open; omit to keep. @minimum 320 @maximum 1600
+ * @param opts.chatCollapsed Fold the chat into a floating strip at the bottom of the canvas (true) or show it as the column again (false); omit to keep. Closing the canvas unfolds it.
+ * @param opts.toggleChat Flip the chat between column and strip in one statement: folded → column; otherwise the canvas opens with the chat folded. Wins over open/chatCollapsed. @default false
  * @param opts.activeItemId Tab to show (one of this agent's canvas tabs), null for none; omit to keep.
  */
 export default async function (
@@ -19,6 +21,10 @@ export default async function (
         open?: boolean;
         /** Chat column width in px while the canvas is open; omit to keep. @minimum 320 @maximum 1600 */
         chatWidth?: number;
+        /** Fold the chat into a floating strip at the bottom of the canvas (true) or show it as the column again (false); omit to keep. Closing the canvas unfolds it. */
+        chatCollapsed?: boolean;
+        /** Flip the chat between column and strip in one statement: folded → column; otherwise the canvas opens with the chat folded. Wins over open/chatCollapsed. @default false */
+        toggleChat?: boolean;
         /** Tab to show (one of this agent's canvas tabs), null for none; omit to keep. */
         activeItemId?: number | null;
     },
@@ -28,7 +34,13 @@ export default async function (
         fn: async () => {
             const sets: string[] = [];
             const params: any[] = [];
-            if (typeof opts.open === "boolean") { sets.push("open = ?"); params.push(opts.open); }
+            // Atomic flip (the header button, ⌘\\): computed by Postgres from the row itself, so two quick presses never race.
+            if (opts.toggleChat) { sets.push("chat_collapsed = NOT (open AND chat_collapsed)", "open = true"); }
+            else if (typeof opts.open === "boolean") { sets.push("open = ?"); params.push(opts.open); }
+            // A closed canvas leaves nothing to fold the chat over: closing it brings the column back.
+            if (opts.toggleChat) { /* set above */ }
+            else if (opts.open === false) { sets.push("chat_collapsed = ?"); params.push(false); }
+            else if (typeof opts.chatCollapsed === "boolean") { sets.push("chat_collapsed = ?"); params.push(opts.chatCollapsed); }
             if (opts.chatWidth != null && Number.isFinite(Number(opts.chatWidth))) { sets.push("chat_width = ?"); params.push(Math.round(Math.min(1600, Math.max(320, Number(opts.chatWidth))))); }
             if (opts.activeItemId !== undefined) {
                 const active = opts.activeItemId === null ? null : Number(opts.activeItemId);

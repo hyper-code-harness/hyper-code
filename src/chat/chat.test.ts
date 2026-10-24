@@ -19,7 +19,7 @@ describe("chat header parts", () => {
         const { ctx } = await ctxWithAgent();
         const ids = async (kind: string) => (await ctx.fns.chat.listParts({ kind, layout: {} })).map((p: any) => p.id);
         expect(await ids("badge")).toEqual(["agent.workspace", "agent.parent", "agent.status"]);
-        expect(await ids("button")).toEqual(["canvas.toggle"]);
+        expect(await ids("button")).toEqual(["canvas.toggle", "canvas.collapse", "agent.inspector"]);
         const cards = await ids("card");
         expect(cards[0]).toBe("appearance");
         expect(cards.at(-1)).toBe("danger");
@@ -29,8 +29,8 @@ describe("chat header parts", () => {
         const { ctx } = await ctxWithAgent();
         ctx.state.chat.parts["x.b"] = { id: "x.b", kind: "button", module: "x", rel: "x", order: 1, render: () => null };
         const layout = { buttons: ["canvas.toggle", "nope.missing"], cards: ["danger", "share"], hidden: ["danger", "agent.work"] };
-        expect((await ctx.fns.chat.listParts({ kind: "button", layout })).map((p: any) => p.id)).toEqual(["canvas.toggle", "x.b"]);
-        expect((await ctx.fns.chat.listParts({ kind: "button", layout: { hidden: ["canvas.toggle"] } })).map((p: any) => p.id)).toEqual(["x.b"]);
+        expect((await ctx.fns.chat.listParts({ kind: "button", layout })).map((p: any) => p.id)).toEqual(["canvas.toggle", "x.b", "canvas.collapse", "agent.inspector"]);
+        expect((await ctx.fns.chat.listParts({ kind: "button", layout: { hidden: ["canvas.toggle"] } })).map((p: any) => p.id)).toEqual(["x.b", "canvas.collapse", "agent.inspector"]);
         const cards = (await ctx.fns.chat.listParts({ kind: "card", layout })).map((p: any) => p.id);
         expect(cards[0]).toBe("share");
         expect(cards).not.toContain("agent.work");

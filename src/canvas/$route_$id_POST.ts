@@ -1,5 +1,5 @@
 // POST /canvas/:id — open/close an agent's canvas or set the chat width beside it. JSON or form body:
-// { open?: boolean, chatWidth?: number, activeItemId?: number, closeItemId?: number, reopenItemId?: number,
+// { op?: "toggleChat", open?: boolean, chatWidth?: number, chatCollapsed?: boolean, activeItemId?: number, closeItemId?: number, reopenItemId?: number,
 // show?: { kind: "file" | "url", args }, navigate?: { itemId, url } | { itemId, file: { path, host?, tab? } } } — show opens a link clicked in the
 // chat as a tab, navigate points a url tab at another address (its address bar) or a file tab at another file. Answers the
 // resulting state with the panel fingerprint (rev).
@@ -15,6 +15,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         const form = await opts.req.formData().catch(() => null);
         if (form?.has("open")) body.open = String(form.get("open"));
         if (form?.has("chatWidth")) body.chatWidth = String(form.get("chatWidth"));
+        if (form?.has("chatCollapsed")) body.chatCollapsed = String(form.get("chatCollapsed"));
+        if (form?.has("op")) body.op = String(form.get("op"));
         if (form?.has("activeItemId")) body.activeItemId = String(form.get("activeItemId"));
         if (form?.has("closeItemId")) body.closeItemId = String(form.get("closeItemId"));
         if (form?.has("reopenItemId")) body.reopenItemId = String(form.get("reopenItemId"));
@@ -34,6 +36,12 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     // kinds (html runs code, plugin kinds may read private data); a view is a `@view` address, read-only, and
     // rpc.render checks the person may call it. A site that forbids framing, asked with `fallback: "browser"`
     // (no frames extension in that browser), opens no tab: the answer says { browser: url } and the page opens it.
+    // The chat header's inspector button: the agent's inspector page as a canvas tab (agent.inspector).
+    if (body.op === "showInspector") {
+        try { await ctx.fns.canvas.show({ agentId, kind: "view", args: { fn: "agent.inspector", params: { agentId } }, title: "Agent" }); }
+        catch (error: any) { return new Response(String(error?.message ?? error), { status: 400 }); }
+        body.open = true;
+    }
     if (body.show && typeof body.show === "object") {
         const kind = String(body.show.kind ?? "");
         if (kind !== "file" && kind !== "url" && kind !== "view") return new Response("show: only file, url and view links open from a page", { status: 400 });
@@ -65,7 +73,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const chatWidth = body.chatWidth == null || body.chatWidth === "" ? undefined : Number(body.chatWidth);
     if (chatWidth !== undefined && !Number.isFinite(chatWidth)) return new Response("invalid chatWidth", { status: 400 });
     try {
-        const view = await ctx.fns.canvas.update({ agentId, open, chatWidth, activeItemId });
+        const chatCollapsed = typeof body.chatCollapsed === "boolean" ? body.chatCollapsed : body.chatCollapsed === "1" || body.chatCollapsed === "true" ? true : body.chatCollapsed === "0" || body.chatCollapsed === "false" ? false : undefined;
+        const toggleChat = body.op === "toggleChat";
+        const view = await ctx.fns.canvas.update({ agentId, open, chatWidth, chatCollapsed, activeItemId, ...(toggleChat ? { toggleChat } : {}) });
+        // The header button posts with htmx and swaps nothing: every page of the chat (this one too) follows canvas.changed.
+        if ((toggleChat || body.op === "showInspector") && opts.req.headers.get("hx-request") === "true") return new Response(null, { status: 204 });
         // A tab action from canvas.js asks for the new panel in the same answer (x-canvas-panel: 1): one round
         // trip instead of POST, then GET /panel, then the view's own fetch.
         const wantsPanel = opts.req.headers.get("x-canvas-panel") === "1";

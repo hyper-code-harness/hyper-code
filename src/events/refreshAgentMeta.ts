@@ -17,5 +17,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     reason?: string;
 }): void {
     const section = opts.section ?? "all";
+    // Inspector pages (agent.inspector, `@live agent-meta`) on a canvas tab or in a browser tab re-fetch themselves.
+    ctx.fns.procs.events.refresh({ topic: "agent-meta", reason: opts.reason ?? "meta" });
     ctx.fns.procs.events.emit({ event: { type: "ui.metaSection", agentId: opts.agentId, section, reason: opts.reason ?? "meta" } });
 }

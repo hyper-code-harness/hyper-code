@@ -7,6 +7,11 @@
     const MIN_CHAT = 320, MIN_CANVAS = 360;
     const page = () => document.querySelector('[data-page="agent"][data-canvas-agent]');
     const agentOf = root => root?.getAttribute('data-canvas-agent') || '';
+    // The key lives here only (CHAT_KEY), so it can move into a shared key table later. Mac: ⌘\, else Ctrl+\.
+    const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    const CHAT_KEY = { key: '\\', meta: MAC, ctrl: !MAC };
+    const CHAT_KEY_LABEL = MAC ? '⌘\\' : 'Ctrl+\\';
+    const isChatKey = e => e && e.key === CHAT_KEY.key && !!e.metaKey === CHAT_KEY.meta && !!e.ctrlKey === CHAT_KEY.ctrl && !e.altKey && !e.shiftKey;
 
     // Keep the conversation pinned to the bottom across a reflow, if it was there.
     const keepBottom = fn => {
@@ -17,6 +22,12 @@
     };
     const paintButtons = root => {
         const open = root.hasAttribute('data-canvas-open');
+        const collapsed = root.hasAttribute('data-chat-collapsed');
+        root.querySelectorAll('[data-canvas-chat-toggle]').forEach(b => {
+            b.setAttribute('aria-pressed', String(collapsed));
+            b.title = (collapsed ? 'Expand chat' : 'Collapse chat') + ' — ' + CHAT_KEY_LABEL;
+            b.setAttribute('aria-label', b.title);
+        });
         root.querySelectorAll('[data-canvas-toggle="toggle"]').forEach(b => {
             b.setAttribute('aria-pressed', String(open));
             b.title = open ? 'Close canvas' : 'Open canvas';
@@ -27,8 +38,9 @@
         if (!root) return;
         keepBottom(() => {
             if (typeof state.open === 'boolean') root.toggleAttribute('data-canvas-open', state.open);
+            if (typeof state.chatCollapsed === 'boolean') root.toggleAttribute('data-chat-collapsed', state.chatCollapsed && root.hasAttribute('data-canvas-open'));
+            if (!root.hasAttribute('data-canvas-open')) root.removeAttribute('data-chat-collapsed');
             if (state.chatWidth) root.style.setProperty('--chat-w', `${state.chatWidth}px`);
-            if (!root.hasAttribute('data-canvas-open')) root.removeAttribute('data-canvas-meta-open');
         });
         paintButtons(root);
     };
@@ -36,6 +48,25 @@
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     }).then(r => r.ok ? r.json() : null).then(state => state && apply(root, state)).catch(() => {});
     const setOpen = (root, open) => { apply(root, { open }); save(root, { open }); };
+
+    // ── command canvas.toggleChat: fold the chat into a strip over the canvas and back ──────────────
+    const commands = (window.hyperCommands ??= {});
+    // The work is the header button's htmx post (the server flips the row, canvas.changed redraws every page of
+    // the chat); the command and the key only press it.
+    commands['canvas.toggleChat'] = {
+        title: 'Collapse/expand chat column', group: 'canvas/window', keys: CHAT_KEY_LABEL,
+        run: () => {
+            const button = page()?.querySelector('[data-canvas-chat-toggle]');
+            if (!button || button.disabled) return false;
+            button.click();
+            return true;
+        },
+    };
+    document.addEventListener('keydown', e => {
+        if (!isChatKey(e) || !page()) return;
+        e.preventDefault();
+        commands['canvas.toggleChat'].run();
+    });
 
     // Tabs changed (opened, switched, closed, retitled, state — here, in another page, or by the agent):
     // fetch the panel again. Only the latest request may swap, and when the active body is unchanged the
@@ -145,6 +176,13 @@
     window.addEventListener('message', event => {
         const msg = event.data;
         if (!msg || msg.hyperCanvas !== 1) return;
+        // A key pressed inside a framed tab (htmlFrame bridge): the page's own commands still work there.
+        if (msg.type === 'key') {
+            const root = page();
+            const own = root && [...root.querySelectorAll('[data-canvas-body] iframe')].some(f => f.contentWindow === event.source);
+            if (own && isChatKey(msg)) commands['canvas.toggleChat'].run();
+            return;
+        }
         const root = page();
         const frame = root && [...root.querySelectorAll('[data-canvas-body] iframe')].find(f => f.contentWindow === event.source);
         if (!frame) return;
@@ -261,20 +299,11 @@
             setOpen(root, mode === 'open' ? true : mode === 'close' ? false : !root.hasAttribute('data-canvas-open'));
             return;
         }
-        // With the canvas open the inspector is forced to a strip; its toggle then peeks it open
-        // over the layout without touching the remembered collapsed state.
-        const meta = event.target.closest?.('[data-agent-meta-toggle]');
-        if (meta && root.hasAttribute('data-canvas-open') && root.contains(meta)) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            root.toggleAttribute('data-canvas-meta-open');
-        }
     }, true);
 
     const clampWidth = (root, width) => {
         const chat = document.getElementById('chat-panel');
-        const meta = root.querySelector('[data-agent-meta-panel]');
-        const total = root.getBoundingClientRect().width - (meta?.getBoundingClientRect().width ?? 0);
+        const total = root.getBoundingClientRect().width;
         return Math.round(Math.max(MIN_CHAT, Math.min(width, total - MIN_CANVAS, 1600)) || chat?.getBoundingClientRect().width || 440);
     };
     document.addEventListener('pointerdown', event => {

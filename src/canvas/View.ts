@@ -6,6 +6,8 @@ export type View = {
     open: boolean;
     /** Width in px of the chat column while the canvas is open. */
     chatWidth: number;
+    /** The chat is folded into a floating strip over the canvas (only while the canvas is open). */
+    chatCollapsed: boolean;
     /** Item shown in the canvas; null for an empty canvas. */
     activeItemId: number | null;
 };

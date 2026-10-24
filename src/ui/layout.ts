@@ -143,12 +143,6 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
 .glass-panel {
   box-shadow: inherit;
 }
-.agent-meta-panel { transition: width .18s ease, border-radius .18s ease; }
-.agent-meta-panel.agent-meta-collapsed { width: 2.5rem !important; min-width: 2.5rem; }
-.agent-meta-panel.agent-meta-collapsed [data-agent-meta-content],
-.agent-meta-panel.agent-meta-collapsed [data-agent-meta-label] { display: none; }
-.agent-meta-panel.agent-meta-collapsed > header { height: 100%; align-items: flex-start; justify-content: center; border-bottom: 0; padding: .5rem 0; background: transparent !important; }
-.agent-meta-panel.agent-meta-collapsed .agent-meta-toggle { color: var(--theme-base-content); }
 
 .glass-bar {
   background-color: rgb(from var(--color-base-100) r g b / .68) !important;
@@ -158,21 +152,66 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   -webkit-backdrop-filter: blur(12px) saturate(115%);
 }
 #chat-panel { position: relative; container: chat / inline-size; }
+/* The chat column is a card like the Dock panel and the canvas: rounded border, and on top the same grey 32px
+   header row with a hairline under it (instead of the floating pill). Wide screens only; the folded strip and
+   the browser-sidebar presentation keep their own looks. */
+@media (min-width: 701px) {
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel { margin: .5rem .5rem .5rem 0; border: 1px solid var(--color-ui-border); border-radius: 1rem; overflow: hidden; background: var(--color-base-100); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-canvas-open]) > #chat-panel { margin-left: .25rem; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header { position: relative; inset: auto; margin: 0 !important; width: 100% !important; max-width: none; height: 2rem; border: 0; border-bottom: 1px solid var(--color-ui-border); border-radius: 0; padding-left: .5rem; padding-right: .375rem; background: color-mix(in oklab, var(--color-base-300) 60%, transparent) !important; background-image: none !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; font-family: inherit; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header [data-chat-part="name"] { font-family: inherit; font-size: .75rem; font-weight: 600; color: var(--color-base-content); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header .chat-icon { transform: scale(.85); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header button,
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header a { max-height: 1.5rem; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) .chat-dot-grid { padding-top: 1rem !important; padding-bottom: 1rem !important; background-image: none; background-color: var(--color-base-100); }
+  /* The composer is the card's footer, a mirror of its header: full width, a hairline above, the text field and
+     its toolbar flat inside it; focus shows as a thin accent line on top instead of a floating ring. */
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer { margin: 0; width: 100%; max-width: none; padding: 0; border-top: 1px solid var(--color-ui-border); background: var(--color-base-100); pointer-events: auto; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer [data-attachments] { margin: .5rem .5rem 0; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-box.glass-input { border-radius: 0; padding: .25rem .375rem .375rem; background: transparent !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  /* Answers sit right on the page, ChatGPT-style: no bubble, border or shadow; the person's message stays a soft pill on the right. */
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .assistant.chat-glass { background: none; border: 0; box-shadow: none; padding: .25rem .25rem; border-radius: 0; }
+  /* The person's message is the one inverted shape: the page's text colour as its fill (dark in light theme, light in dark). */
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary { background-color: color-mix(in oklab, var(--color-base-content) 72%, var(--color-base-100)); color: var(--color-base-100); border: 0; box-shadow: none; border-radius: 1.25rem; padding: .5rem .9rem; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [class*="text-white"] { color: color-mix(in oklab, var(--color-base-100) 60%, transparent); }
+  /* Tool calls: just their icon on the page — no circle, shading or lift; a soft round highlight on hover. */
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { background: transparent !important; background-image: none !important; box-shadow: none !important; border-color: transparent !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool:hover { background: color-mix(in oklab, var(--color-base-content) 5%, var(--color-base-100)) !important; transform: none !important; box-shadow: none !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer:focus-within { border-top-color: rgb(59 130 246 / .55); box-shadow: inset 0 1px 0 rgb(59 130 246 / .55); }
+}
 /* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the
- * free space on the left, the chat becomes a --chat-w column on the right and the inspector is forced to
- * its strip (its toggle peeks it open via data-canvas-meta-open without changing the saved state). */
+ * free space on the left and the chat becomes a --chat-w column on the right. */
 [data-page="agent"] > .canvas-panel, [data-page="agent"] > .canvas-resizer { display: none; }
 [data-page="agent"][data-canvas-open] > .canvas-panel { display: flex; }
 [data-page="agent"][data-canvas-open] > .canvas-resizer { display: block; flex: 0 0 8px; cursor: col-resize; position: relative; touch-action: none; }
 [data-page="agent"][data-canvas-open] > .canvas-resizer::after { content: ""; position: absolute; inset: 30% 3px; border-radius: 2px; background: var(--color-base-300); transition: background .15s; }
 [data-page="agent"][data-canvas-open] > .canvas-resizer:hover::after, [data-page="agent"][data-canvas-open] > .canvas-resizer:focus-visible::after, [data-page="agent"].canvas-resizing > .canvas-resizer::after { background: var(--color-primary); }
 [data-page="agent"][data-canvas-open] > #chat-panel { flex: 0 0 var(--chat-w, 440px); width: var(--chat-w, 440px); max-width: calc(100% - 400px); }
-[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel { width: 2.5rem !important; min-width: 2.5rem; }
-[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel [data-agent-meta-content],
-[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel [data-agent-meta-label] { display: none; }
-[data-page="agent"][data-canvas-open]:not([data-canvas-meta-open]) > .agent-meta-panel > header { height: 100%; align-items: flex-start; justify-content: center; border-bottom: 0; padding: .5rem 0; background: transparent !important; }
-[data-page="agent"][data-canvas-open][data-canvas-meta-open] > .agent-meta-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; width: 20rem !important; }
 [data-page="agent"][data-canvas-open] { position: relative; }
+/* Collapsed chat (canvas_state.chat_collapsed, ⌘\ — canvas.toggleChat): the canvas takes the whole page and the
+   chat floats over its bottom as a strip — the composer and, above it, the latest message. Hovering or focusing
+   the strip shows a little more of the conversation; the header button / ⌘\ brings the column back. */
+[data-page="agent"][data-canvas-open] .canvas-chat-toggle { display: inline-flex; }
+.canvas-chat-toggle .canvas-chat-unfold, [data-page="agent"][data-chat-collapsed] .canvas-chat-toggle .canvas-chat-fold { display: none; }
+[data-page="agent"][data-chat-collapsed] .canvas-chat-toggle .canvas-chat-unfold { display: inline; }
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-resizer { display: none; }
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-panel { margin-right: .5rem; }
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel {
+  position: absolute; z-index: 44; left: 50%; bottom: 1rem; transform: translateX(-50%);
+  width: min(44rem, calc(100% - 3rem)); max-width: none; flex: none; height: auto; max-height: 9.5rem;
+  border: 1px solid var(--color-ui-border); border-radius: 1.25rem; overflow: hidden;
+  background: rgb(from var(--color-base-100) r g b / .9); box-shadow: 0 10px 36px rgb(0 0 0 / .16);
+  backdrop-filter: blur(16px) saturate(115%); -webkit-backdrop-filter: blur(16px) saturate(115%);
+  transition: max-height .18s ease;
+}
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) { max-height: min(24rem, 55vh); }
+[data-page="agent"][data-chat-collapsed] > #chat-panel > header { position: absolute; top: .35rem; right: .5rem; left: auto; width: auto !important; margin: 0 !important; padding: 0 !important; background: none; border: 0; box-shadow: none; z-index: 2; }
+[data-page="agent"][data-chat-collapsed] > #chat-panel > header > :not([data-chat-buttons]) { display: none !important; }
+[data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-chat-buttons] > :not([data-chat-id="canvas.collapse"]) { display: none !important; }
+[data-page="agent"][data-chat-collapsed] #messages { background: none; padding: .6rem 3rem .25rem 1rem !important; flex: 1 1 auto; min-height: 0; }
+[data-page="agent"][data-chat-collapsed] #messages > * { max-width: none; }
+[data-page="agent"][data-chat-collapsed] .chat-composer { margin: 0 auto .5rem; width: calc(100% - 1rem); max-width: none; padding-top: .25rem; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .glass-input { box-shadow: 0 0 0 1px var(--color-ui-border); }
 [data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
 [data-page="agent"].canvas-resizing iframe { pointer-events: none; }
 /* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */
@@ -248,11 +287,9 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
 }
 .chat-glass {
   background-color: rgb(from var(--color-base-100) r g b / .86);
-  background-image: radial-gradient(circle, color-mix(in oklab, var(--color-base-content) 5%, transparent) 0 1px, transparent 1.35px);
 }
 .chat-glass-primary {
   background-color: rgb(20 20 22 / .94);
-  background-image: radial-gradient(circle, rgb(255 255 255 / .23) 0 1.1px, transparent 1.5px);
 }
 
 /* Highlighted code inside tool detail dialogs. */
@@ -283,7 +320,6 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   #nav-overlay [role="dialog"] { border-radius: 1.25rem; }
   #nav-overlay .nav-row { min-height: 3rem; }
   [data-page="agent"] { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
-  [data-page="agent"] > aside[id^="agent-meta-"] { display: none !important; }
   #chat-panel { width: 100%; min-width: 0; }
   #chat-panel > header { width: calc(100% - 1rem) !important; max-width: none !important; margin-top: .4rem !important; padding-right: .55rem !important; gap: .4rem !important; }
   button, a, select, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
@@ -323,8 +359,7 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
 /* Sidebar presentation reuses the page and live chat, independent of viewport. */
 body[data-presentation="sidebar"] #dock,
 body[data-presentation="sidebar"] #mobile-nav-button,
-body[data-presentation="sidebar"] #nav-overlay,
-body[data-presentation="sidebar"] [data-page="agent"] > aside[id^="agent-meta-"] { display: none !important; }
+body[data-presentation="sidebar"] #nav-overlay { display: none !important; }
 body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !important; }
 </style>
 

@@ -85,7 +85,6 @@ describe("ui.layout", () => {
         }
         // These scoped overrides follow (rather than live inside) the mobile media query.
         expect(html).toMatch(/}\s*\/\* Sidebar presentation/);
-        expect(html).toContain('body[data-presentation="sidebar"] [data-page="agent"] > aside[id^="agent-meta-"] { display: none !important; }');
         expect(html).toContain('body[data-presentation="sidebar"] #mobile-nav-button,');
         expect(html).toContain('body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !important; }');
         expect(html).toContain("event.data?.type!=='ui.close-popup'");

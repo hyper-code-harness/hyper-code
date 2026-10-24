@@ -10,7 +10,7 @@ test("canvas opens and closes per agent, keeps the chat width, and the agent pag
     await r.fns.session.save({ agent: a });
     await r.fns.session.save({ agent: b });
 
-    expect(await ctx.fns.canvas.get({ agentId: a.id })).toEqual({ agentId: a.id, open: false, chatWidth: 440, activeItemId: null });
+    expect(await ctx.fns.canvas.get({ agentId: a.id })).toEqual({ agentId: a.id, open: false, chatWidth: 440, chatCollapsed: false, activeItemId: null });
     const page = async (id: string) => (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/agent/${id}` })).text();
     let html = await page(a.id);
     expect(html).toContain('data-canvas-panel');
@@ -292,4 +292,27 @@ test("chat links open as file/url tabs, canvas.search lists kinds, tabs say live
     const block = await handler(ctx, null, { agentId: a.id, text: "" });
     expect(block).toContain(`[${html.id}] "${html.title}": snapshot from `);
     expect(block).toMatch(/: live, web page https:\/\/example\.com\//);
+});
+
+test("the chat folds into a strip over the canvas and back in one server-side flip; closing the canvas unfolds it", async () => {
+    const ctx: any = await mkTestCtx();
+    const a = await ctx.fns.agent.start({ model: "mock:echo" });
+    const post = (body: any, hx = false) => ctx.fns.procs.http.dispatch({ method: "POST", url: `http://localhost/canvas/${a.id}`, headers: { "content-type": "application/json", ...(hx ? { "hx-request": "true" } : {}) }, body: JSON.stringify(body) });
+    // From a closed canvas the toggle opens it with the chat folded.
+    expect((await post({ op: "toggleChat" }, true)).status).toBe(204);
+    expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: true, chatCollapsed: true });
+    let html = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/agent/${a.id}` })).text();
+    expect(html).toMatch(/data-canvas-open data-chat-collapsed/);
+    expect(html).toContain('data-canvas-chat-toggle');
+    await post({ op: "toggleChat" }, true);
+    expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: true, chatCollapsed: false });
+    await post({ op: "toggleChat" }, true);
+    await post({ open: false });
+    expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: false, chatCollapsed: false });
+    // No inspector column any more; the header button opens it as a canvas tab.
+    html = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/agent/${a.id}` })).text();
+    expect(html).not.toContain("data-agent-meta-panel");
+    await post({ op: "showInspector" }, true);
+    const tabs = await ctx.fns.canvas.list({ agentId: a.id });
+    expect(tabs.items?.[0]?.args ?? tabs[0]?.args).toMatchObject({ fn: "agent.inspector", params: { agentId: a.id } });
 });

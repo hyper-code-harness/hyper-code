@@ -81,7 +81,7 @@ describe("ui.layout", () => {
             expect(html).toContain(`id="${id}"`);
         }
         for (const script of ["/agent/chat.js", "/procs/events/client.js", "/ui/hotkeys.js", "/ui/popup.js", "/ui/meta.js"]) {
-            expect(html).toContain(`src="${script}"`);
+            expect(html).toMatch(new RegExp(`src="${script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\?v=\\d+)?"`));
         }
         // These scoped overrides follow (rather than live inside) the mobile media query.
         expect(html).toMatch(/}\s*\/\* Sidebar presentation/);

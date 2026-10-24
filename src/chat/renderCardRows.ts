@@ -19,6 +19,11 @@ export default function (
         const tone = row.tone === "danger" ? "text-error hover:bg-error/10" : "text-muted hover:bg-base-200 hover:text-base-content";
         if (row.popup?.method) return ctx.fns.ui.popup({ method: row.popup.method, params: row.popup.params ?? {}, html: face, attrs: `class="${base} ${tone}" title="${esc(row.label)}"` });
         if (row.href) return `<a href="${esc(row.href)}" class="${base} ${tone}">${face}</a>`;
+        if (row.popovertarget) return `<button type="button" popovertarget="${esc(row.popovertarget)}" class="${base} ${tone}">${face}</button>`;
+        if (row.post && row.vals) {
+            const confirm = row.confirm ? ` hx-confirm="${esc(row.confirm)}"` : "";
+            return `<button type="button" class="${base} ${tone}" hx-post="${esc(row.post)}" hx-vals="${esc(JSON.stringify(row.vals))}" hx-swap="none" hx-target="this"${confirm}>${face}</button>`;
+        }
         if (row.post) {
             const confirm = row.confirm ? ` onsubmit="return confirm(${esc(JSON.stringify(row.confirm))})"` : "";
             return `<form method="POST" action="${esc(row.post)}" hx-boost="false"${confirm}><button type="submit" class="${base} ${tone}">${face}</button></form>`;

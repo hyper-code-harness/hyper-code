@@ -85,6 +85,7 @@ export default async function (
         }
     }
     return `<section id="canvas-panel" data-canvas-panel data-agent-id="${id}" data-canvas-rev="${rev.panel}" aria-label="Canvas" class="canvas-panel glass-panel my-2 ml-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ui-border">
+  ${items.length ? `<button type="button" class="canvas-handle" data-canvas-toggle="open" title="Open canvas — ${items.length} tab${items.length === 1 ? "" : "s"}" aria-label="Open canvas, ${items.length} tab${items.length === 1 ? "" : "s"}"><i class="ph ph-caret-right" aria-hidden="true"></i><span class="canvas-handle-label">Canvas</span><span class="canvas-handle-count">${items.length}</span></button>` : ""}
   <header class="flex h-8 shrink-0 items-stretch bg-base-300/60 text-xs">
     <nav data-canvas-tabs class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] ${items.length ? "" : "border-b border-ui-border"}" aria-label="Canvas tabs">${tabs}</nav>
     ${history}<div class="flex items-center gap-0.5 border-b border-l border-ui-border px-1.5">${active ? reload : ""}${close}</div>

@@ -118,6 +118,14 @@ html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #dock-panel h4, #dock-panel section > h3 { font-size: 11px; font-weight: 500; letter-spacing: .02em; text-transform: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 .canvas-tab, #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 13px; }
 #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; }
+/* Message context menu (right-click on a message, ui/hotkeys.js puts it at the pointer). */
+#messages .message-menu { display: none; }
+#messages [data-message-menu-open] .message-menu { position: fixed; z-index: 70; left: var(--menu-x, 0); top: var(--menu-y, 0); display: flex; flex-direction: column; min-width: 11rem; padding: .25rem; border: 1px solid var(--color-ui-border); border-radius: .5rem; background: var(--color-base-100); box-shadow: 0 8px 24px rgb(0 0 0 / .14); color: var(--color-base-content); font-size: 13px; white-space: nowrap; }
+#messages .message-menu-item { display: flex; width: 100%; align-items: center; gap: .5rem; height: 1.875rem; padding: 0 .5rem; border-radius: .3rem; text-align: left; color: inherit; background: none; border: 0; }
+#messages .message-menu-item > i { font-size: 15px; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+#messages .message-menu-item:hover, #messages .message-menu-item:focus-visible { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); outline: none; }
+#messages .message-menu-item--danger:hover, #messages .message-menu-item--danger:hover > i { color: var(--color-error); background: color-mix(in oklab, var(--color-error) 9%, transparent); }
+#messages .message-menu-sep { height: 1px; margin: .25rem .25rem; background: var(--color-ui-border); }
 .dock-panel { display: none; }
 .inplace-popup-panel[data-dock-settings-panel] { width: 15rem; }
 /* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */
@@ -188,7 +196,7 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   /* Tool calls (Replit-style): a run of calls is one rounded pill of icon cells split by hairlines; the folded
      "N tool calls" toggle and the running call sit in the same pill. */
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray { display: inline-flex; width: auto; max-width: 100%; gap: 0; flex-wrap: wrap; border: 1px solid var(--color-ui-border); border-radius: .45rem; overflow: hidden; background: var(--color-base-100); }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > * + * { border-left: 1px solid var(--color-ui-border) !important; }
+  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > .tool + .tool, #messages .tool-tray > .tool-tray-toggle + .tool { border-left: 1px solid var(--color-ui-border) !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > #active-tool-call:empty { display: none; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray .tool-tray-toggle { height: 1.375rem; font-size: 11px; border: 0; border-radius: 0; background: transparent; padding: 0 .6rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { width: 1.5rem !important; height: 1.375rem !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; background-image: none !important; box-shadow: none !important; border-top: 0 !important; border-right: 0 !important; border-bottom: 0 !important; backdrop-filter: none !important; }
@@ -206,6 +214,16 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
 /* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the
  * free space on the left and the chat becomes a --chat-w column on the right. */
 [data-page="agent"] > .canvas-panel, [data-page="agent"] > .canvas-resizer { display: none; }
+/* Closed canvas that has tabs: a thin handle at the page's left edge — "Canvas · 4" written upwards; a click
+   opens it. The panel shows only its handle then (the rest of it stays hidden). */
+.canvas-handle { display: none; }
+[data-page="agent"]:not([data-canvas-open]) > .canvas-panel:has(> .canvas-handle) { display: flex; flex: 0 0 auto; width: auto; margin: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > :not(.canvas-handle) { display: none !important; }
+[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > .canvas-handle { display: flex; flex-direction: column; align-items: center; gap: .5rem; width: 1.75rem; height: 100%; padding: .5rem 0; border-right: 1px solid var(--color-ui-border); background: var(--color-base-200); color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 12px; cursor: pointer; }
+[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > .canvas-handle:hover { background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-200)); color: var(--color-base-content); }
+.canvas-handle-label { writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .02em; }
+.canvas-handle-count { min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 9999px; background: color-mix(in oklab, var(--color-base-content) 10%, transparent); font-size: 10px; line-height: 1.1rem; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { [data-page="agent"]:not([data-canvas-open]) > .canvas-panel:has(> .canvas-handle) { display: none !important; } }
 [data-page="agent"][data-canvas-open] > .canvas-panel { display: flex; }
 [data-page="agent"][data-canvas-open] > .canvas-resizer { display: block; flex: 0 0 8px; cursor: col-resize; position: relative; touch-action: none; }
 [data-page="agent"][data-canvas-open] > .canvas-resizer::after { content: ""; position: absolute; inset: 30% 3px; border-radius: 2px; background: var(--color-base-300); transition: background .15s; }
@@ -222,9 +240,9 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-panel { margin-right: .5rem; }
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel {
   position: absolute; z-index: 44; left: 50%; bottom: 1rem; transform: translateX(-50%);
-  width: min(44rem, calc(100% - 3rem)); max-width: none; flex: none; height: auto; max-height: 9.5rem;
-  border: 1px solid var(--color-ui-border); border-radius: 1.25rem; overflow: hidden;
-  background: rgb(from var(--color-base-100) r g b / .9); box-shadow: 0 10px 36px rgb(0 0 0 / .16);
+  width: min(44rem, calc(100% - 3rem)); max-width: none; flex: none; height: auto; max-height: 8.5rem;
+  border: 1px solid var(--color-ui-border); border-radius: .75rem; overflow: hidden;
+  background: rgb(from var(--color-base-100) r g b / .96); box-shadow: 0 10px 36px rgb(0 0 0 / .16);
   backdrop-filter: blur(16px) saturate(115%); -webkit-backdrop-filter: blur(16px) saturate(115%);
   transition: max-height .18s ease;
 }
@@ -232,10 +250,39 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
 [data-page="agent"][data-chat-collapsed] > #chat-panel > header { position: absolute; top: .35rem; right: .5rem; left: auto; width: auto !important; margin: 0 !important; padding: 0 !important; background: none; border: 0; box-shadow: none; z-index: 2; }
 [data-page="agent"][data-chat-collapsed] > #chat-panel > header > :not([data-chat-buttons]) { display: none !important; }
 [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-chat-buttons] > :not([data-chat-id="canvas.collapse"]) { display: none !important; }
-[data-page="agent"][data-chat-collapsed] #messages { background: none; padding: .6rem 3rem .25rem 1rem !important; flex: 1 1 auto; min-height: 0; }
 [data-page="agent"][data-chat-collapsed] #messages > * { max-width: none; }
-[data-page="agent"][data-chat-collapsed] .chat-composer { margin: 0 auto .5rem; width: calc(100% - 1rem); max-width: none; padding-top: .25rem; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .glass-input { box-shadow: 0 0 0 1px var(--color-ui-border); }
+/* Folded strip as a slide: only the latest answer of the agent, no tool calls, no other messages, no scrolling —
+   a new answer replaces the old one. Long answers are cut with a fade; hovering the strip lets it grow. */
+[data-page="agent"][data-chat-collapsed] #messages { overflow: hidden !important; display: flex; flex-direction: column; justify-content: flex-end; }
+[data-page="agent"][data-chat-collapsed] #messages > * { display: none !important; }
+[data-page="agent"][data-chat-collapsed] #messages > [id^="m-"]:has(> .assistant):not(:has(~ [id^="m-"] > .assistant)) { display: flex !important; flex: none; }
+[data-page="agent"][data-chat-collapsed] #messages > [id^="m-"] > .assistant { padding: 0 !important; max-height: 5.5rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+[data-page="agent"][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) #messages > [id^="m-"] > .assistant { max-height: min(18rem, 45vh); overflow-y: auto; -webkit-mask-image: none; mask-image: none; }
+[data-page="agent"][data-chat-collapsed] #messages .message-menu, [data-page="agent"][data-chat-collapsed] #messages [id^="m-"] .tool-tray { display: none !important; }
+/* Moved by dragging its top edge (ui/hotkeys.js); --strip-x/--strip-y are kept per device. */
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel[data-strip-moved] { left: var(--strip-x) !important; top: var(--strip-y) !important; bottom: auto !important; transform: none !important; }
+[data-page="agent"][data-chat-collapsed] > #chat-panel::before { content: ""; position: absolute; z-index: 3; top: 0; left: 50%; width: 2.5rem; height: 4px; margin: 4px 0 0 -1.25rem; border-radius: 9999px; background: var(--color-ui-border); cursor: grab; }
+/* Folded strip input: just the text and send/stop on one line — no attach, model, effort or meters. */
+/* One line: [+] text [send/stop]. The toolbar row's box is dissolved (display: contents) so its + goes before
+   the text and send after it; model, effort and meters are hidden. */
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box { display: flex; align-items: center; gap: .125rem; padding: .25rem .375rem !important; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > textarea { order: 1; flex: 1 1 auto; min-width: 0; min-height: 2rem !important; padding: .35rem .25rem !important; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child { display: contents; }
+[data-page="agent"][data-chat-collapsed] .chat-composer [data-attach-button] { order: 0; width: 1.75rem !important; height: 1.75rem !important; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child > div:last-child { order: 2; }
+[data-page="agent"][data-chat-collapsed] .chat-composer :is([data-chat-tools], [data-chat-meters], [data-chat-above]) { display: none !important; }
+/* The folded strip is one tight card: the messages above, then the composer flush with its edges (no box in a
+   box) behind a hairline; the toolbar row is compact. */
+[data-page="agent"][data-chat-collapsed] #messages { background: none !important; padding: .5rem 3rem .25rem .875rem !important; flex: 1 1 auto; min-height: 0; }
+[data-page="agent"][data-chat-collapsed] .chat-composer { margin: 0 !important; width: 100% !important; max-width: none !important; padding: 0 !important; border-top: 1px solid var(--color-ui-border); background: transparent; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box.glass-input { border-radius: 0 !important; padding: 0 .375rem .25rem !important; background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+[data-page="agent"][data-chat-collapsed] .chat-composer textarea { min-height: 2rem !important; padding: .4rem .5rem .1rem !important; }
+[data-page="agent"][data-chat-collapsed] .chat-composer button { min-width: 0; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child { min-height: 1.75rem; gap: .125rem; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child :is(button, [popovertarget]) { height: 1.75rem !important; min-height: 0 !important; }
+[data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle] { width: 1.5rem; height: 1.5rem; background: none; }
+[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child button[type="submit"], [data-page="agent"][data-chat-collapsed] #chat-stop-control button { width: 1.75rem !important; height: 1.75rem !important; }
+[data-page="agent"][data-chat-collapsed] .chat-composer:focus-within { border-top-color: rgb(59 130 246 / .55); }
 [data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
 [data-page="agent"].canvas-resizing iframe { pointer-events: none; }
 /* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */
@@ -411,6 +458,69 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] [data-page="agent"][data-canvas-open] > .canvas-resizer:hover, html[data-chrome="flat"] [data-page="agent"].canvas-resizing > .canvas-resizer { background: var(--color-primary); }
   html[data-chrome="flat"] [data-page="agent"]:not([data-canvas-open]) > #chat-panel { margin-left: 0 !important; }
   html[data-chrome="flat"] #page-view { background: var(--color-base-100); }
+  /* One header system for every pane (side panel, canvas tabs, chat): 32px, the same grey, 13px titles —
+     medium for the pane's own name, regular for tabs —, 12px muted secondary text, and every icon button the
+     same 28px square with a 15px icon in the same grey. */
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
+  html[data-chrome="flat"] #dock > [data-dock-id="menu"] { background: var(--color-base-200) !important; }
+  html[data-chrome="flat"] #dock-panel > div > div:first-child > span { font-size: 13px; font-weight: 500; color: var(--color-base-content); letter-spacing: 0; }
+  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; color: var(--color-base-content) !important; }
+  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
+  html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+  html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
+  html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]) > i.ph { font-size: 15px; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+  html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
+  html[data-chrome="flat"] #chat-panel > header.chat-header .chat-icon { transform: none; }
+  html[data-chrome="flat"] #dock-panel > div > div:first-child { padding-left: .75rem !important; padding-right: .375rem !important; }
+  /* The canvas address row: one quiet 32px row in the UI font, not a second header in monospace. */
+  html[data-chrome="flat"] [data-canvas-navigate] { height: 2rem !important; border-bottom: 1px solid var(--color-ui-border); background: var(--color-base-100); padding: 0 .375rem !important; gap: .125rem !important; }
+  html[data-chrome="flat"] [data-canvas-navigate] input[name="url"] { font-family: inherit !important; font-size: 12px !important; height: 1.5rem; background: transparent !important; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+  html[data-chrome="flat"] [data-canvas-navigate] input[name="url"]:focus { background: var(--color-base-200) !important; color: var(--color-base-content); }
+  html[data-chrome="flat"] [data-canvas-navigate] :is(button, a) { width: 1.5rem; height: 1.5rem; color: color-mix(in oklab, var(--color-base-content) 50%, transparent); }
+  /* The side panel's first row under its header lines up with the address row. */
+  html[data-chrome="flat"] #dock-panel > div > div:nth-child(2) > a:first-child { margin-top: .25rem; }
+  /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring and
+     the dotted run ring stay still (the run ring keeps its time label). */
+  html[data-chrome="flat"] #chat-panel > header .chat-icon-ring { display: none !important; }
+  html[data-chrome="flat"] #chat-panel > header .chat-run-ring--live .chat-run-dots { animation: none; }
+  html[data-chrome="flat"] #chat-stop-control { position: relative; }
+  html[data-chrome="flat"] #chat-stop-control:has([aria-label="Stop generation"])::after { content: ""; position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 60%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); animation: chat-icon-spin 1.1s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { html[data-chrome="flat"] #chat-stop-control::after { animation: none; opacity: .5; } }
+  /* No dotted run-time ring in the header: how long the agent has been at it is the clock at the end of the
+     tool row (renderActiveToolCall), and "running" is the arc around the stop button. */
+  html[data-chrome="flat"] #chat-panel > header .chat-run-ring { display: none !important; }
+  /* The running call: the last cell of the pill, its icon dimming in and out; how long it runs is plain grey
+     seconds just outside the pill. */
+  #messages .tool-tray { position: relative; overflow: visible !important; }
+  #messages .tool-tray > #active-tool-call { display: contents; }
+  #messages .tool-tray > #active-tool-call > .tool { border-left: 1px solid var(--color-ui-border) !important; }
+  #messages .tool-tray > :first-child:is(#active-tool-call) > .tool { border-left: 0 !important; }
+  #messages .tool-row-clock { position: absolute; left: calc(100% + .5rem); top: 50%; transform: translateY(-50%); font-size: 11px; font-variant-numeric: tabular-nums; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); white-space: nowrap; pointer-events: none; }
+  #messages [data-tool-running] > span.pointer-events-none { display: none !important; }
+  @keyframes tool-glow { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  #messages [data-tool-running] > i { animation: tool-glow 1.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { #messages [data-tool-running] > i { animation: none; } }
+  /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) { font-size: 12px !important; }
+  html[data-chrome="flat"] #dock-panel > div > div:first-child > span,
+  html[data-chrome="flat"] .canvas-tab,
+  html[data-chrome="flat"] .canvas-tab span,
+  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 12px !important; line-height: 1rem; }
+  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px !important; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]) > i.ph { font-size: 14px !important; }
+  html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
+  /* The menu circle in the bar's header cell: the same 28px button as every header button, centred in the cell. */
+  html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button { transform: none !important; width: 1.75rem !important; height: 1.75rem !important; }
+  html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button > i { font-size: 15px !important; line-height: 1; }
+  /* Fewer things in the composer: the context ring and the quiet prompt-inject icon live in the ⋯ panel (Context
+     card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still
+     shows as its chip above the text. */
+  html[data-chrome="flat"] #chat-context-ring { display: none !important; }
+  html[data-chrome="flat"] .chat-composer [data-chat-meters] [popovertarget^="status-line-popover-"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  html[data-chrome="flat"] #chat-panel > header [data-chat-id="agent.inspector"] { display: none !important; }
   /* In dot mode the circle sits in the first header cell; with the strip gone there is no gap to leave. */
   html[data-chrome="flat"][data-dock-mode="dot"] #dock { top: .125rem; left: .375rem; }
 }
@@ -435,7 +545,7 @@ ${opts.headExtra ?? ""}
 <!-- client.js first: every later script subscribes through window.hyperLive (docs/live-updates.md). -->
 <script src="/procs/events/client.js" defer></script>
 <script src="/ui/control.js" defer></script>
-<script src="/ui/hotkeys.js" defer></script>
+<script src="/ui/hotkeys.js?v=4" defer></script>
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>
@@ -444,14 +554,14 @@ ${opts.headExtra ?? ""}
 <script src="/screen/client.js" defer></script>
 <script src="/ui/wake-timer.js" defer></script>
 <script src="/ui/spin-sync.js" defer></script>
-<script src="/ui/tool-timer.js" defer></script>
+<script src="/ui/tool-timer.js?v=2" defer></script>
 </head>
 <body class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>
 <div id="frame" class="relative flex h-screen">
   ${hideNavigation ? "" : ctx.fns.procs.ui.button({ action: "open-global-menu-mobile", html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', appearance: "plain", title: "Agents and pages", ariaLabel: "Open agents and pages", class: "hidden", attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" } })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
   ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
-    <script src="/canvas/canvas.js" defer></script>
+    <script src="/canvas/canvas.js?v=2" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

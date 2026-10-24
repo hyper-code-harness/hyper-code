@@ -38,6 +38,12 @@
       const started = Number(el.dataset.toolStartedAt);
       if (!Number.isFinite(started)) return;
       const elapsed = Date.now() - started;
+      // The short clock at the end of the tool row: just how long, "12s" / "3m 05s".
+      if (el.classList.contains('tool-row-clock')) {
+        const t = Math.max(0, Math.round(elapsed / 1000));
+        el.textContent = t < 60 ? t + 's' : Math.floor(t / 60) + 'm ' + String(t % 60).padStart(2, '0') + 's';
+        return;
+      }
       const deadline = Number(el.dataset.toolDeadline);
       // "running 27:10 of 30:00" answers "should I keep waiting?".
       // Without a declared timeout only the elapsed time is honest.

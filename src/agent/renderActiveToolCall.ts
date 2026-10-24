@@ -48,6 +48,9 @@ export default function (
         timeoutMs: run.timeoutMs,
     });
 
+    // How long it has been running, at the end of the tool row (tool-timer.js ticks it; no server request per second).
+    const deadline = run.timeoutMs ? Number(run.startedAt) + Number(run.timeoutMs) : 0;
+    const clock = `<span class="tool-timer tool-row-clock" data-tool-started-at="${esc(run.startedAt)}"${deadline ? ` data-tool-deadline="${deadline}"` : ""}></span>`;
     return ctx.fns.ui.popup({
         method: "agent.activeToolDetails",
         params: { agentId: opts.agentId },
@@ -55,5 +58,5 @@ export default function (
         attrs: `class="tool tool-tucked relative shrink-0 rounded-full border-0 bg-info/10 text-info"`
             + ` data-tool="${esc(run.name)}" data-tool-running="1" data-title="${esc(label)}"`
             + ` title="${esc(title)}" aria-label="${esc(title)}" aria-busy="true"`,
-    });
+    }) + clock;
 }

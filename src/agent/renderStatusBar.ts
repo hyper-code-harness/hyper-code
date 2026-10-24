@@ -46,7 +46,9 @@ initialUsage?: any;
         // A ring of dots with the run time inside: 3 dots to start with, one more per tool call, so the
         // ring fills as the agent works. It turns slowly while events flow and goes amber after a quiet minute.
         const still = quiet != null && quiet > 60;
-        label = runRing({ seconds: elapsedMs / 1000, dots: 3 + tools, still });
+        // No mark in the header while running: the arc around the stop button says "running" and the clock at the
+        // end of the tool row says how long. Only a quiet minute shows here, as a warning.
+        label = still ? runRing({ seconds: elapsedMs / 1000, dots: 3 + tools, still }) : '';
         title = `running ${(elapsedMs / 1000).toFixed(0)}s · ${tools} tool call${tools === 1 ? '' : 's'}${quiet != null ? ` · last event ${quiet}s ago` : ''}`;
         cls = still ? 'text-warning' : 'text-blue-500';
     } else if (row?.next_run_at) {

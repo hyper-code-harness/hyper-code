@@ -70,3 +70,93 @@
         else jumpBack();
     });
 })();
+
+// Right-click on a message opens its own actions (delete this / from here — drawn by the server next to it);
+// a click elsewhere, Escape or a second right-click closes them. Ordinary text selection menus stay the
+// browser's: only a right-click on the message bubble itself, without a text selection, is taken.
+(() => {
+    if (window.__hyperMessageMenuInstalled) return;
+    window.__hyperMessageMenuInstalled = true;
+    const close = () => document.querySelectorAll('[data-message-menu-open]').forEach(el => el.removeAttribute('data-message-menu-open'));
+    document.addEventListener('contextmenu', e => {
+        const row = e.target.closest?.('#messages [id^="m-"]');
+        if (!row || !row.querySelector('[data-message-menu]') || String(window.getSelection?.() ?? '').trim()) return;
+        e.preventDefault();
+        close();
+        row.setAttribute('data-message-menu-open', '');
+        // At the pointer, kept inside the window.
+        const menu = row.querySelector('[data-message-menu]');
+        const w = menu.offsetWidth || 180, h = menu.offsetHeight || 110;
+        row.style.setProperty('--menu-x', Math.min(e.clientX, innerWidth - w - 8) + 'px');
+        row.style.setProperty('--menu-y', Math.min(e.clientY, innerHeight - h - 8) + 'px');
+        menu.querySelector('.message-menu-item')?.focus({ preventScroll: true });
+    });
+    document.addEventListener('click', e => {
+        const copy = e.target.closest?.('[data-message-copy]');
+        if (copy) {
+            const bubble = copy.closest('[id^="m-"]')?.querySelector('.chat-glass-primary, .assistant');
+            const text = bubble?.cloneNode(true);
+            text?.querySelectorAll('[data-author], [data-message-menu], button, .sr-only').forEach(n => n.remove());
+            navigator.clipboard?.writeText((text?.innerText ?? '').replace(/\s*\d{1,2}:\d{2}\s*$/, '').trim()).catch(() => {});
+            close();
+            return;
+        }
+        if (!e.target.closest?.('[data-message-menu]')) close();
+        // A chosen delete closes the menu too (its confirm dialog then takes over).
+        else if (e.target.closest?.('.message-menu-item')) setTimeout(close, 0);
+    });
+    document.addEventListener('scroll', close, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+})();
+
+// The folded chat strip can be dragged by its top edge (the little grip) anywhere over the canvas — e.g. to the
+// right side. The place is kept per device (localStorage hyper-strip-pos); a double click on the grip puts it
+// back at the bottom centre.
+(() => {
+    if (window.__hyperStripDragInstalled) return;
+    window.__hyperStripDragInstalled = true;
+    const strip = () => document.querySelector('[data-page="agent"][data-chat-collapsed] > #chat-panel');
+    const onGrip = (el, e) => { const r = el.getBoundingClientRect(); return e.clientY - r.top < 12 && e.clientX < r.right - 48; };
+    const place = (el, x, y) => {
+        const page = el.parentElement.getBoundingClientRect(), r = el.getBoundingClientRect();
+        x = Math.max(8, Math.min(x, page.width - r.width - 8));
+        y = Math.max(8, Math.min(y, page.height - r.height - 8));
+        el.style.setProperty('--strip-x', x + 'px');
+        el.style.setProperty('--strip-y', y + 'px');
+        el.setAttribute('data-strip-moved', '');
+        return { x, y };
+    };
+    const restore = () => {
+        const el = strip();
+        if (!el) return;
+        try { const p = JSON.parse(localStorage.getItem('hyper-strip-pos') || 'null'); if (p) place(el, p.x, p.y); } catch (_) {}
+    };
+    document.addEventListener('pointerdown', e => {
+        const el = strip();
+        if (!el || e.button !== 0 || !el.contains(e.target) || !onGrip(el, e)) return;
+        e.preventDefault();
+        const page = el.parentElement.getBoundingClientRect(), r = el.getBoundingClientRect();
+        const dx = e.clientX - r.left, dy = e.clientY - r.top;
+        let last = null;
+        el.style.cursor = 'grabbing';
+        const move = ev => { last = place(el, ev.clientX - page.left - dx, ev.clientY - page.top - dy); };
+        const up = () => {
+            window.removeEventListener('pointermove', move, true);
+            window.removeEventListener('pointerup', up, true);
+            el.style.cursor = '';
+            if (last) try { localStorage.setItem('hyper-strip-pos', JSON.stringify(last)); } catch (_) {}
+        };
+        window.addEventListener('pointermove', move, true);
+        window.addEventListener('pointerup', up, true);
+    });
+    document.addEventListener('dblclick', e => {
+        const el = strip();
+        if (!el || !el.contains(e.target) || !onGrip(el, e)) return;
+        el.removeAttribute('data-strip-moved');
+        try { localStorage.removeItem('hyper-strip-pos'); } catch (_) {}
+    });
+    // The strip appears when the chat folds (canvas.js flips the attribute) or after a page swap.
+    new MutationObserver(restore).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-chat-collapsed'] });
+    document.addEventListener('htmx:after:swap', restore);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore); else restore();
+})();

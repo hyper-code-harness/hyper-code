@@ -33,6 +33,19 @@ function safeAssistantHtml(html: string): string | null {
 function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true, allowFrom = true, placement: 'overlay' | 'side' = 'overlay'): string {
     if (!agentId) return '';
     const url = '/agent/' + encodeURIComponent(agentId) + '/messages/delete';
+    // Beside a message bubble the actions are a context menu (opened by right-click, ui/hotkeys.js): rows with
+    // an icon and a label. Copy is done in the browser; the deletes are ordinary htmx posts.
+    if (placement === 'side') {
+        const item = (mode: 'one' | 'from', label: string, confirm: string, icon: string) => ctx.fns.procs.ui.button({
+            action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon}" aria-hidden="true"></i><span>${label}</span>`,
+            post: url, swap: 'none', vals: { idx: String(idx), mode }, title: label, ariaLabel: label,
+            class: 'message-menu-item message-menu-item--danger', attrs: { 'hx-confirm': confirm, role: 'menuitem' },
+        });
+        return '<button type="button" class="message-menu-item" data-message-copy role="menuitem"><i class="ph ph-copy" aria-hidden="true"></i><span>Copy text</span></button>'
+            + '<div class="message-menu-sep" role="separator"></div>'
+            + (allowOne ? item('one', 'Delete message', 'delete this message?', 'ph-trash') : '')
+            + (allowFrom ? item('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '');
+    }
     const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.procs.ui.button({
         action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`,
         post: url, swap: 'none', vals: { idx: String(idx), mode }, title, ariaLabel: title,
@@ -131,7 +144,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
                 + '</div>'
                 + appendTime(esc(body), ev.ts, 'light')
                 + '</div>'
-                + '<div class="absolute left-full top-1/2 z-10 ml-2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
+                + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
                 + '</div></div>';
         }
         const ragFunctions = Array.isArray(ev.functionRag?.functions) ? ev.functionRag.functions : [];
@@ -187,7 +200,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             + attachmentHtml
             + appendTime((ev.text ? await mentionChips(ctx, esc(ev.text), 'dark') : '') + ragIcon, ev.ts, 'dark')
             + '</div>'
-            + '<div class="absolute right-full top-1/2 z-10 mr-2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
+            + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
             + '</div>' + avatar + '</div>';
     }
 
@@ -213,7 +226,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             + '</div>'
             + usage
             + '</div>'
-            + '<div class="absolute left-full top-1/2 z-10 ml-2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
+            + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
             + '</div>';
     }
 

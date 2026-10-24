@@ -55,6 +55,6 @@ export default async function (
     <div id="dock-bottom" class="dock-zone flex w-full flex-col items-center gap-1" data-dock-zone="bottom">${bottomHtml.join("")}</div>
     ${me ? `<div class="dock-fixed mt-1 flex w-full flex-col items-center" data-dock-id="me" data-dock-label="Account">${me}</div>` : ""}
     ${gearHtml}
-    <script src="/dock/dock.js" defer></script>
+    <script src="/dock/dock.js?v=2" defer></script>
   </nav>`;
 }

@@ -39,6 +39,16 @@ export default function (
         const logo = ctx.fns.ui.modelLogo({ model: opts.model, bare: true, compact: size === "sm" });
         return `<span class="chat-icon relative inline-flex ${box} shrink-0 items-center justify-center"${label}>${logo}${ring}</span>`;
     }
+    // A line icon drawn in currentColor (the Lucide-style ones from the icon picker) is inlined so it takes the
+    // page's text colour — through <img> currentColor is always black and vanished in the dark theme. Only a
+    // clean <svg> without scripts, handlers, foreignObject or external references is inlined; anything else
+    // (pictures, emoji avatars) stays an <img>.
+    const inlineable = /^<svg[\s>]/i.test(icon) && /currentColor/.test(icon)
+        && !/<script|<foreignObject|\son\w+\s*=|javascript:|(?:href|src)\s*=\s*["'](?!#)/i.test(icon);
+    if (inlineable) {
+        const svg = icon.replace(/^<svg\b/i, `<svg class="${box}" aria-hidden="true" focusable="false"`).replace(/\s(width|height)="[^"]*"/g, (m, _k, off) => off < icon.indexOf(">") ? "" : m);
+        return `<span class="chat-icon relative inline-flex ${box} shrink-0 items-center justify-center text-base-content" title="${esc(opts.model ?? "")}"${label}>${svg}${ring}</span>`;
+    }
     const src = "data:image/svg+xml," + encodeURIComponent(icon);
     return `<span class="chat-icon relative inline-flex ${box} shrink-0" title="${esc(opts.model ?? "")}"${label}><img src="${esc(src)}" alt="" class="${box} rounded-full object-contain" draggable="false">${ring}</span>`;
 }

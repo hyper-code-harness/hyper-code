@@ -133,8 +133,13 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             const body = String(am.body ?? ev.text ?? '');
             const ownerName = am.onBehalfOf ? await (ctx as any).fns.auth?.getUser?.({ id: String(am.onBehalfOf) }).then((u: any) => u?.name ?? null).catch(() => null) : null;
             const meta = [am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
+            const senderRow = ((await ctx.fns.procs.db.select({ sql: 'SELECT icon, model FROM agents WHERE id = ?', params: [fromId] }).catch(() => [])) as any[])[0];
+            const senderIcon = senderRow
+                ? (ctx as any).fns.chat.icon({ icon: senderRow.icon ?? '', model: String(senderRow.model ?? ''), size: 'md' })
+                : '<i class="ph ph-robot text-base text-faint" aria-hidden="true"></i>';
             return '<div id="m-' + idx + '" class="group relative flex items-end justify-start gap-2 pb-0" data-agent-message="' + esc(fromId) + '">'
-                + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white no-underline" style="background:hsl(' + hue + ' 55% 40%)" title="' + esc(name) + '"><i class="ph ph-robot" aria-hidden="true"></i></a>'
+                // The sender's own chat icon (its avatar, else its model logo) — the same face it has in the menu.
+                + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="agent-message-avatar inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-base-200 no-underline" title="' + esc(name) + '">' + senderIcon + '</a>'
                 + '<div class="relative mr-auto max-w-[80%]">'
                 + '<div class="rounded-2xl rounded-bl-md border px-3.5 py-2 whitespace-pre-wrap break-words shadow-sm bg-base-200 text-base-content" style="border-color:hsl(' + hue + ' 55% 45% / .5)">'
                 + '<div class="mb-0.5 flex items-center gap-1.5 text-xs font-semibold leading-tight whitespace-normal">'

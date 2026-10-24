@@ -1,33 +1,33 @@
-// The canvas equivalent of input.promptSection: the system prompt lists the kinds that are actually
-// loaded, so a plugin's kind is advertised exactly while it is mounted.
+// The canvas equivalent of input.promptSection: the three kinds of tab and the rule to pick one (issue #8).
 /**
- * Builds the system-prompt block that tells agents how to show things on the canvas beside the chat and lists the loaded kinds.
+ * Builds the system-prompt block that tells agents how to show things on the canvas beside the chat: three kinds of tab and the rule to pick one.
  */
 export default async function (ctx: Context, _session: Session | null, _opts: {}): Promise<string> {
-    // Built-in kinds are described in full; plugin kinds and the functions that show their result on the
-    // canvas are only named — canvas.search finds them with their args, so the prompt does not grow
-    // with every mounted plugin.
+    // Only the three kinds of tab and the rule to pick one; pages of Hyper (`@view` functions, plugins' too) are
+    // found by canvas.search — the prompt names how many there are, never lists them, so it does not grow with
+    // every mounted plugin.
     const all = (await ctx.fns.canvas.kinds({})).filter(k => k.hint);
     if (!all.length) return "";
-    const kinds = all.filter(k => k.module === "canvas");
+    const has = (name: string) => all.some(k => k.name === name);
+    const views = await ctx.fns.runtime.docs.search({ tag: "view", limit: 50 }).catch(() => []);
     const plugin = all.filter(k => k.module !== "canvas").map(k => k.name);
-    const found = (await ctx.fns.canvas.search({ limit: 100 })).filter(r => r.type === "function");
-    const shows = found.filter(r => r.kind !== "view").map(r => r.name);
-    const views = found.filter(r => r.kind === "view").map(r => r.name);
     return [
         "## Canvas",
         "",
-        "A large surface left of the chat where you can put something in front of the person — a file to look at together, a document, a diagram. Open a tab with `await ctx.fns.canvas.show({ kind, args, title? })`; it becomes the active tab and the canvas opens. `canvas.list({})` shows the tabs, `canvas.close({ itemId })` closes one (it is only marked closed: `canvas.list({ closed: true })` lists recently closed tabs with their `closedAt`, `canvas.reopen({ itemId })` brings one back with its state; kept 30 days), `canvas.setState({ itemId, state })` remembers a tab's own state. When the canvas changes you get a short `Canvas` block saying what is open.",
+        "A surface left of the chat for what you and the person look at together. Every tab is an **address**: it can be opened again, linked from the chat and opened in a browser tab. Open one with `await ctx.fns.canvas.show({ args, title? })` — the args decide the kind (`kind` is optional); showing the same thing again switches to its tab. The answer is the tab plus `address`, `reused`, `fixed` (what the server corrected) and `hint` (advice) — read the last two. `canvas.list({})`, `canvas.close({ itemId })`, `canvas.reopen({ itemId })` and `canvas.setState({ itemId, state })` manage tabs; a `Canvas` block tells you what is open. To open, show or look at something, use the canvas — not `ui.openFile`, which navigates the page away from the chat.",
         "",
-        "When the person asks to open, show or look at a file, a README, a document or a picture, put it on the canvas — not `ui.openFile`, which navigates the whole page away from the chat. Only the canvas region refreshes; the chat, drafts and scroll stay. Showing the same thing again just switches to its tab. Relative paths resolve in your workspace; for another project pass an absolute path.",
+        "Three kinds of tab. Take the first that fits:",
+        "1. **Ours → a Hyper address `/rpc/<fn>?<json>`.**",
+        "   - On disk (code, md, image, PDF, folder) → `{ path, host? }`. Never paste a file into html.",
+        `   - Data someone will look at again → a page of a \`@view\` function: \`{ fn, params }\` or \`{ url: "/rpc/…" }\`. There are ${views.length} (plugins' too); find one with \`canvas.search({ query })\` (English) before writing html. None fits → write a \`@view\` function.`,
+        "   - A document you write (analysis, plan, comparison, diagram) → `{ html }` with a stable `title`, **no scripts**: it is saved to memory as `pages/<slug>.html` and opens by address; the same title updates it. Diagrams: `mermaid.render({ source })` on the server, paste the svg.",
+        "   - Only a page that must run code in the browser (an animation, a board, `hyper.setState` / `hyper.ping`) keeps `<script>`: it becomes a sandboxed frame without an address. Rare.",
+        `2. **A web site → \`{ url: "https://…" }\`**, framed in the tab. Sites that forbid framing show a link unless the person's Chrome has the Hyper canvas frames extension.`,
+        ...(has("browser.live") ? ["3. **A live session → `{ kind: \"browser.live\", args: { url } }`** — the Hyper machine's own Chrome, which you can drive too. Only for a login, a captcha or automation; to just look at a site use 1 or 2."] : []),
         "",
-        ...kinds.map(k => `- \`${k.name}\` — ${k.hint!.trim()}`),
-        ...(plugin.length ? [`- plugin kinds: ${plugin.map(n => `\`${n}\``).join(", ")} — their args via \`canvas.search({ query })\``] : []),
+        "Bad → good: `<script src=…mermaid>` in html → `mermaid.render` (the server does it for you and says so in `fixed`) · a report written to `.hyper/tmp` and opened as a file → `{ html }`, it lands in memory · a new tab per edit → the same `title` · a file's text pasted into html → `{ path }` · `browser.live` to read a site → `{ url }`.",
         "",
-        "Some functions return data AND can show the same selection on the canvas (`@canvas <kind>` in their docs; `canvas.search({ query })` finds them). When you answer from such data, call them with `canvas: true` so the person sees exactly what you read; they reuse the tab and return its `itemId`. What the person then changes in that tab (filter, opened record) arrives in the Canvas block — repeat the call without `canvas` to read the same data."
-            + (shows.length ? ` Loaded: ${shows.map(n => `\`${n}\``).join(", ")}.` : ""),
-        "",
-        "A page you or the person will open again belongs at an address: a function tagged `@view` in its JSDoc (it only reads, returns html or rows) opens at `/rpc/<fn>?<json>` — on the canvas as a `view` tab, in a chat link, in a browser tab — and links inside move the same tab. Write one instead of a one-off html tab when the content comes from data. It returns an html fragment (no scripts; an app that needs its own scripts returns `rpc.frame({ src })`); add `@live <topic>` and call `procs.events.refresh({ topic })` where the data changes, and every open copy re-fetches itself (memory pages are `@live memory`)."
-            + (views.length ? ` Views: ${views.map(n => `\`${n}\``).join(", ")}.` : ""),
+        "Some functions return data AND put the same selection on a tab (`@canvas <kind>`; canvas.search finds them): call them with `canvas: true` so the person sees what you read. A `@view` function only reads and returns an html fragment; add `@live <topic>` and call `procs.events.refresh({ topic })` where the data changes, and every open copy re-fetches itself. Details: docs/canvas-views.md."
+            + (plugin.length ? ` Plugin kinds: ${plugin.map(n => `\`${n}\``).join(", ")}.` : ""),
     ].join("\n");
 }

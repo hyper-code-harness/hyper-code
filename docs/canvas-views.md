@@ -3,6 +3,28 @@
 **Status:** `@view` functions as htmx fragments at `GET /rpc/<fn>?<json>`, the `view` canvas kind with its own
 history, drawn on the server in one request; memory, saved pages, files and plugin kinds are views; `@live` views refresh on server events.
 
+## Three kinds of tab, and how to pick one (issue #8)
+
+An audit of 130 tabs by 12 agents (2026-10-20) found agents guessing between file, html, view and live tabs.
+The main mistake: an html page with a Mermaid `<script>` from a CDN (8 of 9 scripted pages) — it becomes a framed
+snapshot with no address and no memory. Next: documents written to `.hyper/tmp`, the same file in several tabs.
+
+There are three kinds of tab; the agent takes the first that fits:
+
+1. **Ours → a Hyper address `/rpc/<fn>?<json>`** (an htmx fragment in the page). `file` (`{ path }` →
+   `files.page`), a static html document (`{ html }` → memory `pages/<slug>.html` → `memory.view`) and plugin
+   kinds are shortcuts to it. Pages are found with `canvas.search({ query })`, which ranks `@view` functions by the
+   function index (`runtime.docs.search({ tag: "view" })`), so a plugin's pages are found as soon as it loads and
+   the prompt never lists them. Html that must run code (an animation, `hyper.*`) stays a sandboxed frame — rare.
+2. **A web site → `url`**, framed; sites that forbid framing show through the canvas frames extension.
+3. **A live session → `browser.live`**, the Hyper machine's Chrome — only for a login, a captcha or automation.
+
+`canvas.show` helps instead of only documenting: `kind` is optional (args decide — `path`, `fn` / `/rpc/…`
+url, `html`, `https://` url); the answer carries `address`, `reused`, `fixed` and `hint`. A page whose only
+scripts draw Mermaid is drawn on the server (`mermaid.render`) and saved as a static page (`fixed` says so); Mermaid
+next to other scripts is left alone with a `hint`; a file from `.hyper/tmp` gets a `hint`. The prompt block
+(`canvas.promptSection`) is the same ladder with bad → good examples.
+
 ## Why
 
 A canvas tab used to be a row (`canvas_items.kind` + `payload`) with no address: it could not be shared, linked

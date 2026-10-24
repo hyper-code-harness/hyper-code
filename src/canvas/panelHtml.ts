@@ -84,11 +84,20 @@ export default async function (
             body = `<div class="flex h-full items-center justify-center p-6 text-sm text-faint">${esc(String(error?.message ?? error))}</div>`;
         }
     }
+    // The canvas folded into a bar (shown only while the canvas is closed, ui.layout CSS): a header cell that opens
+    // it, then one icon per tab that opens it on that tab. Plain htmx posts; every page follows canvas.changed.
+    const openUrl = `/canvas/${encodeURIComponent(opts.agentId)}`;
+    const railHtml = `<nav class="canvas-rail" aria-label="Canvas (closed)">
+    <button type="button" class="canvas-rail-head" hx-post="${openUrl}" hx-vals='{"open":true}' hx-swap="none" hx-target="this" title="Open canvas — ⌘\\" aria-label="Open canvas"><i class="ph ph-square-half" aria-hidden="true"></i></button>
+    ${items.map(item => `<button type="button" class="canvas-rail-tab${item.active ? " is-active" : ""}" hx-post="${openUrl}" hx-vals='${esc(JSON.stringify({ open: true, activeItemId: item.id }))}' hx-swap="none" hx-target="this" title="${esc(item.title)}" aria-label="Open ${esc(item.title)}"><i class="ph ph-${esc(kinds[item.kind]?.icon ?? "square")}" aria-hidden="true"></i></button>`).join("")}
+  </nav>`;
+    // Canvas controls live with the canvas: fold the chat into a strip over it (canvas on the whole page) and back.
+    const foldChat = `<button type="button" class="canvas-fold-chat flex size-7 items-center justify-center rounded-md text-faint hover:bg-base-200 hover:text-base-content" data-canvas-chat-toggle hx-post="${openUrl}" hx-vals='{"op":"toggleChat"}' hx-swap="none" hx-target="this" hx-disabled-elt="this" title="Canvas on the whole page — ⌘\\" aria-label="Fold the chat into a strip"><i class="ph ph-arrows-out-simple canvas-chat-fold" aria-hidden="true"></i><i class="ph ph-arrows-in-simple canvas-chat-unfold" aria-hidden="true"></i></button>`;
     return `<section id="canvas-panel" data-canvas-panel data-agent-id="${id}" data-canvas-rev="${rev.panel}" aria-label="Canvas" class="canvas-panel glass-panel my-2 ml-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ui-border">
-  ${items.length ? `<button type="button" class="canvas-handle" data-canvas-toggle="open" title="Open canvas — ${items.length} tab${items.length === 1 ? "" : "s"}" aria-label="Open canvas, ${items.length} tab${items.length === 1 ? "" : "s"}"><i class="ph ph-caret-right" aria-hidden="true"></i><span class="canvas-handle-label">Canvas</span><span class="canvas-handle-count">${items.length}</span></button>` : ""}
+  ${railHtml}
   <header class="flex h-8 shrink-0 items-stretch bg-base-300/60 text-xs">
     <nav data-canvas-tabs class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] ${items.length ? "" : "border-b border-ui-border"}" aria-label="Canvas tabs">${tabs}</nav>
-    ${history}<div class="flex items-center gap-0.5 border-b border-l border-ui-border px-1.5">${active ? reload : ""}${close}</div>
+    ${history}<div class="flex items-center gap-0.5 border-b border-l border-ui-border px-1.5">${foldChat}${active ? reload : ""}${close}</div>
   </header>
   <div data-canvas-body data-canvas-item="${active?.id ?? ""}" data-canvas-kind="${esc(active?.kind ?? "")}" data-canvas-body-rev="${rev.body}"${active && kinds[active.kind]?.liveState ? ` data-canvas-state="${esc(JSON.stringify(active.state))}"` : ""} class="${active ? "" : "dot-grid-surface "}min-h-0 flex-1 overflow-auto">${body}</div>
 </section>

@@ -177,9 +177,9 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
                 `retrieved ${retrieved} · kept ${ragNames.length} · rerank ${ev.functionRag.rerankStatus ?? (ragReranked ? 'ok' : 'off')}\n${scores}\n${injected}`)
             : '');
         const attachmentHtml = Array.isArray(ev.attachments) && ev.attachments.length
-            ? '<div class="mb-2 flex flex-wrap justify-end gap-2">' + ev.attachments.map((item: any) => {
+            ? '<div class="mb-1.5 flex flex-wrap gap-2" data-attachments-row>' + ev.attachments.map((item: any) => {
                 const url = '/attachments/' + encodeURIComponent(agentId) + '/' + encodeURIComponent(String(item.id));
-                if (String(item.mimeType).startsWith('image/')) return '<a href="' + url + '" target="_blank" rel="noopener" class="block"><img src="' + url + '" alt="' + esc(item.fileName) + '" class="h-20 max-w-40 rounded-lg border border-white/25 object-cover"></a>';
+                if (String(item.mimeType).startsWith('image/')) return '<a href="' + url + '" target="_blank" rel="noopener" class="block"><img src="' + url + '" alt="' + esc(item.fileName) + '" class="block max-h-48 max-w-full rounded-lg object-contain"></a>';
                 return '<a href="' + url + '" target="_blank" rel="noopener" class="inline-flex max-w-56 items-center gap-2 rounded-lg border border-white/25 bg-black/10 px-3 py-2 text-left text-xs"><i class="ph ph-file"></i><span class="truncate">' + esc(item.fileName) + '</span></a>';
             }).join('') + '</div>'
             : '';

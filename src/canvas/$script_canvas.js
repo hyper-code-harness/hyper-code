@@ -56,7 +56,8 @@
     commands['canvas.toggleChat'] = {
         title: 'Collapse/expand chat column', group: 'canvas/window', keys: CHAT_KEY_LABEL,
         run: () => {
-            const button = page()?.querySelector('[data-canvas-chat-toggle]');
+            const button = [...(page()?.querySelectorAll('[data-canvas-chat-toggle]') ?? [])].find(b => b.offsetParent !== null)
+                ?? page()?.querySelector('[data-canvas-chat-toggle]');
             if (!button || button.disabled) return false;
             button.click();
             return true;

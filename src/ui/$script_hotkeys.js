@@ -116,7 +116,16 @@
     if (window.__hyperStripDragInstalled) return;
     window.__hyperStripDragInstalled = true;
     const strip = () => document.querySelector('[data-page="agent"][data-chat-collapsed] > #chat-panel');
-    const onGrip = (el, e) => { const r = el.getBoundingClientRect(); return e.clientY - r.top < 12 && e.clientX < r.right - 48; };
+    const onCorner = (el, e) => { const r = el.getBoundingClientRect(); return e.clientY - r.top < 16 && e.clientX - r.left < 16; };
+    const onGrip = (el, e) => { const r = el.getBoundingClientRect(); return e.clientY - r.top < 12 && e.clientX < r.right - 48 && !onCorner(el, e); };
+    const size = (el, w, h) => {
+        w = Math.max(320, Math.min(w, el.parentElement.getBoundingClientRect().width - 16));
+        h = Math.max(96, Math.min(h, el.parentElement.getBoundingClientRect().height - 16));
+        el.style.setProperty('--strip-w', w + 'px');
+        el.style.setProperty('--strip-h', h + 'px');
+        el.setAttribute('data-strip-sized', '');
+        return { w, h };
+    };
     const place = (el, x, y) => {
         const page = el.parentElement.getBoundingClientRect(), r = el.getBoundingClientRect();
         x = Math.max(8, Math.min(x, page.width - r.width - 8));
@@ -129,8 +138,30 @@
     const restore = () => {
         const el = strip();
         if (!el) return;
+        try { const z = JSON.parse(localStorage.getItem('hyper-strip-size') || 'null'); if (z) size(el, z.w, z.h); } catch (_) {}
         try { const p = JSON.parse(localStorage.getItem('hyper-strip-pos') || 'null'); if (p) place(el, p.x, p.y); } catch (_) {}
     };
+    // The top-left corner resizes: the right and bottom edges stay where they are.
+    document.addEventListener('pointerdown', e => {
+        const el = strip();
+        if (!el || e.button !== 0 || !el.contains(e.target) || !onCorner(el, e)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const page = el.parentElement.getBoundingClientRect(), r = el.getBoundingClientRect();
+        const right = r.right - page.left, bottom = r.bottom - page.top;
+        let last = null, pos = null;
+        const move = ev => {
+            last = size(el, right - (ev.clientX - page.left), bottom - (ev.clientY - page.top));
+            pos = place(el, right - last.w, bottom - last.h);
+        };
+        const up = () => {
+            window.removeEventListener('pointermove', move, true);
+            window.removeEventListener('pointerup', up, true);
+            try { if (last) localStorage.setItem('hyper-strip-size', JSON.stringify(last)); if (pos) localStorage.setItem('hyper-strip-pos', JSON.stringify(pos)); } catch (_) {}
+        };
+        window.addEventListener('pointermove', move, true);
+        window.addEventListener('pointerup', up, true);
+    }, true);
     document.addEventListener('pointerdown', e => {
         const el = strip();
         if (!el || e.button !== 0 || !el.contains(e.target) || !onGrip(el, e)) return;
@@ -153,7 +184,8 @@
         const el = strip();
         if (!el || !el.contains(e.target) || !onGrip(el, e)) return;
         el.removeAttribute('data-strip-moved');
-        try { localStorage.removeItem('hyper-strip-pos'); } catch (_) {}
+        el.removeAttribute('data-strip-sized');
+        try { localStorage.removeItem('hyper-strip-pos'); localStorage.removeItem('hyper-strip-size'); } catch (_) {}
     });
     // The strip appears when the chat folds (canvas.js flips the attribute) or after a page swap.
     new MutationObserver(restore).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-chat-collapsed'] });

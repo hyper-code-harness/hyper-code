@@ -32,6 +32,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <meta name="csrf-token" content="${esc(csrfToken)}">
 <script>(function(){try{var saved=localStorage.getItem('hyper-theme');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch(_){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light'}})()</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<script>(function(){var m='menu';try{var v=localStorage.getItem('hyper-dock-mode');if(v==='bar'||v==='dot'||v==='menu')m=v}catch(_){}if(m!=='bar')document.documentElement.dataset.dockMode=m})()</script>
 <title>${esc(pageTitle)}</title>
 <link rel="icon" href="${esc(favicon)}">
 <!-- htmx 4 (framework bundle). Inheritance stays explicit (htmx 4 default):
@@ -100,6 +101,39 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* The top zone scrolls when pins outgrow it; a soft fade at the bottom edge says there is more. */
 #dock-top { scrollbar-width: none; mask-image: linear-gradient(to bottom, black calc(100% - 1.25rem), transparent); padding-bottom: 1rem; }
 #dock-top::-webkit-scrollbar { display: none; }
+/* Dock modes (html[data-dock-mode], per device in localStorage 'hyper-dock-mode', ⌘B cycles, /dock/dock.js):
+   bar — the icon strip (default); menu — the same strip widened with labels; dot — only the menu circle stays,
+   at the very same place, and the page takes the whole width. */
+#dock { transition: width .16s ease; }
+/* Menu: the thin Dock stays; a ChatGPT-like panel with projects and recent chats opens beside it
+   (#dock-panel, drawn by dock.panel, loaded on first open and kept live on the agents topic). */
+.dock-panel { display: none; }
+.inplace-popup-panel[data-dock-settings-panel] { width: 15rem; }
+/* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */
+@media (max-width: 700px) { html[data-dock-mode] .dock-panel { display: none !important; } }
+body[data-presentation="sidebar"] .dock-panel { display: none !important; }
+html[data-dock-mode="menu"] #dock [data-dock-panel-toggle] { background: color-mix(in oklab, var(--color-base-content) 9%, transparent); color: var(--color-base-content); }
+html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: 16.5rem; flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-radius: 1rem; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
+.dock-panel-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+.dock-panel-project[open] > summary { color: var(--color-base-content); }
+/* Dot: the strip goes away and the menu circle moves into the top row of the page — the canvas tab row
+   (h-8, inside a panel with my-2 ml-2) or the chat header — which makes room for it on the left. */
+html[data-dock-mode="dot"] #dock { position: absolute; z-index: 46; top: .625rem; left: .75rem; width: auto; height: auto; margin: 0; padding: 0; border: 0; border-radius: 9999px; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* The circle's slot mirrors the right end of the tab row (history, reload, close): a cell with a bottom border
+   and a hairline towards the tabs; the circle itself looks like those buttons. */
+html[data-dock-mode="dot"] [data-page="agent"][data-canvas-open] > .canvas-panel > header::before { content: ""; flex: none; width: 2.5rem; border-right: 1px solid var(--color-ui-border); border-bottom: 1px solid var(--color-ui-border); }
+html[data-dock-mode="dot"] [data-page="agent"]:not([data-canvas-open]) #chat-panel > header { padding-left: 2.75rem !important; }
+html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left: 2.75rem; }
+html[data-dock-mode="dot"] #dock:not(:hover, :focus-within, :has(:popover-open)) > :not([data-dock-id="menu"]) { display: none !important; }
+/* Hovered (or holding focus / an open popover) the circle unfolds into the whole bar over the page, the circle
+   staying where it was; the pin button in it keeps the bar for good. */
+html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) { top: calc(.625rem - .5rem - 1px); left: calc(.75rem - .375rem - 1px); bottom: .5rem; height: auto; padding: .5rem .375rem; border: 1px solid var(--color-ui-border); border-radius: 1rem; background-color: rgb(from var(--color-base-100) r g b / .92); box-shadow: 0 8px 28px rgb(0 0 0 / .14); backdrop-filter: blur(12px) saturate(115%); -webkit-backdrop-filter: blur(12px) saturate(115%); }
+#dock .dock-pin-on { display: none; }
+html[data-dock-mode="dot"] #dock .dock-pin-on { display: inline; }
+html[data-dock-mode="dot"] #dock .dock-pin-off { display: none; }
+html[data-dock-mode="dot"] #dock [data-dock-id="menu"] button { width: 1.75rem; height: 1.75rem; border-radius: 9999px; }
+html[data-dock-mode="dot"] #dock [data-dock-id="menu"] button:hover { background: var(--color-base-200); }
+html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-id="menu"] button { border: 1px solid var(--color-ui-border); background: var(--color-base-100); width: 1.75rem; height: 1.75rem; }
 .glass-panel {
   box-shadow: inherit;
 }
@@ -322,6 +356,7 @@ ${opts.headExtra ?? ""}
 <div id="frame" class="relative flex h-screen">
   ${hideNavigation ? "" : ctx.fns.procs.ui.button({ action: "open-global-menu-mobile", html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', appearance: "plain", title: "Agents and pages", ariaLabel: "Open agents and pages", class: "hidden", attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" } })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
+  ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
     <script src="/canvas/canvas.js" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->

@@ -28,23 +28,33 @@ export default async function (
             ]).finally(() => clearTimeout(timer));
             if (!out) return "";
             const html = typeof out === "string" ? out : await ctx.fns.dock.drawButton({ id: item.id, button: out });
-            return html ? `<div class="dock-item flex w-full flex-col items-center" data-dock-id="${esc(item.id)}"${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""}>${html}</div>` : "";
+            return html ? `<div class="dock-item flex w-full flex-col items-center" data-dock-id="${esc(item.id)}"${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""} data-dock-label="${esc(item.label ?? item.id)}">${html}</div>` : "";
         } catch (error: any) {
             ctx.fns.procs.log.warn({ event: "dock.render.failed", msg: `${item.id}: ${String(error?.message ?? error)}` });
             return "";
         }
     };
-    const [topHtml, bottomHtml, me] = await Promise.all([
-        Promise.all(top.map(draw)),
-        Promise.all(bottom.map(draw)),
+    // The settings gear is drawn last, under the person, whatever zone the layout gives it.
+    const gear = [...top, ...bottom].find(x => x.id === "settings");
+    const [topHtml, bottomHtml, me, gearHtml] = await Promise.all([
+        Promise.all(top.filter(x => x !== gear).map(draw)),
+        Promise.all(bottom.filter(x => x !== gear).map(draw)),
         ctx.fns.auth.meBadge({}).catch(() => ""),
+        gear ? draw(gear) : Promise.resolve(""),
     ]);
     const menu = ctx.fns.procs.ui.button({ action: "open-global-menu", html: '<i class="ph ph-squares-four text-base" aria-hidden="true"></i>', appearance: "plain", title: "Global menu — ⌘/", ariaLabel: "Open global menu", class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { onclick: "window.__navOpen?.()" } });
+    // Opens and closes the projects-and-chats panel beside the Dock (menu mode); /dock/dock.js handles the click.
+    const panelToggle = ctx.fns.procs.ui.button({ action: "toggle-dock-panel", html: '<i class="ph ph-sidebar-simple text-base" aria-hidden="true"></i>', appearance: "plain", title: "Projects and chats — ⌘B", ariaLabel: "Projects and chats", class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { "data-dock-panel-toggle": "" } });
+    // Keeps the bar or folds it into the menu circle (it then unfolds on hover); /dock/dock.js handles the click.
+    const pinToggle = ctx.fns.procs.ui.button({ action: "toggle-dock-pin", html: '<i class="ph ph-push-pin-slash text-base dock-pin-off" aria-hidden="true"></i><i class="ph ph-push-pin text-base dock-pin-on" aria-hidden="true"></i>', appearance: "plain", title: "Collapse the bar into the circle", ariaLabel: "Collapse or pin the bar", class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content", attrs: { "data-dock-pin-toggle": "" } });
     return `<nav id="dock" aria-label="Dock" data-dock-hidden="${esc(JSON.stringify(hidden.map(x => x.id)))}" data-dock-labels="${esc(JSON.stringify(labels))}" class="my-2 ml-2 mr-1 flex h-[calc(100%-1rem)] w-10 shrink-0 flex-col items-center rounded-2xl border border-ui-border py-2 shadow-sm">
-    <div class="dock-fixed flex w-full flex-col items-center" data-dock-id="menu">${menu}</div>
+    <div class="dock-fixed flex w-full flex-col items-center" data-dock-id="menu" data-dock-label="Hyper">${menu}</div>
+    <div class="dock-fixed mt-1 flex w-full flex-col items-center" data-dock-id="pin">${pinToggle}</div>
+    <div class="dock-fixed flex w-full flex-col items-center" data-dock-id="panel">${panelToggle}</div>
     <div id="dock-top" class="dock-zone mt-1 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto" data-dock-zone="top">${topHtml.join("")}</div>
     <div id="dock-bottom" class="dock-zone flex w-full flex-col items-center gap-1" data-dock-zone="bottom">${bottomHtml.join("")}</div>
-    ${me ? `<div class="dock-fixed mt-1 flex w-full flex-col items-center" data-dock-id="me">${me}</div>` : ""}
+    ${me ? `<div class="dock-fixed mt-1 flex w-full flex-col items-center" data-dock-id="me" data-dock-label="Account">${me}</div>` : ""}
+    ${gearHtml}
     <script src="/dock/dock.js" defer></script>
   </nav>`;
 }

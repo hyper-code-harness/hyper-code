@@ -18,8 +18,8 @@ test("menu is fixed first, the person fixed last, entries split into top and bot
     expect(items.bottom.map((x: any) => x.id)).toEqual(["b.low"]);
     const html = await ctx.fns.dock.render({});
     const order = [...html.matchAll(/data-dock-id="([^"]+)"/g)].map(m => m[1]);
-    expect(order[0]).toBe("menu");
-    expect(order.slice(1)).toEqual(["a.early", "a.late", "b.low"]);
+    expect(order.slice(0, 3)).toEqual(["menu", "pin", "panel"]);
+    expect(order.slice(3)).toEqual(["a.early", "a.late", "b.low"]);
     expect(html.indexOf('id="dock-top"')).toBeLessThan(html.indexOf('id="dock-bottom"'));
     expect(html).toContain('href="/early"');
     expect(html).toContain('title="Early"');
@@ -81,7 +81,7 @@ test("malformed layout JSON is ignored and the save route validates its body", a
 test("the shipped entries load from $dock_ files", async () => {
     const ctx: any = await mkTestCtx();
     const ids = Object.keys(ctx.state.dock?.items ?? {});
-    for (const id of ["theme", "mentions.mentions", "update.update", "auth.online", "llms.quota"]) expect(ids).toContain(id);
+    for (const id of ["settings", "mentions.mentions", "auth.online"]) expect(ids).toContain(id);
 });
 
 test("pinned chats come from the person's pins and pinned pages from layout.pins; unpin removes them", async () => {

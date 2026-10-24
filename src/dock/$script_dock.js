@@ -96,6 +96,10 @@
         const agentHere = /^\/agent\/([A-Za-z0-9_-]+)$/.exec(location.pathname)?.[1];
         if (agentHere && !document.querySelector(`#dock [data-dock-id="agent:${CSS.escape(agentHere)}"]`)) entries.push({ icon: 'ph-push-pin', label: 'Pin this chat', run: () => pin('agent', agentHere, true) });
         else if (!agentHere && !pinnedHere) entries.push({ icon: 'ph-push-pin', label: 'Pin this page', run: () => pin('page', here, true) });
+        entries.push('-');
+        for (const [m, icon, label] of [['menu', 'ph-sidebar-simple', 'Projects and chats panel'], ['bar', 'ph-dots-three-vertical', 'Icon bar'], ['dot', 'ph-circle', 'Only the circle']]) {
+            if (m !== mode()) entries.push({ icon, label: label + ' (⌘B)', run: () => setMode(m) });
+        }
         entries.push({ icon: 'ph-arrow-counter-clockwise', label: 'Reset Dock', run: reset });
         open(e.clientX + 2, e.clientY + 2, entries);
     });
@@ -106,9 +110,11 @@
         if (!button) return;
         const dark = document.documentElement.dataset.theme === 'dark';
         button.setAttribute('aria-pressed', String(dark));
-        button.title = dark ? 'Use light theme' : 'Use dark theme';
+        if (!button.closest('[popover]')) button.title = dark ? 'Use light theme' : 'Use dark theme';
         const icon = button.querySelector('i');
-        if (icon) icon.className = 'ph ' + (dark ? 'ph-sun' : 'ph-moon');
+        if (icon) { icon.classList.remove('ph-sun', 'ph-moon'); icon.classList.add(dark ? 'ph-sun' : 'ph-moon'); }
+        const name = button.querySelector('[data-theme-name]');
+        if (name) name.textContent = dark ? 'Dark' : 'Light';
     }
     document.addEventListener('click', e => {
         if (!e.target.closest?.('#theme-toggle')) return;
@@ -150,7 +156,68 @@
         document.body.dispatchEvent(new CustomEvent('nav-refresh'));
     }
 
-    const setup = () => { arm(); paintTheme(); };
+    // ── mode: bar (icons) → menu (with labels) → dot (only the menu circle), per device; ⌘B / Ctrl+B cycles ──
+    const MODES = ['bar', 'menu', 'dot'];
+    const mode = () => document.documentElement.dataset.dockMode || 'bar';
+    function setMode(next) {
+        if (!MODES.includes(next)) next = 'bar';
+        if (next === 'bar') delete document.documentElement.dataset.dockMode; else document.documentElement.dataset.dockMode = next;
+        try { localStorage.setItem('hyper-dock-mode', next); } catch (_) {}
+        document.body.dispatchEvent(new CustomEvent('dock-mode', { detail: { mode: next } }));
+        document.querySelectorAll('[data-dock-panel-toggle]').forEach(b => b.setAttribute('aria-pressed', String(next === 'menu')));
+        document.querySelectorAll('[data-dock-pin-toggle]').forEach(b => { b.title = next === 'dot' ? 'Pin the bar' : 'Collapse the bar into the circle'; });
+        if (next === 'menu') loadPanel();
+    }
+    // The side panel (projects, recent chats) is fetched the first time it is shown, then lives on the agents topic.
+    function loadPanel() {
+        const panel = document.getElementById('dock-panel');
+        if (!panel) return;
+        // Empty: fetch it (htmx's own load trigger covers a page that opens in menu mode; this covers a switch).
+        if (!panel.firstElementChild) panel.dispatchEvent(new Event('dock-panel-load'));
+        markCurrent();
+    }
+    function markCurrent() {
+        const here = /^\/agent\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1];
+        document.querySelectorAll('#dock-panel [data-dock-panel-chat]').forEach(a => {
+            if (a.dataset.dockPanelChat === here) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+        });
+    }
+    document.addEventListener('htmx:after:swap', markCurrent);
+    document.addEventListener('htmx:afterSwap', markCurrent);
+    window.addEventListener('popstate', markCurrent);
+    document.addEventListener('click', e => {
+        const b = e.target.closest?.('[data-dock-pin-toggle]');
+        if (!b) return;
+        e.preventDefault();
+        setMode(mode() === 'dot' ? 'bar' : 'dot');
+        b.blur();
+    });
+    // A live refresh must not throw the panel out of its edit mode.
+    document.addEventListener('hyper-live', e => {
+        if (e.target?.id === 'dock-panel' && e.target.querySelector('[data-dock-panel-edit="true"]')) e.stopImmediatePropagation();
+    }, true);
+    document.addEventListener('click', e => { if (e.target.closest?.('[data-dock-panel-toggle]')) { e.preventDefault(); setMode(mode() === 'menu' ? 'bar' : 'menu'); } });
+    document.addEventListener('click', e => { const b = e.target.closest?.('[data-dock-mode-set]'); if (b) { e.preventDefault(); setMode(b.dataset.dockModeSet); } });
+    window.hyperDockMode = { get: mode, set: setMode };
+    document.addEventListener('keydown', e => {
+        if (e.key.toLowerCase() !== 'b' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.isComposing) return;
+        if (!dock()) return;
+        e.preventDefault();
+        setMode(MODES[(MODES.indexOf(mode()) + 1) % MODES.length]);
+    });
+    // Another browser tab changed the mode: follow it.
+    window.addEventListener('storage', e => { if (e.key === 'hyper-dock-mode') setMode(e.newValue || 'bar'); });
+
+    // The settings gear carries a dot while the update badge inside its popover is visible.
+    function paintUpdate() {
+        const badge = document.getElementById('hyper-update-badge');
+        const dot = document.querySelector('#dock [data-dock-settings-dot]');
+        if (dot) dot.hidden = !badge || badge.style.display === 'none';
+    }
+    document.addEventListener('htmx:after:swap', paintUpdate);
+    document.addEventListener('htmx:afterSwap', paintUpdate);
+
+    const setup = () => { arm(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
     document.addEventListener('htmx:after:swap', arm);
 })();

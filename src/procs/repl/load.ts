@@ -17,7 +17,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
         const segs = target.split('.');
         const fnName = segs.pop()!;
         const modPath = segs.join('/');
-        await loadFile(ctx, modPath, fnName);
+        await loadFile(ctx, entries, modPath, fnName);
         scheduleDocsIndex(ctx);
         return { reloaded: target };
     }
@@ -36,7 +36,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
             others.push((entry as any).rel);
             continue;
         }
-        await loadFile(ctx, target, entry.runtimeName!);
+        await loadFile(ctx, entries, target, entry.runtimeName!);
         if (!loaded.includes(entry.runtimeName!)) loaded.push(entry.runtimeName!);
     }
     scheduleDocsIndex(ctx);
@@ -52,10 +52,11 @@ function scheduleDocsIndex(ctx: Context): void {
 }
 
 
-async function loadFile(ctx: Context, modPath: string, fnName: string) {
+// `entries` is the one scan of this repl.load call: a module reload used to rescan
+// the whole project once per function (20 scans for a 19-function module).
+async function loadFile(ctx: Context, entries: any[], modPath: string, fnName: string) {
     // Look the fn up by its dotted registry path in the scan (which knows the
     // real abs path) — works for src AND module files (which live outside src/).
-    const entries = await ctx.fns.procs.project.scan({});
     const e = entries.find((x: any) => x.kind === 'fn' && x.moduleDir === modPath && x.runtimeName === fnName);
     if (!e) throw new Error(`no file for ${modPath}/${fnName}`);
     const m = await import((e as any).abs + `?t=${Date.now()}`);

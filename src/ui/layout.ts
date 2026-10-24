@@ -32,6 +32,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <meta name="csrf-token" content="${esc(csrfToken)}">
 <script>(function(){try{var saved=localStorage.getItem('hyper-theme');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch(_){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light'}})()</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<script>(function(){try{var c=localStorage.getItem('hyper-chrome');document.documentElement.dataset.chrome=c==='cards'?'cards':'flat'}catch(_){document.documentElement.dataset.chrome='flat'}})()</script>
 <script>(function(){var m='menu';try{var v=localStorage.getItem('hyper-dock-mode');if(v==='bar'||v==='dot'||v==='menu')m=v}catch(_){}if(m!=='bar')document.documentElement.dataset.dockMode=m})()</script>
 <title>${esc(pageTitle)}</title>
 <link rel="icon" href="${esc(favicon)}">
@@ -384,6 +385,35 @@ body[data-presentation="sidebar"] #dock,
 body[data-presentation="sidebar"] #mobile-nav-button,
 body[data-presentation="sidebar"] #nav-overlay { display: none !important; }
 body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !important; }
+
+/* Flat chrome (html[data-chrome="flat"], the default; localStorage hyper-chrome = "cards" brings the rounded
+   cards back): the page is ruled into panes by 1px lines — no gaps, no radii, no shadows — like an editor.
+   Bar | side panel | canvas | chat sit edge to edge; every pane's first row is the same 32px grey header, so
+   the headers read as one strip across the window. Floating things (popovers, the folded chat strip, the
+   Dock unfolded from its circle) keep their own rounded look. */
+@media (min-width: 701px) {
+  html[data-chrome="flat"] #frame { background: var(--color-base-100); }
+  html[data-chrome="flat"] #dock,
+  html[data-chrome="flat"] .dock-panel,
+  html[data-chrome="flat"] [data-page="agent"] > .canvas-panel,
+  html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel {
+    margin: 0 !important; height: 100% !important; border-radius: 0 !important; box-shadow: none !important;
+    border: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock { border-right: 1px solid var(--color-ui-border) !important; background: var(--color-base-200) !important; background-image: none !important; }
+  html[data-chrome="flat"][data-dock-mode="menu"] .dock-panel { border-right: 1px solid var(--color-ui-border) !important; background: var(--color-base-200) !important; }
+  html[data-chrome="flat"] [data-page="agent"] { background: var(--color-base-100) !important; }
+  html[data-chrome="flat"] [data-page="agent"][data-canvas-open] > .canvas-panel { background: var(--color-base-100) !important; }
+  /* The resizer is the line between canvas and chat: zero width, a wider invisible grab area. */
+  html[data-chrome="flat"] [data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > .canvas-resizer { flex: 0 0 1px !important; background: var(--color-ui-border); z-index: 5; }
+  html[data-chrome="flat"] [data-page="agent"][data-canvas-open] > .canvas-resizer::before { content: ""; position: absolute; inset: 0 -4px; cursor: col-resize; }
+  html[data-chrome="flat"] [data-page="agent"][data-canvas-open] > .canvas-resizer::after { inset: 0; border-radius: 0; background: transparent; }
+  html[data-chrome="flat"] [data-page="agent"][data-canvas-open] > .canvas-resizer:hover, html[data-chrome="flat"] [data-page="agent"].canvas-resizing > .canvas-resizer { background: var(--color-primary); }
+  html[data-chrome="flat"] [data-page="agent"]:not([data-canvas-open]) > #chat-panel { margin-left: 0 !important; }
+  html[data-chrome="flat"] #page-view { background: var(--color-base-100); }
+  /* In dot mode the circle sits in the first header cell; with the strip gone there is no gap to leave. */
+  html[data-chrome="flat"][data-dock-mode="dot"] #dock { top: .125rem; left: .375rem; }
+}
 </style>
 
 <style>

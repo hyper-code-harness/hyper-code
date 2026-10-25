@@ -17,7 +17,11 @@ export default async function (
 ): Promise<{ status: "compacted" | "not_needed" | "stale"; revision?: number; tokensBefore: number; tokensAfter?: number; keptMessages?: number; summary?: string }> {
     const parent = opts.agent;
     const estimate = (messages: any[]) => Math.ceil(messages.reduce((n: number, m: any) => n + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content ?? "").length) + JSON.stringify(m.tool_calls ?? []).length, 0) / 4);
-    const compactMessage = (m: any) => ({ role: m.role, content: m.content, ...(m.message_type ? { message_type: m.message_type } : {}), ...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}), ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}) });
+    // Images are dropped from the compaction request: the summary is text, and screenshots in a long transcript
+    // overflow the provider's request size limit ("too many total text bytes"). The tail keeps them as they were.
+    const isImage = (p: any) => p && typeof p === "object" && (p.type === "image" || p.type === "image_url" || p.type === "input_image");
+    const stripImages = (c: any) => Array.isArray(c) ? c.map((p: any) => isImage(p) ? { type: "text", text: "[image omitted]" } : p) : c;
+    const compactMessage = (m: any) => ({ role: m.role, content: stripImages(m.content), ...(m.message_type ? { message_type: m.message_type } : {}), ...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}), ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}) });
     const rootMessages = await ctx.fns.session.getMessages({ id: parent.id });
     const sourceFrontier = rootMessages.length;
     const row = ((await ctx.fns.procs.db.select({ sql: "SELECT updated_at, run_state, sleep_context FROM agents WHERE id = ? AND archived_at IS NULL", params: [parent.id] })) as any[])[0];

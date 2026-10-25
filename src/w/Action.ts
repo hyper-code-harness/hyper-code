@@ -20,6 +20,8 @@ export type Action = {
     popover?: string;
     /** Named client action handled by a page script (data-action). */
     action?: string;
+    /** With get/post: put this URL in the address bar after the swap (htmx push-url), so back and reload land here. */
+    push?: string;
     /** Ask before doing it — for every kind (htmx confirm). */
     confirm?: string;
 };

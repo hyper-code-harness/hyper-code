@@ -14,8 +14,8 @@ export default function (ctx: Context, _session: Session | null, opts: { prompt:
       <input type="hidden" name="id" value="${esc(p.id)}">
       <input name="value" type="${type}" required maxlength="${Number(p.maxlength ?? 256)}" ${otp ? 'inputmode="numeric" autocomplete="one-time-code" placeholder="12345"' : type === 'password' ? 'autocomplete="current-password"' : ''} class="input input-bordered mt-1 block w-full bg-base-100 text-base-content placeholder:text-faint focus:border-primary focus:outline-none ${otp ? 'font-mono tracking-[0.3em]' : ''}" autofocus>
       <div class="flex justify-end gap-2">
-        ${ctx.fns.procs.ui.button({ action: 'cancel-secure-input', label: 'Cancel', type: 'button', tone: 'ghost', title: `Cancel ${p.title}`, attrs: { 'data-secure-cancel': true, 'hx-popup': 'secureInput.submit', 'hx-popup-params': JSON.stringify({ id: String(p.id), cancel: '1' }) } })}
-        ${ctx.fns.procs.ui.button({ action: 'submit-secure-input', label: 'Submit', type: 'submit', tone: 'primary' })}
+        ${ctx.fns.w.button({ label: 'Cancel', size: 'sm', tone: 'ghost', title: `Cancel ${p.title}`, action: { popup: { method: 'secureInput.submit', params: { id: String(p.id), cancel: '1' } } }, marks: { action: 'cancel-secure-input' } }).replace('<button', '<button data-secure-cancel')}
+        ${ctx.fns.w.button({ label: 'Submit', size: "sm", tone: "primary", submit: true, marks: { action: 'submit-secure-input' } })}
       </div><p id="secure-input-error" class="text-sm text-error">${esc(opts.error)}</p></form>`;
     return ctx.fns.ui.popupContent({ title: p.title, kind: 'secure-input', class: 'mx-auto w-full max-w-md', html: `<p class="text-sm text-subtle">${esc(p.message)}</p><p class="mt-1 font-mono text-3xs text-faint">${esc(p.name)}</p>${form}` });
 }

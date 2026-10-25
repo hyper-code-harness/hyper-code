@@ -48,6 +48,21 @@ describe("code.quality", () => {
         } finally { cleanup(); }
     });
 
+    test("a call to a @deprecated function from another module is a warning with the replacement", async () => {
+        const { ctx, root, cleanup } = await indexed({
+            "old/thing.ts": `/**\n * Old thing.\n * @deprecated use fresh.thing\n */\nexport default function () { return 1; }\n`,
+            "old/self.ts": `/** Same module. */\nexport default function (ctx: any) { return ctx.fns.old.thing({}); }\n`,
+            "shop/user.ts": `/** Caller. */\nexport default function (ctx: any) { return ctx.fns.old.thing({}); }\n`,
+        });
+        try {
+            expect(ctx.fns.runtime.docs.get({ name: "old.thing" }).deprecated).toBe("use fresh.thing");
+            const q = await ctx.fns.code.quality({ root, rule: "deprecated", limit: 10 });
+            expect(q.findings.map((f: any) => f.name)).toEqual(["shop.user"]);
+            expect(q.findings[0]!.detail).toContain("use fresh.thing");
+            expect(q.ok).toBe(true);
+        } finally { cleanup(); }
+    });
+
     test("include narrows the checks that run", async () => {
         const { ctx, root, cleanup } = await indexed({
             "shop/orphan.ts": `export default function () { return 1; }\n`,

@@ -39,8 +39,8 @@ type Finding = {
  *
  * @param opts.root Limit findings to one scan root, such as `core` for `src/`. Defaults to `core` for the dead-code checks, whose answer is meaningless for plugins.
  * @param opts.severity Only report this severity: `error` or `warn`.
- * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise","untested","tags"]
- * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`, `unknown-tag`, `tag-arg`.
+ * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise","untested","tags","deprecated"]
+ * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`, `unknown-tag`, `tag-arg`, `deprecated`.
  * @param opts.limit Maximum findings to return. @default 50 @minimum 1 @maximum 500
  */
 export default async function (
@@ -49,7 +49,7 @@ export default async function (
     opts?: {
         root?: string;
         severity?: "error" | "warn";
-        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise" | "untested" | "tags">;
+        include?: Array<"boundary" | "unresolved" | "dead" | "test-only" | "rules" | "floating-promise" | "untested" | "tags" | "deprecated">;
         rule?: string;
         limit?: number;
     },
@@ -65,7 +65,7 @@ export default async function (
     // `rule` narrows by the finding's kind, whichever check produced it, so
     // `{ rule: "dead" }` and `{ rule: "empty-catch" }` behave the same way.
     const wantRule = (kind: string) => !opts?.rule || kind === opts.rule;
-    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise", "untested", "tags"]);
+    const include = new Set(opts?.include ?? ["boundary", "unresolved", "dead", "test-only", "rules", "floating-promise", "untested", "tags", "deprecated"]);
     const findings: Finding[] = [];
 
     if (include.has("boundary") && wantRule("boundary")) {
@@ -208,6 +208,37 @@ export default async function (
                     ? `only its own test calls it (${f.testCallers} call site(s))`
                     : "nothing calls it, and it is not an entry point",
             });
+        }
+    }
+
+    // A call to a function marked `@deprecated <replacement>`. The old function keeps working (compatibility),
+    // but every new call makes the migration longer, so each call site from outside the function's own module
+    // is named with what to use instead. Calls inside the module (its own tests, its own helpers) are not.
+    if (include.has("deprecated") && wantRule("deprecated")) {
+        const deprecated = new Map<string, string>();
+        for (const item of ctx.fns.runtime.docs.list({})) {
+            const meta = ctx.fns.runtime.docs.get({ name: item.name }) as { deprecated?: string };
+            if (meta?.deprecated) deprecated.set(item.name, meta.deprecated);
+        }
+        if (deprecated.size) {
+            type CallRow = { caller: string; callee: string; rel: string; line: number | string };
+            const names = [...deprecated.keys()];
+            const rows = await ctx.fns.procs.db.select({
+                sql: `SELECT c.caller, c.callee, c.rel, c.line FROM code_calls c
+                       WHERE c.callee IN (${names.map(() => "?").join(",")}) AND c.kind NOT IN ('type', 'test')
+                       ${opts?.root ? "AND EXISTS (SELECT 1 FROM code_functions cf WHERE cf.name = c.caller AND cf.root = ?)" : ""}
+                       ORDER BY c.rel, c.line`,
+                params: [...names, ...(opts?.root ? [opts.root] : [])],
+            }) as CallRow[];
+            const moduleOf = (name: string) => name.split(".").slice(0, -1).join(".");
+            for (const r of rows) {
+                if (/\.test\.ts$/.test(r.rel)) continue;
+                if (moduleOf(r.caller) === moduleOf(r.callee)) continue;
+                findings.push({
+                    kind: "deprecated", severity: "warn", name: r.caller, rel: r.rel, line: Number(r.line),
+                    detail: `calls ${r.callee}, which is deprecated: ${deprecated.get(r.callee)}`,
+                });
+            }
         }
     }
 

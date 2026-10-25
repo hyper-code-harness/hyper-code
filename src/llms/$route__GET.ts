@@ -48,7 +48,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
   ${authorizationUrl ? `<a class="mt-2 inline-flex rounded-md border border-info/40 bg-base-100 px-3 py-1.5 font-medium text-info hover:bg-info/15" target="_blank" rel="noreferrer" href="${esc(authorizationUrl)}">Open Anthropic authorization</a>` : ""}
   <form method="POST" action="/llms/anthropic-oauth/complete" class="mt-3 space-y-2">
     <label for="anthropic-authorization" class="block font-medium">Paste the final redirect URL or authorization code</label>
-    <div class="flex flex-col gap-2 sm:flex-row"><input id="anthropic-authorization" name="authorization" required autocomplete="off" spellcheck="false" placeholder="http://localhost:53692/callback?code=…&state=…" class="min-w-0 flex-1 rounded-md border border-info/30 bg-base-100 px-3 py-2 font-mono text-xs">${ctx.fns.procs.ui.button({ action: 'complete-oauth', label: 'Complete connection', type: 'submit', tone: 'primary' })}</div>
+    <div class="flex flex-col gap-2 sm:flex-row"><input id="anthropic-authorization" name="authorization" required autocomplete="off" spellcheck="false" placeholder="http://localhost:53692/callback?code=…&state=…" class="min-w-0 flex-1 rounded-md border border-info/30 bg-base-100 px-3 py-2 font-mono text-xs">${ctx.fns.w.button({ label: 'Complete connection', size: "sm", tone: "primary", submit: true, marks: { action: 'complete-oauth' } })}</div>
     <p class="text-2xs text-primary">Use this when the callback opened on another machine or localhost could not be reached.</p>
   </form>
 </div>` : "";
@@ -59,13 +59,13 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
 <form method="POST" action="/llms/anthropic-oauth/connect" class="flex flex-wrap items-center gap-2">
   <input name="account" required pattern="[\\w.-]{1,40}" placeholder="account name, e.g. personal" class="w-56 rounded-md border border-base-300 bg-base-100 px-2 py-1.5 font-mono text-xs" aria-label="Account slot">
   <input name="label" placeholder="label (optional)" class="w-48 rounded-md border border-base-300 bg-base-100 px-2 py-1.5 text-xs" aria-label="Account label">
-  ${ctx.fns.procs.ui.button({ action: 'add-claude-account', label: 'Add Claude account', type: 'submit' })}
+  ${ctx.fns.w.button({ label: 'Add Claude account', size: "sm", submit: true, marks: { action: 'add-claude-account' } })}
 </form>`;
 
     const oauthActions = oauth.connected ? `
-<form method="POST" action="/llms/anthropic-oauth/connect"><input type="hidden" name="account" value="default">${ctx.fns.procs.ui.button({ action: 'reconnect-claude', label: oauth.needsReconnect ? "Reconnect" : "Reconnect main account", type: 'submit', tone: 'primary' })}</form>
+<form method="POST" action="/llms/anthropic-oauth/connect"><input type="hidden" name="account" value="default">${ctx.fns.w.button({ label: oauth.needsReconnect ? "Reconnect" : "Reconnect main account", size: "sm", tone: "primary", submit: true, marks: { action: 'reconnect-claude' } })}</form>
 ${addAccountForm}` : `
-<form method="POST" action="/llms/anthropic-oauth/connect"><input type="hidden" name="account" value="default">${ctx.fns.procs.ui.button({ action: 'connect-claude', label: pending ? "Restart connection" : "Connect Claude Pro / Max", type: 'submit', tone: 'primary' })}</form>`;
+<form method="POST" action="/llms/anthropic-oauth/connect"><input type="hidden" name="account" value="default">${ctx.fns.w.button({ label: pending ? "Restart connection" : "Connect Claude Pro / Max", size: "sm", tone: "primary", submit: true, marks: { action: 'connect-claude' } })}</form>`;
 
     const oauthCard = `<article class="rounded-xl border ${oauth.connected ? "border-success/30" : "border-base-300"} bg-base-100 p-4 shadow-sm md:col-span-2">
   <div class="flex items-start gap-3"><div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg text-primary"><i class="ph ph-sparkle"></i></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold text-base-content">Anthropic subscription</h2>${badge(oauth.connected && !oauth.needsReconnect, oauthLabel)}</div><p class="mt-1 text-xs leading-5 text-subtle">Claude Pro or Max through managed OAuth. Agents use the <code>anthropic-oauth:</code> model prefix.</p></div></div>

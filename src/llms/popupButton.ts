@@ -16,6 +16,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Additional layout-only classes. */ class?: string;
     /** Button type. @default "submit" */ type?: "submit" | "button";
 }): string {
-    const html = ctx.fns.procs.ui.button({ action: opts.action, label: opts.label, tone: opts.tone ?? "default", name: opts.type === "button" ? undefined : "submit", value: "1" });
-    return opts.class ? html.replace('class="', `class="${opts.class} `) : html;
+    const tone = opts.tone === "primary" || opts.tone === "danger" || opts.tone === "ghost" ? opts.tone : "neutral";
+    const html = ctx.fns.w.button({ label: opts.label, tone, size: "sm", marks: { action: opts.action }, ...(opts.type === "button" ? {} : { submit: { name: "submit", value: "1" } }) });
+    // Layout-only classes (w-full) go before the widget class, so the widget keeps owning the look.
+    return opts.class ? html.replace('class="w-btn"', `class="${opts.class} w-btn"`) : html;
 }

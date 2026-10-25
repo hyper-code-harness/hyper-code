@@ -131,3 +131,15 @@ test("no two files differ only by letter case (macOS would write one over the ot
     for (const n of names) { const k = n.toLowerCase(); if (seen.has(k) && seen.get(k) !== n) clash.push(`${seen.get(k)} / ${n}`); seen.set(k, n); }
     expect(clash).toEqual([]);
 });
+
+test("button: submit and automation marks", async () => {
+    const ctx: any = await mkTestCtx();
+    const s = ctx.fns.w.button({ label: "Save", tone: "primary", submit: { name: "op", value: "save" }, marks: { action: "save-node" } });
+    expect(s).toContain('type="submit"');
+    expect(s).toContain('name="op" value="save"');
+    expect(s).toContain('data-action="save-node"');
+    expect(s).not.toContain("hx-");
+    expect(() => ctx.fns.w.button({ label: "x", submit: true, action: { href: "/" } })).toThrow();
+    const i = ctx.fns.w.iconButton({ icon: "x", label: "Close", marks: { action: "close", id: "a1" } });
+    expect(i).toContain('data-action="close" data-id="a1"');
+});

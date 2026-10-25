@@ -5,6 +5,7 @@
  * @param opts.label The display label.
  * @param opts.children Child content to render.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.tooltip
  */
 export default function (ctx: Context, _session: Session | null, opts: {label: string; children: string; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

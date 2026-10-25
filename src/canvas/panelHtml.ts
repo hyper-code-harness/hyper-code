@@ -16,26 +16,13 @@ export default async function (
     },
 ): Promise<string> {
     const id = ctx.fns.procs.ui.escape({ text: opts.agentId });
-    const close = ctx.fns.procs.ui.button({
-        action: "close-canvas",
-        html: '<i class="ph ph-x" aria-hidden="true"></i>',
-        appearance: "plain",
-        ariaLabel: "Close canvas",
-        class: "flex size-7 shrink-0 items-center justify-center rounded-full text-faint transition hover:bg-base-200 hover:text-base-content",
-        title: "Close canvas",
-        attrs: { "data-canvas-toggle": "close" },
-    });
+    // The canvas script finds these by data-canvas-*, never by class.
+    const close = ctx.fns.w.iconButton({ icon: "x", label: "Close canvas", size: 28, marks: { action: "close-canvas" } })
+        .replace("<button", '<button data-canvas-toggle="close"');
     // Reload draws the active tab again from its source: a file re-read, a site re-fetched, an html page's
     // load re-run, a tsx drawing recomputed. canvas.js asks for the panel and swaps the body unconditionally.
-    const reload = ctx.fns.procs.ui.button({
-        action: "reload-canvas-tab",
-        html: '<i class="ph ph-arrow-clockwise" aria-hidden="true"></i>',
-        appearance: "plain",
-        ariaLabel: "Reload tab",
-        class: "flex size-7 shrink-0 items-center justify-center rounded-full text-faint transition hover:bg-base-200 hover:text-base-content",
-        title: "Reload tab",
-        attrs: { "data-canvas-reload": "" },
-    });
+    const reload = ctx.fns.w.iconButton({ icon: "arrow-clockwise", label: "Reload tab", size: 28, marks: { action: "reload-canvas-tab" } })
+        .replace("<button", "<button data-canvas-reload");
     const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
     const items = await ctx.fns.canvas.list({ agentId: opts.agentId }).catch(() => [] as types.canvas.Item[]);
     const kinds = ((ctx.state as any).canvas?.kinds ?? {}) as Record<string, types.canvas.Registered>;

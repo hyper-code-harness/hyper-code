@@ -8,7 +8,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
       <p class="text-2xs text-muted">The token is shown once. The other Hyper adds it under LLMs → Hyper nodes.</p>
       <label class="block text-2xs font-medium">Client name<input name="name" required placeholder="anna" class="input input-bordered input-sm mt-1 w-full font-mono text-xs"></label>
       <fieldset class="space-y-1"><legend class="text-2xs font-medium">Providers it may use</legend>${boxes}</fieldset>
-      <div class="flex justify-end">${ctx.fns.procs.ui.button({ action: "issue-node-token", label: "Issue token", type: "submit", tone: "primary", size: "sm" })}</div>
+      <div class="flex justify-end">${ctx.fns.w.button({ label: "Issue token", size: "sm", tone: "primary", submit: true, marks: { action: "issue-node-token" } })}</div>
     </form>`;
     return ctx.fns.ui.popupContent({ title: "Share your models with another Hyper", kind: "login", html });
 }

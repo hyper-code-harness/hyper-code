@@ -33,7 +33,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
 
     const nodesHead = ctx.fns.procs.ui.heading({ title: "Hyper nodes", meta: "Other Hyper instances whose models you use as hyper/<node>:<model>.", actions: ctx.fns.ui.popup({ method: "node.editPopup", params: {}, tone: "default", size: "sm", html: `<i class="ph ph-plus" aria-hidden="true"></i><span>Add node</span>` }) });
     const clientsHead = ctx.fns.procs.ui.heading({ title: "Shared with", meta: "Hyper instances allowed to relay through your providers.", actions: ctx.fns.ui.popup({ method: "node.issuePopup", params: {}, tone: "default", size: "sm", html: `<i class="ph ph-key" aria-hidden="true"></i><span>Issue token</span>` }) });
-    const box = (rows: string, empty: string) => `<div class="mt-2 overflow-hidden rounded-xl border border-ui-border bg-base-100">${rows || ctx.fns.procs.ui.empty({ title: empty, text: "" })}</div>`;
+    const box = (rows: string, empty: string) => `<div class="mt-2 overflow-hidden rounded-xl border border-ui-border bg-base-100">${rows || ctx.fns.w.empty({ title: empty, icon: "tray" })}</div>`;
     const html = `<div class="space-y-6"><section>${nodesHead}${box(nodeRows, "No nodes")}</section><section>${clientsHead}${box(clientRows, "Nobody yet")}</section></div>`;
     return ctx.fns.ui.live({ id: "hyper-nodes", url: "/node/card", topic: "node-clients", swap: "outerMorph", every: 30, attrs: 'class="block"', html });
 }

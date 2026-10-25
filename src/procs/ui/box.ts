@@ -18,6 +18,7 @@
  * @param opts.body The HTTP body.
  * @param opts.empty The empty value used by the operation.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.card
  */
 export default function (ctx: Context, _session: Session | null, opts: {title: string; head?: string; right?: string; body: string; empty?: string; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

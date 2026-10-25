@@ -5,6 +5,7 @@
  * @param opts.name The target name.
  * @param opts.src The src value used by the operation.
  * @param opts.size The size value used by the operation.
+ * @deprecated use w.avatar
  */
 export default function (ctx: Context, _session: Session | null, opts: {name?: string; src?: string; size?: "sm" | "md" | "lg" }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

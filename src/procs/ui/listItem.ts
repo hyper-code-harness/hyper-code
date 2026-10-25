@@ -16,6 +16,7 @@
  * @param opts.meta Metadata parts joined with " · " (plain text).
  * @param opts.detail Trusted HTML shown under the preview, such as a highlighted search snippet.
  * @param opts.right Trusted trailing HTML such as an icon link.
+ * @deprecated use w.listRow inside w.list
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Entity type marker, such as `task`. */

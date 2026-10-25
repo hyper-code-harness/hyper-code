@@ -13,6 +13,7 @@ const TONE = {
  * Perform notice for the ui subsystem.
  * @param opts.text The text to process.
  * @param opts.tone The tone value used by the operation.
+ * @deprecated use w.toast
  */
 export default function (ctx: Context, _session: Session | null, opts: {text: string; tone?: keyof typeof TONE }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

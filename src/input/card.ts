@@ -32,11 +32,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     else if (input.state === "open") {
         const fields = await kind.open(ctx, { input, error: opts.error ?? null });
         const buttons = kind.buttons ? await kind.buttons(ctx, { input })
-            : ctx.fns.procs.ui.button({ action: "input-submit", label: "Submit", type: "submit", tone: "primary", size: "sm" });
+            : ctx.fns.w.button({ label: "Submit", size: "sm", tone: "primary", submit: true, marks: { action: "input-submit" } });
         // formnovalidate: a required field left empty must not block "cancel".
-        const cancel = kind.cancel === false ? "" : ctx.fns.procs.ui.button({
-            action: "input-cancel", label: "Cancel", type: "submit", tone: "ghost", size: "sm", name: "_action", value: "cancel",
-        }).replace("<button", "<button formnovalidate");
+        const cancel = kind.cancel === false ? "" : ctx.fns.w.button({ label: "Cancel", size: "sm", tone: "ghost", submit: { name: "_action", value: "cancel" }, marks: { action: "input-cancel" } }).replace("<button", "<button formnovalidate");
         const error = opts.error ? `<p class="text-2xs text-error" role="alert">${esc(opts.error)}</p>` : "";
         // The CSRF token rides in a header read from the page meta at submit time:
         // the card is rendered without a request (when the agent opens it), so

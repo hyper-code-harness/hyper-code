@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import popup from "./loginPopup";
 
 const button = ({ label, tone = "default", class: cls = "" }: any) => `<button type="submit" class="${cls} ui-button ui-button--sm ui-button--${tone}">${label}</button>`;
-const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"), button } }, llms: { popupButton: button } } };
+const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"), button } }, llms: { popupButton: button }, w: { button: ({ label, tone = "neutral" }: any) => `<a class="w-btn" data-tone="${tone}">${label}</a>` } } };
 
 describe("llms.loginPopup", () => {
     test("Claude offers managed OAuth and CLI as separate explicit choices", () => {

@@ -59,6 +59,11 @@ Only the first word after the tag is its value; the rest of the line is prose. A
 sentence ("the @mentions badge") is not a tag. `meta.view`, `meta.live` and `meta.canvas` are derived from
 `meta.tags` for the existing consumers.
 
+`@deprecated <what to use instead>` is standard JSDoc and not a function tag, but the loader keeps its text as
+`meta.deprecated`, and `code.quality` reports every call to such a function from outside its own module (rule
+`deprecated`, a warning that carries the replacement). The function keeps working — that is the compatibility —
+while the count shows how much is left to migrate: `code.quality({ rule: "deprecated" })`.
+
 ## Index and search
 
 `runtime.docs.index` writes `meta.tags` to `functions.tags` (jsonb, GIN index), compared in its canonical form so an

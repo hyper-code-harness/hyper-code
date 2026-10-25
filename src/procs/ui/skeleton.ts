@@ -4,6 +4,7 @@
  * Perform skeleton for the ui subsystem.
  * @param opts.lines The lines value used by the operation.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.spinner with kind "skeleton"
  */
 export default function (ctx: Context, _session: Session | null, opts?: { lines?: number; class?: string }): string {
     const n = opts?.lines ?? 3;

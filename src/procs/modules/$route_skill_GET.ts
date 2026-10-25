@@ -20,13 +20,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         return {
             title: "skill",
             status: 404,
-            main: ctx.fns.procs.ui.notice({ tone: "warning", text: `${name || "that module"} ships no SKILL.md` }),
+            main: ctx.fns.w.toast({ level: "warning", message: `${name || "that module"} ships no SKILL.md` }),
         };
     }
 
     const text = await Bun.file(module.skill).text().catch(() => null);
     if (text === null) {
-        return { title: "skill", status: 404, main: ctx.fns.procs.ui.notice({ tone: "danger", text: `${module.skill} is named by the module and is not on disk` }) };
+        return { title: "skill", status: 404, main: ctx.fns.w.toast({ level: "error", message: `${module.skill} is named by the module and is not on disk` }) };
     }
 
     const body = await ctx.fns.markdown.render({ source: text });
@@ -37,7 +37,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
             page: "skill",
             title: module.label ?? module.name,
             lead: `<span class="font-mono">${esc(module.skill)}</span> — what the agent reads before it touches this module.`,
-            main: ctx.fns.procs.ui.box({ class: "mt-4", title: "SKILL.md", body: `<div class="md-preview prose prose-sm max-w-none px-4 py-3">${body}</div>` }),
+            main: `<div class="mt-4">${ctx.fns.w.card({ title: "SKILL.md", icon: "file-text", body: `<div class="md-preview prose prose-sm max-w-none">${body}</div>` })}</div>`,
         }),
     };
 }

@@ -16,7 +16,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const kinds = (["href", "post", "get", "popup", "popover", "action"] as const).filter(k => a[k] !== undefined && a[k] !== "");
     if (kinds.length !== 1) throw new Error(`w.Action needs exactly one of href, post, get, popup, popover, action — got ${kinds.join(", ") || "none"}`);
     const confirm = a.confirm ? ` hx-confirm="${esc(a.confirm)}"` : "";
-    const vals = a.vals ? ` hx-vals="${esc(JSON.stringify(a.vals))}"` : "";
+    const vals = (a.vals ? ` hx-vals="${esc(JSON.stringify(a.vals))}"` : "") + (a.push && (a.get || a.post) ? ` hx-push-url="${esc(a.push)}"` : "");
     if (a.href !== undefined) {
         const url = ctx.fns.w.safeUrl({ url: a.href });
         if (!url) return { tag: "div", attrs: ' aria-disabled="true"' };

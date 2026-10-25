@@ -16,7 +16,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const account = String(opts.account ?? "").trim();
     if (!/^[\w.-]{1,40}$/.test(account)) throw new Error("account must be a short name");
     const login = await ctx.fns.llm.startAnthropicOAuth({ account, label: account });
-    const open = ctx.fns.procs.ui.button({ action: "open-anthropic-authorization", label: "Open Anthropic authorization", href: login.authorizationUrl, tone: "primary", class: "w-full", attrs: { onclick: "this.target='_blank';this.rel='noreferrer'" } });
+    const open = ctx.fns.w.button({ label: "Open Anthropic authorization", tone: "primary", icon: "arrow-square-out", action: { href: login.authorizationUrl }, marks: { action: "open-anthropic-authorization" } }).replace('class="w-btn"', 'class="w-full justify-center w-btn"');
     const complete = ctx.fns.llms.popupButton({ action: "complete-managed-oauth", label: "Complete manually", tone: "default", class: "w-full" });
     const html = `<div class="space-y-3">
       <div class="rounded-lg border border-ui-border bg-base-200 p-3 text-xs leading-5"><div class="font-semibold">Claude · ${escape(ctx, account)}</div><p class="mt-1">Open Anthropic authorization and finish signing in. The localhost callback will complete this popup flow automatically.</p></div>

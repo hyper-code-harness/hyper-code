@@ -13,6 +13,7 @@ const TONE = {
  * @param opts.text The text to process.
  * @param opts.icon The icon value used by the operation.
  * @param opts.action The action URL.
+ * @deprecated use w.empty (a state in a pane) or w.toast (a note after an action)
  */
 export default function (ctx: Context, _session: Session | null, opts: {tone?: keyof typeof TONE; title: string; text?: string; icon?: string; action?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

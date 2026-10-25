@@ -6,6 +6,7 @@
  * @param opts.items Tabs in display order.
  * @param opts.current Value of the active tab.
  * @param opts.class Extra CSS classes for the tab strip.
+ * @deprecated use w.tabs
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Tabs in display order. */

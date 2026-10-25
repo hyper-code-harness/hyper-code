@@ -61,7 +61,7 @@ export default async function (
   <form method="GET" action="/functions" ${ctx.fns.procs.ui.attr({ form: "function-search" })} class="mt-6 grid gap-2 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
     <label class="flex h-10 items-center gap-2 rounded-lg border border-base-300 bg-base-100 px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"><i class="ph ph-magnifying-glass text-faint"></i><input name="q" value="${esc(q)}" placeholder="Search in English: send telegram message…" class="min-w-0 grow bg-transparent text-sm text-base-content outline-none placeholder:text-faint" autofocus></label>
     <select name="namespace" class="h-10 w-full rounded-lg border border-base-300 bg-base-100 px-3 text-sm text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="">All namespaces</option>${namespaceOptions}</select>
-    ${ctx.fns.procs.ui.button({ action: "search-functions", label: "Search", type: "submit", tone: "primary", size: "md", class: "h-10" })}
+    ${ctx.fns.w.button({ label: "Search", tone: "primary", submit: true, marks: { action: "search-functions" } })}
   </form>
   ${q ? `<p class="mt-2 text-xs text-faint">Runtime search works best with concise English keywords.</p>` : ""}
   <div class="mt-5 space-y-3">${cards || `<div class="rounded-xl border border-dashed border-base-300 px-4 py-10 text-center text-sm text-subtle">No functions found.</div>`}</div>

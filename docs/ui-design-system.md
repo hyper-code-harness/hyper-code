@@ -238,6 +238,14 @@ inside widgets (principles 1, 3, 9, 13). Widgets themselves keep their own seman
 
 ## Legacy app styles (`procs.ui.*`, `ui-*` tokens)
 
+The visual `procs.ui.*` components (button, badge, box, card, empty, notice, alert, avatar, descriptionList,
+listItem, menu, skeleton, statusDot, tabs, tags, toolbar, tooltip) are `@deprecated`: they keep working for
+compatibility, and each one names its `w.*` replacement. `code.quality({ rule: "deprecated" })` lists every call
+still left. Infrastructure helpers (`escape`, `attr`, `page`, `layout`, `respond`, `notFound`, `field`, `form`)
+are not deprecated. Mapping: button → `w.button` (`submit`, `marks` for data-* automation markers, `keys`, `id`) or
+`w.iconButton`; notice → `w.toast` (carries `data-role="notice"`); box/card → `w.card`; empty/alert → `w.empty`;
+descriptionList → `w.keyValue`; tags → one `w.badge` per chip; listItem → `w.listRow`; statusDot → `w.dot`.
+
 ### Palette
 
 The default visual language is four base colours — white, grey, blue and black — plus one super accent used sparingly (principles 1–2 above). Green, amber and red appear only for semantic success, warning and danger on the element they describe.

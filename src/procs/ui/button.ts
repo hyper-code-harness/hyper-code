@@ -39,6 +39,7 @@ const SIZE = { xs: "ui-button--xs", sm: "ui-button--sm", md: "ui-button--md", lg
  * @param opts.value Submitted field value. @default "1"
  * @param opts.class Layout-only utility classes; visual styling belongs to the component.
  * @param opts.attrs Additional safe HTML attributes needed by platform integrations.
+ * @deprecated use w.button (text) or w.iconButton (icon only); automation markers go in marks
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     action?: string; label?: string; html?: string; href?: string; element?: "button" | "summary"; appearance?: "button" | "plain";

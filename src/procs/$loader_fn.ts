@@ -140,10 +140,14 @@ function reflectSource(ts: any, entry: any): any {
         const canvas = tags.canvas?.[0];
         const view = !!tags.view;
         const live = tags.live?.[0];
+        // `@deprecated <what to use instead>` — still works, but new code must not call it; code.quality reports
+        // every call from outside the function's own module (rule `deprecated`).
+        const dep = (ts.getJSDocTags(decl) as any[]).find(t => String(t.tagName?.text ?? "") === "deprecated");
+        const deprecated = dep ? (commentText(dep.comment).trim() || "deprecated") : undefined;
         return {
             summary: firstLine(doc), doc,
             signature: `(${optsType}) => ${returnType}`,
-            optsType, paramsSchema, returnType, tags, ...(canvas ? { canvas } : {}), ...(view ? { view: true } : {}), ...(live ? { live } : {}),
+            optsType, paramsSchema, returnType, tags, ...(canvas ? { canvas } : {}), ...(view ? { view: true } : {}), ...(live ? { live } : {}), ...(deprecated ? { deprecated } : {}),
             line: sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line + 1,
         };
     } catch {

@@ -15,7 +15,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
   <input type="password" name="value" placeholder="${set ? "(set — paste to replace)" : "paste key"}"
     class="min-w-40 flex-1 px-2 py-1 text-xs font-mono border border-base-300 rounded bg-base-100">
   <span class="text-xs ${set ? "text-success" : "text-faint"}">${set ? "✓ set" : "—"}</span>
-  ${ctx.fns.procs.ui.button({ action: 'save-env', label: 'save', size: 'xs' })}
+  ${ctx.fns.w.button({ label: 'save', size: "sm", submit: true, marks: { action: 'save-env' } })}
   ${hint ? `<span class="basis-full text-xs text-faint sm:basis-auto">${esc(hint)}</span>` : ""}
 </form>`;
 
@@ -60,10 +60,10 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
       <span class="text-xs text-faint font-mono">${s.kimiCoding.loggedIn ? expHuman(s.kimiCoding.expSec) : ""}</span>
       <span class="flex-1"></span>
       <form method="POST" action="/settings/kimi/login" class="inline">
-        ${ctx.fns.procs.ui.button({ action: 'kimi-login', label: s.kimiCoding.loggedIn ? 're-login' : 'login', size: 'xs' })}
+        ${ctx.fns.w.button({ label: s.kimiCoding.loggedIn ? 're-login' : 'login', size: "sm", submit: true, marks: { action: 'kimi-login' } })}
       </form>
       ${s.kimiCoding.loggedIn ? `<form method="POST" action="/settings/kimi/logout" class="inline">
-        ${ctx.fns.procs.ui.button({ action: 'logout', label: 'logout', size: 'xs' })}
+        ${ctx.fns.w.button({ label: 'logout', size: "sm", submit: true, marks: { action: 'logout' } })}
       </form>` : ""}
     </div>
     ${loginBox(kc, "auth.kimi.com")}
@@ -78,10 +78,10 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
       <span class="text-xs text-faint font-mono">${s.codex.email ? esc(s.codex.email) + " · " + expHuman(s.codex.expSec) : ""}</span>
       <span class="flex-1"></span>
       <form method="POST" action="/settings/codex/login" class="inline">
-        ${ctx.fns.procs.ui.button({ action: 'codex-login', label: s.codex.loggedIn ? 're-login' : 'login', size: 'xs' })}
+        ${ctx.fns.w.button({ label: s.codex.loggedIn ? 're-login' : 'login', size: "sm", submit: true, marks: { action: 'codex-login' } })}
       </form>
       ${s.codex.loggedIn ? `<form method="POST" action="/settings/codex/logout" class="inline">
-        ${ctx.fns.procs.ui.button({ action: 'logout', label: 'logout', size: 'xs' })}
+        ${ctx.fns.w.button({ label: 'logout', size: "sm", submit: true, marks: { action: 'logout' } })}
       </form>` : ""}
     </div>
     ${loginBox(cx, "auth.openai.com")}

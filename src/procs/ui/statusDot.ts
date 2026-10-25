@@ -8,6 +8,7 @@ const TONE: Record<string, string> = { running: "status-success", ready: "status
  * @param opts.status The status value.
  * @param opts.label The display label.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.dot
  */
 export default function (ctx: Context, _session: Session | null, opts: {status: string; label?: string; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

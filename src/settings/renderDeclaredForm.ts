@@ -37,7 +37,7 @@ function renderRow(ctx: Context, item: any): string {
         : item.source === 'env' ? `<span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">env: ${esc(d.env)}</span>`
         : '<span class="text-xs px-1.5 py-0.5 rounded bg-base-200 text-subtle border border-ui-border">default</span>';
     const resetBtn = item.source === 'db'
-        ? ctx.fns.procs.ui.button({ action: 'reset-setting', label: 'reset', name: 'reset', value: item.module + '.' + item.key, size: 'xs' })
+        ? ctx.fns.w.button({ label: 'reset', size: "sm", submit: { name: 'reset', value: item.module + '.' + item.key }, marks: { action: 'reset-setting' } })
         : '';
     return `<tr class="border-b border-base-200">
   <td class="px-3 py-2 align-top">
@@ -79,6 +79,6 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
       hx-target="this"
       hx-swap="outerHTML">
   ${sections || '<div class="text-sm text-subtle">No <code>$setting_*.ts</code> declarations found.</div>'}
-  ${items.length ? ctx.fns.procs.ui.button({ action: 'save-settings', label: 'Save changes', type: 'submit' }) : ''}
+  ${items.length ? ctx.fns.w.button({ label: 'Save changes', submit: true, marks: { action: 'save-settings' } }) : ''}
 </form>`;
 }

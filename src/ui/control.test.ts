@@ -71,7 +71,7 @@ describe('ui control helpers', () => {
     const { ctx } = await mkCtx();
     const html = ctx.fns.secureInput.render({ prompt: { id: 'p1', name: 'test-1', title: 'Test', message: 'Enter', kind: 'text', maxlength: 20 } });
     expect(html).toContain('input input-bordered');
-    expect(html).toContain('ui-button ui-button--sm ui-button--primary');
+    expect(html).toMatch(/class="w-btn" data-tone="primary" data-size="sm"/);
     expect(html).toContain('data-secure-cancel');
     // Two hx-popup attributes, and both are load-bearing: the form submits the
     // secret through `secureInput.submit`, and Cancel posts the same method

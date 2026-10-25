@@ -10,6 +10,7 @@ const ctx: any = { fns: {
         button: (o: any) => JSON.stringify(o),
         toolbar: () => "toolbar",
     } },
+    w: { button: (o: any) => JSON.stringify(o), empty: () => "empty" },
     ui: {
         modelLogo: () => "logo",
         popup: (o: any) => JSON.stringify(o),

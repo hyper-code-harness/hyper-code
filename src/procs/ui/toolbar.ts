@@ -5,6 +5,7 @@
  * @param opts.left The left value used by the operation.
  * @param opts.right The right value used by the operation.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.toolbar
  */
 export default function (_ctx: Context, _session: Session | null, opts: { left?: string; right?: string; class?: string }): string {
     return `<div class="flex flex-wrap items-center justify-between gap-3 ${opts.class ?? ""}">

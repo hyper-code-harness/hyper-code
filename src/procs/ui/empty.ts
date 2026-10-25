@@ -7,6 +7,7 @@
  * @param opts.title The display title.
  * @param opts.text The text to process.
  * @param opts.action The action URL.
+ * @deprecated use w.empty
  */
 export default function (ctx: Context, _session: Session | null, opts: {icon?: string; title: string; text?: string; action?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

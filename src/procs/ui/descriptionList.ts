@@ -5,6 +5,7 @@
  * @param opts.items The items value used by the operation.
  * @param opts.cols The cols value used by the operation.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.keyValue
  */
 export default function (ctx: Context, _session: Session | null, opts: {items: Array<{ term: string; detail?: string; html?: string; role?: string }>; cols?: 1 | 2; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

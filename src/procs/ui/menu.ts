@@ -10,6 +10,7 @@
  * @param opts.items Menu actions or links with optional icons and htmx request details.
  * @param opts.align Horizontal edge used to align the dropdown panel.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.menu
  */
 export default function (ctx: Context, _session: Session | null, opts: {id?: string; label?: string; icon?: string; items: Array<{ label: string; icon?: string; href?: string; action?: string; post?: string; get?: string; vals?: Record<string, any>; danger?: boolean }>; align?: "left" | "right"; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

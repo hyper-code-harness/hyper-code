@@ -9,6 +9,7 @@ const TONE = {
  * Perform tags for the ui subsystem.
  * @param opts.items Tags to display, including optional removal endpoints and semantic tones.
  * @param opts.class CSS classes to apply.
+ * @deprecated use w.badge for each chip
  */
 export default function (ctx: Context, _session: Session | null, opts: {items: Array<{ label: string; value?: string; removeUrl?: string; tone?: keyof typeof TONE }>; class?: string }): string {
     const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });

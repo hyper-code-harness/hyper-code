@@ -28,7 +28,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
       <input name="q" value="${esc(q)}" placeholder="BM25 search across all transcripts…" autofocus
              class="flex-1 rounded-lg border border-base-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
       ${agentId ? `<input type="hidden" name="agent" value="${esc(agentId)}"/>` : ""}
-      ${ctx.fns.procs.ui.button({ action: "search", label: "search", type: "submit", tone: "primary", size: "md" })}
+      ${ctx.fns.w.button({ label: "search", tone: "primary", submit: true, marks: { action: "search" } })}
     </form>
     ${q && hits.length === 0 ? '<p class="text-sm text-subtle">Nothing found.</p>' : ""}
     <div class="space-y-2">${rows}</div>

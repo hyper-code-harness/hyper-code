@@ -23,8 +23,8 @@ export default {
     },
     buttons(ctx: Context, opts: { input: types.input.Row }) {
         const s = opts.input.spec;
-        return ctx.fns.procs.ui.button({ action: "input-decline", label: s.declineLabel, type: "submit", tone: "ghost", size: "sm", name: "decision", value: "no" })
-            + ctx.fns.procs.ui.button({ action: "input-confirm", label: s.confirmLabel, type: "submit", tone: s.danger ? "danger" : "primary", size: "sm", name: "decision", value: "yes" });
+        return ctx.fns.w.button({ label: s.declineLabel, size: "sm", tone: "ghost", submit: { name: "decision", value: "no" }, marks: { action: "input-decline" } })
+            + ctx.fns.w.button({ label: s.confirmLabel, size: "sm", tone: s.danger ? "danger" : "primary", submit: { name: "decision", value: "yes" }, marks: { action: "input-confirm" } });
     },
     submit(_ctx: Context, opts: { input: types.input.Row; values: types.input.FormValues }) {
         const decision = String(opts.values.decision ?? "");

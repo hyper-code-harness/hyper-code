@@ -14,6 +14,17 @@ describe("agent.autoCompactIfNeeded", () => {
         expect(calls).toBe(1);
     });
 
+    test("a compaction in flight is busy, not a failure event", async () => {
+        const ctx: any = await mkTestCtx();
+        const agent = await ctx.fns.agent.start({ model: "codex:gpt-test" });
+        await ctx.fns.session.appendMessage({ id: agent.id, message: { role: "user", content: "x".repeat(50_000) } });
+        await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ?", params: [JSON.stringify({ mode: "full", activeRevision: null, draftRevision: 1, draftOwner: "other", generations: [] }), agent.id] });
+        ctx.state.registry.agent.compactContext = async () => { throw new Error("must not run"); };
+        expect((await ctx.fns.agent.autoCompactIfNeeded({ agent, thresholdTokens: 10_000 })).status).toBe("busy");
+        const failed = await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM events WHERE agent_id = ? AND type = 'auto_compaction_failed'", params: [agent.id] });
+        expect(failed).toHaveLength(0);
+    });
+
     test("skips agents without a compactor and below-threshold agents", async () => {
         const ctx: any = await mkTestCtx();
         const local = await ctx.fns.agent.start({ model: "mock:test" });

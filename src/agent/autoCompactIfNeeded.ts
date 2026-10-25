@@ -21,6 +21,8 @@ export default async function (
     const row = ((await ctx.fns.procs.db.select({ sql: "SELECT run_state, sleep_context FROM agents WHERE id = ? AND archived_at IS NULL", params: [agent.id] })) as any[])[0];
     if (!row || row.run_state !== "idle") return { status: "busy", estimatedTokens: 0 };
     const sleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: row.sleep_context });
+    // A compaction already in flight is not a failure: the next turn checks again once it lands.
+    if (sleep?.draftRevision != null) return { status: "busy", estimatedTokens: 0 };
     const active = sleep ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" }) : null;
     const root = await ctx.fns.session.getMessages({ id: agent.id });
     const storedActive = active?.contextAgentId ? await ctx.fns.session.getMessages({ id: String(active.contextAgentId) }) : (active?.contextMessages ?? []);

@@ -23,6 +23,10 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
      meaning anything. The primary (ink) button lightens a little; a destructive one turns red.
    - *Blue* is for **state**, not for hover: selected / current / open (a light-blue backing and a blue icon), keyboard
      focus (a blue ring), "running", and links in text (always blue; underline on hover).
+   - *Links and focus are both blue, but different shades of the blue scale*, so they never read as one thing: a link
+     is a deep, readable blue for text on white; focus is a brighter, lighter blue ring that shows on any surface
+     (white, grey or a black button) without looking like a link. Selected is the palest blue (a backing), running a
+     mid blue.
    - *On a rail everything is a button.* Rails (the Dock, the folded canvas, header rows) have their own background
      colour (the chrome grey), and that background is the signal: whatever sits on it can be pressed. Rail controls
      need no extra marks.

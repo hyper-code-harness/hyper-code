@@ -137,6 +137,12 @@ html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #messages .message-menu-item:hover, #messages .message-menu-item:focus-visible { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); outline: none; }
 #messages .message-menu-item--danger:hover, #messages .message-menu-item--danger:hover > i { color: var(--color-error); background: color-mix(in oklab, var(--color-error) 9%, transparent); }
 #messages .message-menu-sep { height: 1px; margin: .25rem .25rem; background: var(--color-ui-border); }
+/* Global menu (⌘/), by the interaction principle: hover is grey; the row chosen with ↑ ↓ is selected (palest blue
+   backing, blue icon); the search field in focus shows the bright blue focus ring on its row. */
+.nav-row[data-nav-selected] { background: color-mix(in oklab, #2563eb 11%, transparent) !important; color: var(--color-base-content); }
+.nav-row[data-nav-selected] > i.ph, .nav-row[data-nav-selected] .chat-icon { color: #2563eb; }
+.nav-search:focus-within { box-shadow: inset 0 0 0 2px color-mix(in oklab, #3b82f6 70%, transparent); }
+.nav-search:focus-within > .ph-magnifying-glass { color: #2563eb; }
 .dock-panel { display: none; }
 .inplace-popup-panel[data-dock-settings-panel] { width: 15rem; }
 /* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */

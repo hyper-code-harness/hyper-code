@@ -5,7 +5,7 @@
 export default function (_ctx: Context, _session: Session | null, _opts?: {}): string {
     return `<div id="nav-overlay" class="hidden fixed inset-0 z-50 bg-base-content/35 p-3 backdrop-blur-[1px]" onclick="if(event.target===this)window.__navClose()">
   <div role="dialog" aria-modal="true" aria-label="Global menu" class="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ui-border bg-base-100 text-base-content shadow-2xl">
-    <div class="flex items-center gap-3 border-b border-ui-border px-4">
+    <div class="nav-search flex items-center gap-3 border-b border-ui-border px-4">
       <i class="ph ph-magnifying-glass text-base text-faint" aria-hidden="true"></i>
       <input id="nav-q" name="q" placeholder="Search chats, projects, plugins, people…" autocomplete="off"
              hx-get="/nav/items" hx-trigger="nav-refresh from:body, input changed delay:250ms" hx-target="#nav-results" hx-include="#nav-tab, #nav-edit" hx-sync="this:replace"
@@ -51,11 +51,8 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
   const restoreProject = () => { let id = ''; try { id = localStorage.getItem('hyper.nav.project') || ''; } catch {} pickProject(id, false); };
   const mark = () => rows().forEach((row, index) => {
     const active = index === sel;
-    row.classList.toggle('bg-base-200', active);
-    row.classList.toggle('text-base-content', active);
-    row.classList.toggle('ring-1', active);
-    row.classList.toggle('ring-inset', active);
-    row.classList.toggle('ring-ui-border-strong', active);
+    // The keyboard choice is a state (selected: palest blue), not a hover (grey) — docs/ui-design-system.md §3.
+    row.toggleAttribute('data-nav-selected', active);
     row.setAttribute('aria-selected', String(active));
     if (active) window.__navSelId = row.getAttribute('data-nav-id') || '';
     if (active) row.scrollIntoView({ block: 'nearest' });

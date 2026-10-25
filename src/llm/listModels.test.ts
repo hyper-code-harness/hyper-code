@@ -4,6 +4,7 @@ import listModels from "./listModels";
 describe("llm.listModels", () => {
     test("omits static remote catalogues when their credentials are absent", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            kimiCodingModels: async () => [],
             resolveEndpoint: async ({ model }: any) => ({ kind: "api", apiKey: model.startsWith("openai:") ? "key" : null }),
         } } } as unknown as Context;
         const groups = await listModels(ctx, null);
@@ -17,6 +18,7 @@ describe("llm.listModels", () => {
 
     test("connected Claude sources expose current Haiku, Sonnet, and Opus aliases", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            kimiCodingModels: async () => [],
             resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
             refreshClaudeCode: async () => "token",
             anthropicOAuthStatus: async () => ({ connected: true, accounts: [{ account: "personal", needsReconnect: false }] }),
@@ -47,6 +49,7 @@ describe("llm.listModels", () => {
     });
     test("keeps expired managed Claude accounts visible for reconnect", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            kimiCodingModels: async () => [],
             resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
             refreshClaudeCode: async () => null,
             anthropicOAuthStatus: async () => ({ connected: true, accounts: [{ account: "expired", needsReconnect: true }] }),
@@ -58,6 +61,7 @@ describe("llm.listModels", () => {
 
     test("connected xAI subscription exposes Grok Responses models", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            kimiCodingModels: async () => [],
             resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
             xaiOAuthStatus: async () => ({ connected: true }),
         } } } as unknown as Context;

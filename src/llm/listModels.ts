@@ -49,14 +49,9 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
         "kimi:kimi-k2-thinking-turbo",
         "kimi:kimi-k2-thinking",
     ];
-    // Kimi CLI subscription models. These use the Anthropic-compatible coding
-    // endpoint and OAuth token managed by `kimi-cli` under ~/.kimi.
-    if (await configured("kimi-coding:k3")) out["kimi-coding"] = [
-        "kimi-coding:k3",
-        "kimi-coding:k3-256k",
-        "kimi-coding:kimi-for-coding",
-        "kimi-coding:kimi-for-coding-highspeed",
-    ];
+    // The subscription catalogue is discovered independently of Moonshot API models.
+    const codingModels = await ctx.fns.llm.kimiCodingModels({});
+    if (codingModels.length) out["kimi-coding"] = codingModels;
     if (await configured("openai:gpt-5-codex")) out.openai = [
         "openai:gpt-5-codex",
         "openai:gpt-5.1-mini",

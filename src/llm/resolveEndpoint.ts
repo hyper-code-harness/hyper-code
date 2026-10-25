@@ -5,7 +5,6 @@
 // "codex/personal:gpt-5.6-sol". Omitted means account "default" — the historical
 // single-credential behaviour, unchanged. Quota belongs to a subscription
 // account, not to a provider, so parking and usage tracking key on both.
-/** Performs the llm.resolveEndpoint runtime operation. */
 /**
  * Parse agent.model "provider[/account]:modelId" into a callable endpoint.
  * @param opts.model Model identifier.
@@ -72,15 +71,6 @@ const declaredString = (key: string) => async (ctx: Context): Promise<string | n
     return (typeof v === 'string' && v) ? v : null;
 };
 
-function decodeJwtExp(token: string): number | null {
-    try {
-        const payload = token.split(".")[1];
-        if (!payload) return null;
-        const json = JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString());
-        return typeof json.exp === "number" ? json.exp : null;
-    } catch { return null; }
-}
-
 const PROVIDERS: Record<string, ProviderConfig> = {
     lmstudio: {
         api: "openai",
@@ -97,33 +87,11 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     },
     "kimi-coding": {
         // Kimi coding subscription — Anthropic-messages protocol.
-        // Token is read fresh from ~/.kimi/credentials/kimi-code.json on every
-        // call (no caching). JWT exp is checked; expired tokens return null so
-        // the caller fails loud instead of silently using a stale token.
+        // Share bounded refresh and failure cooldowns with inference and model discovery.
         api: "anthropic",
         kind: "subscription",
         resolveBaseUrl: () => "https://api.kimi.com/coding",
-        resolveApiKey: (ctx, account) => {
-            if (account === "default" && ctx.env.KIMI_CODING_API_KEY) return ctx.env.KIMI_CODING_API_KEY;
-            try {
-                const { readFileSync } = require("node:fs");
-                const { file } = ctx.fns.llm.accountCredentialPath({ provider: "kimi-coding", account });
-                const raw = readFileSync(file!, "utf8");
-                const j = JSON.parse(raw);
-                const tok = j.access_token;
-                if (!tok) return null;
-                const exp = decodeJwtExp(tok);
-                const now = Math.floor(Date.now() / 1000);
-                if (exp && exp < now - 5) {
-                    console.warn(`[kimi-coding] token expired ${now - exp}s ago — run \`kimi login\` to refresh`);
-                    return null;
-                }
-                return tok;
-            } catch (e: any) {
-                console.warn(`[kimi-coding] cannot read credentials: ${e?.message}`);
-                return null;
-            }
-        },
+        resolveApiKey: (ctx, account) => ctx.fns.llm.refreshKimiCode({ account }),
     },
     anthropic: {
         api: "anthropic",

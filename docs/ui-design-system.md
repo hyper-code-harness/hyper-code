@@ -27,6 +27,10 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
      is a deep, readable blue for text on white; focus is a brighter, lighter blue ring that shows on any surface
      (white, grey or a black button) without looking like a link. Selected is the palest blue (a backing), running a
      mid blue.
+   - *Focus on an edge, not a ring, for fields that span a pane* — the chat composer, the menu search: focus turns
+     only the line that separates the field from the rest (the composer's top line, the search's bottom line)
+     bright blue. A ring around such a field would cut the pane's rounded corners. Small controls (buttons, inputs
+     inside a form) keep the ring.
    - *On a rail everything is a button.* Rails (the Dock, the folded canvas, header rows) have their own background
      colour (the chrome grey), and that background is the signal: whatever sits on it can be pressed. Rail controls
      need no extra marks.

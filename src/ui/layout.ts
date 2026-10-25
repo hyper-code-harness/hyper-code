@@ -138,10 +138,11 @@ html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #messages .message-menu-item--danger:hover, #messages .message-menu-item--danger:hover > i { color: var(--color-error); background: color-mix(in oklab, var(--color-error) 9%, transparent); }
 #messages .message-menu-sep { height: 1px; margin: .25rem .25rem; background: var(--color-ui-border); }
 /* Global menu (⌘/), by the interaction principle: hover is grey; the row chosen with ↑ ↓ is selected (palest blue
-   backing, blue icon); the search field in focus shows the bright blue focus ring on its row. */
+   backing, blue icon); the search field in focus turns only its edge line blue (as the chat composer does with its top line), so the
+   rounded corners of the box are never cut by a ring. */
 .nav-row[data-nav-selected] { background: color-mix(in oklab, #2563eb 11%, transparent) !important; color: var(--color-base-content); }
 .nav-row[data-nav-selected] > i.ph, .nav-row[data-nav-selected] .chat-icon { color: #2563eb; }
-.nav-search:focus-within { box-shadow: inset 0 0 0 2px color-mix(in oklab, #3b82f6 70%, transparent); }
+.nav-search:focus-within { border-bottom-color: #3b82f6; box-shadow: inset 0 -1px 0 #3b82f6; }
 .nav-search:focus-within > .ph-magnifying-glass { color: #2563eb; }
 .dock-panel { display: none; }
 .inplace-popup-panel[data-dock-settings-panel] { width: 15rem; }
@@ -242,7 +243,7 @@ html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-i
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer .chat-box { max-width: calc(46rem + 1rem); margin: 0 auto; }
   /* The chat header follows the same column: the icon and name start where the messages start, ⋯ ends where they end. */
   html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > section#chat-panel > header.chat-header.chat-header { padding-left: max(.75rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; padding-right: max(.375rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer:focus-within { border-top-color: rgb(59 130 246 / .55); box-shadow: inset 0 1px 0 rgb(59 130 246 / .55); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer:focus-within { border-top-color: #3b82f6; box-shadow: inset 0 1px 0 #3b82f6; }
 }
 /* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the
  * free space on the left and the chat becomes a --chat-w column on the right. */
@@ -330,7 +331,7 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header.chat-header
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle] { width: 1.75rem !important; height: 1.75rem !important; border-radius: 9999px !important; background: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle]:hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 [data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child button[type="submit"], [data-page="agent"][data-chat-collapsed] #chat-stop-control button { width: 1.75rem !important; height: 1.75rem !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer:focus-within { border-top-color: rgb(59 130 246 / .55); }
+[data-page="agent"][data-chat-collapsed] .chat-composer:focus-within { border-top-color: #3b82f6; }
 [data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
 [data-page="agent"].canvas-resizing iframe { pointer-events: none; }
 /* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */

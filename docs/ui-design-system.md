@@ -238,13 +238,34 @@ inside widgets (principles 1, 3, 9, 13). Widgets themselves keep their own seman
 
 ## Legacy app styles (`procs.ui.*`, `ui-*` tokens)
 
-The visual `procs.ui.*` components (button, badge, box, card, empty, notice, alert, avatar, descriptionList,
-listItem, menu, skeleton, statusDot, tabs, tags, toolbar, tooltip) are `@deprecated`: they keep working for
-compatibility, and each one names its `w.*` replacement. `code.quality({ rule: "deprecated" })` lists every call
-still left. Infrastructure helpers (`escape`, `attr`, `page`, `layout`, `respond`, `notFound`, `field`, `form`)
-are not deprecated. Mapping: button → `w.button` (`submit`, `marks` for data-* automation markers, `keys`, `id`) or
-`w.iconButton`; notice → `w.toast` (carries `data-role="notice"`); box/card → `w.card`; empty/alert → `w.empty`;
-descriptionList → `w.keyValue`; tags → one `w.badge` per chip; listItem → `w.listRow`; statusDot → `w.dot`.
+Application code does not call `procs.ui.*`; everything outside `src/procs/` draws with `w.*`
+(`code.quality({ rule: "deprecated" })` reports 0 calls). The visual `procs.ui.*` components are marked
+`@deprecated`, keep working for compatibility, and each one names its replacement:
+
+| `procs.ui.*` | `w.*` |
+|---|---|
+| escape, attr | `w.escape`, `w.marks` |
+| button | `w.button` (`submit`, `marks`, `attrs`, `keys`, `wide`), `w.iconButton`, or `w.pressable` for chrome styled by its container |
+| page, heading, row | `w.page`, `w.heading`, `w.record` |
+| field, form, select | `w.input` + `w.field`, `w.form`, `w.select` |
+| breadcrumb, segmented, stats, sparkline | `w.crumbs`, `w.segmented`, `w.stats`, `w.sparkline` |
+| respond | `w.respond` |
+| notice | `w.toast` (carries `data-role="notice"`) |
+| box, card | `w.card` (`flush` for records) |
+| empty, alert | `w.empty` |
+| descriptionList, tags, listItem, statusDot | `w.keyValue`, one `w.badge` per chip, `w.listRow`, `w.dot` |
+
+`w.hooks` is the only way extra attributes reach a widget: behaviour hooks (`data-*`, `aria-*`, `hx-confirm`,
+`onclick`, `id`, `form`, `popovertarget`) pass, `class` and `style` are refused.
+
+**What stays in the framework.** `src/procs/` is the vendored procs framework (CLAUDE.md: patch it minimally,
+fix upstream). It keeps its own `procs.ui` for the pages it draws before any app exists: `procs.http.dispatch`
+and `procs.http.handle` answer a miss with `procs.ui.notFound`, `procs.http.toResponse` wraps a bare string in
+`procs.ui.layout` only when the app registers no `ui.layout`, and the `procs.ui.chrome` hook point lets a host add
+out-of-band chrome. Hyper overrides the layout (`src/ui/layout.ts`), so in practice only the not-found page is
+still drawn by `procs.ui`. These framework helpers (`notFound`, `layout`, `page`, `respond`, `escape`, `attr`, `field`, `form`) are not
+marked `@deprecated`, so the `deprecated` rule stays at 0; they should not be rewritten onto `w` in the vendored
+copy.
 
 ### Palette
 

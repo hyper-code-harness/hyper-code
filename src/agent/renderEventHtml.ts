@@ -420,6 +420,10 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         return '';
     }
 
+    if (ev.type === "stopped") {
+        return '<div class="chat-stopped py-0.5 text-xs text-faint" role="status">stopped by user</div>';
+    }
+
     if (ev.type === "job") {
         return '';
     }

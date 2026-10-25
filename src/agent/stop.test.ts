@@ -15,7 +15,7 @@ describe('agent.stop', () => {
           db: { run: (opts: { sql: string; params?: any[] }) => { calls.push(['db.run', opts.sql.replace(/\s+/g, ' ').trim(), opts.params]); return { changes: 1, lastInsertRowid: 0 }; } },
         },
         session: {
-          appendErrorEvent: (opts: { id: string; error: string }) => calls.push(['appendErrorEvent', opts.id, opts.error]),
+          appendEventWithHtml: (opts: { id: string; type: string; payload: any }) => calls.push(['appendEvent', opts.id, opts.type, opts.payload]),
           syncAgentState: () => {},
           mutateScratchpad: () => {},
         },
@@ -27,7 +27,9 @@ describe('agent.stop', () => {
     expect(calls[0]).toEqual(['abort', 'stopped_by_user']);
     expect(calls[1][0]).toBe('db.run');
     expect(calls[1][1]).toMatch(/UPDATE agents .*run_state = 'idle'.*next_run_at = NULL/);
-    expect(calls[2]).toEqual(['appendErrorEvent', 'a1', 'stopped by user; queue cleared']);
+    // A stop is not an error: a quiet "stopped" event, and last_error is cleared.
+    expect(calls[1][1]).toMatch(/last_error = NULL/);
+    expect(calls[2]).toEqual(['appendEvent', 'a1', 'stopped', { clearQueue: true }]);
   });
 
   test('without clearQueue keeps next_run_at', async () => {
@@ -42,7 +44,7 @@ describe('agent.stop', () => {
         procs: {
           db: { run: (opts: { sql: string; params?: any[] }) => { calls.push(opts.sql.replace(/\s+/g, ' ').trim()); return { changes: 1, lastInsertRowid: 0 }; } },
         },
-        session: { appendErrorEvent: () => {}, syncAgentState: () => {}, mutateScratchpad: () => {} },
+        session: { appendEventWithHtml: () => {}, syncAgentState: () => {}, mutateScratchpad: () => {} },
         events: { refreshAgentMeta: () => {} },
       },
     };
@@ -65,7 +67,7 @@ describe('agent.stop', () => {
           committed = scratchpad;
           return { scratchpad };
         },
-        appendErrorEvent: () => {}, syncAgentState: () => {},
+        appendEventWithHtml: () => {}, syncAgentState: () => {},
       },
       events: { refreshAgentMeta: () => {} },
     } };

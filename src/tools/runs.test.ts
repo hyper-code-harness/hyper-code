@@ -29,7 +29,8 @@ test("tools.runs exposes a running call, then forgets it", async () => {
 
     ctx.fns.tools.abortRun({ id: live[0]!.id });
     const result = await call;
-    expect(result.isError).toBe(true);
+    // Stopped by the person is not an error (grey chip); the text still says it was cut short.
+    expect(result.isError).toBe(false);
     expect(result.output).toContain("stopped by the user");
     // What it managed to print is reported, so the model is not left guessing.
     expect(result.output).toContain("hello");

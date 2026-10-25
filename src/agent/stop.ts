@@ -41,16 +41,18 @@ clearQueue?: boolean }) {
                 run_heartbeat_at = NULL,
                 run_token = NULL,
                 next_run_at = ${clearQueue ? 'NULL' : 'next_run_at'},
-                last_error = ?,
+                last_error = NULL,
                 updated_at = ?
           WHERE id = ?`,
-        params: [clearQueue ? 'stopped by user; queue cleared' : 'stopped by user', now, agent.id],
+        params: [now, agent.id],
     });
 
     agent.samplingAbortController = null;
     agent.abortController = null;
     agent.isStreaming = false;
-    await ctx.fns.session?.appendErrorEvent?.({ id: agent.id, error: clearQueue ? 'stopped by user; queue cleared' : 'stopped by user' });
+    // A stop is the person's own action, not a failure: one quiet grey line in the transcript, no red toast
+    // and no error badge (renderEventHtml draws type "stopped").
+    await ctx.fns.session.appendEventWithHtml({ id: agent.id, type: 'stopped', payload: { clearQueue } });
     await ctx.fns.session?.syncAgentState?.({ agent });
     return { ok: true, clearQueue };
 }

@@ -18,7 +18,7 @@ const MAX_RETRY_DELAY_MS = 15 * 60_000;
 
 function isAbortError(error: any) {
     const msg = String(error?.message ?? error ?? '');
-    return msg.includes('aborted') || msg.includes('AbortError');
+    return msg.includes('aborted') || msg.includes('AbortError') || msg.includes('stopped_by_user') || msg.includes('shutdown');
 }
 
 async function loadAgent(ctx: Context, id: string): Promise<any> {

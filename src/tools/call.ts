@@ -114,10 +114,12 @@ export default async function (
             const tail = run.tail.trimEnd();
             output = `[stopped by the user after ${secs}s — the result is unknown, do not assume it failed]`
                 + (tail ? `\nOutput before it was stopped:\n${tail}` : "");
+            // Stopped is not failed: the chip stays grey (the model still reads that it was cut short).
+            isError = false;
         } else {
             output = "Error: " + (e?.message ?? String(e));
+            isError = true;
         }
-        isError = true;
     } finally {
         // Unconditional: an indicator that outlives its work is the same lie
         // as no indicator at all, just more convincing.

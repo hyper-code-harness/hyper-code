@@ -17,17 +17,26 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
    thing that needs the person now (an agent waiting for an answer, an unread mention, the irreversible action in a
    dialog). If it is in two places on a screen, one of them should not be. Semantic states (success, warning,
    danger) are rare too and appear only on the element they describe.
-3. **The server draws.** A widget is a function that returns HTML; behaviour is htmx attributes and native HTML
+3. **Interaction: grey on hover, blue for state, a chevron for what opens.**
+   - *Hover* on any button, row, tab or tool cell is a **grey backing** (`hover`) and the icon or text going from grey
+     to ink. Never blue — the pointer crosses headers and bars all the time; blue there would flicker and stop
+     meaning anything. The primary (ink) button lightens a little; a destructive one turns red.
+   - *Blue* is for **state**, not for hover: selected / current / open (a light-blue backing and a blue icon), keyboard
+     focus (a blue ring), "running", and links in text (always blue; underline on hover).
+   - *What opens something shows it at rest*: a control that opens a panel or a menu carries a chevron ⌄ next to its
+     label (the chat header: icon + name + ⌄); open, the chevron points up and the group is light blue. A control on
+     the right of a header is always an action; on the left is what the pane is.
+4. **The server draws.** A widget is a function that returns HTML; behaviour is htmx attributes and native HTML
    (popover, details, dialog). Client JS only where nothing else works: dragging, keys, the clipboard.
-4. **Meaning, not looks.** Props say what a thing is (`tone: "danger"`, `state: "running"`, `size: "sm"`), never how it
+5. **Meaning, not looks.** Props say what a thing is (`tone: "danger"`, `state: "running"`, `size: "sm"`), never how it
    looks; no classes passed in from outside.
-5. **Tokens only.** Colours, sizes, radii and type come from variables; a theme changes only the variables.
-6. **One action shape.** Everything clickable takes one `Action` with exactly one kind.
-7. **Quiet and flat.** Panes are ruled by 1px lines; grey chrome, white documents. Radius and shadow only for what
+6. **Tokens only.** Colours, sizes, radii and type come from variables; a theme changes only the variables.
+7. **One action shape.** Everything clickable takes one `Action` with exactly one kind.
+8. **Quiet and flat.** Panes are ruled by 1px lines; grey chrome, white documents. Radius and shadow only for what
    floats above the page (popovers, menus, the folded chat).
-8. **Dense, on one grid.** Sizes 24 / 28 / 32 / 40 px, text 12–14 px, every header on the same 32 px line.
-9. **Accessible by default.** Labels, focus, keyboard and a high-contrast theme are built in, not added later.
-10. **One thing per file, and it is in the gallery.** Every widget is `w.<name>` and appears on `/rpc/w.gallery`; agents
+9. **Dense, on one grid.** Sizes 24 / 28 / 32 / 40 px, text 12–14 px, every header on the same 32 px line.
+10. **Accessible by default.** Labels, focus, keyboard and a high-contrast theme are built in, not added later.
+11. **One thing per file, and it is in the gallery.** Every widget is `w.<name>` and appears on `/rpc/w.gallery`; agents
     and plugins build their pages from the same set.
 
 The widget set lives in `src/w` (atomic design: tokens → atoms → molecules → organisms → templates, one cascade layer

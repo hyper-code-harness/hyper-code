@@ -1,11 +1,12 @@
 /**
- * Draws a small state dot — running, unread, error, warning or idle — with an optional label.
+ * Draws a small state dot — running and unread (blue), waiting for the person (the super accent), done, warning,
+ * error or idle — with an optional label.
  * @param opts.state What the dot says.
  * @param opts.label Text after the dot; also the accessible name.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** What the dot says. */
-    state: "idle" | "running" | "unread" | "done" | "warning" | "error";
+    state: "idle" | "running" | "unread" | "waiting" | "done" | "warning" | "error";
     /** Text after the dot; also the accessible name. */
     label?: string;
 }): string {

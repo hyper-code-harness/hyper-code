@@ -8,7 +8,8 @@
  * @param opts.hint Quiet text on the right.
  * @param opts.dot State dot on the right.
  * @param opts.action What happens on click.
- * @param opts.current This row is the open one.
+ * @param opts.current This row is the open one (blue: selected).
+ * @param opts.selected This row is chosen with the keyboard or in a multi-select (blue: selected).
  * @param opts.tone Danger for destructive rows.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
@@ -26,8 +27,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
     dot?: "running" | "unread" | "error" | "warning";
     /** What happens on click. */
     action?: types.w.Action;
-    /** This row is the open one. */
+    /** This row is the open one (blue: selected). */
     current?: boolean;
+    /** This row is chosen with the keyboard or in a multi-select (blue: selected). */
+    selected?: boolean;
     /** Danger for destructive rows. */
     tone?: "danger";
 }): string {
@@ -38,5 +41,5 @@ export default function (ctx: Context, _session: Session | null, opts: {
         ? `<span class="w-row-text"><span class="w-row-label">${esc(opts.label)}</span><span class="w-row-detail">${esc(opts.detail)}</span></span>`
         : `<span class="w-row-text"><span class="w-row-label">${esc(opts.label)}</span></span>`;
     const tail = `${opts.hint ? `<span class="w-row-hint">${esc(opts.hint)}</span>` : ""}${opts.dot ? `<span class="w-dot" data-state="${opts.dot}"></span>` : ""}`;
-    return `<${tag} class="w-row"${tag === "div" ? " data-static" : ""}${opts.current ? ' aria-current="page"' : ""}${opts.tone ? ` data-tone="${opts.tone}"` : ""} title="${esc(opts.label)}"${attrs}>${lead ? `<span class="w-row-lead">${lead}</span>` : ""}${text}${tail}</${tag}>`;
+    return `<${tag} class="w-row"${tag === "div" ? " data-static" : ""}${opts.current ? ' aria-current="page"' : ""}${opts.selected ? ' aria-selected="true"' : ""}${opts.tone ? ` data-tone="${opts.tone}"` : ""} title="${esc(opts.label)}"${attrs}>${lead ? `<span class="w-row-lead">${lead}</span>` : ""}${text}${tail}</${tag}>`;
 }

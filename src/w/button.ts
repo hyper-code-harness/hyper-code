@@ -1,9 +1,10 @@
 /**
- * Draws a text button with an optional icon: default, accent (the main action), danger, or ghost; two sizes.
+ * Draws a text button with an optional icon: neutral (white with a line), primary (ink — the one main action of a
+ * view), danger, super (the rare super accent) or ghost; two sizes.
  * @param opts.label Button text.
  * @param opts.icon Phosphor icon before the text.
  * @param opts.action What happens on click.
- * @param opts.tone Look. @default "neutral"
+ * @param opts.tone Meaning: primary is the one main action (ink); accent is an old name for it. @default "neutral"
  * @param opts.size Height. @default "md"
  * @param opts.disabled Not clickable.
  */
@@ -14,8 +15,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     icon?: string;
     /** What happens on click. */
     action?: types.w.Action;
-    /** Look. @default "neutral" */
-    tone?: "neutral" | "accent" | "danger" | "ghost";
+    /** Meaning: primary is the one main action (ink); accent is an old name for it. @default "neutral" */
+    tone?: "neutral" | "primary" | "accent" | "danger" | "super" | "ghost";
     /** Height. @default "md" */
     size?: "sm" | "md";
     /** Not clickable. */

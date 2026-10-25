@@ -4,7 +4,7 @@ import renderHistory from '../src/knowledge/renderHistory';
 const change = (overrides: Record<string, unknown> = {}) => ({ id: 1, attribute: 'role', operation: 'correct', before_value: 'Engineer', after_value: 'Lead', source_agent_id: 'ab', source_message_idx: 7, url: '/agent/ab/message/7', evidence: 'I became Lead.', changed_at: '2026-07-01T12:00:00.000Z', ...overrides });
 async function render(rows: ReturnType<typeof change>[] = [], id = 'Person/example') {
     const calls: Array<{ sql: string; params: unknown[] }> = [];
-    const ctx = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) }, db: { select: async (args: { sql: string; params: unknown[] }) => { calls.push(args); return rows; } } } } };
+    const ctx = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) }, db: { select: async (args: { sql: string; params: unknown[] }) => { calls.push(args); return rows; } } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
     return { ...await renderHistory(ctx as never, null, { id }), calls };
 }
 

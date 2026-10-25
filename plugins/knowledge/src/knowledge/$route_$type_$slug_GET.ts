@@ -4,7 +4,7 @@
  * @param opts.params Entity type and slug from the route.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { /** Incoming HTTP request. */ req: Request; /** Entity type and slug from the route. */ params: { type: string; slug: string } }) {
-    const esc=(value:any)=>ctx.fns.procs.ui.escape({text:String(value??"")}),id=`${opts.params.type}/${opts.params.slug}`;
+    const esc=(value:any)=>ctx.fns.w.escape({text:String(value??"")}),id=`${opts.params.type}/${opts.params.slug}`;
     const entity=await ctx.fns.knowledge.get({id}); if(!entity)return {status:404,main:"Knowledge entity not found"};
     const data=entity.data??{},skip=new Set(["title","summary","description","body"]);
     const value=(item:any):string=>{ if(Array.isArray(item))return item.map(value).join("<br>"); if(item&&typeof item==="object")return `<code class="whitespace-pre-wrap text-xs">${esc(JSON.stringify(item,null,2))}</code>`; const text=String(item??""); return /^[A-Za-z][\w-]*\/[\w.@-]+$/.test(text)?`<a class="text-primary hover:underline" href="/knowledge/${encodeURI(text)}">${esc(text)}</a>`:esc(text); };

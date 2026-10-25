@@ -17,7 +17,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Quiet text after the label (an id, a count). */
     meta?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { attrs } = ctx.fns.w.actionAttrs({ action: { popover: opts.popover } });
     return `<button class="w-disclosure"${attrs}>${opts.lead ?? ""}<span class="w-disclosure-label">${esc(opts.label)}</span>${opts.meta ? `<span class="w-disclosure-meta">${esc(opts.meta)}</span>` : ""}${ctx.fns.w.icon({ name: "caret-down", size: 12 })}</button>`;
 }

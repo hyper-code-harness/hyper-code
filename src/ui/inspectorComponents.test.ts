@@ -6,7 +6,7 @@ import statusBadge from "./statusBadge";
 const escape = ({ text }: any) => String(text)
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-const ctx: any = { fns: { procs: { ui: { escape } } } };
+const ctx: any = { fns: { procs: { ui: { escape } }, w: { escape } } };
 
 test("inspector section renders semantic collapsible shell", () => {
     const html = inspectorSection(ctx, null, {

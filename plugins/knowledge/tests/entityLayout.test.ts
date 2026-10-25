@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import route from '../src/knowledge/$route_$type_$slug_GET';
 
 async function render(provenance: object[] = [], missing = false) {
-    const ctx = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, knowledge: {
+    const ctx = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) }, knowledge: {
         get: async () => missing ? null : ({ type: 'Person', data: { title: 'Example', body: 'Notes retained', role: 'Engineer' }, provenance, relations: { outgoing: [{ predicate: 'worksAt', object: 'Organization/example' }], incoming: [{ predicate: 'knows', subject: 'Person/other' }] } }),
         renderBacklinks: async () => ({ html: '<section>Mentioned in</section>', count: 1 }),
         renderHistory: async ({ id }: { id: string }) => { expect(id).toBe('Person/example'); return { html: '<section>History</section>', count: 0, hasMore: false }; },

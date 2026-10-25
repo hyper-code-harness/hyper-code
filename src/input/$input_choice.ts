@@ -18,7 +18,7 @@ export default {
         return { options, multiple: opts.spec.multiple === true, allowOther: opts.spec.allowOther === true };
     },
     open(ctx: Context, opts: { input: types.input.Row }) {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const s = opts.input.spec;
         const type = s.multiple ? "checkbox" : "radio";
         const cards = (s.options as Option[]).map(o => `<label class="flex cursor-pointer items-start gap-2 rounded-md border border-ui-border bg-base-100 px-3 py-2 text-sm hover:border-primary has-[:checked]:border-primary has-[:checked]:bg-primary/5">`
@@ -40,7 +40,7 @@ export default {
         return { result, summary };
     },
     done(ctx: Context, opts: { input: types.input.Row }) {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const s = opts.input.spec;
         const r = opts.input.result ?? {};
         const picked: string[] = r.values ?? (r.value != null ? [r.value] : []);

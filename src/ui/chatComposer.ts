@@ -28,7 +28,7 @@ export default async function (
     },
 ): Promise<string> {
     return `<form id="form"
-          ${ctx.fns.procs.ui.attr({ form: "chat" })}
+          ${ctx.fns.w.marks({ form: "chat" })}
           class="chat-composer mx-auto w-[calc(100%-2rem)] max-w-3xl pb-2 pt-3"
           hx-post="${Bun.escapeHTML(opts.action)}"
           hx-trigger="submit"

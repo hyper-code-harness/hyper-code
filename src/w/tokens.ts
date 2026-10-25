@@ -18,7 +18,7 @@ export default async function (
     },
 ): Promise<string> {
     const w: any = (ctx.fns as any).w;
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const theme = opts.theme === "dark" || opts.theme === "contrast" ? opts.theme : "light";
     const themeTabs = w.tabs({ variant: "underline", active: theme, items: [
         { id: "light", label: "Light", icon: "sun", action: { href: ctx.fns.rpc.url({ fn: "w.tokens", params: {} }) } },

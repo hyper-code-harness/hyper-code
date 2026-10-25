@@ -14,7 +14,7 @@ export default async function (
         agentId: string;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const view = await ctx.fns.chat.buildRenderContext({ agentId: opts.agentId });
     if (!view) return `<div class="p-3 text-xs text-faint">chat ${esc(opts.agentId)} not found</div>`;
     const cards = await ctx.fns.chat.listParts({ kind: "card" });

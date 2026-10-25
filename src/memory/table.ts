@@ -38,7 +38,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
               from memory where ${where.join(" and ")} order by key, ${v.order} limit ?`,
         params,
     });
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     const view = (r: any) => ctx.fns.rpc.url({ fn: "memory.view", params: { id: Number(r.id) } });
     const filter = (p: Record<string, unknown>) => ctx.fns.rpc.url({ fn: "memory.table", params: p });
     const prefixes = [...new Set(rows.map(r => String(r.key).split("/")[0] + "/"))];

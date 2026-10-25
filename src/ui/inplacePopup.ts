@@ -32,7 +32,7 @@ export default async function (
     let hash = 2166136261;
     for (let i = 0; i < rawId.length; i++) hash = Math.imul(hash ^ rawId.charCodeAt(i), 16777619);
     const id = safeBase === rawId ? safeBase : `${safeBase}-${(hash >>> 0).toString(36)}`;
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const anchor = "--inplace-" + id;
     const triggerAttrs = String(opts.triggerAttrs ?? "").trim();
     const panelAttrs = String(opts.panelAttrs ?? "").trim();

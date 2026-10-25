@@ -25,7 +25,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         else if (String(opts.emoji ?? "").trim()) await ctx.fns.chat.setIcon({ id, emoji: String(opts.emoji), background: opts.background });
         else throw new Error("Type an emoji or paste SVG");
     } catch (error: any) {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const again = await ctx.fns.chat.iconPopup({ agentId: id });
         const body = (await again.text()).replace('<div class="space-y-4">', `<div class="space-y-4"><div class="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">${esc(error?.message ?? error)}</div>`);
         return new Response(body, { headers: { "content-type": "text/html; charset=utf-8" } });

@@ -13,7 +13,7 @@ export default {
         return { args: { name }, title: `Excalidraw · ${name}` };
     },
     render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         // excalidraw.write bumps state.rev, which changes the src so the editor reloads the rewritten scene.
         const rev = opts.item.state?.rev ? `?rev=${encodeURIComponent(String(opts.item.state.rev))}` : "";
         const src = `/excalidraw/${encodeURIComponent(String(opts.item.args.name))}${rev}`;

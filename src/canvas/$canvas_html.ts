@@ -32,7 +32,7 @@ export default {
         return { args: load ? { html, load } : { html }, title };
     },
     render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         // The page is served by its own route under a CSP header with a sandbox directive (canvas.htmlFrame);
         // the attribute sandbox here is the second lock. No allow-same-origin: an opaque origin.
         const src = `/canvas/${encodeURIComponent(opts.agentId)}/item/${opts.item.id}/frame`;

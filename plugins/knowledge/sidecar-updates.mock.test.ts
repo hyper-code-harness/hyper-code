@@ -78,7 +78,7 @@ test('last-turn distinct entities, ambiguity skips, empty batch, duplicate check
 test('last-turn UI is honest about empty/legacy/error states and escapes counter input',async()=>{
  const source=await Bun.file(new URL('./src/knowledge/agentMetaSection.ts',import.meta.url)).text();
  const render=new Function(new Bun.Transpiler({loader:'ts'}).transformSync(source).replace('export default','return'))();
- const ctx={fns:{procs:{ui:{escape:({text}:any)=>Bun.escapeHTML(text)}},ui:{toggle:()=>''}}};
+ const ctx={fns:{procs:{ui:{escape:({text}:any)=>Bun.escapeHTML(text)}}, w: {escape:({text}:any)=>Bun.escapeHTML(text)},ui:{toggle:()=>''}}};
  const show=(knowledgeSidecar:any)=>render(ctx,null,{agent:{id:'parent',scratchpad:{knowledgeTrackingEnabled:true,knowledgeSidecar}}});
  expect(show({})).not.toContain('Last successful turn');
  const html=show({status:'error',error:'<bad>',lastTurn:{sourceMessageIdx:3,matched:'<img>',created:0,facts:{}}});

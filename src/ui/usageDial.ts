@@ -32,7 +32,7 @@ export default function (
         now?: number;
     },
 ): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const entries = opts.entries ?? [];
     if (!entries.length) return "";
     const now = opts.now ?? Date.now();

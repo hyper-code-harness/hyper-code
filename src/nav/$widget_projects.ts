@@ -8,7 +8,7 @@ export default {
     sizes: ["tall", "wide", "L"],
     config: { limit: { type: "number", default: 30, description: "How many recent chats to list per project" } },
     async render(ctx: Context, _session: Session | null, opts: { size: types.nav.Size; config: Record<string, unknown> }): Promise<types.nav.WidgetOutput> {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
         const limit = Math.max(1, Math.min(100, Number(opts.config.limit ?? 30) || 30));
         const [projects, agents] = await Promise.all([
             ctx.fns.project.list({}),

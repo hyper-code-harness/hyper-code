@@ -36,7 +36,7 @@ export default function (
         className?: string;
     },
 ): string {
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const icon = opts.icon ? `<i class="ph ph-${esc(opts.icon)} text-base text-muted" aria-hidden="true"></i>` : '';
     const badge = opts.badge ? `<span class="shrink-0">${opts.badge}</span>` : '';
     const actions = opts.actions ? `<span class="ml-auto flex shrink-0 items-center gap-1">${opts.actions}</span>` : '';

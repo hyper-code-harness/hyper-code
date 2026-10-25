@@ -9,6 +9,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Trusted HTML the tooltip belongs to. */
     html: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<span class="w-tooltip" data-tip="${esc(opts.label)}">${opts.html}</span>`;
 }

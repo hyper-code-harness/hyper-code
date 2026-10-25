@@ -42,7 +42,7 @@ export default function (
         iconClass?: string;
     },
 ): string {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: any) => ctx.fns.w.escape({ text: value });
     const started = Number(opts.startedAt) || Date.now();
     const timeout = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 0;
     const deadline = timeout ? started + timeout : 0;

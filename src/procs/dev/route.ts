@@ -59,10 +59,10 @@ function page(url: string, heading: string): string {
 export default async function (ctx: Context, session: Session, opts: { req: Request; params: Record<string, string> }) {
     return {
         title: ${JSON.stringify(heading)},
-        main: ctx.fns.procs.ui.page({
+        main: ctx.fns.w.page({
             page: ${JSON.stringify(heading.toLowerCase().replace(/[^a-z0-9]+/g, "-"))},
             title: ${JSON.stringify(heading)},
-            main: ctx.fns.procs.ui.box({ title: "nothing here yet", empty: "", body: "" }),
+            body: ctx.fns.w.empty({ title: "Nothing here yet", icon: "tray" }),
         }),
     };
 }
@@ -76,7 +76,7 @@ function post(url: string): string {
 // with an \`hx-location\` naming THIS address — the one the reader is on.
 export default async function (ctx: Context, session: Session, opts: { req: Request; params: Record<string, string> }) {
     const form = await opts.req.formData();
-    return new Response(ctx.fns.procs.ui.notice({ tone: "success", text: "Saved." }), {
+    return new Response(ctx.fns.w.toast({ level: "success", message: "Saved." }), {
         headers: { "content-type": "text/html; charset=utf-8" },
     });
 }

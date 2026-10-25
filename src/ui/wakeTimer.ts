@@ -5,7 +5,7 @@
  */
 export default function (ctx: Context, _session: Session | null, opts: {
         /** Agent associated with the operation. */ agent: types.agent.Agent }): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const wakeAt = Number(opts.agent.wakeAt ?? 0);
     if (!wakeAt) return `<span id="wake-timer-${esc(opts.agent.id)}" class="text-3xs text-faint">not scheduled</span>`;
     const remaining = Math.max(0, wakeAt - Date.now());

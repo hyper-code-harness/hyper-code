@@ -10,7 +10,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Runtime provider. */ provider: "anthropic-oauth" | "xai" | "claude-code" | "codex" | "kimi-coding";
     /** Credential slot. */ account: string;
 }): string {
-    const esc = (v: any) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: any) => ctx.fns.w.escape({ text: String(v ?? "") });
     const confirm = ctx.fns.llms.popupButton({ action: "confirm-remove-account", label: "Remove account", tone: "danger", class: "w-full" });
     return ctx.fns.ui.popupContent({
         title: "Remove account?",

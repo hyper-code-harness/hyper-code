@@ -24,7 +24,7 @@ export default function (
         showValue?: boolean;
     },
 ): string {
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const max = Math.max(0, Number(opts.max));
     const value = Math.max(0, Math.min(max, Number(opts.value)));
     const percent = max > 0 ? Math.round(value / max * 100) : 0;

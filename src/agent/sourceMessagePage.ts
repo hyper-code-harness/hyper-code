@@ -20,6 +20,6 @@ export default async function (
     const rows = await ctx.fns.procs.db.select({ sql: "SELECT role, content FROM messages WHERE agent_id = ? AND idx = ?", params: [opts.id, idx] });
     const row = rows[0];
     if (!row) return new Response("Source message no longer available", { status: 404 });
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     return { title: `Source message ${idx}`, main: `<article class="mx-auto w-full max-w-4xl p-6"><nav><a class="text-primary underline" href="/agent/${encodeURIComponent(opts.id)}">Open source chat ${esc(opts.id)}</a></nav><h1 class="my-4 text-xl font-semibold">Message ${idx} · ${esc(String(row.role))}</h1><pre class="whitespace-pre-wrap break-words" tabindex="0">${esc(String(row.content ?? ""))}</pre></article>` };
 }

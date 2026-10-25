@@ -15,7 +15,7 @@ export default async function (
         context: types.chat.RenderContext;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const { agent } = opts.context;
     const id = String(agent.id);
     const [badges, buttons] = await Promise.all([

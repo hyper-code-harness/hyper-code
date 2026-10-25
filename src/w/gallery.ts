@@ -17,7 +17,7 @@ export default async function (
     },
 ): Promise<string> {
     const w: any = (ctx.fns as any).w;
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
         const safe = async (name: string, f: () => any): Promise<string> => { try { return String(await f()); } catch (e: any) { return `<span class="wx-text-small wg-err">${esc(name)}: ${esc(e?.message ?? e)}</span>`; } };
         const me = String(opts.agentId ?? (await ctx.fns.agent.current({}).catch(() => ({ id: "" })) as any).id ?? "");
     const theme = opts.theme === "dark" || opts.theme === "contrast" ? opts.theme : "light";

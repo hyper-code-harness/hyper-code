@@ -4,7 +4,7 @@
 export default async function (ctx: Context, _session: Session | null, _opts: {
         /** Incoming HTTP request. */ req: Request;
         /** Route parameters captured from the request path. */ params: Record<string, string> }) {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: String(s ?? "") });
+    const esc = (s: any) => ctx.fns.w.escape({ text: String(s ?? "") });
     const status = await ctx.fns.settings.status({});
     const oauth = status.anthropicOAuth;
     const pending: any = [...((ctx.state as any).llm?.anthropicOAuth?.pending?.values?.() ?? [])]

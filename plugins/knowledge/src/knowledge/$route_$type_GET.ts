@@ -1,6 +1,6 @@
 /** GET /knowledge/:type — browse entities of one canonical type. */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: { type: string } }) {
-    const esc=(value:any)=>ctx.fns.procs.ui.escape({text:String(value??"")});
+    const esc=(value:any)=>ctx.fns.w.escape({text:String(value??"")});
     const type=opts.params.type;
     const rows=await ctx.fns.procs.db.select({sql:"SELECT id,data,updated_at FROM knowledge.entities WHERE type=? ORDER BY coalesce(data->>'title',id)",params:[type]});
     if(!rows.length && !(await ctx.fns.knowledge.types({})).some((item:any)=>item.type===type)) return {status:404,main:"Unknown knowledge type"};

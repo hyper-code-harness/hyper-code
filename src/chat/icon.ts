@@ -29,7 +29,7 @@ export default function (
 ): string {
     const size = opts.size ?? "sm";
     const icon = String(opts.icon ?? "").trim();
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const box = size === "lg" ? "size-12" : size === "md" ? "size-8" : "size-5";
     // Running: a ring turns around the face; the face itself stays still and readable.
     const ring = opts.active ? '<span class="chat-icon-ring" aria-hidden="true"></span>'

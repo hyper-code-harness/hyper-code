@@ -15,7 +15,7 @@ export default async function (
         pages?: string[];
     },
 ): Promise<types.dock.Registered[]> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const viewer = await ctx.fns.auth.viewerId({}).catch(() => null);
     const ids = [...await ctx.fns.auth.pinnedIds({}).catch(() => new Set<string>())];
     const rows = ids.length ? await ctx.fns.procs.db.select({

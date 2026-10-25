@@ -19,6 +19,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** DOM id of the pane. */
     id?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<section class="w-pane" data-surface="${opts.surface ?? "document"}"${opts.id ? ` id="${esc(opts.id)}"` : ""}>${opts.header ?? ""}<div class="w-pane-body">${opts.body}</div>${opts.footer ? `<footer class="w-pane-footer">${opts.footer}</footer>` : ""}</section>`;
 }

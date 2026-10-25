@@ -10,7 +10,7 @@ export default function (
         rows: types.chat.CardRow[];
     },
 ): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const base = "chat-row flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-xs";
     return opts.rows.map(row => {
         const icon = row.icon && /^ph-[a-z0-9-]+$/.test(row.icon) ? `<i class="ph ${esc(row.icon)} shrink-0 text-sm" aria-hidden="true"></i>` : "";

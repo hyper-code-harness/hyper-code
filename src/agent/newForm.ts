@@ -9,7 +9,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Project id or slug to preselect. */
     project?: string;
 } = {}): Promise<string> {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const last = ((await ctx.fns.procs.db.select({ sql: "SELECT value FROM kv WHERE key = 'last-model'" }).catch(() => [])) as any[])[0]?.value;
     const groups = await ctx.fns.llm.listModels({});
     const usable = new Set(Object.values(groups).flat());

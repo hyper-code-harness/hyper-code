@@ -16,7 +16,7 @@ export default async function (
     type Change = { id: string | number; attribute: string; operation: 'create' | 'add' | 'correct'; before_value: Json; after_value: Json; source_agent_id: string; source_message_idx: number; url: string; evidence: string; changed_at: string | Date };
     const rows: Change[] = await ctx.fns.procs.db.select({ sql: 'SELECT id, attribute, operation, before_value, after_value, source_agent_id, source_message_idx, url, evidence, changed_at FROM knowledge.entity_changes WHERE subject = ? ORDER BY changed_at DESC, id DESC LIMIT ?', params: [opts.id, 31] });
     const hasMore = rows.length > 30, entries = rows.slice(0, 30);
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     const value = (item: Json): string => {
         if (item === null) return '<span class="text-subtle">null</span>';
         if (item === '') return '<code>""</code> <span class="text-subtle">(empty string)</span>';

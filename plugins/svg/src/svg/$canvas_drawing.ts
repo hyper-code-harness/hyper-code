@@ -30,7 +30,7 @@ export default {
         return { args: { svg }, title: "Drawing" };
     },
     async render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         try {
             let markup = String(opts.item.args.svg ?? "");
             if (opts.item.args.tsx) {

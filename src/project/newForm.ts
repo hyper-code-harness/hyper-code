@@ -12,7 +12,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Error text shown above the fields. */
     error?: string;
 } = {}): Promise<string> {
-    const esc = (s: unknown) => ctx.fns.procs.ui.escape({ text: String(s ?? "") });
+    const esc = (s: unknown) => ctx.fns.w.escape({ text: String(s ?? "") });
     const v = opts.values ?? {};
     const input = "input input-bordered w-full bg-base-100";
     // Title → slug: words joined in lowerCamelCase, Latin letters and digits only, leading letter.

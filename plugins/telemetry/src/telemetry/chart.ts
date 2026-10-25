@@ -33,7 +33,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const vega: any = (ctx.fns as any).vegalite;
     if (typeof vega?.render !== "function") {
         const values = points.map(point => (kind === "latency" ? point.p95 : point.count));
-        return ctx.fns.procs.ui.sparkline({ values, tone: kind === "latency" ? "warning" : "info", class: "h-24 w-full" });
+        return ctx.fns.w.sparkline({ values, tone: kind === "latency" ? "warning" : "info", size: "lg" });
     }
 
     const field = kind === "latency" ? "p95" : "count";
@@ -88,6 +88,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     } catch (error: any) {
         ctx.fns.procs.log.warn({ event: "telemetry.chart.failed", msg: String(error?.message ?? error) });
         const values2 = points.map(point => (kind === "latency" ? point.p95 : point.count));
-        return ctx.fns.procs.ui.sparkline({ values: values2, tone: kind === "latency" ? "warning" : "info", class: "h-24 w-full" });
+        return ctx.fns.w.sparkline({ values: values2, tone: kind === "latency" ? "warning" : "info", size: "lg" });
     }
 }

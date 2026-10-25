@@ -9,6 +9,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** How long it thought. */
     seconds?: number;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<details class="w-thinking"><summary>${ctx.fns.w.icon({ name: "brain", size: 12 })}<span>${opts.seconds ? `Thought for ${Math.round(opts.seconds)}s` : "Thinking"}</span></summary><div class="w-thinking-text">${esc(opts.text)}</div></details>`;
 }

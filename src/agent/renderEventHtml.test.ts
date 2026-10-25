@@ -19,7 +19,10 @@ const ctx = { fns: {
   procs: { ui: {
     escape: ({ text }: any) => String(text),
     button: (o: any) => `<button type="${o.type ?? 'button'}" class="${o.appearance === 'plain' ? o.class ?? '' : `ui-button ui-button--${o.size ?? 'sm'} ui-button--${o.tone ?? 'default'}`}"${o.post ? ` hx-post="${o.post}"` : ''}${o.swap ? ` hx-swap="${o.swap}"` : ''}${o.vals ? ` hx-vals='${JSON.stringify(o.vals)}'` : ''}${o.title ? ` title="${o.title}"` : ''}${o.attrs ? Object.entries(o.attrs).map(([name, value]) => ` ${name}="${String(value)}"`).join('') : ''}>${o.html ?? o.label ?? ''}</button>`,
-  } },
+  } }, w: {
+    escape: ({ text }: any) => String(text),
+    button: (o: any) => `<button type="${o.type ?? 'button'}" class="${o.appearance === 'plain' ? o.class ?? '' : `ui-button ui-button--${o.size ?? 'sm'} ui-button--${o.tone ?? 'default'}`}"${o.post ? ` hx-post="${o.post}"` : ''}${o.swap ? ` hx-swap="${o.swap}"` : ''}${o.vals ? ` hx-vals='${JSON.stringify(o.vals)}'` : ''}${o.title ? ` title="${o.title}"` : ''}${o.attrs ? Object.entries(o.attrs).map(([name, value]) => ` ${name}="${String(value)}"`).join('') : ''}>${o.html ?? o.label ?? ''}</button>`,
+  },
   ui: { popup: (opts: any) => `<button type="button" hx-popup="${opts.method}" hx-popup-params='${JSON.stringify(opts.params)}' ${opts.attrs}>${opts.html}</button>` },
 } } as unknown as Context;
 const renderEventHtml = (c: any, event: any, opts: { agentId?: string } = {}) =>

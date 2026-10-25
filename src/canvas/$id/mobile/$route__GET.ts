@@ -4,7 +4,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const agentId = String(opts.params.id ?? "");
     const known = ((await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM agents WHERE id = ?", params: [agentId] })) as any[]).length > 0;
     if (!known) return new Response("unknown agent", { status: 404 });
-    const id = ctx.fns.procs.ui.escape({ text: agentId });
+    const id = ctx.fns.w.escape({ text: agentId });
     const panel = await ctx.fns.canvas.panelHtml({ agentId });
     return {
         currentId: agentId,

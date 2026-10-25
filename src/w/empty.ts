@@ -21,7 +21,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** danger for a failure: the icon and the title turn red. @default "neutral" */
     tone?: "neutral" | "danger";
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const icon = opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 24 }) : "";
     const hint = opts.hint ? `<div>${esc(opts.hint)}</div>` : "";
     const tone = opts.tone === "danger" ? ' data-tone="danger" role="alert"' : "";

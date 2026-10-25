@@ -9,6 +9,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Credential slot. */ account: string;
 }): Promise<string> {
     await ctx.fns.llm.removeAccount({ provider: opts.provider, account: opts.account });
-    const esc = (v: any) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: any) => ctx.fns.w.escape({ text: String(v ?? "") });
     return ctx.fns.ui.popupContent({ title: "Account removed", kind: "success", html: `<div class="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success"><i class="ph ph-check-circle mr-1"></i>${esc(opts.provider)}/${esc(opts.account)} removed.</div>` });
 }

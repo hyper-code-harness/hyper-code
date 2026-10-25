@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import render from "./wakeTimer";
 
-const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text) } } } };
+const ctx: any = { fns: { procs: { ui: { escape: ({ text }: any) => String(text) } }, w: { escape: ({ text }: any) => String(text) } } };
 
 test("wake timer renders seconds and polls every second", () => {
     const realNow = Date.now;

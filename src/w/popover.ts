@@ -23,7 +23,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Width in px. @default 280 */
     width?: number;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const id = String(opts.id).replace(/[^a-zA-Z0-9_-]/g, "-");
     return `${opts.trigger ?? ""}<div id="${id}" popover class="w-popover" role="dialog"${opts.label ? ` aria-label="${esc(opts.label)}"` : ""} data-placement="${opts.placement ?? "below"}" style="position-anchor:--${id};width:${Math.round(opts.width ?? 280)}px">${opts.body}</div>`;
 }

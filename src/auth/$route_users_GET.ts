@@ -6,7 +6,7 @@
 export default async function (ctx: Context, session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const me = (session as any)?.user as types.auth.User | undefined;
     if (!me || me.role !== "owner") return new Response("Only owners can manage people", { status: 403 });
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const users = await ctx.fns.auth.listUsers({ includeDisabled: true });
     const google = await ctx.fns.auth.googleConfig({});
     const identities = await ctx.fns.procs.db.select({ sql: "SELECT user_id, provider, email FROM user_identities" }) as any[];

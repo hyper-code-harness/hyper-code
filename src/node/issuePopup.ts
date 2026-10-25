@@ -1,6 +1,6 @@
 /** Popup to issue a token for another Hyper instance (name + allowed providers). */
 export default async function (ctx: Context, _session: Session | null, _opts: {}): Promise<string> {
-    const esc = (x: any) => ctx.fns.procs.ui.escape({ text: String(x ?? "") });
+    const esc = (x: any) => ctx.fns.w.escape({ text: String(x ?? "") });
     const all = await ctx.fns.llm.listModels({ skipNodes: true });
     const providers = Object.keys(all).filter((p) => p !== "lmstudio" && p !== "mock").map((p) => p.split("/")[0]!).filter((v, i, a) => a.indexOf(v) === i);
     const boxes = providers.map((p) => `<label class="flex items-center gap-2 text-xs"><input type="checkbox" name="providers" value="${esc(p)}" checked class="checkbox checkbox-xs"><span class="font-mono">${esc(p)}</span></label>`).join("");

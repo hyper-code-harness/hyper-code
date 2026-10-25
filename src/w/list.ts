@@ -12,7 +12,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Text shown when there are no rows. */
     empty?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const body = opts.body.trim() || ctx.fns.w.empty({ title: opts.empty ?? "Nothing here" });
     return `<div class="w-list" role="list"${opts.label ? ` aria-label="${esc(opts.label)}"` : ""}>${body}</div>`;
 }

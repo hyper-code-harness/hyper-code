@@ -22,7 +22,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** One line: + text send. @default false */
     compact?: boolean;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const send = opts.running
         ? `<span class="w-send-wrap" data-running>${ctx.fns.w.iconButton({ icon: "stop", label: "Stop", action: opts.stop ?? { action: "stop" }, tone: "accent" })}</span>`
         : `<button type="submit" class="w-send" aria-label="Send">${ctx.fns.w.icon({ name: "arrow-up", size: 16 })}</button>`;

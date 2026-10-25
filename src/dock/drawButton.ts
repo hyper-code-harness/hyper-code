@@ -15,7 +15,7 @@ export default async function (
         button: types.dock.Button;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const b = opts.button;
     const icon = /^ph-[a-z0-9-]+$/.test(String(b.icon ?? "")) ? b.icon : "ph-circle";
     const badge = b.badge === null || b.badge === undefined || b.badge === 0 || b.badge === "" ? "" :

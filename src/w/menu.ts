@@ -21,7 +21,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Selector of the element whose right-click opens this menu. */
     contextOf?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const items = opts.items.map(it => {
         if (it === "-") return '<div class="w-menu-sep" role="separator"></div>';
         const { tag, attrs } = ctx.fns.w.actionAttrs({ action: it.action ?? { action: "noop" } });

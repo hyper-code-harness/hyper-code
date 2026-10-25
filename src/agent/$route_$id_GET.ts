@@ -33,9 +33,9 @@ params: Record<string, string> }) {
     // cards all hang off it. Without the id the page renders and does nothing.
     // The canvas panel is always rendered; data-canvas-open shows it and narrows the chat to --chat-w
     // (src/canvas/$script_canvas.js flips it without re-rendering the chat).
-    const main = `<div ${ctx.fns.procs.ui.attr({ page: "agent", id })} data-canvas-agent="${ctx.fns.procs.ui.escape({ text: id })}"${canvas.open ? " data-canvas-open" : ""}${canvas.chatCollapsed ? " data-chat-collapsed" : ""} style="--chat-w:${canvas.chatWidth}px" class="flex min-h-0 min-w-0 flex-1 bg-base-200">
+    const main = `<div ${ctx.fns.w.marks({ page: "agent", id })} data-canvas-agent="${ctx.fns.w.escape({ text: id })}"${canvas.open ? " data-canvas-open" : ""}${canvas.chatCollapsed ? " data-chat-collapsed" : ""} style="--chat-w:${canvas.chatWidth}px" class="flex min-h-0 min-w-0 flex-1 bg-base-200">
   ${canvasPanel}
-  <section id="chat-panel" data-agent-id="${ctx.fns.procs.ui.escape({ text: id })}" class="flex min-w-0 flex-1 flex-col">${chat}</section>
+  <section id="chat-panel" data-agent-id="${ctx.fns.w.escape({ text: id })}" class="flex min-w-0 flex-1 flex-col">${chat}</section>
 </div>`;
 
     return { currentId: id, title: agent.title || id, main };

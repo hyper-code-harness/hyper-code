@@ -16,6 +16,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Show the resize corner. @default true */
     resizable?: boolean;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<div class="w-floating"${opts.key ? ` data-floating-key="${esc(opts.key)}"` : ""}>${opts.draggable === false ? "" : '<span class="w-floating-grip" aria-hidden="true"></span>'}${opts.resizable === false ? "" : '<span class="w-floating-corner" aria-hidden="true"></span>'}${opts.body}</div>`;
 }

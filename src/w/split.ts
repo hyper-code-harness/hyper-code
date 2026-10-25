@@ -19,6 +19,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Name under which the chosen width is remembered. */
     key?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<div class="w-split" style="--w-split-end:${Math.round(opts.size ?? 420)}px;--w-split-min:${Math.round(opts.min ?? 280)}px"${opts.key ? ` data-split-key="${esc(opts.key)}"` : ""}><div class="w-split-start">${opts.start}</div><div class="w-split-handle" role="separator" aria-orientation="vertical" tabindex="0"></div><div class="w-split-end">${opts.end}</div></div>`;
 }

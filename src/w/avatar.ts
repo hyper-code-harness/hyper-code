@@ -15,7 +15,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Size in px. @default 24 */
     size?: 20 | 24 | 32 | 40;
 }): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const size = opts.size ?? 24;
     const name = String(opts.name ?? "");
     if (opts.agentId) {

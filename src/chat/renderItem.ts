@@ -19,7 +19,7 @@ export default function (
         side: "badge" | "button";
     },
 ): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const c = opts.item;
     const icon = /^ph-[a-z0-9-]+$/.test(String(c.icon ?? "")) ? c.icon : "ph-circle";
     const title = String(c.title ?? c.label ?? opts.id);

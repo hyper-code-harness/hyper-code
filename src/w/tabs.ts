@@ -13,7 +13,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Look of the strip. @default "equal" */
     variant?: "equal" | "underline";
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     // Navigation tabs (each opens a page or a canvas tab): a nav of links/buttons with aria-current on the open one —
     // not role="tablist", which promises arrow-key tab panels these strips do not have.
     const tabs = (opts.items ?? []).map(it => {

@@ -15,7 +15,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Accessible name; omit for a decorative icon. */
     label?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const name = String(opts.name ?? "").replace(/^ph-/, "");
     if (!/^[a-z0-9-]+$/.test(name)) return "";
     const a11y = opts.label ? ` role="img" aria-label="${esc(opts.label)}"` : ' aria-hidden="true"';

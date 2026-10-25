@@ -22,7 +22,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** The action destroys something. @default false */
     danger?: boolean;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
     const t = tag === "div" ? "button" : tag;
     const id = String(opts.id).replace(/[^a-zA-Z0-9_-]/g, "-");

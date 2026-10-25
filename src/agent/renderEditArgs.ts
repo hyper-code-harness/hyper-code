@@ -12,7 +12,7 @@ export default async function (
         /** Edits used by the operation. */
     edits?: types.tools.EditOp[] },
 ): Promise<string> {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: any) => ctx.fns.w.escape({ text: String(value ?? "") });
     const path = String(opts.path ?? "");
     const lang = ctx.fns.agent.toolLang({ name: "read", args: { path }, part: "result" });
     const edits = Array.isArray(opts.edits) ? opts.edits : [];

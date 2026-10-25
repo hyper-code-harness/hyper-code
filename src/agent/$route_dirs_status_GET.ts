@@ -6,7 +6,7 @@ import { readdir, stat } from "node:fs/promises";
 export default async function (ctx: Context, _session: Session | null, opts: {
         /** Incoming HTTP request. */
 req: Request }) {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const url = new URL(opts.req.url);
     let raw = String(url.searchParams.get("q") ?? url.searchParams.get("workspaceDir") ?? "").trim();
     if (raw.startsWith("~")) raw = (ctx.env.HOME ?? "") + raw.slice(1);

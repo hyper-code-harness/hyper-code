@@ -25,7 +25,7 @@ export default async function (
 ): Promise<string> {
     const mode = opts.mode ?? "agent";
     const id = String(opts.agentId ?? "");
-    const esc = (value: unknown) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: unknown) => ctx.fns.w.escape({ text: String(value ?? "") });
     const current = String(opts.current ?? "");
     const currentRoute = parseRoute(current);
     const [listed, accountRows] = await Promise.all([

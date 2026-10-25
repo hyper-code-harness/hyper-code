@@ -27,7 +27,7 @@ test("GET /canvas/framesExtension.zip serves the canvas frames extension as a zi
 }, 30_000);
 
 test("a url tab for a site that forbids framing offers the extension download next to the open-in-new-tab link", () => {
-    const ctx: any = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } } };
+    const ctx: any = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
     const item: any = { id: 1, title: "google.com", args: { url: "https://www.google.com/", embeddable: false, reason: "X-Frame-Options: SAMEORIGIN" } };
     const html = String(urlKind.render(ctx, { agentId: "a", item }));
     expect(html).toContain('href="/canvas/framesExtension.zip"');
@@ -37,7 +37,7 @@ test("a url tab for a site that forbids framing offers the extension download ne
 });
 
 test("a url tab follows the address the extension reported, until the tab is pointed somewhere else", () => {
-    const ctx: any = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } } };
+    const ctx: any = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
     const opened = "https://www.google.com/";
     const moved = "https://www.google.com/search?q=hyper";
     const item: any = { id: 1, title: "google.com", args: { url: opened, embeddable: false }, state: { url: moved, title: "hyper - Google", from: opened } };

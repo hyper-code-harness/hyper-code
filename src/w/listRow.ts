@@ -34,7 +34,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Danger for destructive rows. */
     tone?: "danger";
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
     const lead = opts.lead ?? (opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 16 }) : "");
     const text = opts.detail

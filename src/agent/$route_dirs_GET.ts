@@ -13,7 +13,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Incoming HTTP request. */
     req: Request;
 }) {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: String(s ?? "") });
+    const esc = (s: any) => ctx.fns.w.escape({ text: String(s ?? "") });
     const url = new URL(opts.req.url);
     const raw = String(url.searchParams.get("workspaceDir") ?? url.searchParams.get("q") ?? "").trim();
 

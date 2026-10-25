@@ -25,7 +25,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const rows: any[] = await ctx.fns.procs.db.select({ sql: `select * from memory where ${where} and ${v.sql} order by ${v.order} limit 1`, params: [arg, ...v.params] });
     const r = rows[0];
     if (!r) throw new Error(`memory.view: no memory entry ${opts.key ?? opts.id} visible to you`);
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     const link = (key: string) => ctx.fns.rpc.url({ fn: "memory.view", params: { key } });
     const top = String(r.key).split("/")[0] ?? "";
     const listLink = ctx.fns.rpc.url({ fn: "memory.table", params: { prefix: top + "/" } });

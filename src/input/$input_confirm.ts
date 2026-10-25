@@ -35,7 +35,7 @@ export default {
     },
     done(ctx: Context, opts: { input: types.input.Row }) {
         const r = opts.input.result ?? {};
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         return `<p class="text-sm">${r.confirmed ? '<i class="ph ph-check-circle text-success" aria-hidden="true"></i> Confirmed' : '<i class="ph ph-x-circle text-error" aria-hidden="true"></i> Declined'}</p>`
             + (r.comment ? `<p class="mt-1 text-2xs text-muted">«${esc(r.comment)}»</p>` : "");
     },

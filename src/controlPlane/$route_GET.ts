@@ -1,6 +1,6 @@
 /** "Hyper instances": every Hyper registered in the control plane, with owner and last heartbeat. */
 export default async function (ctx: Context, _session: Session | null, _opts: { req: Request; params: Record<string, string> }) {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const cfg = await ctx.fns.auth.oidcConfig({});
     if (!cfg) {
         return { title: "Hyper instances", main: `<div class="mx-auto max-w-3xl p-6"><h1 class="mb-2 text-lg font-semibold">Hyper instances</h1><p class="text-sm text-muted">This Hyper is not connected to a Hyper Control Plane. Set <code>HYPER_OIDC_ISSUER</code>, <code>HYPER_OIDC_CLIENT_ID</code> and <code>HYPER_OIDC_CLIENT_SECRET</code>.</p></div>` };

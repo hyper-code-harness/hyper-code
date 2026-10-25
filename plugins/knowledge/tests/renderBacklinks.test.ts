@@ -6,7 +6,7 @@ function mock(rows: object[] = [], fail = false) {
     const ctx = { fns: { procs: {
         ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) },
         db: { select: async (opts: { sql: string; params: string[] }) => { calls.push(opts); if (fail) throw new Error('offline'); return rows; } },
-    } } };
+    }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
     return { ctx: ctx as never, calls };
 }
 

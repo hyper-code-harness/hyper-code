@@ -15,6 +15,7 @@ function fixture(options: { unavailable?: boolean; missing?: boolean } = {}) {
             project: { projectRoot: () => "/project" },
             ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text), attr: () => "" },
         },
+        w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text), marks: () => "" },
         runtime: { docs: { get: () => ({ name: "example.query", summary: "Query rows", doc: "Query rows", returnType: "Promise<Row[]>", paramsSchema: { properties: { limit: { type: "number", description: "Maximum rows.", default: 1000, minimum: 1, maximum: 10000 } } } }) } },
         markdown: { render: () => { markdownCalls++; return "<p>Rendered skill instructions</p>"; } },
         plugins: { configurationPage: async ({ name }: { name: string }) => {

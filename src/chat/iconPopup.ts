@@ -6,7 +6,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Agent whose icon changes. */
     agentId: string;
 }): Promise<Response> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const id = String(opts.agentId ?? "");
     const agent = (ctx.state as any).agent?.[id] ?? await ctx.fns.session.load({ id });
     if (!agent) return new Response("agent not found", { status: 404 });

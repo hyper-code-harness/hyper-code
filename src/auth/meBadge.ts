@@ -8,7 +8,7 @@
 export default async function (ctx: Context, session: Session | null, _opts: {}): Promise<string> {
     const user = (session as any)?.user as types.auth.User | undefined;
     if (!user) return "";
-    const esc = (v: string) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: string) => ctx.fns.w.escape({ text: v });
     const users = await ctx.fns.auth.listUsers({});
     const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
     let hash = 0;

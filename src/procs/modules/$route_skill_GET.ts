@@ -12,7 +12,7 @@
  * @param opts.req The incoming HTTP request.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const name = new URL(opts.req.url).searchParams.get("name") ?? "";
     const module = (ctx.state.procs.modules ?? []).find((m: any) => m.name === name || m.namespaces?.includes(name));
 
@@ -33,11 +33,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
 
     return {
         title: `${module.name} · skill`,
-        main: ctx.fns.procs.ui.page({
+        main: ctx.fns.w.page({
             page: "skill",
             title: module.label ?? module.name,
-            lead: `<span class="font-mono">${esc(module.skill)}</span> — what the agent reads before it touches this module.`,
-            main: `<div class="mt-4">${ctx.fns.w.card({ title: "SKILL.md", icon: "file-text", body: `<div class="md-preview prose prose-sm max-w-none">${body}</div>` })}</div>`,
+            lead: `<span class="wx-mono">${esc(module.skill)}</span> — what the agent reads before it touches this module.`,
+            body: ctx.fns.w.card({ title: "SKILL.md", icon: "file-text", body: `<div class="md-preview prose prose-sm max-w-none">${body}</div>` }),
         }),
     };
 }

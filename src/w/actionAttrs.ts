@@ -10,7 +10,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** What the element does; omit for a non-interactive element. */
     action?: types.w.Action;
 }): { tag: "a" | "button" | "div"; attrs: string } {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const a = opts.action;
     if (!a) return { tag: "div", attrs: "" };
     const kinds = (["href", "post", "get", "popup", "popover", "action"] as const).filter(k => a[k] !== undefined && a[k] !== "");

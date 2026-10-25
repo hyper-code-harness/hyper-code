@@ -9,7 +9,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Row for lists, card for dashboards. @default "row" */
     variant?: "row" | "card";
 }): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const a: any = ((await ctx.fns.procs.db.select({ sql: "SELECT a.id, a.title, a.icon, a.model, a.run_state, p.title AS project FROM agents a LEFT JOIN projects p ON p.id = a.project_id WHERE a.id = ?", params: [opts.agentId] }).catch(() => [])) as any[])[0];
     if (!a) return ctx.fns.w.listRow({ label: `unknown agent ${opts.agentId}`, icon: "question" });
     const running = a.run_state && a.run_state !== "idle";

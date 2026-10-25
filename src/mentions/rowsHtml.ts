@@ -15,7 +15,7 @@ export default async function (
         navRow?: boolean;
     },
 ): Promise<string> {
-    const esc = (v: any) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: any) => ctx.fns.w.escape({ text: String(v ?? "") });
     if (!opts.items.length) return '<div class="px-2 py-2 text-xs text-faint">no mentions</div>';
     const people = new Map((await ctx.fns.mentions.people({})).map((p) => [p.id, p.name]));
     const who = (from: string | null) => !from ? "someone" : from.startsWith("agent:") ? `agent ${from.slice(6)}` : people.get(from) ?? from;

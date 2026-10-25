@@ -38,7 +38,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Active durable wake, cron and condition triggers for this agent. */ triggers?: any[];
     /** Trusted HTML blocks answered by the `ui.agentSettings` point, appended to the settings section. */ extraSettings?: string[];
     /** Render the inspector as its collapsed rail. */ collapsed?: boolean }): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const agent = opts.agent;
     const slot = (section: "goal" | "knowledge" | "automation" | "settings" | "team" | "plan") =>
         `<div id="agent-meta-${section}-${esc(agent.id)}" data-meta-section="${section}">`

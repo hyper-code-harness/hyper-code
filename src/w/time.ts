@@ -9,7 +9,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** How to show it. @default "clock" */
     format?: "clock" | "date" | "ago";
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const d = new Date(Number(opts.ts));
     if (Number.isNaN(d.getTime())) return "";
     const full = d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });

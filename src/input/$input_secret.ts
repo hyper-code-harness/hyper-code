@@ -15,7 +15,7 @@ export default {
         return { saveAs: `secret://${namespace}/${name}`, mode, maxlength };
     },
     open(ctx: Context, opts: { input: types.input.Row }) {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const s = opts.input.spec;
         const otp = s.mode === "otp";
         const attrs = otp ? 'inputmode="numeric" autocomplete="one-time-code" placeholder="123456"'
@@ -38,6 +38,6 @@ export default {
         return { result: { ref: s.saveAs }, summary: `secret ${s.saveAs} is stored — use it via bash({ secrets: { VAR: "${s.saveAs}" } })` };
     },
     done(ctx: Context, opts: { input: types.input.Row }) {
-        return `<p class="text-2xs text-muted"><i class="ph ph-lock-simple" aria-hidden="true"></i> saved as <code>${ctx.fns.procs.ui.escape({ text: opts.input.result?.ref ?? opts.input.spec.saveAs })}</code></p>`;
+        return `<p class="text-2xs text-muted"><i class="ph ph-lock-simple" aria-hidden="true"></i> saved as <code>${ctx.fns.w.escape({ text: opts.input.result?.ref ?? opts.input.spec.saveAs })}</code></p>`;
     },
 } satisfies types.input.Kind;

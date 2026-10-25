@@ -18,7 +18,7 @@ export default async function (
     const requested = (target.reasoningEffort ?? "auto") as types.llm.ReasoningEffort;
     const caps = await ctx.fns.llm.reasoningCapabilities({ model: target.model });
     const resolved = await ctx.fns.llm.resolveReasoningEffort({ model: target.model, effort: requested });
-    const esc = (x:any) => ctx.fns.procs.ui.escape({ text: String(x ?? "") });
+    const esc = (x:any) => ctx.fns.w.escape({ text: String(x ?? "") });
     const copy: Record<string, { label: string; detail: string; icon: string }> = {
      auto:{label:"Auto",detail:`Model recommendation · ${resolved.applied}`,icon:"ph-magic-wand"},
      off:{label:"Off",detail:"Fastest; no deliberate reasoning",icon:"ph-lightning"},

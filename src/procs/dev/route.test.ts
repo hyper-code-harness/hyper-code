@@ -21,7 +21,7 @@ test("a url becomes the folders it is, with :params as $folders", async () => {
     expect(made.file).toBe("src/ehr/patient/$id/cardio/summary/$route__GET.ts");
     const source = await Bun.file(join(dir, made.file)).text();
     expect(source).toContain("GET /ehr/patient/:id/cardio/summary");
-    expect(source).toContain("ctx.fns.procs.ui.page");
+    expect(source).toContain("ctx.fns.w.page");
 
     // …and the POST beside it is the same address with its own file.
     const posted = await run.fns.procs.dev.route({ url: "/ehr/patient/:id/cardio/summary", method: "post" });

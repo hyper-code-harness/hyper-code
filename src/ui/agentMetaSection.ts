@@ -40,7 +40,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Trusted HTML blocks answered by `ui.agentSettings`, appended to the settings section. */
     extraSettings?: string[];
 }): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const agent = opts.agent;
     const statusBadge = ctx.fns.ui.statusBadge ?? ((o: any) => `<span class="badge badge-sm">${esc(o.label)}</span>`);
     const progressBar = ctx.fns.ui.progressBar ?? ((o: any) => `<progress value="${Number(o.value)}" max="${Math.max(1, Number(o.max))}"></progress>`);

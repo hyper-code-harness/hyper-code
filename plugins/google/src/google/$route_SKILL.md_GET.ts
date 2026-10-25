@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 export default async function (ctx: Context, _session: Session | null, _opts?: {}) {
     const abs = resolve(import.meta.dir, "../../SKILL.md");
     const raw = await Bun.file(abs).text();
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
 
     // split YAML frontmatter (--- … ---) from the markdown body
     const fm: Record<string, string> = {};

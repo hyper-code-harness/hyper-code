@@ -6,7 +6,7 @@
  * @param opts.error The error to report.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { message?: string; error?: string }): Promise<string> {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const all = ctx.fns.procs.modules.list({});
     const mounted = all.filter((m: any) => m.plugin);
     const parts = all.filter((m: any) => !m.plugin);
@@ -27,7 +27,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { m
         : "";
     const reload = `<form method="POST" action="/plugins/reload" hx-post="/plugins/reload" hx-target="#main" hx-swap="innerHTML">${ctx.fns.w.button({ label: "Reload", icon: "arrow-clockwise", size: "sm", title: "Rescan configured plugin folders", marks: { action: "reload-plugins" } })}</form>`;
 
-    const pluginCard = (p: any) => `<article ${ctx.fns.procs.ui.attr({ entity: "module", id: p.name, status: "on" })} class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-xs">
+    const pluginCard = (p: any) => `<article ${ctx.fns.w.marks({ entity: "module", id: p.name, status: "on" })} class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-xs">
   <div class="flex items-start gap-3">
     <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-muted"><i class="ph ${esc(p.icon)} text-lg" aria-hidden="true"></i></div>
     <div class="min-w-0 flex-1">
@@ -46,7 +46,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { m
   </div>
 </article>`;
 
-    const availableCard = (p: any) => `<article ${ctx.fns.procs.ui.attr({ entity: "module", id: p.name, status: "off" })} class="rounded-xl border border-dashed border-base-300 bg-base-100/60 p-4">
+    const availableCard = (p: any) => `<article ${ctx.fns.w.marks({ entity: "module", id: p.name, status: "off" })} class="rounded-xl border border-dashed border-base-300 bg-base-100/60 p-4">
   <div class="flex items-start gap-3">
     <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-subtle"><i class="ph ${esc(p.icon)} text-lg"></i></div>
     <div class="min-w-0 flex-1"><div class="font-semibold">${esc(p.label)}</div>${p.description ? `<p class="mt-1 text-sm leading-5 text-subtle">${esc(p.description)}</p>` : ""}<div class="mt-2 flex flex-wrap gap-1.5">${skillLink(p)}</div></div>
@@ -64,19 +64,19 @@ export default async function (ctx: Context, _session: Session | null, opts: { m
         opts.message ? ctx.fns.w.toast({ level: "success", message: opts.message }) : "",
     ].filter(Boolean).map(html => `<div class="mb-4">${html}</div>`).join("");
 
-    return ctx.fns.procs.ui.page({
+    return ctx.fns.w.page({
         page: "modules",
         title: "Plugins",
-        lead: `${mounted.length} active · project-local capabilities from <span class="font-mono">./plugins</span>.`,
-        right: reload,
-        main: `<div class="mt-6 max-w-4xl pb-10">
+        lead: `${mounted.length} active · project-local capabilities from <span class="wx-mono">./plugins</span>.`,
+        actions: reload,
+        body: `<div class="max-w-4xl pb-10">
 ${notices}
 <section><div class="mb-3 flex items-baseline justify-between"><h2 class="text-xs font-semibold uppercase tracking-wider text-faint">Active</h2></div><div class="grid grid-cols-1 gap-3">${mounted.map(pluginCard).join("") || `<div class="rounded-xl border border-dashed border-base-300 p-6 text-center text-sm text-subtle">No active plugins</div>`}</div></section>
 ${missing.length ? `<section class="mt-7"><h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-faint">Needs attention</h2><div class="space-y-2">${missing.map(missingRow).join("")}</div></section>` : ""}
 ${catalog.length ? `<section class="mt-7"><h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-faint">Available</h2><div class="grid grid-cols-1 gap-3">${catalog.map(availableCard).join("")}</div></section>` : ""}
 <details class="mt-7 rounded-xl border border-base-300 bg-base-100"><summary class="cursor-pointer select-none px-4 py-3 text-sm text-subtle"><span class="font-medium text-muted">Runtime modules</span><span class="ml-2 text-xs text-faint">${parts.length} always loaded</span></summary><div class="border-t border-base-200">${parts.map(processRow).join("")}</div></details>
 <section class="mt-7 rounded-xl border border-base-300 bg-base-100 p-4"><div class="flex items-start gap-3"><div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-base-200"><i class="ph ph-folder-open text-lg text-subtle"></i></div><div class="min-w-0 flex-1"><h2 class="font-medium">Load from folder</h2><p class="mt-0.5 text-xs text-subtle">Mount a local plugin and hot-load its functions and routes.</p><form class="mt-3 flex flex-col gap-2" method="POST" action="/plugins/load" hx-post="/plugins/load" hx-target="#main" hx-swap="innerHTML"><input name="path" required placeholder="./plugins/my-plugin" class="input input-sm min-w-0 w-full font-mono"><div class="flex min-w-0 gap-2"><input name="name" placeholder="name (optional)" class="input input-sm min-w-0 flex-1">${ctx.fns.w.button({ label: "Load", icon: "lightning", size: "sm", tone: "primary", submit: true, marks: { action: "load-plugin" } })}</div></form></div></div></section>
-<details class="mt-3 rounded-xl border border-base-300 bg-base-100"><summary class="cursor-pointer select-none px-4 py-3 text-xs text-subtle hover:text-muted">Load from Git instead</summary><div class="border-t border-base-200 p-4">${ctx.fns.procs.ui.form({ form: "module-add", post: "/procs/modules/add", class: "flex items-center gap-2", body: ctx.fns.procs.ui.field({ name: "name", placeholder: "name", class: "w-40" }) + ctx.fns.procs.ui.field({ name: "git", placeholder: "https://github.com/acme/plugin" }) + ctx.fns.w.button({ label: "Add", size: "sm", tone: "primary", marks: { action: "add" } }) })}</div></details>
+<details class="mt-3 rounded-xl border border-base-300 bg-base-100"><summary class="cursor-pointer select-none px-4 py-3 text-xs text-subtle hover:text-muted">Load from Git instead</summary><div class="border-t border-base-200 p-4">${ctx.fns.w.form({ form: "module-add", post: "/procs/modules/add", body: ctx.fns.w.input({ name: "name", placeholder: "name", label: "Plugin name", width: "short" }) + ctx.fns.w.input({ name: "git", placeholder: "https://github.com/acme/plugin", label: "Git URL" }) + ctx.fns.w.button({ label: "Add", size: "sm", tone: "primary", marks: { action: "add" } }) })}</div></details>
 </div>`,
     });
 }

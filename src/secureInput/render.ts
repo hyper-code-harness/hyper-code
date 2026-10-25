@@ -7,7 +7,7 @@
  */
 export default function (ctx: Context, _session: Session | null, opts: { prompt: any; error?: string }): string {
     const p = opts.prompt;
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? '') });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? '') });
     const type = p.kind === 'password' ? 'password' : 'text';
     const otp = p.kind === 'otp';
     const form = `<form hx-popup="secureInput.submit" title="${esc(p.title)}" class="mt-4 space-y-4">

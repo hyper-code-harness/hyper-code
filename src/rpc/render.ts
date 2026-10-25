@@ -78,7 +78,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
         // A `@live <topic>` view re-fetches itself (its own address, as htmx) when the server refreshes the topic:
         // client.js dispatches `hyper-live` to regions of that topic; the answer (this same wrapper) replaces it.
         if (typeof meta.live === "string" && meta.live) {
-            const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+            const esc = (text: string) => ctx.fns.w.escape({ text });
             page.html = `<div class="rpc-live" hx-get="${esc(ctx.fns.rpc.url({ fn: name, params }))}" hx-trigger="hyper-live" hx-swap="outerHTML" hx-target="this" data-live-topic="${esc(meta.live)}">${page.html}</div>`;
         }
         return page;

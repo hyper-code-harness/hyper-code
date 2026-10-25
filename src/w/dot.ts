@@ -10,7 +10,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Text after the dot; also the accessible name. */
     label?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const dot = `<span class="w-dot" data-state="${esc(opts.state)}"${opts.label ? "" : ` role="img" aria-label="${esc(opts.state)}"`}></span>`;
     return opts.label ? `<span class="w-dot-label">${dot}<span>${esc(opts.label)}</span></span>` : dot;
 }

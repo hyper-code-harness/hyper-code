@@ -33,7 +33,7 @@ export default function (
         attrs?: string;
     },
 ): string {
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const tone = opts.tone ?? 'neutral';
     const tones = { neutral: 'border-ui-border bg-base-200/45 text-base-content', info: 'border-ui-border-strong bg-info/10 text-base-content', success: 'border-ui-border-strong bg-success/10 text-base-content', warning: 'border-ui-border-strong bg-warning/10 text-base-content', error: 'border-ui-border-strong bg-error/10 text-base-content' } as const;
     const iconTones = { neutral: 'text-subtle', info: 'text-info', success: 'text-success', warning: 'text-warning', error: 'text-error' } as const;

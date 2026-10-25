@@ -6,7 +6,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Person to show. */
     userId: string;
 }): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const u: any = await ctx.fns.auth.getUser({ id: opts.userId }).catch(() => null);
     const name = String(u?.name ?? opts.userId);
     const online = await ctx.fns.auth.online({}).then((html: any) => String(html).includes(opts.userId)).catch(() => false);

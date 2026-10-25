@@ -17,7 +17,7 @@ export default {
         const s = { ...opts.item.args, ...opts.item.state };
         const p = new URLSearchParams({ embed: "1" });
         if (s.date) p.set("date", String(s.date));
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         return `<iframe data-canvas-frame="${opts.item.id}" src="/gcal/?${esc(p.toString())}" title="${esc(opts.item.title)}" class="block h-full w-full border-0 bg-base-100" loading="eager"></iframe>`;
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {

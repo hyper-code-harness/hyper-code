@@ -26,4 +26,4 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     </div>`;
     return ctx.fns.ui.popupContent({ title: "Claude managed OAuth", kind: "oauth", html });
 }
-function escape(ctx: Context, value: any): string { return ctx.fns.procs.ui.escape({ text: String(value ?? "") }); }
+function escape(ctx: Context, value: any): string { return ctx.fns.w.escape({ text: String(value ?? "") }); }

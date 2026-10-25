@@ -1,6 +1,6 @@
 /** Renders the neutral Hyper landing page for first-run setup and returning users. */
 export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<{ title: string; main: string }> {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: any) => ctx.fns.w.escape({ text: String(value ?? "") });
     const [agents, accounts] = await Promise.all([
         ctx.fns.session.list({}),
         ctx.fns.llm.listAccounts({}).catch(() => [] as any[]),

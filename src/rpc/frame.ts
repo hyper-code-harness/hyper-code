@@ -24,7 +24,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Sandbox tokens; srcdoc defaults to "allow-scripts", src to none (same-origin page). @default "" */
     sandbox?: string;
 }): string {
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     if (!opts.src === !opts.srcdoc) throw new Error("rpc.frame: give exactly one of src or srcdoc");
     if (opts.src && (!opts.src.startsWith("/") || opts.src.startsWith("//"))) throw new Error(`rpc.frame: src must be a same-origin path, got ${opts.src}`);
     const sandbox = opts.srcdoc ? (opts.sandbox || "allow-scripts") : opts.sandbox;

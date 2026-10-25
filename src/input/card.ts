@@ -12,7 +12,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Validation message shown under an open form. */
     error?: string | null;
 }): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const domId = `input-${String(opts.id).replace(/[^A-Za-z0-9_-]/g, "")}`;
     const input = await ctx.fns.input.get({ id: opts.id });
     if (!input) return `<div id="${domId}" class="w-full rounded-lg border border-ui-border px-3 py-2 text-2xs text-muted">input ${esc(opts.id)} is gone</div>`;

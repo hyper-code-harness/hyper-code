@@ -7,7 +7,7 @@ test('initialPromptPopup renders the full prompt as escaped popup content', asyn
         agent: { fullSystemPrompt: async () => '# CORE\n\n<unsafe>' },
         markdown: { render: async ({ source }: any) => `<h1>CORE</h1><p>${source.includes('<unsafe>') ? '&lt;unsafe&gt;' : ''}</p>` },
         session: { load: async () => null },
-        procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('<', '&lt;').replaceAll('>', '&gt;') } },
+        procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('<', '&lt;').replaceAll('>', '&gt;') } }, w: { escape: ({ text }: any) => String(text).replaceAll('<', '&lt;').replaceAll('>', '&gt;') },
         ui: { popupContent: ({ title, kind, html }: any) => `<section data-popup-title="${title}" data-popup-kind="${kind}">${html}</section>` },
     } };
     const res = await render(ctx, null, { agentId: 'a1' });

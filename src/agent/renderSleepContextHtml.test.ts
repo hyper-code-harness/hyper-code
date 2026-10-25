@@ -6,7 +6,7 @@ import renderEventsHtml from "./renderEventsHtml";
 describe("renderSleepContextHtml", () => {
     test("shows synthetic consolidation and only the visible real tail", async () => {
         const errors: string[] = [];
-        const ctx: any = { fns: { agent: {}, procs: { ui: { escape: ({ text }: any) => String(text), button: (o: any) => `<button>${o.html ?? ""}</button>` }, log: { warn: (o: any) => errors.push(o.msg) } } } };
+        const ctx: any = { fns: { agent: {}, procs: { ui: { escape: ({ text }: any) => String(text), button: (o: any) => `<button>${o.html ?? ""}</button>` }, log: { warn: (o: any) => errors.push(o.msg) } }, w: { escape: ({ text }: any) => String(text), button: (o: any) => `<button>${o.html ?? ""}</button>` } } };
         ctx.fns.agent.renderEventHtml = (opts: any) => renderEventHtml(ctx, null, opts);
         ctx.fns.agent.renderEventsHtml = (opts: any) => renderEventsHtml(ctx, null, opts);
         ctx.fns.agent.normalizeSleepContext = ({ sleepContext }: any) => sleepContext;

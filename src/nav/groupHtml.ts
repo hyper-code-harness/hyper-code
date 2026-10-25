@@ -14,7 +14,7 @@ export default async function (
         pinned?: Set<string>;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { group } = opts;
     if (!group.items.length && !group.error) return "";
     const body = group.error

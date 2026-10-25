@@ -20,7 +20,7 @@ export default async function (
     if (!html.includes("@")) return html;
     const people = new Map((await ctx.fns.mentions.people({})).map((p) => [p.id, p]));
     if (!people.size) return html;
-    const esc = (v: string) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: string) => ctx.fns.w.escape({ text: v });
     const chip = opts.tone === "dark"
         ? "rounded bg-white/20 px-0.5 font-semibold text-white"
         : "rounded bg-primary/10 px-0.5 font-semibold text-primary";

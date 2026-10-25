@@ -143,3 +143,26 @@ test("button: submit and automation marks", async () => {
     const i = ctx.fns.w.iconButton({ icon: "x", label: "Close", marks: { action: "close", id: "a1" } });
     expect(i).toContain('data-action="close" data-id="a1"');
 });
+
+test("page-level widgets: page, field, form, record carry the automation markers", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    expect(w.escape({ text: `<a "x">` })).toBe("&lt;a &quot;x&quot;&gt;");
+    expect(w.marks({ entity: "x", id: 3, gone: "" })).toBe('data-entity="x" data-id="3"');
+    expect(w.page({ page: "modules", title: "Plugins", body: "B" })).toContain('data-page="modules"');
+    const input = w.input({ name: "q", value: "", invalid: true, describedBy: "q-err" });
+    expect(input).toContain('data-field="q"'); expect(input).toContain('value=""'); expect(input).toContain('aria-invalid="true"');
+    const field = w.field({ name: "q", label: "Query", control: input, error: "Too short" });
+    expect(field).toContain('data-invalid="true"'); expect(field).toContain('data-role="error"');
+    expect(() => w.form({ form: "f", body: "" })).toThrow();
+    expect(w.form({ form: "f", post: "/x", body: "" })).toContain('data-form="f"');
+    const rec = w.record({ entity: "llm-account", id: "a/b", status: "ready", cells: [{ role: "plan", text: "Max" }], end: "E" });
+    expect(rec).toContain('data-entity="llm-account"'); expect(rec).toContain('data-role="plan"');
+    expect(w.segmented({ items: [] })).toBe("");
+    expect(w.segmented({ value: "b", items: [{ label: "A", value: "a", action: { href: "/x?a" } }, { label: "B", value: "b", action: { href: "/x?b" } }] })).toContain('aria-current="true"');
+    expect(w.crumbs({ items: [{ label: "News", href: "/news" }, { label: "Here" }] })).toContain('aria-current="page"');
+    expect(w.sparkline({ values: [1, 3, 2] })).toContain("<path");
+    expect(w.stats({ items: [{ label: "Runs", value: 3, tone: "danger" }] })).toContain('data-tone="danger"');
+    const res = w.respond({ html: "ok", toast: { message: "Сохранено" } });
+    expect(res.headers.get("HX-Trigger")).toContain("\\u0421");
+});

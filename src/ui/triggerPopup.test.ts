@@ -5,7 +5,7 @@ const escape = ({ text }: any) => String(text).replaceAll("&", "&amp;").replaceA
 const button = (o: any) => `<button type="${o.type ?? "button"}"${o.action ? ` data-action="${o.action}"` : ""}${o.attrs?.popovertarget ? ` popovertarget="${o.attrs.popovertarget}"` : ""}>${o.html ?? o.label ?? ""}</button>`;
 
 test("Automation add trigger uses a native popover target", () => {
-  const ctx: any = { fns: { procs: { ui: { escape, button } }, ui: {
+  const ctx: any = { fns: { procs: { ui: { escape, button } }, w: { escape, button }, ui: {
     statusBadge: ({ label }: any) => label,
     inspectorSection: ({ title, html }: any) => `<section>${title}${html}</section>`,
     toggle: () => "",

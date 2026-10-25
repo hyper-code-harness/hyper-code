@@ -12,7 +12,7 @@ export default async function (
         provenance: Array<{ url?: string | null; attribute: string; evidence?: string | null }>;
     },
 ): Promise<{ html: string; count: number }> {
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const groups = new Map<string, { agent: string; idx: number; attributes: Set<string>; evidence: string[] }>();
     for (const item of opts.provenance) {
         const match = /^(?:hyper:\/\/agent\/|\/agent\/)([^/?#]+)\/message\/(\d+)$/.exec(item.url ?? '');

@@ -1,6 +1,6 @@
 /** GET /cron — embedded cron management page. */
 export default async function (ctx: Context, _session: Session | null, _opts: { req: Request; params: Record<string, string> }) {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: any) => ctx.fns.w.escape({ text: String(value ?? "") });
     const field = (label: string, name: string, placeholder: string, required = true) => `<label class="grid gap-1 text-xs font-medium text-muted"><span>${esc(label)}</span><input name="${esc(name)}" placeholder="${esc(placeholder)}" ${required ? "required" : ""} class="rounded-md border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs outline-none focus:border-primary"></label>`;
     const main = `<div class="mx-auto w-full max-w-7xl p-5 sm:p-8">
 <div class="mb-6 flex flex-wrap items-start justify-between gap-3"><div><h1 class="text-2xl font-semibold tracking-tight">Cron tasks</h1><p class="mt-1 text-sm text-subtle">Durable interval and one-shot runtime jobs, executed by the embedded worker.</p></div><a href="/functions?namespace=cron" class="rounded-md border border-base-300 px-3 py-2 text-xs hover:bg-base-200">API docs</a></div>

@@ -40,7 +40,7 @@ export default {
         };
     },
     render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         const a = opts.item.args;
         const opened = String(a.url ?? "");
         // Where the person went inside the site (reported by the canvas-frames extension) — while the tab

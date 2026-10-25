@@ -11,7 +11,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const google = await ctx.fns.auth.googleConfig({});
     const oidc = await ctx.fns.auth.oidcConfig({});
     if (await ctx.fns.auth.oidcOnly({})) {
-        const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+        const esc = (value: string) => ctx.fns.w.escape({ text: value });
         const err = url.searchParams.get("error");
         const msg = err && err !== "1" ? `<p class="err">${esc(err)}</p>` : `<p>Sign in to continue.</p>`;
         const style = `<style>.google{display:flex;align-items:center;justify-content:center;gap:.4rem;box-sizing:border-box;width:100%;min-height:46px;margin-top:1rem;border-radius:.8rem;background:#fff;color:#1f1f1f;font-weight:600;text-decoration:none}</style>`;
@@ -23,7 +23,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     if (!legacy && !google && !oidc && (users.length === 0 || (users.length === 1 && !users[0]!.canSignIn))) {
         return new Response(null, { status: 303, headers: { location: "/auth/setup", "cache-control": "no-store" } });
     }
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const single = users.length <= 1;
     const error = url.searchParams.get("error");
     const message = error

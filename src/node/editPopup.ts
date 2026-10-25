@@ -3,7 +3,7 @@
  * @param opts.name Existing node name to edit; omit to add a new one.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { /** Existing node name. */ name?: string }): Promise<string> {
-    const esc = (x: any) => ctx.fns.procs.ui.escape({ text: String(x ?? "") });
+    const esc = (x: any) => ctx.fns.w.escape({ text: String(x ?? "") });
     const node = opts.name ? await ctx.fns.node.get({ name: opts.name }) : null;
     const html = `<form hx-popup="node.saveFromPopup" class="space-y-3">
       <p class="text-2xs text-muted">Models of that Hyper appear as <code>hyper/&lt;name&gt;:&lt;model&gt;</code>. Ask its owner for a token (LLMs → Shared with → Issue token).</p>

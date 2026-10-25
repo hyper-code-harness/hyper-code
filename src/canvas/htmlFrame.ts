@@ -41,7 +41,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (item.args.load) {
         try { data = await ctx.fns.canvas.runLoad({ source: String(item.args.load) }); }
         catch (error: any) {
-            const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+            const esc = (text: string) => ctx.fns.w.escape({ text });
             return new Response(`<!doctype html><meta charset="utf-8"><body style="font:13px system-ui;padding:16px"><p style="color:#b91c1c">load: ${esc(String(error?.message ?? error))}</p><pre style="white-space:pre-wrap;color:#666">${esc(String(item.args.load))}</pre>`, { headers });
         }
     }

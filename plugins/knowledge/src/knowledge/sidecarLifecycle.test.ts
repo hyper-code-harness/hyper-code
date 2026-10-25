@@ -50,14 +50,14 @@ describe('isolated Knowledge lifecycle', () => {
 const esc = ({text}: {text:string}) => Bun.escapeHTML(text);
 test('persisted source page uses parameterized lookup and escapes source HTML', async () => {
     let params: any;
-    const ctx: any = { fns: { procs: {ui:{escape:esc},db:{select:async(o:any)=>{params=o.params;return [{role:'tool',content:'<script>bad</script>'}];}}} } };
+    const ctx: any = { fns: { procs: {ui:{escape:esc},db:{select:async(o:any)=>{params=o.params;return [{role:'tool',content:'<script>bad</script>'}];}}}, w: {escape:esc} } };
     const result = await page(ctx,null,{id:'chat',idx:7});
     expect(params).toEqual(['chat',7]);
     expect((result as any).main).toContain('&lt;script&gt;');
     expect((result as any).main).toContain('href="/agent/chat"');
 });
 test('entity provenance uses accessible real source links and rejects unsafe schemes', async () => {
-    const ctx: any = {fns:{procs:{ui:{escape:esc}},knowledge:{renderHistory:async()=>({html:'',count:0}),renderBacklinks:async()=>({html:'',count:0}),get:async()=>({type:'Organization',data:{title:'Alpha'},relations:{incoming:[],outgoing:[]},provenance:[{url:'hyper://agent/chat/message/7'},{url:'javascript:alert(1)'}]})}}};
+    const ctx: any = {fns:{procs:{ui:{escape:esc}}, w: {escape:esc},knowledge:{renderHistory:async()=>({html:'',count:0}),renderBacklinks:async()=>({html:'',count:0}),get:async()=>({type:'Organization',data:{title:'Alpha'},relations:{incoming:[],outgoing:[]},provenance:[{url:'hyper://agent/chat/message/7'},{url:'javascript:alert(1)'}]})}}};
     const result = await detail(ctx,null,{req:new Request('http://localhost'),params:{type:'Organization',slug:'alpha'}});
     expect(result.main).toContain('href="/agent/chat/message/7"');
     expect(result.main).toContain('Source chat · message 7');

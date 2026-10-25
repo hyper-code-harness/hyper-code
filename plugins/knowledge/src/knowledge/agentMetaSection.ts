@@ -7,7 +7,7 @@
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Live agent whose `scratchpad.knowledgeSidecar` and `knowledgeTrackingEnabled` are shown. */ agent: types.agent.Agent;
 }): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: String(s ?? "") });
+    const esc = (s: any) => ctx.fns.w.escape({ text: String(s ?? "") });
     const agent: any = opts.agent;
     const id = encodeURIComponent(agent.id);
     const statusBadge = ctx.fns.ui.statusBadge ?? ((o: any) => `<span class="badge badge-sm">${esc(o.label)}</span>`);

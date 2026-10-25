@@ -14,7 +14,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         /** Whether to omit the surrounding logo container. */ bare?: boolean;
         /** Whether to render the compact variant. */ compact?: boolean }): string {
     const model = String(opts.model ?? '?');
-    const esc = (value: string) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: string) => ctx.fns.w.escape({ text: value });
     const key = model.toLowerCase();
 
     // Simple Icons paths (CC0): OpenAI, Anthropic and Kimi/Moonshot.

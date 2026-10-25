@@ -19,7 +19,7 @@ export default function (
         /** Whether to render the compact variant. */ compact?: boolean;
         /** Page title. */ title?: string },
 ): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const text = opts.label ? `<span class="min-w-0 flex-1"><span class="block ${opts.compact ? 'text-2xs font-medium leading-4' : 'text-xs font-medium leading-4'} ${opts.enabled ? 'text-muted' : 'text-subtle'}">${esc(opts.label)}</span>${opts.hint ? `<span class="block text-micro leading-3.5 text-faint">${esc(opts.hint)}</span>` : ''}</span>` : '';
     const track = opts.enabled ? 'background:rgb(99 102 241)' : 'background:rgb(229 231 235)';
     const thumb = opts.enabled ? 'left:22px' : 'left:2px';

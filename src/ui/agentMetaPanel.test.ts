@@ -11,7 +11,7 @@ const button = (o: any) => `<button type="${o.type ?? (o.name ? 'submit' : 'butt
 const mkCtx = (extra: any = {}): any => {
     const ctx: any = {
         fns: {
-            procs: { ui: { escape: escapeHtml, button } },
+            procs: { ui: { escape: escapeHtml, button } }, w: { escape: escapeHtml, button },
             ui: {
                 toggle,
                 planTaskRow,

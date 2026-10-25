@@ -27,7 +27,7 @@ export default {
         return { args: { path: at.path, host: at.host ?? "local", mode, ...(tab ? { tab } : {}) }, title: at.host ? `${at.host}:${name}` : name };
     },
     async render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         const a = opts.item.args;
         try {
             const host = a.host && a.host !== "local" ? String(a.host) : undefined;

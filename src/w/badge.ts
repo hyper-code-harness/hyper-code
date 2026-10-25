@@ -9,6 +9,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Meaning. @default "neutral" */
     tone?: types.w.Tone;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<span class="w-badge" data-tone="${opts.tone ?? "neutral"}">${esc(opts.text)}</span>`;
 }

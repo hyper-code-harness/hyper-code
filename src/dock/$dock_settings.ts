@@ -7,7 +7,7 @@ export default {
     zone: "bottom",
     order: 5,
     render: async (ctx: Context) => {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const row = "flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-base-content hover:bg-base-200";
         const theme = ctx.fns.procs.ui.button({
             action: "toggle-theme",

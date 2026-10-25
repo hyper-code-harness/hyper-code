@@ -28,7 +28,7 @@ function cell(v: unknown): string {
 }
 
 function rowsHtml(ctx: Context, input: types.input.Row, rows: any[], picked: Set<string>): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const s = input.spec;
     const type = s.multiple ? "checkbox" : "radio";
     if (!rows.length) return `<tr><td colspan="${s.columns.length + 1}" class="py-3 text-center text-2xs text-muted">no results found</td></tr>`;
@@ -68,7 +68,7 @@ export default {
         };
     },
     async open(ctx: Context, opts: { input: types.input.Row }) {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const input = opts.input;
         const rowsId = `grid-rows-${input.id}`;
         const head = input.spec.columns.map((c: Column) => `<th>${esc(c.label)}</th>`).join("");
@@ -102,7 +102,7 @@ export default {
             : { result: { value: picked[0], row: rows[0] }, summary: `picked "${labels[0]}" (${s.valueKey}=${picked[0]})` };
     },
     done(ctx: Context, opts: { input: types.input.Row }) {
-        const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const s = opts.input.spec;
         const rows: any[] = opts.input.result?.rows ?? (opts.input.result?.row ? [opts.input.result.row] : []);
         const head = s.columns.map((c: Column) => `<th>${esc(c.label)}</th>`).join("");

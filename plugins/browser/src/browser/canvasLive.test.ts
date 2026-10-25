@@ -18,7 +18,7 @@ function fakeChrome() {
 }
 
 function fakeCtx(browserUrl: string) {
-    const ctx: any = { state: {}, fns: { browser: {}, rpc: {}, procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } } };
+    const ctx: any = { state: {}, fns: { browser: {}, rpc: {}, procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
     ctx.fns.browser.liveCdp = async () => ({ browserUrl, isDefault: true });
     ctx.fns.browser.liveView = async (o: { tab?: string }) => ({ url: "", targetId: o.tab ?? "T-1", title: "Example", pageUrl: "https://example.com/" });
     ctx.fns.browser.liveBase = async () => "";

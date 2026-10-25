@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import render from "./chatEventCard";
 
 const escape = ({ text }: any) => String(text).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-const ctx: any = { fns: { procs: { ui: { escape } } } };
+const ctx: any = { fns: { procs: { ui: { escape } }, w: { escape } } };
 
 test("chat event card renders one semantic shell for lifecycle events", () => {
     const html = render(ctx, null, { title: "Goal <check>", icon: "target", tone: "success", badge: "<b>done</b>", body: "<p>Verified</p>", details: "<pre>proof</pre>" });

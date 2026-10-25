@@ -16,6 +16,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Accessible name of the bar. */
     label?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     return `<nav class="w-rail" aria-label="${esc(opts.label ?? "Bar")}"><div class="w-rail-head">${opts.head ?? ""}</div><div class="w-rail-items">${opts.items ?? ""}</div><div class="w-rail-foot">${opts.foot ?? ""}</div></nav>`;
 }

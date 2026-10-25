@@ -31,7 +31,7 @@ export default function (
         now?: number;
     },
 ): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const agent = opts.agent;
     const parked: any = (agent as any).scratchpad?.parked ?? null;
     if (!parked) return "";

@@ -9,7 +9,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Phosphor icon before the label. */
     icon?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     if (!opts.label) return '<hr class="w-divider">';
     return `<div class="w-divider" role="separator"><span>${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 12 }) : ""}${esc(opts.label)}</span></div>`;
 }

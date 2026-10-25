@@ -12,7 +12,7 @@ describe("GET /agent/dirs", () => {
         const root = await mkdtemp(join(tmpdir(), "hyper-dirs-"));
         roots.push(root);
         await Promise.all([mkdir(join(root, "alpha-project")), mkdir(join(root, "beta-project"))]);
-        const ctx: any = { env: { HOME: root }, fns: { procs: { ui: { escape: ({ text }: any) => String(text) } } } };
+        const ctx: any = { env: { HOME: root }, fns: { procs: { ui: { escape: ({ text }: any) => String(text) } }, w: { escape: ({ text }: any) => String(text) } } };
 
         const response = await route(ctx, null, { req: new Request(`http://localhost/agent/dirs?workspaceDir=${encodeURIComponent(root + "/")}`) });
         expect(response.status).toBe(200);

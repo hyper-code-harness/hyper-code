@@ -1,6 +1,6 @@
 /** GET /knowledge — searchable Hyper-native overview of the typed knowledge graph. */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
-    const esc=(value:any)=>ctx.fns.procs.ui.escape({text:String(value??"")});
+    const esc=(value:any)=>ctx.fns.w.escape({text:String(value??"")});
     const url=new URL(opts.req.url),query=(url.searchParams.get("q")??"").trim(),type=url.searchParams.get("type")??"";
     const [stats,types,hits]=await Promise.all([ctx.fns.knowledge.stats({}),ctx.fns.knowledge.types({}),query?ctx.fns.knowledge.find({query,type:type||undefined,limit:50}):Promise.resolve([])]);
     const cards=types.map((row:any)=>`<a href="/knowledge/${encodeURIComponent(row.type)}" class="group rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"><div class="flex items-center justify-between"><i class="ph ph-cube text-xl text-primary"></i><span class="text-2xl font-semibold tracking-tight">${row.count}</span></div><div class="mt-3 truncate text-sm font-medium group-hover:text-primary">${esc(row.type)}</div></a>`).join("");

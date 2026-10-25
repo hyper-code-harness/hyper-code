@@ -16,7 +16,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Optional button. */
     action?: { label: string } & types.w.Action;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const icon = { info: "info", success: "check-circle", warning: "warning", error: "warning-circle" }[opts.level ?? "info"];
     const btn = opts.action ? (() => { const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action }); const t = tag === "div" ? "button" : tag; return `<${t} class="w-toast-action"${attrs}>${esc(opts.action.label)}</${t}>`; })() : "";
     // data-role="notice" + data-tone: how page.state().notices and page.text({ role: "notice" }) read the outcome.

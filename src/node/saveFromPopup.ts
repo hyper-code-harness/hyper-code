@@ -6,7 +6,7 @@
  * @param opts.remove Set to remove the node instead.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { /** Node name. */ name: string; /** Node URL. */ url?: string; /** Token. */ token?: string; /** Remove flag. */ remove?: string | boolean }): Promise<string> {
-    const esc = (x: any) => ctx.fns.procs.ui.escape({ text: String(x ?? "") });
+    const esc = (x: any) => ctx.fns.w.escape({ text: String(x ?? "") });
     const done = (msg: string, tone: "success" | "error") => { ctx.fns.procs.events.refresh({ topic: "node-clients", reason: "node" }); ctx.fns.procs.events.refresh({ topic: "llm-accounts", reason: "node" }); return ctx.fns.ui.popupContent({ title: "Hyper node", kind: "login", html: `<p class="text-sm ${tone === "error" ? "text-error" : "text-success"}">${esc(msg)}</p>` }); };
     try {
         if (opts.remove) { await ctx.fns.node.remove({ name: opts.name }); return done(`Removed hyper/${opts.name}.`, "success"); }

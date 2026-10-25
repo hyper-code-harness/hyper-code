@@ -14,7 +14,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
         /** Page title. */ title?: string;
         /** Rendered main-page HTML. */ main: string;
         /** Additional HTML to include in the document head. */ headExtra?: string }): Promise<string> {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
 
     // currentId only identifies the active agent to browser-side chat behavior.
     const currentId = opts.currentId ?? session?.req?.headers?.get("x-hyper-agent") ?? undefined;

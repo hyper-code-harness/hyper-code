@@ -18,7 +18,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Diameter in px. @default 20 */
     size?: 16 | 20 | 28;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const share = Math.max(0, Math.min(1, Number(opts.value) / Number(opts.max ?? 100) || 0));
     const tone = opts.tone ?? (share >= 0.9 ? "danger" : share >= 0.7 ? "warning" : "neutral");
     const size = opts.size ?? 20;

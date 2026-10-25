@@ -14,7 +14,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Safe login progress, never credentials. */ flow?: { account: string; status: "pending" | "connected" | "failed"; verificationUri: string | null; userCode: string | null; error: string | null } | null;
     /** Existing account slot to reconnect. */ account?: string;
 }): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: String(s ?? "") });
+    const esc = (s: any) => ctx.fns.w.escape({ text: String(s ?? "") });
     const button = (action: string, label: string, tone: "default" | "primary" = "default", cls = "") => ctx.fns.llms?.popupButton
         ? ctx.fns.llms.popupButton({ action, label, tone, class: cls })
         : ctx.fns.w.button({ label, tone: tone === "primary" ? "primary" : "neutral", size: "sm", submit: true, marks: { action } }).replace('class="w-btn"', `class="${cls} w-btn"`);

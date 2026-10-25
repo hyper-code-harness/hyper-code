@@ -45,6 +45,10 @@ async function makeCtx() {
                 },
                 db: { select: async () => [] },
             },
+            w: {
+                escape: ({ text }: any) => String(text ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string)),
+                sparkline: () => "<svg></svg>",
+            },
             telemetry: {} as any,
         },
     };

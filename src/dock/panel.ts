@@ -12,7 +12,7 @@ export default async function (
         edit?: boolean;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
         const all = ((ctx.state as any).nav?.widgets ?? {}) as Record<string, types.nav.Widget & types.nav.Registered>;
         const edit = !!opts.edit;
         const { widgets, source } = await ctx.fns.dock.panelWidgets({});

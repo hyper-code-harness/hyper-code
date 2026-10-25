@@ -15,7 +15,7 @@ export default async function (
         agentId: string;
     },
 ): Promise<string> {
-    const id = ctx.fns.procs.ui.escape({ text: opts.agentId });
+    const id = ctx.fns.w.escape({ text: opts.agentId });
     // The canvas script finds these by data-canvas-*, never by class.
     const close = ctx.fns.w.iconButton({ icon: "x", label: "Close canvas", size: 28, marks: { action: "close-canvas" } })
         .replace("<button", '<button data-canvas-toggle="close"');
@@ -23,7 +23,7 @@ export default async function (
     // load re-run, a tsx drawing recomputed. canvas.js asks for the panel and swaps the body unconditionally.
     const reload = ctx.fns.w.iconButton({ icon: "arrow-clockwise", label: "Reload tab", size: 28, marks: { action: "reload-canvas-tab" } })
         .replace("<button", "<button data-canvas-reload");
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     const items = await ctx.fns.canvas.list({ agentId: opts.agentId }).catch(() => [] as types.canvas.Item[]);
     const kinds = ((ctx.state as any).canvas?.kinds ?? {}) as Record<string, types.canvas.Registered>;
     const active = items.find(i => i.active) ?? null;

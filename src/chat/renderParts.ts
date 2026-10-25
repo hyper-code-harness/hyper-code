@@ -24,7 +24,7 @@ export default async function (
         const out = await ctx.fns.chat.withTimeout({ id: part.id, budgetMs: opts.budgetMs, run: () => (part as types.chat.Badge).render(ctx, session, opts.context) });
         if (!out) return "";
         const html = typeof out === "string" ? out : ctx.fns.chat.renderItem({ id: part.id, item: out as types.chat.Item, side: opts.kind });
-        return html ? `<span class="chat-part flex min-w-0 shrink-0 items-center" data-chat-id="${ctx.fns.procs.ui.escape({ text: part.id })}">${html}</span>` : "";
+        return html ? `<span class="chat-part flex min-w-0 shrink-0 items-center" data-chat-id="${ctx.fns.w.escape({ text: part.id })}">${html}</span>` : "";
     }));
     return drawn.filter(Boolean);
 }

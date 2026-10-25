@@ -23,7 +23,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Error text instead of a value. */
     error?: string;
 }): string {
-    const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+    const esc = (text: string) => ctx.fns.w.escape({ text });
     let body: string;
     if (opts.error !== undefined) body = `<p class="rpc-error">${esc(opts.error)}</p><p class="rpc-muted">${esc(opts.title)}</p>`;
     else if (typeof opts.value === "string") body = opts.value;

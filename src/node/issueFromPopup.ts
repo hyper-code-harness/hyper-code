@@ -4,7 +4,7 @@
  * @param opts.providers Allowed providers (checkbox values).
  */
 export default async function (ctx: Context, _session: Session | null, opts: { /** Client name. */ name: string; /** Allowed providers. */ providers?: string | string[] }): Promise<string> {
-    const esc = (x: any) => ctx.fns.procs.ui.escape({ text: String(x ?? "") });
+    const esc = (x: any) => ctx.fns.w.escape({ text: String(x ?? "") });
     const providers = ([] as string[]).concat(opts.providers ?? []).filter(Boolean);
     const all = Object.keys(await ctx.fns.llm.listModels({ skipNodes: true })).filter((p) => p !== "lmstudio" && p !== "mock").map((p) => p.split("/")[0]!);
     const restricted = providers.length && providers.length < new Set(all).size ? providers : [];

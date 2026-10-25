@@ -16,7 +16,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** When, ms since epoch. */
     ts?: number;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const line = `${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 12 }) : ""}<span>${esc(opts.text)}</span>${opts.ts ? ctx.fns.w.time({ ts: opts.ts }) : ""}`;
     return opts.details
         ? `<details class="w-note"><summary>${line}</summary><div class="w-note-details">${opts.details}</div></details>`

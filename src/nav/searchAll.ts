@@ -27,7 +27,7 @@ export default async function (
         inlineMs?: number;
     },
 ): Promise<{ html: string; groups: Array<{ id: string; title: string; items: types.nav.Item[]; error?: string }>; pending: string[] }> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const registry = ((ctx.state as any).nav?.search ?? {}) as Record<string, types.nav.Search & types.nav.Registered>;
     const { tabs } = await ctx.fns.nav.tabs({});
     const tab = tabs.find(t => t.id === opts.tab) ?? tabs[0];

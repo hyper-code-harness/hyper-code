@@ -80,7 +80,7 @@ initialUsage?: any;
     }
 
     const url = `/agent/${encodeURIComponent(agentId)}/statusbar`;
-    const esc = (t: any) => ctx.fns.procs.ui.escape({ text: t });
+    const esc = (t: any) => ctx.fns.w.escape({ text: t });
     const statusBadge = row?.last_error && row?.run_state !== 'running' && !parked
         ? `<span class="text-xs px-2 py-0.5 rounded border font-mono ${cls} max-w-[16rem] truncate inline-block align-bottom" title="${esc(String(row.last_error))} — send a message to retry">error: ${esc(String(row.last_error).slice(0, 48))}</span>`
         : row?.run_state === 'running' ? `<span class="inline-flex items-center ${cls}" title="${esc(title)}" data-agent-running>${label}</span>`

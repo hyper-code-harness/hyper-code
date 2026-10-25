@@ -14,7 +14,7 @@ export default async function (
         agentId: string;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
         const id = String(opts.agentId ?? "");
         const agent = (ctx.state as any).agent?.[id] ?? await ctx.fns.session.load({ id });
         if (!agent) return `<div class="p-6 text-sm text-faint">No such agent: ${esc(id)}</div>`;

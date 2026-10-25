@@ -32,6 +32,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         method: "chat.compactPopup",
         params: { agentId: id },
         html: face,
-        attrs: `class="flex h-8 min-w-8 items-center justify-center rounded-full px-1 text-faint hover:bg-base-200" title="${ctx.fns.procs.ui.escape({ text: title })}" aria-label="${ctx.fns.procs.ui.escape({ text: title })}"`,
+        attrs: `class="flex h-8 min-w-8 items-center justify-center rounded-full px-1 text-faint hover:bg-base-200" title="${ctx.fns.w.escape({ text: title })}" aria-label="${ctx.fns.w.escape({ text: title })}"`,
     });
 }

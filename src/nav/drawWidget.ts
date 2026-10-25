@@ -54,7 +54,7 @@ export default async function (
     } finally { if (timer) clearTimeout(timer); }
 
     const output: types.nav.WidgetOutput = typeof out === "string" ? { html: out } : Array.isArray(out) ? { items: out } : out ?? {};
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const pinned = await (async () => {
         const all = [...(output.items ?? []), ...(output.sections ?? []).flatMap(s => s.items ?? [])];
         if (!all.some(item => item.pin)) return new Set<string>();

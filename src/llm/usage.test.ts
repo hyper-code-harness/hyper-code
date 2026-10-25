@@ -6,6 +6,7 @@ const NOW = 1_786_900_000_000;
 const escCtx: any = {
     fns: {
         procs: { ui: { escape: ({ text }: any) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!)) } },
+        w: { escape: ({ text }: any) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!)) },
         ui: { modelLogo: ({ model }: any) => `<span data-logo="${model}"></span>` },
     },
 };

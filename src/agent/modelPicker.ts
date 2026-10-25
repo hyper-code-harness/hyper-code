@@ -20,7 +20,7 @@ export default async function (
     const agent = (ctx.state as any).agent?.[id] ?? await ctx.fns.session.load({ id });
     if (!agent) return new Response("agent not found", { status: 404 });
 
-    const esc = (value: unknown) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: unknown) => ctx.fns.w.escape({ text: String(value ?? "") });
     const body = await ctx.fns.agent.modelPickerHtml({ current: String(agent.model ?? ""), mode: "agent", agentId: id });
     const html = body.includes("data-model-picker") ? `${body}<p class="mt-3 border-t border-ui-border pt-2 text-3xs text-faint">This changes only agent <span class="font-mono">${esc(id)}</span>. Chat history stays unchanged; the next call uses the selected account and model.</p>` : body;
     return new Response(ctx.fns.ui.popupContent({ title: "Provider, account and model", kind: "model-picker", class: "w-full max-w-3xl", html }), { headers: { "content-type": "text/html; charset=utf-8" } });

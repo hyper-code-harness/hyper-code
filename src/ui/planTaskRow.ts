@@ -7,7 +7,7 @@
 export default function (ctx: Context, _session: Session | null, opts: {
         /** Plan task to render. */ task: any;
         /** Whether the task input should receive focus. */ autofocus?: boolean }): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const task = opts.task ?? {};
     const status = String(task.status ?? 'pending');
     const active = status === 'active';

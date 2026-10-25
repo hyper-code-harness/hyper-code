@@ -21,7 +21,7 @@ import { resolve } from "node:path";
 
 type Fn = (ctx: any, session: any, opts: any) => any;
 
-const KIT_DIRS = ["procs/ui", "ui"] as const;
+const KIT_DIRS = ["procs/ui", "ui", "w"] as const;
 
 // Component modules are plain default exports taking (ctx, session, opts); the
 // registry's calling convention is opts-only, so each is wrapped once.
@@ -32,7 +32,7 @@ function wrap(ctx: any, fn: Fn) {
 /**
  * Builds a ctx whose component kit is the real one, for renderer tests.
  *
- * Loads every synchronous function under `src/procs/ui` and `src/ui` and exposes it at its registry name, so a test never has to hand-mock `escape`, `button` or a sibling renderer. Use for tests of pure HTML renderers; anything needing the database or routes wants `testCtx()` from `src/$test` instead.
+ * Loads every synchronous function under `src/procs/ui`, `src/ui` and `src/w` and exposes it at its registry name, so a test never has to hand-mock `escape`, `button` or a sibling renderer. Use for tests of pure HTML renderers; anything needing the database or routes wants `testCtx()` from `src/$test` instead.
  * @param overrides Functions to install over the real kit, keyed by dotted registry name such as `ui.toggle`.
  */
 export async function renderCtx(overrides: Record<string, Fn> = {}): Promise<any> {
@@ -55,7 +55,7 @@ export async function renderCtx(overrides: Record<string, Fn> = {}): Promise<any
         // test. `.test.ts` and type files (capitalised) carry no function, and
         // `.entry.ts` is a browser bundle — importing it here asks for `window`.
         const files = names.filter((rel) => !rel.startsWith("$") && !rel.endsWith(".test.ts") && !rel.endsWith(".d.ts") && !rel.endsWith(".entry.ts") && !/^[A-Z]/.test(rel));
-        const mod = dir === "procs/ui" ? "procs.ui" : "ui";
+        const mod = dir === "procs/ui" ? "procs.ui" : dir;
         for (const rel of files) {
             const stem = rel.replace(/\.ts$/, "");
             const loaded = await import(resolve(abs, rel));

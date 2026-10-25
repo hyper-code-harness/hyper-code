@@ -12,7 +12,7 @@ export default async function (
     const url = new URL(opts.req.url);
     const q = (url.searchParams.get("q") ?? "").trim();
     const namespace = (url.searchParams.get("namespace") ?? "").trim();
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: any) => ctx.fns.w.escape({ text: String(value ?? "") });
     const compact = q
         ? await ctx.fns.runtime.docs.search({ query: q, limit: 50 })
         : ctx.fns.runtime.docs.list({ namespace: namespace || undefined });
@@ -37,7 +37,7 @@ export default async function (
         const highlightedSignature = await ctx.fns.markdown.highlight({ code: signature, lang: "typescript" });
         const rank: any = ranking.get(meta.name);
         const score = rank && q ? `<span class="ml-auto flex shrink-0 items-center gap-1.5 text-3xs text-faint">${rank.similarity != null ? `<span title="Reciprocal Rank Fusion score">RRF <b class="font-mono font-semibold text-muted">${formatScore(rank.score)}</b></span>` : ""}${rank.bm25 != null ? `<span title="ParadeDB BM25 score">BM25 ${formatScore(rank.bm25)}</span>` : ""}${rank.similarity != null ? `<span title="Embedding cosine similarity">cos ${formatScore(rank.similarity)}</span>` : ""}</span>` : "";
-        return `<details ${ctx.fns.procs.ui.attr({ entity: "function", id: meta.name })} class="group rounded-xl border border-base-300 bg-base-100 shadow-sm open:ring-1 open:ring-primary/20">
+        return `<details ${ctx.fns.w.marks({ entity: "function", id: meta.name })} class="group rounded-xl border border-base-300 bg-base-100 shadow-sm open:ring-1 open:ring-primary/20">
   <summary class="flex cursor-pointer list-none items-start gap-3 px-4 py-3 hover:bg-base-200">
     <span class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><i class="ph ph-function"></i></span>
     <span class="min-w-0 flex-1"><code class="text-sm font-semibold text-base-content">${esc(meta.name)}</code><span class="mt-1 block text-xs leading-5 text-muted">${esc(meta.summary || meta.doc || "No description")}</span></span>
@@ -56,9 +56,9 @@ export default async function (
     const namespaceOptions = namespaces.map(name => `<option value="${esc(name)}"${name === namespace ? " selected" : ""}>${esc(name)}</option>`).join("");
     return {
         title: q ? `functions: ${q}` : "functions",
-        main: `<div class="bg-base-100 p-6 text-base-content sm:p-8"><section ${ctx.fns.procs.ui.attr({ page: "functions" })} class="mx-auto max-w-5xl pb-10">
+        main: `<div class="bg-base-100 p-6 text-base-content sm:p-8"><section ${ctx.fns.w.marks({ page: "functions" })} class="mx-auto max-w-5xl pb-10">
   <div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="text-2xl font-semibold tracking-tight text-base-content">Runtime functions</h1><p class="mt-1 text-sm text-muted">Live documentation, parameter schemas, return types, and source locations.</p></div><span class="rounded-full bg-base-200 px-3 py-1 text-xs text-muted">${docs.length}${q ? " matches" : " functions"}</span></div>
-  <form method="GET" action="/functions" ${ctx.fns.procs.ui.attr({ form: "function-search" })} class="mt-6 grid gap-2 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
+  <form method="GET" action="/functions" ${ctx.fns.w.marks({ form: "function-search" })} class="mt-6 grid gap-2 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
     <label class="flex h-10 items-center gap-2 rounded-lg border border-base-300 bg-base-100 px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"><i class="ph ph-magnifying-glass text-faint"></i><input name="q" value="${esc(q)}" placeholder="Search in English: send telegram message…" class="min-w-0 grow bg-transparent text-sm text-base-content outline-none placeholder:text-faint" autofocus></label>
     <select name="namespace" class="h-10 w-full rounded-lg border border-base-300 bg-base-100 px-3 text-sm text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="">All namespaces</option>${namespaceOptions}</select>
     ${ctx.fns.w.button({ label: "Search", tone: "primary", submit: true, marks: { action: "search-functions" } })}

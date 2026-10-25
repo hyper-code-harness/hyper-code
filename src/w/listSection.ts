@@ -18,7 +18,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Trusted HTML on the title line (a + button). */
     actions?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const head = opts.title ? `<span class="w-section-title">${esc(opts.title)}${opts.count !== undefined ? ` <span class="w-section-count">${opts.count}</span>` : ""}</span>${opts.actions ? `<span class="w-section-actions">${opts.actions}</span>` : ""}` : "";
     if (opts.collapsed !== undefined) return `<details class="w-section"${opts.collapsed ? "" : " open"}><summary class="w-section-head">${head}</summary><div class="w-section-rows">${opts.rows}</div></details>`;
     return `<section class="w-section">${head ? `<div class="w-section-head">${head}</div>` : ""}<div class="w-section-rows">${opts.rows}</div></section>`;

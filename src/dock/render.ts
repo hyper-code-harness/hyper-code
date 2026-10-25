@@ -15,7 +15,7 @@ export default async function (
         timeoutMs?: number;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const budget = Math.max(50, Math.min(10_000, opts.timeoutMs ?? 1500));
     const { top, bottom, hidden } = await ctx.fns.dock.items({});
     const labels = Object.fromEntries([...top, ...bottom, ...hidden].map(x => [x.id, x.label ?? x.id]));

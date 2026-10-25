@@ -12,7 +12,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Visible label. */
     label?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const v = /^#[0-9a-f]{6}$/i.test(opts.value) ? opts.value : "#000000";
     return `<label class="w-color"><input type="color" name="${esc(opts.name)}" value="${v}" oninput="this.nextElementSibling.textContent=this.value"><code>${v}</code>${opts.label ? `<span>${esc(opts.label)}</span>` : ""}</label>`;
 }

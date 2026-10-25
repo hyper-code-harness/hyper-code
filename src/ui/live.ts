@@ -43,7 +43,7 @@ export default function (
         /** Value used for the swap option. */ swap?: string;
         /** HTML for the popup trigger. */ trigger?: string },
 ): string {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const every = opts.every === 0 ? 0 : Math.max(5, opts.every ?? 30);
     const tag = /^[a-z][a-z0-9-]*$/i.test(opts.tag ?? '') ? opts.tag! : 'div';
     const swap = opts.swap ?? 'outerHTML';

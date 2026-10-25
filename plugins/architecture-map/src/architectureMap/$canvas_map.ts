@@ -10,7 +10,7 @@ export default {
         return { args: { scope, minWeight }, title: "Hyper Architecture Map" };
     },
     render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         const state = { ...opts.item.args, ...opts.item.state };
         const query = new URLSearchParams({ embed: "1", scope: String(state.scope ?? "all"), minWeight: String(state.minWeight ?? 2) });
         return `<iframe data-canvas-frame="${opts.item.id}" src="/architectureMap?${esc(query.toString())}" title="${esc(opts.item.title)}" class="block h-full w-full border-0 bg-base-100" loading="eager"></iframe>`;

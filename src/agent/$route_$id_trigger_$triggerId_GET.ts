@@ -2,14 +2,14 @@
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
   const agentId = String(opts.params.id ?? "");
   const triggerId = String(opts.params.triggerId ?? "");
-  const esc = (value: any) => ctx.fns.procs.ui.escape({ text: value == null ? "" : String(value) });
+  const esc = (value: any) => ctx.fns.w.escape({ text: value == null ? "" : String(value) });
   const trigger = (await ctx.fns.ui.automationRows({ id: agentId, status: "all" })).find((t: any) => t.id === triggerId);
   if (!trigger) return new Response("Trigger not found", { status: 404 });
   const runs = await ctx.fns.procs.db.select({ sql: `SELECT id,scheduled_at AS "scheduledAt",outcome,result,result_ref AS "resultRef",error,created_at AS "createdAt" FROM job_runs WHERE job_id=? ORDER BY id DESC LIMIT 100`, params: [triggerId] }) as any[];
   const fmt = (value: any) => value == null ? "—" : new Date(Number(value)).toLocaleString();
   const json = (value: any) => { try { return JSON.stringify(value, null, 2); } catch { return String(value ?? ""); } };
   const last = runs[0];
-  const stats = ctx.fns.procs.ui.stats({ items: [
+  const stats = ctx.fns.w.stats({ items: [
     { label: "Total runs", value: runs.length },
     { label: "Status", value: trigger.status, tone: trigger.status === "completed" ? "success" : trigger.status === "timed_out" || trigger.lastError ? "danger" : "info" },
     { label: "Last run", value: last ? fmt(last.createdAt) : "Never", sub: last?.outcome ?? "" },

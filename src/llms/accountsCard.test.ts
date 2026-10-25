@@ -10,7 +10,11 @@ const ctx: any = { fns: {
         button: (o: any) => JSON.stringify(o),
         toolbar: () => "toolbar",
     } },
-    w: { button: (o: any) => JSON.stringify(o), empty: () => "empty" },
+    w: {
+        button: (o: any) => JSON.stringify(o), empty: () => "empty", escape: ({ text }: any) => String(text),
+        record: (o: any) => JSON.stringify(o), heading: ({ title, actions }: any) => title + (actions ?? ""),
+        card: ({ body }: any) => body, box: ({ body }: any) => body, badge: ({ text }: any) => `badge:${text}`, kbd: ({ keys }: any) => keys,
+    },
     ui: {
         modelLogo: () => "logo",
         popup: (o: any) => JSON.stringify(o),
@@ -26,10 +30,10 @@ test("accounts card groups consistently by provider and renders plan/storage met
     ] });
     expect(html).toContain('data-provider="codex"');
     expect(html).toContain('data-provider="claude"');
-    expect(html).toContain('"role":"plan","text":"Team"');
+    expect(html).toContain('"role":"plan","html":"badge:Team"');
     expect(html).toContain('data-provider="grok"');
     expect(html).toContain('"id":"xai/default"');
-    expect(html).toContain('"role":"plan","text":"Max"');
+    expect(html).toContain('"role":"plan","html":"badge:Max"');
     expect(html).toContain('"role":"storage","text":"CLI storage"');
     expect(html).toContain('"role":"storage","text":"Encrypted by Hyper"');
     expect(html).toContain("/llms/codex/reset");

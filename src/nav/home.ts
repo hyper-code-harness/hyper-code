@@ -21,7 +21,7 @@ export default async function (
         edit?: boolean;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { tabs } = await ctx.fns.nav.tabs({});
     const tab = tabs.find(t => t.id === opts.tab) ?? tabs[0];
     if (!tab) return `<div class="px-4 py-5 text-sm text-faint">no tabs</div>`;

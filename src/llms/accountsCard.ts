@@ -17,12 +17,12 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Current timestamp in ms. */ now?: number;
 }): string {
     const now = opts.now ?? Date.now();
-    const esc = (x: any) => ctx.fns.procs.ui.escape({ text: String(x ?? "") });
+    const esc = (x: any) => ctx.fns.w.escape({ text: String(x ?? "") });
     const prefix = (a: typeof opts.accounts[number]) => `${a.provider}${a.account === "default" ? "" : `/${a.account}`}:`;
 
     const remove = (a: typeof opts.accounts[number]) => {
         if (a.source !== "oauth" && a.account === "default") return "";
-        return ctx.fns.ui.popup({ method: "llms.removeAccount", params: { provider: a.provider, account: a.account }, tone: "danger", size: "xs", html: `<i class="ph ph-trash" aria-hidden="true"></i><span>Remove</span>` });
+        return ctx.fns.w.button({ label: "Remove", icon: "trash", tone: "danger", size: "sm", action: { popup: { method: "llms.removeAccount", params: { provider: a.provider, account: a.account } } }, marks: { action: "open-popup" } });
     };
     const row = (a: typeof opts.accounts[number]) => {
         const used = a.usedPercent;
@@ -30,21 +30,21 @@ export default function (ctx: Context, _session: Session | null, opts: {
         const status = !a.available || (used != null && used >= 75) ? "limit" : used != null && used >= 50 ? "warning" : "ready";
         const storage = storageLabel(a.source);
         const reconnect = a.needsReconnect
-            ? ctx.fns.ui.popup({ method: "llms.loginPopupFor", params: { provider: a.provider === "anthropic-oauth" ? "claude-code" : a.provider, account: a.account }, tone: "warning", size: "xs", html: `<i class="ph ph-arrow-clockwise" aria-hidden="true"></i><span>Reconnect</span>` })
+            ? ctx.fns.w.button({ label: "Reconnect", icon: "arrow-clockwise", tone: "warning", size: "sm", action: { popup: { method: "llms.loginPopupFor", params: { provider: a.provider === "anthropic-oauth" ? "claude-code" : a.provider, account: a.account } } }, marks: { action: "open-popup" } })
             : "";
         const resetCount = a.provider === "codex" ? a.resetCredits?.availableCount : undefined;
         const resetDetails = a.provider === "codex" && a.resetCredits?.credits?.length ? `<details class="text-3xs text-subtle"><summary class="cursor-pointer">details</summary><div class="absolute z-20 mt-1 max-w-xs space-y-1 rounded-lg border border-ui-border bg-base-100 p-2 shadow-xl">${a.resetCredits.credits.map((credit: any) => `<div><div class="font-medium text-muted">${esc(credit.title || credit.resetType || "Codex reset")}</div>${credit.description ? `<div>${esc(credit.description)}</div>` : ""}${credit.expiresAt ? `<div>expires ${esc(new Date(typeof credit.expiresAt === "number" ? (credit.expiresAt < 10_000_000_000 ? credit.expiresAt * 1000 : credit.expiresAt) : credit.expiresAt).toLocaleString())}</div>` : ""}</div>`).join("")}</div></details>` : "";
         const reset = a.provider === "codex" && resetCount != null ? `<form method="POST" action="/llms/codex/reset" hx-post="/llms/codex/reset" hx-target="find .reset-result" hx-swap="innerHTML" class="flex items-center gap-1" onsubmit="return confirm('Use one of ${resetCount} Codex reset credits now?')"><input type="hidden" name="account" value="${esc(a.account)}"><span class="reset-result text-3xs text-subtle">${resetCount} reset${resetCount === 1 ? "" : "s"}</span>${resetDetails}${resetCount > 0 ? ctx.fns.w.button({ label: "Reset limit", size: "sm", submit: true, marks: { action: "reset-codex-limit" } }) : ""}</form>` : "";
-        const actions = `<span class="flex items-center gap-1">${reset}${reconnect}${remove(a)}</span>`;
-        return ctx.fns.procs.ui.row({ entity: "llm-account", id: `${a.provider}/${a.account}`, status: a.needsReconnect ? "error" : status, cells: [
-            { role: "account", text: a.account === "default" ? "main" : a.account, class: "w-28 shrink-0 font-mono text-xs font-medium" },
-            ...(a.planType ? [{ role: "plan", text: planName(a.provider, a.planType), title: `Subscription plan: ${a.planType}`, class: "badge badge-sm shrink-0 capitalize text-muted" }] : []),
-            { role: "prefix", text: prefix(a), title: prefix(a), class: "min-w-0 flex-1 truncate font-mono text-2xs text-faint" },
-            { role: "storage", text: storage.text, title: storage.title, class: "hidden shrink-0 text-3xs text-faint lg:block" },
-            { role: "quota", text: quota, class: `shrink-0 text-2xs ${status === "limit" ? "text-error" : status === "warning" ? "text-warning" : "text-success"}` },
-            ...(a.needsReconnect ? [{ role: "auth", text: "authentication required", class: "shrink-0 text-2xs font-medium text-error" }] : []),
-            ...(a.parkedAgents ? [{ role: "parked", text: `${a.parkedAgents} parked`, class: "badge badge-sm shrink-0 text-warning" }] : []),
-        ], right: actions });
+        const actions = `${reset}${reconnect}${remove(a)}`;
+        return ctx.fns.w.record({ entity: "llm-account", id: `${a.provider}/${a.account}`, status: a.needsReconnect ? "error" : status, cells: [
+            { role: "account", text: a.account === "default" ? "main" : a.account, width: "label", mix: { mono: true, weight: "strong" } },
+            ...(a.planType ? [{ role: "plan", html: ctx.fns.w.badge({ text: planName(a.provider, a.planType) }), title: `Subscription plan: ${a.planType}` }] : []),
+            { role: "prefix", text: prefix(a), title: prefix(a), grow: true, mix: { mono: true, text: "small", ink: "faint" } },
+            { role: "storage", text: storage.text, title: storage.title, wide: true, mix: { text: "small", ink: "faint" } },
+            { role: "quota", text: quota, tone: (status === "limit" ? "danger" : status === "warning" ? "warning" : "success") as "danger" | "warning" | "success", mix: { text: "small" as const } },
+            ...(a.needsReconnect ? [{ role: "auth", text: "authentication required", tone: "danger" as const, mix: { text: "small" as const, weight: "strong" as const } }] : []),
+            ...(a.parkedAgents ? [{ role: "parked", html: ctx.fns.w.badge({ text: `${a.parkedAgents} parked`, tone: "warning" }) }] : []),
+        ], end: actions });
     };
 
     const providers = [
@@ -54,25 +54,26 @@ export default function (ctx: Context, _session: Session | null, opts: {
         { id: "kimi", title: "Kimi Coding", icon: "kimi-coding:k3", accounts: opts.accounts.filter(a => a.provider === "kimi-coding"), add: ctx.fns.w.button({ label: "+ Add account", size: "sm", marks: { action: "add-kimi" }, title: "Kimi multi-login is not wired yet", disabled: true }) },
     ];
     const providerSections = providers.map(p => {
-        const title = `${ctx.fns.ui.modelLogo?.({ model: p.icon, bare: true }) ?? ""}<span>${esc(p.title)}</span>`;
-        const heading = ctx.fns.procs.ui.heading({ title: p.title, meta: `${p.accounts.length} connected account${p.accounts.length === 1 ? "" : "s"}`, actions: p.add });
-        return `<section data-provider="${p.id}"><div class="[&_h2]:flex [&_h2]:items-center [&_h2]:gap-2">${heading.replace(esc(p.title), title)}</div><div class="mt-2 overflow-hidden rounded-xl border border-ui-border bg-base-100">${p.accounts.length ? p.accounts.map(row).join("") : ctx.fns.w.empty({ title: `No ${p.title} accounts`, icon: "tray", hint: "Use Add account to connect one." })}</div></section>`;
+        const heading = ctx.fns.w.heading({ title: p.title, lead: ctx.fns.ui.modelLogo?.({ model: p.icon, bare: true }) ?? "", meta: `${p.accounts.length} connected account${p.accounts.length === 1 ? "" : "s"}`, actions: p.add });
+        const body = p.accounts.length ? p.accounts.map(row).join("") : ctx.fns.w.empty({ title: `No ${p.title} accounts`, icon: "tray", hint: "Use Add account to connect one." });
+        return `<section data-provider="${p.id}">${heading}${ctx.fns.w.card({ body, flush: true })}</section>`;
     }).join("");
 
-    const flowRows = (opts.logins ?? []).map(f => ctx.fns.procs.ui.row({ entity: "llm-login", id: `${f.provider}/${f.account}`, status: f.status, cells: [
-        { role: "provider", text: providerName(f.provider), class: "w-36 shrink-0 font-medium" },
-        { role: "account", text: f.account, class: "w-24 shrink-0 font-mono text-xs" },
-        { role: "status", text: f.status, class: "shrink-0 text-info" },
-        ...(f.userCode ? [{ role: "device-code", text: f.userCode, class: "select-all shrink-0 rounded bg-base-200 px-2 py-1 font-mono text-sm font-semibold tracking-wider" }] : []),
-    ], right: ctx.fns.ui.popup({ method: "llms.loginProgressFor", params: { provider: f.provider, account: f.account }, tone: "default", size: "xs", html: "Continue login" }) })).join("");
+    const flowRows = (opts.logins ?? []).map(f => ctx.fns.w.record({ entity: "llm-login", id: `${f.provider}/${f.account}`, status: f.status, cells: [
+        { role: "provider", text: providerName(f.provider), width: "label", mix: { weight: "strong" } },
+        { role: "account", text: f.account, width: "label", mix: { mono: true } },
+        { role: "status", text: f.status, tone: "info" },
+        ...(f.userCode ? [{ role: "device-code", html: ctx.fns.w.kbd({ keys: f.userCode }) }] : []),
+    ], end: ctx.fns.w.button({ label: "Continue login", tone: "neutral", size: "sm", action: { popup: { method: "llms.loginProgressFor", params: { provider: f.provider, account: f.account } } }, marks: { action: "open-popup" } }) })).join("");
 
-    const html = `<div class="space-y-6">${providerSections}${flowRows ? `<section>${ctx.fns.procs.ui.heading({ title: "Logins in progress", meta: "Safe authorization status only." })}<div class="mt-2 overflow-hidden rounded-xl border border-ui-border bg-base-100">${flowRows}</div></section>` : ""}</div>`;
+    const flows = flowRows ? `<section>${ctx.fns.w.heading({ title: "Logins in progress", meta: "Safe authorization status only." })}${ctx.fns.w.card({ body: flowRows, flush: true })}</section>` : "";
+    const html = ctx.fns.w.box({ body: providerSections + flows, mix: { layout: "stack", gap: "s6" } });
     // Morph, not replace: the 10 s refresh must not snap an open "details" shut.
     return ctx.fns.ui.live({ id: "llm-accounts", url: "/llms/accounts", topic: "llm-accounts", swap: "outerMorph", every: 10, attrs: 'class="block"', html });
 }
 
 function addButton(ctx: Context, provider: "claude-code" | "codex" | "xai", title: string): string {
-    return ctx.fns.ui.popup({ method: "llms.loginPopupFor", params: { provider }, tone: "default", size: "sm", html: `<i class="ph ph-plus" aria-hidden="true"></i><span>${ctx.fns.procs.ui.escape({ text: title })}</span>` });
+    return ctx.fns.w.button({ label: title, icon: "plus", tone: "neutral", size: "sm", action: { popup: { method: "llms.loginPopupFor", params: { provider } } }, marks: { action: "open-popup" } });
 }
 function storageLabel(source:string){return source==="node"?{text:"Hyper node",title:"Relayed through another Hyper instance; only your client token is stored here"}:source==="oauth"?{text:"Encrypted by Hyper",title:"OAuth credential encrypted and stored by Hyper"}:source==="keychain"?{text:"Keychain",title:"Credential stored by the official CLI in macOS Keychain"}:{text:"CLI storage",title:"Credential stored in an isolated official CLI directory"};}
 function providerName(p:string){return p==="hyper"?"Hyper node":p==="anthropic-oauth"?"Claude":p==="claude-code"?"Claude Code":p==="kimi-coding"?"Kimi Coding":p==="xai"?"Grok":p==="codex"?"Codex":p;}

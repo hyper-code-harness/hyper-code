@@ -17,7 +17,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const me = await ctx.fns.auth.viewerId({}).catch(() => null);
     const here = ctx.fns.procs.events.presence({ agentId: opts.agentId }).filter((p) => p.id !== "local" && p.id !== me);
     if (!here.length) return "";
-    const esc = (v: string) => ctx.fns.procs.ui.escape({ text: v });
+    const esc = (v: string) => ctx.fns.w.escape({ text: v });
     const column = opts.layout === "column";
     const size = column ? "size-7 text-[0.6rem]" : "size-6 text-[0.55rem]";
     const ring = "ring-2 ring-success ring-offset-1 ring-offset-base-100";

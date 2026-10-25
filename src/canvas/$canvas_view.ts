@@ -46,7 +46,7 @@ export default {
         return { args: t, title: short ? `${t.fn.split(".").pop()}: ${short}`.slice(0, 120) : t.fn };
     },
     async render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.procs.ui.escape({ text });
+        const esc = (text: string) => ctx.fns.w.escape({ text });
         const url = String(opts.item.args.url ?? "");
         // The address bar shows the call as people read it — /rpc/memory.view?{"key":"notes/a.md"} — not
         // percent-encoded; typing either form works (the view kind parses both).

@@ -15,7 +15,7 @@ export default async function (
         selectedAgentId?: string;
     },
 ): Promise<string> {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: any) => ctx.fns.w.escape({ text: String(value ?? "") });
     const agents = await ctx.fns.session.list({});
     const cards = await ctx.fns.sharedAgent.list({});
     const selected = String(opts.selectedAgentId ?? "");

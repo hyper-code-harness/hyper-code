@@ -13,7 +13,7 @@ export default async function (
     const me = await ctx.fns.auth.viewerId({});
     if (!me) return "";
     // data-me tells the live script whose mention events concern this tab.
-    const meAttr = ` data-me="${ctx.fns.procs.ui.escape({ text: me })}"`;
+    const meAttr = ` data-me="${ctx.fns.w.escape({ text: me })}"`;
     const count = await ctx.fns.mentions.unreadCount({ userId: me });
     if (!count) return `<div id="mentions-badge"${meAttr} hidden></div>`;
     const items = await ctx.fns.mentions.list({ userId: me, unreadOnly: true, limit: 20 });

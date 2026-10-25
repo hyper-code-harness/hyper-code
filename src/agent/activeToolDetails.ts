@@ -26,7 +26,7 @@ export default function (
         bodyOnly?: boolean;
     },
 ): Response {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: any) => ctx.fns.w.escape({ text: value });
     const id = String(opts.agentId ?? "");
     const run = ctx.fns.tools.runs({ agentId: id })[0];
 

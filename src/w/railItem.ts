@@ -25,7 +25,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** This entry is the open one. */
     current?: boolean;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
     const t = tag === "div" ? "button" : tag;
     const mark = opts.badge !== undefined && opts.badge !== "" && opts.badge !== 0 ? `<span class="w-badge-mark">${esc(opts.badge)}</span>` : opts.dot ? `<span class="w-dot" data-state="${opts.dot}"></span>` : "";

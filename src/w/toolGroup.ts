@@ -13,7 +13,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Fold to a count above this many calls. @default 6 */
     fold?: number;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const fold = opts.fold ?? 6;
     const cell = (c: (typeof opts.calls)[number]) => {
         const { tag, attrs } = ctx.fns.w.actionAttrs({ action: c.action });

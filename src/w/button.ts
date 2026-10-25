@@ -5,11 +5,11 @@
  * @param opts.label Button text.
  * @param opts.icon Phosphor icon before the text.
  * @param opts.action What happens on click.
- * @param opts.tone Meaning: primary is the one main action (ink); accent is an old name for it. @default "neutral"
+ * @param opts.tone Meaning: primary is the one main action (ink); accent is an old name for it; danger, warning and success draw an outline in their colour. @default "neutral"
  * @param opts.size Height. @default "md"
  * @param opts.disabled Not clickable.
  * @param opts.submit Submits its form: true, or the name and value the button adds to the submitted fields.
- * @param opts.marks Automation markers written as data-* (action, entity, id, status, role) — the procs.ui.attr keys.
+ * @param opts.marks Automation markers written as data-* (action, entity, id, status, role) — the w.marks keys.
  * @param opts.title Tooltip text.
  * @param opts.keys Keyboard shortcut shown after the label as key caps (w.kbd), e.g. "J" or "⌘+Enter".
  * @param opts.id Element id, for a page script or a hotkey that clicks this button.
@@ -21,15 +21,15 @@ export default function (ctx: Context, _session: Session | null, opts: {
     icon?: string;
     /** What happens on click. */
     action?: types.w.Action;
-    /** Meaning: primary is the one main action (ink); accent is an old name for it. @default "neutral" */
-    tone?: "neutral" | "primary" | "accent" | "danger" | "super" | "ghost";
+    /** Meaning: primary is the one main action (ink); accent is an old name for it; danger, warning and success draw an outline in their colour. @default "neutral" */
+    tone?: "neutral" | "primary" | "accent" | "danger" | "warning" | "success" | "super" | "ghost";
     /** Height. @default "md" */
     size?: "sm" | "md";
     /** Not clickable. */
     disabled?: boolean;
     /** Submits its form: true, or the name and value the button adds to the submitted fields. */
     submit?: boolean | { name: string; value?: string };
-    /** Automation markers written as data-* (action, entity, id, status, role) — the procs.ui.attr keys. */
+    /** Automation markers written as data-* (action, entity, id, status, role) — the w.marks keys. */
     marks?: { action?: string; entity?: string; id?: string; status?: string; role?: string };
     /** Tooltip text. */
     title?: string;
@@ -38,8 +38,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Element id, for a page script or a hotkey that clicks this button. */
     id?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const marks = opts.marks ? ` ${ctx.fns.procs.ui.attr(opts.marks)}`.replace(/ $/, "") : "";
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
+    const marks = opts.marks ? ` ${ctx.fns.w.marks(opts.marks)}`.replace(/ $/, "") : "";
     const title = (opts.title ? ` title="${esc(opts.title)}"` : "") + (opts.id ? ` id="${esc(opts.id)}"` : "");
     const body = `${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: opts.size === "sm" ? 14 : 16 }) : ""}<span>${esc(opts.label)}</span>${opts.keys ? ctx.fns.w.kbd({ keys: opts.keys }) : ""}`;
     const head = `class="w-btn" data-tone="${opts.tone ?? "neutral"}" data-size="${opts.size ?? "md"}"${marks}${title}`;

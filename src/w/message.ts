@@ -25,7 +25,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Id of the context menu (w.menu with contextOf) for this message. */
     menu?: string;
 }): string {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const time = opts.ts ? ctx.fns.w.time({ ts: opts.ts }) : "";
     const files = (opts.attachments ?? []).map(a => ({ ...a, url: ctx.fns.w.safeUrl({ url: a.url, image: !!a.image }) })).filter(a => a.url).map(a => a.image
         ? `<a class="w-attach-img" href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.name)}" loading="lazy"></a>`

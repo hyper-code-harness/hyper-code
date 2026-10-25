@@ -19,7 +19,7 @@ export default async function (
         compact?: boolean;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const local = (href: string) => href.startsWith("/") && !href.startsWith("//");
     let pinned = opts.pinned;
     if (!pinned && opts.items.some(item => item.pin)) {

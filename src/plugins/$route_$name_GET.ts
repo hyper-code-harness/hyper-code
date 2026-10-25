@@ -9,7 +9,7 @@ export default async function (
     if (!module) return new Response("Plugin not found", { status: 404 });
     const requestedTab = new URL(opts.req.url).searchParams.get("tab");
     const tab = requestedTab === "settings" || requestedTab === "functions" ? requestedTab : "overview";
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: String(value ?? "") });
+    const esc = (value: any) => ctx.fns.w.escape({ text: String(value ?? "") });
     const root = ctx.fns.procs.project.projectRoot({});
     const path = module.dir.startsWith(root + "/") ? "./" + module.dir.slice(root.length + 1) : module.dir;
     const chip = (value: string) => `<span class="rounded-md bg-base-200 px-2 py-1 font-mono text-xs text-muted">${esc(value)}</span>`;
@@ -41,7 +41,7 @@ export default async function (
         catch { settingsHtml = '<p class="mt-7 text-sm text-subtle" role="status">Plugin settings unavailable.</p>'; }
     }
     const tabs = `<nav class="mt-7 flex gap-4 border-b border-base-300 pb-3" aria-label="Plugin sections">${["overview", "settings", "functions"].map(value => `<a href="/plugins/${encodeURIComponent(name)}?tab=${value}"${tab === value ? ' aria-current="page"' : ""} class="text-sm ${tab === value ? "font-semibold text-primary" : "text-muted hover:text-primary"}">${value[0]!.toUpperCase() + value.slice(1)}</a>`).join("")}</nav>`;
-    return { title: module.label, main: `<link rel="stylesheet" href="/plugins/plugins.css"><div class="pl"><section ${ctx.fns.procs.ui.attr({ page: "plugin", id: name })} class="min-w-0 pb-10">
+    return { title: module.label, main: `<link rel="stylesheet" href="/plugins/plugins.css"><div class="pl"><section ${ctx.fns.w.marks({ page: "plugin", id: name })} class="min-w-0 pb-10">
   <a href="/plugins" class="inline-flex items-center gap-1 text-xs text-faint hover:text-primary"><i class="ph ph-arrow-left"></i> Plugins</a>
   <div class="mt-5 flex items-start gap-4"><div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-base-200 text-muted"><i class="ph ${esc(module.icon)} text-2xl"></i></div><div class="min-w-0 flex-1"><h1 class="text-2xl font-semibold tracking-tight">${esc(module.label)}</h1><p class="mt-1 max-w-2xl text-sm leading-6 text-subtle">${esc(module.description || "No description provided.")}</p></div>${module.plugin && module.optional ? ctx.fns.w.button({ label: "Turn off", size: "sm", tone: "danger", action: { post: "/procs/modules/remove", target: "#main", swap: "innerHTML", vals: { name: module.name } }, marks: { action: "turn-off", entity: "module", id: module.name } }) : ""}</div>
   ${tabs}

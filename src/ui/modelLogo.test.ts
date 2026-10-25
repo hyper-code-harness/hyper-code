@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import modelLogo from './modelLogo';
 
-const ctx = { fns: { procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('&', '&amp;').replaceAll('"', '&quot;') } } } } as any;
+const ctx = { fns: { procs: { ui: { escape: ({ text }: any) => String(text).replaceAll('&', '&amp;').replaceAll('"', '&quot;') } }, w: { escape: ({ text }: any) => String(text).replaceAll('&', '&amp;').replaceAll('"', '&quot;') } } } as any;
 const render = (model: string, active = false, bare = false, compact = false) => modelLogo(ctx, null, { model, active, bare, compact });
 
 describe('ui.modelLogo', () => {

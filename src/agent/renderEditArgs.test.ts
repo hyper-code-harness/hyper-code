@@ -3,7 +3,7 @@ import render from "./renderEditArgs";
 
 const ctx = {
     fns: {
-        procs: { ui: { escape: ({ text }: any) => String(text).replaceAll("<", "&lt;") } },
+        procs: { ui: { escape: ({ text }: any) => String(text).replaceAll("<", "&lt;") } }, w: { escape: ({ text }: any) => String(text).replaceAll("<", "&lt;") },
         agent: { toolLang: () => "typescript" },
         markdown: { highlight: async ({ code }: any) => `<pre><code>${String(code).replaceAll("<", "&lt;")}</code></pre>` },
     },

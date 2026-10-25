@@ -28,7 +28,7 @@ export default function (
         agentId: string;
     },
 ): string {
-    const esc = (value: any) => ctx.fns.procs.ui.escape({ text: value });
+    const esc = (value: any) => ctx.fns.w.escape({ text: value });
     // Longest-running first: that is the call a waiting user is blocked on.
     const run = ctx.fns.tools.runs({ agentId: opts.agentId })[0];
     if (!run) return "";

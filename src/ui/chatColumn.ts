@@ -10,7 +10,7 @@
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
         /** Identifier of the agent whose scoped setting is used. */ agentId: string }): Promise<string> {
-    const esc = (s: any) => ctx.fns.procs.ui.escape({ text: s });
+    const esc = (s: any) => ctx.fns.w.escape({ text: s });
     const id = opts.agentId;
 
     // Entering the chat IS reading it: move the seen watermark before the page

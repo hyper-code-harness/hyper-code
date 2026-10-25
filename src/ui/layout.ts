@@ -50,7 +50,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* Compact lazy tool links. The tray is assembled client-side so consecutive
    calls occupy one visual row without wrapping each button in extra markup. */
 .tool-tray { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
-.inplace-popup-panel[id^="chat-panel-"] { width: min(30rem, calc(100vw - 1.5rem)); max-height: min(36rem, calc(100vh - 5rem)); overflow-y: auto; padding: .6rem; }
+.inplace-popup-panel[id^="chat-panel-"] { right: auto; left: anchor(left); width: min(30rem, calc(100vw - 1.5rem)); max-height: min(36rem, calc(100vh - 5rem)); overflow-y: auto; padding: .6rem; }
 .chat-icon-ring { position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 55%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); animation: chat-icon-spin 1.1s linear infinite; }
 /* The header icon follows the live status region: ring on while it says running. */
 .chat-icon-ring--live { display: none; }

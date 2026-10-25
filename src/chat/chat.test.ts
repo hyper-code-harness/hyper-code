@@ -57,7 +57,9 @@ describe("chat header parts", () => {
         const html = await ctx.fns.chat.header({ context: view });
         expect(Date.now() - started).toBeLessThan(2500);
         expect(html).toContain('data-chat-part="icon"');
-        expect(html).toContain('hx-popup="agent.modelPicker"');
+        // The icon opens the chat panel; the model is picked in the composer.
+        expect(html).not.toContain('hx-popup="agent.modelPicker"');
+        expect(html).toMatch(/popovertarget="chat-panel-a1"[^>]*data-chat-part="icon"|data-chat-part="icon"[^>]*popovertarget="chat-panel-a1"/);
         expect(html).toContain('hx-popup="chat.renamePopup"');
         expect(html).toContain("Header test");
         expect(html).toContain('data-chat-id="agent.workspace"');

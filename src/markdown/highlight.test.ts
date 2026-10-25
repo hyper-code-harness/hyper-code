@@ -6,7 +6,8 @@ const ctx = {} as Context;
 describe("markdown.highlight", () => {
     test("known language — shiki output with inline colors", async () => {
         const html = await highlight(ctx, null, { code: "const x = 1;", lang: "js" });
-        expect(html).toContain("class=\"shiki shiki-themes github-light github-dark\"");
+        expect(html).toContain("class=\"shiki shiki-themes github-light github-dark github-light-high-contrast\"");
+        expect(html).toContain("--shiki-contrast:");
         expect(html).toContain("--shiki-dark:");
     });
 

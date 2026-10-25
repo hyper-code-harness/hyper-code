@@ -14,7 +14,7 @@ const ALIASES: Record<string, string> = {
 let _hl: Highlighter | null = null;
 
 export async function getHL(): Promise<Highlighter> {
-    if (!_hl) _hl = await createHighlighter({ themes: ["github-light", "github-dark"], langs: [...LANGS] });
+    if (!_hl) _hl = await createHighlighter({ themes: ["github-light", "github-dark", "github-light-high-contrast"], langs: [...LANGS] });
     return _hl;
 }
 
@@ -32,7 +32,9 @@ export default async function (_ctx: Context, _session: Session | null, opts: { 
         try {
             return hl.codeToHtml(safeCode, {
                 lang: normalized,
-                themes: { light: "github-light", dark: "github-dark" },
+                // Each token carries all three colour sets as variables (--shiki-light, --shiki-dark, --shiki-contrast);
+                // the page theme picks one in CSS, so changing the theme never re-highlights.
+                themes: { light: "github-light", dark: "github-dark", contrast: "github-light-high-contrast" },
                 defaultColor: false,
             });
         } catch { /* fall through */ }

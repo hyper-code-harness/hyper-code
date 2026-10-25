@@ -44,7 +44,7 @@ describe("markdown.render", () => {
         const ctx = mkCtx();
         const html = await render(ctx, null, { source: "```js\nconst x = 42;\n```" });
         // dual theme: light and dark colours as CSS variables, the page picks one
-        expect(html).toContain('class="shiki shiki-themes github-light github-dark"');
+        expect(html).toContain('class="shiki shiki-themes github-light github-dark github-light-high-contrast"');
         expect(html).toContain("--shiki-light:");
         expect(html).not.toContain("<pre><code class=\"language-js\">");
     });

@@ -50,6 +50,17 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* Compact lazy tool links. The tray is assembled client-side so consecutive
    calls occupy one visual row without wrapping each button in extra markup. */
 .tool-tray { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
+/* Chat header trigger: icon + name + ⌄ open the chat panel. Rest: quiet, the chevron says it opens; hover: grey
+   backing on the whole group; open: light blue and the chevron turned up. */
+.chat-head-trigger { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; height: 1.625rem; margin-left: -.375rem; padding: 0 .375rem 0 .25rem; border-radius: .375rem; color: var(--color-base-content); cursor: pointer; }
+#chat-panel .chat-head-trigger:hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent) !important; }
+.chat-head-trigger:hover .chat-head-caret { color: var(--color-base-content); }
+#chat-panel .chat-head-trigger:has(+ :popover-open), #chat-panel .chat-head-trigger[aria-expanded="true"] { background: color-mix(in oklab, #2563eb 12%, transparent) !important; }
+.chat-head-trigger:has(+ :popover-open) .chat-head-caret { color: #2563eb; transform: rotate(180deg); }
+.chat-head-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.chat-head-id { flex: none; color: color-mix(in oklab, var(--color-base-content) 42%, transparent); }
+.chat-head-caret { flex: none; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 42%, transparent); transition: transform .15s; }
+#chat-panel > header .chat-head-trigger .chat-icon { transform: none !important; }
 .inplace-popup-panel[id^="chat-panel-"] { right: auto; left: anchor(left); width: min(30rem, calc(100vw - 1.5rem)); max-height: min(36rem, calc(100vh - 5rem)); overflow-y: auto; padding: .6rem; }
 .chat-icon-ring { position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 55%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); animation: chat-icon-spin 1.1s linear infinite; }
 /* The header icon follows the live status region: ring on while it says running. */
@@ -501,9 +512,9 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
   html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *) > i.ph { font-size: 15px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
   html[data-chrome="flat"] #chat-panel > header.chat-header .chat-icon { transform: none; }
   html[data-chrome="flat"] #dock-panel > div > div:first-child { padding-left: .75rem !important; padding-right: .375rem !important; }
@@ -542,7 +553,7 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] .canvas-tab span,
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 12px !important; line-height: 1rem; }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px !important; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *) > i.ph { font-size: 14px !important; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 14px !important; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
   /* The menu circle in the bar's header cell: the same 28px button as every header button, centred in the cell. */
   html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button { transform: none !important; width: 1.75rem !important; height: 1.75rem !important; }
@@ -567,7 +578,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] #chat-panel > header.chat-header.chat-header,
   html[data-chrome="flat"] .canvas-tab:not([aria-current]) { background: var(--color-base-200) !important; background-image: none !important; }
   html[data-chrome="flat"] .canvas-tab:not([aria-current]):hover { background: color-mix(in oklab, var(--color-base-content) 5%, var(--color-base-200)) !important; }
-  html[data-chrome="flat"] #chat-panel > header [data-chat-part="icon"] { background: transparent !important; }
   /* In dot mode the circle sits in the first header cell; with the strip gone there is no gap to leave. */
   html[data-chrome="flat"][data-dock-mode="dot"] #dock { top: .125rem; left: .375rem; }
 }

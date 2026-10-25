@@ -60,7 +60,9 @@ describe("chat header parts", () => {
         // The icon opens the chat panel; the model is picked in the composer.
         expect(html).not.toContain('hx-popup="agent.modelPicker"');
         expect(html).toMatch(/popovertarget="chat-panel-a1"[^>]*data-chat-part="icon"|data-chat-part="icon"[^>]*popovertarget="chat-panel-a1"/);
-        expect(html).toContain('hx-popup="chat.renamePopup"');
+        // Icon + name + chevron are the one trigger of the panel; Rename… lives in the panel's Appearance card.
+        expect(html).not.toContain('hx-popup="chat.renamePopup"');
+        expect(html).toContain('chat-head-caret');
         expect(html).toContain("Header test");
         expect(html).toContain('data-chat-id="agent.workspace"');
         expect(html).toContain("Files · /tmp/proj");

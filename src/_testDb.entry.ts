@@ -149,6 +149,17 @@ async function resetWorker(w: Worker): Promise<void> {
     try {
         await resetOnce(w);
     } catch (error: any) {
+        // ParadeDB starts a background merger for a bm25 index (functions_bm25) after the rows a test wrote; it
+        // holds AccessShareLock on the table and then asks for its own catalog, while TRUNCATE … CASCADE holds one
+        // and asks for the other: Postgres kills our TRUNCATE as a deadlock and the test that just passed fails.
+        // The merger finishes in milliseconds; the second attempt goes through.
+        if (/deadlock detected/i.test(String(error?.message))) {
+            for (let attempt = 1; ; attempt++) {
+                await Bun.sleep(50 * attempt);
+                try { return await resetOnce(w); }
+                catch (again: any) { if (attempt >= 5 || !/deadlock detected/i.test(String(again?.message))) throw again; }
+            }
+        }
         // A connection left idle inside a transaction (a test that never finished one) holds its locks forever;
         // those sessions belong to tests that are over.
         if (!/lock timeout|canceling statement/i.test(String(error?.message))) throw error;

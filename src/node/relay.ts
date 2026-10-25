@@ -34,6 +34,14 @@ export default async function (
     const entry = catalog.find((e) => e.id === model && e.api === opts.api);
     if (!entry) return Response.json({ error: `model not offered to this client: ${model} (${opts.api})` }, { status: 404 });
     const started = performance.now();
+    // Features the client's request needs (compact-2026-09-04 for a `compaction` parameter or a replayed
+    // compaction block) travel in anthropic-beta; the host's identity betas are merged with them, not replaced.
+    const clientBeta = opts.api === "anthropic" ? String(opts.req.headers.get("anthropic-beta") ?? "").split(",").map(s => s.trim()).filter(Boolean) : [];
+    const withBeta = (headers: Record<string, string>) => {
+        if (!clientBeta.length) return headers;
+        const own = String(headers["anthropic-beta"] ?? "").split(",").map(s => s.trim()).filter(Boolean);
+        return { ...headers, "anthropic-beta": [...new Set([...own, ...clientBeta])].join(",") };
+    };
     let upstream: Response;
     if (entry.via) {
         const nodeName = entry.via.replace(/^hyper\//, "");
@@ -41,11 +49,11 @@ export default async function (
         if (!node) return Response.json({ error: `node ${nodeName} is not configured` }, { status: 502 });
         const token = await ctx.fns.node.token({ name: nodeName });
         upstream = await fetch(`${node.url}/${opts.api}`, { method: "POST", signal: opts.req.signal, body,
-            headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "x-hyper-hops": String(auth.hops + 1), accept: opts.req.headers.get("accept") ?? "*/*" } });
+            headers: withBeta({ "content-type": "application/json", authorization: `Bearer ${token}`, "x-hyper-hops": String(auth.hops + 1), accept: opts.req.headers.get("accept") ?? "*/*" }) });
     } else {
         const up = await ctx.fns.node.upstream({ provider: entry.provider, account: entry.account, api: opts.api, sessionId: opts.req.headers.get("session_id") ?? undefined });
         if (!up) return Response.json({ error: `${entry.provider}: no credentials on the host` }, { status: 503 });
-        upstream = await fetch(up.url, { method: "POST", headers: up.headers, body, signal: opts.req.signal });
+        upstream = await fetch(up.url, { method: "POST", headers: withBeta(up.headers), body, signal: opts.req.signal });
     }
     const out = new Headers({ "cache-control": "no-store" });
     for (const name of ["content-type", "retry-after", "request-id", "anthropic-request-id", "x-request-id"]) { const v = upstream.headers.get(name); if (v) out.set(name, v); }

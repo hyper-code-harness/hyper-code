@@ -22,6 +22,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     tone?: types.w.Tone;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const head = opts.title ? `<div class="w-card-head">${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 14 }) : ""}<span>${esc(opts.title)}</span>${opts.actions ? `<span class="w-card-actions">${opts.actions}</span>` : ""}</div>` : "";
+    const head = opts.title ? `<div class="w-card-head">${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 12 }) : ""}<span>${esc(opts.title)}</span>${opts.actions ? `<span class="w-card-actions">${opts.actions}</span>` : ""}</div>` : "";
     return `<section class="w-card"${opts.tone ? ` data-tone="${opts.tone}"` : ""}>${head}<div class="w-card-body">${opts.body}</div>${opts.footer ? `<div class="w-card-foot">${opts.footer}</div>` : ""}</section>`;
 }

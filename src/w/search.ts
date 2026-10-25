@@ -16,5 +16,5 @@ export default function (ctx: Context, _session: Session | null, opts: {
     value?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    return `<label class="w-search">${ctx.fns.w.icon({ name: "magnifying-glass", size: 14 })}<input type="search" name="q" value="${esc(opts.value ?? "")}" placeholder="${esc(opts.placeholder ?? "Search…")}" autocomplete="off" hx-get="${esc(opts.url)}" hx-trigger="input changed delay:200ms, search" hx-target="${esc(opts.target)}" hx-swap="innerHTML"></label>`;
+    return `<label class="w-search">${ctx.fns.w.icon({ name: "magnifying-glass", size: 16 })}<input type="search" name="q" value="${esc(opts.value ?? "")}" placeholder="${esc(opts.placeholder ?? "Search…")}" autocomplete="off" hx-get="${esc(opts.url)}" hx-trigger="input changed delay:200ms, search" hx-target="${esc(opts.target)}" hx-swap="innerHTML"></label>`;
 }

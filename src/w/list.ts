@@ -13,6 +13,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     empty?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const body = opts.body.trim() || `<div class="w-list-empty">${esc(opts.empty ?? "Nothing here")}</div>`;
+    const body = opts.body.trim() || ctx.fns.w.empty({ title: opts.empty ?? "Nothing here" });
     return `<div class="w-list" role="list"${opts.label ? ` aria-label="${esc(opts.label)}"` : ""}>${body}</div>`;
 }

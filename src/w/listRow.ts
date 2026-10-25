@@ -38,5 +38,5 @@ export default function (ctx: Context, _session: Session | null, opts: {
         ? `<span class="w-row-text"><span class="w-row-label">${esc(opts.label)}</span><span class="w-row-detail">${esc(opts.detail)}</span></span>`
         : `<span class="w-row-text"><span class="w-row-label">${esc(opts.label)}</span></span>`;
     const tail = `${opts.hint ? `<span class="w-row-hint">${esc(opts.hint)}</span>` : ""}${opts.dot ? `<span class="w-dot" data-state="${opts.dot}"></span>` : ""}`;
-    return `<${tag} class="w-row"${opts.current ? ' aria-current="page"' : ""}${opts.tone ? ` data-tone="${opts.tone}"` : ""} title="${esc(opts.label)}"${attrs}>${lead ? `<span class="w-row-lead">${lead}</span>` : ""}${text}${tail}</${tag}>`;
+    return `<${tag} class="w-row"${tag === "div" ? " data-static" : ""}${opts.current ? ' aria-current="page"' : ""}${opts.tone ? ` data-tone="${opts.tone}"` : ""} title="${esc(opts.label)}"${attrs}>${lead ? `<span class="w-row-lead">${lead}</span>` : ""}${text}${tail}</${tag}>`;
 }

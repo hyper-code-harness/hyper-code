@@ -22,7 +22,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     disabled?: boolean;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action ?? {} });
-    const t = tag === "span" || opts.disabled ? "button" : tag;
+    const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
+    const t = tag === "div" || opts.disabled ? "button" : tag;
     return `<${t} class="w-btn" data-tone="${opts.tone ?? "neutral"}" data-size="${opts.size ?? "md"}"${opts.disabled ? " disabled" : (attrs || ' type="button"')}>${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: 14 }) : ""}<span>${esc(opts.label)}</span></${t}>`;
 }

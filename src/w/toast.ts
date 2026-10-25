@@ -18,6 +18,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
     const icon = { info: "info", success: "check-circle", warning: "warning", error: "warning-circle" }[opts.level ?? "info"];
-    const btn = opts.action ? (() => { const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action }); const t = tag === "span" ? "button" : tag; return `<${t} class="w-toast-action"${attrs}>${esc(opts.action.label)}</${t}>`; })() : "";
+    const btn = opts.action ? (() => { const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action }); const t = tag === "div" ? "button" : tag; return `<${t} class="w-toast-action"${attrs}>${esc(opts.action.label)}</${t}>`; })() : "";
     return `<div class="w-toast" role="status" data-level="${opts.level ?? "info"}">${ctx.fns.w.icon({ name: icon, size: 16 })}<div class="w-toast-text"><div>${esc(opts.message)}</div>${opts.body ? `<div class="w-toast-body">${esc(opts.body)}</div>` : ""}</div>${btn}</div>`;
 }

@@ -23,7 +23,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         const face = row ? ctx.fns.chat.icon({ icon: row.icon ?? "", model: String(row.model ?? ""), size: size >= 32 ? "md" : "sm" }) : ctx.fns.w.icon({ name: "robot" });
         return `<span class="w-avatar" data-size="${size}" data-kind="agent" title="${esc(name || row?.title || opts.agentId)}">${face}</span>`;
     }
-    if (opts.src && /^(https?:\/\/|\/|data:image\/)/.test(opts.src)) return `<span class="w-avatar" data-size="${size}" title="${esc(name)}"><img src="${esc(opts.src)}" alt="" referrerpolicy="no-referrer" loading="lazy"></span>`;
+    const src = opts.src ? ctx.fns.w.safeUrl({ url: opts.src, image: true }) : null;
+    if (src) return `<span class="w-avatar" data-size="${size}" title="${esc(name)}"><img src="${esc(src)}" alt="" referrerpolicy="no-referrer" loading="lazy"></span>`;
     const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
     let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360;
     return `<span class="w-avatar" data-size="${size}" style="--w-hue:${h}" title="${esc(name)}" aria-label="${esc(name)}">${esc(initials)}</span>`;

@@ -24,7 +24,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
     const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
-    const t = tag === "span" ? "button" : tag;
+    const t = tag === "div" ? "button" : tag;
     const id = String(opts.id).replace(/[^a-zA-Z0-9_-]/g, "-");
     return `<div id="${id}" popover="manual" class="w-confirm" role="alertdialog" aria-label="${esc(opts.title)}"><div class="w-confirm-title">${esc(opts.title)}</div>${opts.text ? `<div class="w-confirm-text">${esc(opts.text)}</div>` : ""}<div class="w-confirm-actions"><button type="button" class="w-btn" popovertarget="${id}" popovertargetaction="hide">Cancel</button><${t} class="w-btn" data-tone="${opts.danger ? "danger" : "accent"}"${attrs} popovertarget="${id}" popovertargetaction="hide">${esc(opts.confirmLabel ?? "Confirm")}</${t}></div></div>`;
 }

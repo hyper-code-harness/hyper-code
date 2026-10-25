@@ -14,11 +14,13 @@ export default function (ctx: Context, _session: Session | null, opts: {
     variant?: "equal" | "underline";
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
+    // Navigation tabs (each opens a page or a canvas tab): a nav of links/buttons with aria-current on the open one —
+    // not role="tablist", which promises arrow-key tab panels these strips do not have.
     const tabs = (opts.items ?? []).map(it => {
-        const { tag, attrs } = ctx.fns.w.actionAttrs({ action: it.action ?? {} });
-        const t = tag === "span" ? "button" : tag;
-        const close = it.close ? (() => { const c = ctx.fns.w.actionAttrs({ action: it.close }); return `<button class="w-tab-close" title="Close" aria-label="Close ${esc(it.label)}"${c.attrs || ' type="button"'}>${ctx.fns.w.icon({ name: "x", size: 12 })}</button>`; })() : "";
-        return `<span class="w-tab"${it.id === opts.active ? ' aria-current="true"' : ""}><${t} class="w-tab-main" title="${esc(it.label)}"${attrs || ' type="button"'}>${it.icon ? ctx.fns.w.icon({ name: it.icon, size: 14 }) : ""}<span class="w-tab-label">${esc(it.label)}</span>${it.count ? `<span class="w-tab-count">${it.count}</span>` : ""}</${t}>${close}</span>`;
+        const { tag, attrs } = ctx.fns.w.actionAttrs({ action: it.action ?? { action: "select-tab" } });
+        const close = it.close ? (() => { const c = ctx.fns.w.actionAttrs({ action: it.close }); return `<${c.tag} class="w-tab-close" aria-label="Close ${esc(it.label)}"${c.attrs}>${ctx.fns.w.icon({ name: "x", size: 12 })}</${c.tag}>`; })() : "";
+        const current = it.id === opts.active ? ' aria-current="page"' : "";
+        return `<span class="w-tab"${it.id === opts.active ? " data-active" : ""}><${tag} class="w-tab-main"${current} title="${esc(it.label)}"${attrs}>${it.icon ? ctx.fns.w.icon({ name: it.icon, size: 14 }) : ""}<span class="w-tab-label">${esc(it.label)}</span>${it.count ? `<span class="w-tab-count">${it.count}</span>` : ""}</${tag}>${close}</span>`;
     }).join("");
-    return `<nav class="w-tabs" data-variant="${opts.variant ?? "equal"}" role="tablist">${tabs}</nav>`;
+    return `<nav class="w-tabs" data-variant="${opts.variant ?? "equal"}" aria-label="Tabs">${tabs}</nav>`;
 }

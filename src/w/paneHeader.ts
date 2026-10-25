@@ -20,6 +20,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     center?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const title = opts.center ?? (opts.title ? `<span class="w-pane-title">${esc(opts.title)}${opts.meta ? ` <span class="w-pane-meta">${esc(opts.meta)}</span>` : ""}</span>` : "<span></span>");
+    const title = opts.center ? `<span class="w-pane-center">${opts.center}</span>` : (opts.title ? `<span class="w-pane-title">${esc(opts.title)}${opts.meta ? ` <span class="w-pane-meta">${esc(opts.meta)}</span>` : ""}</span>` : "<span></span>");
     return `<header class="w-pane-header">${opts.lead ? `<span class="w-pane-lead">${opts.lead}</span>` : ""}${title}${opts.actions ? `<span class="w-pane-actions">${opts.actions}</span>` : ""}</header>`;
 }

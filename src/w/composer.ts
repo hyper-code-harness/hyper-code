@@ -27,5 +27,5 @@ export default function (ctx: Context, _session: Session | null, opts: {
         ? `<span class="w-send-wrap" data-running>${ctx.fns.w.iconButton({ icon: "stop", label: "Stop", action: opts.stop ?? { action: "stop" }, tone: "accent" })}</span>`
         : `<button type="submit" class="w-send" aria-label="Send">${ctx.fns.w.icon({ name: "arrow-up", size: 16 })}</button>`;
     const attach = ctx.fns.w.iconButton({ icon: "plus", label: "Attach files", action: { action: "attach" } });
-    return `<form class="w-composer"${opts.compact ? " data-compact" : ""} hx-post="${esc(opts.post)}" hx-swap="none"><textarea name="text" rows="1" placeholder="${esc(opts.placeholder ?? "Ask the agent…")}"></textarea><div class="w-composer-bar">${attach}<span class="w-composer-tools">${opts.tools ?? ""}</span>${send}</div></form>`;
+    return `<form class="w-composer"${opts.compact ? " data-compact" : ""} hx-post="${esc(opts.post)}" hx-swap="none"><textarea name="text" rows="1" aria-label="Message" placeholder="${esc(opts.placeholder ?? "Ask the agent…")}"></textarea><div class="w-composer-bar">${attach}<span class="w-composer-tools">${opts.tools ?? ""}</span>${send}</div></form>`;
 }

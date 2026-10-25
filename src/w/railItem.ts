@@ -26,8 +26,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     current?: boolean;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action ?? {} });
-    const t = tag === "span" ? "button" : tag;
+    const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
+    const t = tag === "div" ? "button" : tag;
     const mark = opts.badge !== undefined && opts.badge !== "" && opts.badge !== 0 ? `<span class="w-badge-mark">${esc(opts.badge)}</span>` : opts.dot ? `<span class="w-dot" data-state="${opts.dot}"></span>` : "";
     return `<${t} class="w-rail-item"${opts.current ? ' aria-current="page"' : ""} title="${esc(opts.label)}" aria-label="${esc(opts.label)}"${attrs || ' type="button"'}>${opts.face ?? ctx.fns.w.icon({ name: opts.icon ?? "circle", size: 16 })}${mark}</${t}>`;
 }

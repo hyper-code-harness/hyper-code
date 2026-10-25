@@ -27,7 +27,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
     const time = opts.ts ? ctx.fns.w.time({ ts: opts.ts }) : "";
-    const files = (opts.attachments ?? []).map(a => a.image
+    const files = (opts.attachments ?? []).map(a => ({ ...a, url: ctx.fns.w.safeUrl({ url: a.url, image: !!a.image }) })).filter(a => a.url).map(a => a.image
         ? `<a class="w-attach-img" href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.name)}" loading="lazy"></a>`
         : `<a class="w-attach-file" href="${esc(a.url)}" target="_blank" rel="noopener">${ctx.fns.w.icon({ name: "file", size: 14 })}<span>${esc(a.name)}</span></a>`).join("");
     const author = opts.author && opts.role !== "agent" ? `<div class="w-msg-author">${esc(opts.author)}</div>` : "";

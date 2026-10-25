@@ -240,3 +240,27 @@
     document.addEventListener('htmx:afterSwap', restore);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore); else restore();
 })();
+
+// Widget popovers and menus (src/w): the opener's aria-expanded follows the popover, and a w.menu is a real
+// menu for the keyboard — focus goes to its first item when it opens, ↑ ↓ Home End move, Escape closes (native).
+(() => {
+    if (window.__hyperWidgetMenusInstalled) return;
+    window.__hyperWidgetMenusInstalled = true;
+    document.addEventListener('toggle', e => {
+        const pop = e.target;
+        if (!(pop instanceof HTMLElement) || !pop.matches('.w-popover, .w-menu')) return;
+        const open = e.newState === 'open';
+        document.querySelectorAll(`[popovertarget="${CSS.escape(pop.id)}"]`).forEach(b => b.setAttribute('aria-expanded', String(open)));
+        if (open && pop.matches('.w-menu')) requestAnimationFrame(() => pop.querySelector('.w-menu-item')?.focus({ preventScroll: true }));
+    }, true);
+    document.addEventListener('keydown', e => {
+        const menu = e.target.closest?.('.w-menu:popover-open');
+        if (!menu || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+        const items = [...menu.querySelectorAll('.w-menu-item:not([aria-disabled="true"])')];
+        if (!items.length) return;
+        e.preventDefault();
+        const i = items.indexOf(document.activeElement);
+        const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+        items[next].focus();
+    });
+})();

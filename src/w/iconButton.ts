@@ -25,8 +25,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
     tone?: types.w.Tone;
 }): string {
     const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
-    const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action ?? {} });
-    const t = tag === "span" ? "button" : tag;
+    const { tag, attrs } = ctx.fns.w.actionAttrs({ action: opts.action });
+    const t = tag === "div" ? "button" : tag;
     const badge = opts.badge !== undefined && opts.badge !== "" && opts.badge !== 0 ? `<span class="w-badge-mark">${esc(opts.badge)}</span>` : "";
-    return `<${t} class="w-icon-button" data-size="${opts.size ?? 28}"${opts.tone ? ` data-tone="${opts.tone}"` : ""}${opts.pressed !== undefined ? ` aria-pressed="${!!opts.pressed}"` : ""} title="${esc(opts.label)}" aria-label="${esc(opts.label)}"${attrs || ' type="button"'}>${ctx.fns.w.icon({ name: opts.icon, size: (opts.size ?? 28) === 24 ? 14 : 16 })}${badge}</${t}>`;
+    const pressed = opts.pressed !== undefined && t === "button" ? ` aria-pressed="${!!opts.pressed}"` : "";
+    return `<${t} class="w-icon-button" data-size="${opts.size ?? 28}"${opts.tone ? ` data-tone="${opts.tone}"` : ""}${pressed}${t === "button" ? ` title="${esc(opts.label)}"` : ""} aria-label="${esc(opts.label)}"${attrs || ' type="button"'}>${ctx.fns.w.icon({ name: opts.icon, size: (opts.size ?? 28) === 24 ? 14 : 16 })}${badge}</${t}>`;
 }

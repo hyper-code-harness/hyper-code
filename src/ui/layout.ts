@@ -592,7 +592,7 @@ ${opts.headExtra ?? ""}
 <!-- client.js first: every later script subscribes through window.hyperLive (docs/live-updates.md). -->
 <script src="/procs/events/client.js" defer></script>
 <script src="/ui/control.js" defer></script>
-<script src="/ui/hotkeys.js?v=6" defer></script>
+<script src="/ui/hotkeys.js?v=7" defer></script>
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>

@@ -7,7 +7,9 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
 1. **Three colours: white, grey and blue.** White is the document — the page you read and write on. The rest is two
    hues, each a scale of several shades: a cool **grey** scale for surfaces, lines and text (chrome → chat → document, quiet → body text) and a **blue** scale for
    what is interactive or alive — links, selection, the current item, focus, "running", info. Hierarchy comes from
-   the shades of these two and from weight and size; nothing is coloured for decoration.
+   the shades of these two and from weight and size; nothing is coloured for decoration. **Black (ink)** is the
+   darkest end of the grey scale, not a colour of its own: body text, the person's message bubble and the primary
+   button are ink on white — the strongest contrast the page has, so it marks "mine" and "do this".
 2. **A fourth colour — the super accent — only when it matters.** One hue outside white, grey and blue, kept for the one
    thing that needs the person now (an agent waiting for an answer, an unread mention, the irreversible action in a
    dialog). If it is in two places on a screen, one of them should not be. Semantic states (success, warning,

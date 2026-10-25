@@ -1,9 +1,10 @@
 /**
  * Shows the Hyper widget set — tokens, atoms, molecules, organisms, templates — on one page.
  *
- * The catalogue of the w.* widgets by atomic design level, each drawn by its own function with realistic props (this chat's agent, real people). Open it on the canvas (/rpc/w.gallery) to pick a widget before writing markup, and to check a token, theme or widget change everywhere at once. A widget that throws shows its error in its cell.
+ * The catalogue of the w.* widgets by atomic design level, each drawn by its own function with realistic props (this chat's agent, real people). Open it on the canvas (/rpc/w.gallery) to pick a widget before writing markup, and to check a token, theme or widget change everywhere at once. The tabs at the top switch the theme (light, dark, high contrast) — each theme is its own address. A widget that throws shows its error in its cell.
  * @view
  * @param opts.agentId Agent whose icon and rows fill the agent samples; defaults to the current agent.
+ * @param opts.theme Theme the widgets are drawn in — light, dark or high contrast. @default "light"
  */
 export default async function (
     ctx: Context,
@@ -11,12 +12,21 @@ export default async function (
     opts: {
         /** Agent whose icon and rows fill the agent samples; defaults to the current agent. */
         agentId?: string;
+        /** Theme the widgets are drawn in — light, dark or high contrast. @default "light" */
+        theme?: "light" | "dark" | "contrast";
     },
 ): Promise<string> {
     const w: any = (ctx.fns as any).w;
         const esc = (v: unknown) => ctx.fns.procs.ui.escape({ text: String(v ?? "") });
         const safe = async (name: string, f: () => any): Promise<string> => { try { return String(await f()); } catch (e: any) { return `<span style="color:var(--w-danger);font-size:12px">${esc(name)}: ${esc(e?.message ?? e)}</span>`; } };
         const me = String(opts.agentId ?? (await ctx.fns.agent.current({}).catch(() => ({ id: "" })) as any).id ?? "");
+    const theme = opts.theme === "dark" || opts.theme === "contrast" ? opts.theme : "light";
+    // The switch is navigation: each theme is its own address, so a canvas tab moves to it and keeps it.
+    const themeTabs = w.tabs({ variant: "underline", active: theme, items: [
+        { id: "light", label: "Light", icon: "sun", action: { href: ctx.fns.rpc.url({ fn: "w.gallery", params: { ...(opts.agentId ? { agentId: opts.agentId } : {}) } }) } },
+        { id: "dark", label: "Dark", icon: "moon", action: { href: ctx.fns.rpc.url({ fn: "w.gallery", params: { ...(opts.agentId ? { agentId: opts.agentId } : {}), theme: "dark" } }) } },
+        { id: "contrast", label: "High contrast", icon: "circle-half", action: { href: ctx.fns.rpc.url({ fn: "w.gallery", params: { ...(opts.agentId ? { agentId: opts.agentId } : {}), theme: "contrast" } }) } },
+    ] });
         const now = Date.now();
         const swatch = (v: string, label: string) => `<div class="wg-swatch"><span style="background:var(${v})"></span><code>${v}</code><small>${label}</small></div>`;
         const tokens = [
@@ -80,10 +90,10 @@ export default async function (
             return `<section><h2>${esc(title)} <small>${esc(sub)}</small></h2><div class="wg-grid" data-level="${esc(title.toLowerCase())}">${cells.join("")}</div></section>`;
         }));
         const style = `<style>
-    .wg{max-width:76rem;margin:0 auto;padding:1.25rem 1.5rem 3rem;font-size:13px;color:var(--w-fg)}
+    .wg{min-height:100%;padding:1.25rem max(1.5rem,calc((100% - 76rem)/2)) 3rem;font-size:13px;color:var(--w-fg);background:var(--w-surface-document)}.wg-top{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}.wg-top .w-tabs{border-bottom:0}.wg code{color:var(--w-fg-muted);background:var(--w-hover);padding:0 .25rem;border-radius:.25rem}
     .wg h1{font-size:20px;font-weight:600;margin:0}.wg>p{color:var(--w-fg-muted);margin:.25rem 0 1rem}
     .wg h2{font-size:15px;font-weight:600;margin:1.5rem 0 .5rem}.wg h2 small{font-weight:400;color:var(--w-fg-faint);font-size:12px}
-    .wg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:1px;background:var(--w-border);border:1px solid var(--w-border);border-radius:.5rem}
+    .wg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:1px;background:var(--w-border);border:1px solid var(--w-border);border-radius:.5rem;overflow:hidden}.wg-grid::after{content:"";background:var(--w-surface-document);grid-column:auto/-1}
     .wg-grid[data-level="organisms"],.wg-grid[data-level="templates"]{grid-template-columns:repeat(auto-fill,minmax(30rem,1fr))}
     .wg-cell{background:var(--w-surface-document);padding:.75rem .875rem;min-width:0}
     .wg-name{margin-bottom:.5rem}.wg-name code{font-size:11px;color:var(--w-fg-muted)}.wg-name small{font-size:11px;color:var(--w-fg-faint)}
@@ -92,5 +102,5 @@ export default async function (
     .wg-swatch{display:grid;grid-template-columns:1.75rem 1fr;grid-template-rows:auto auto;column-gap:.5rem;align-items:center}
     .wg-swatch span{grid-row:span 2;width:1.75rem;height:1.75rem;border-radius:.375rem;border:1px solid var(--w-border)}.wg-swatch code{font-size:11px}.wg-swatch small{font-size:11px;color:var(--w-fg-faint)}
     </style>`;
-        return `${style}<div class="wg"><h1>Hyper widgets</h1><p>The widget set by atomic design: tokens → atoms → molecules → organisms → templates. Each widget is a server function <code>w.&lt;name&gt;</code>; styles live in one stylesheet (<code>src/w/$style_w.css</code>), one cascade layer per level, and read only the tokens below — change a token and every widget follows.</p><section><h2>Tokens <small>the only thing a theme sets</small></h2><div class="wg-tokens">${tokens}</div></section>${sections.join("")}</div>`;
+        return `${style}<div class="wg" data-w-theme="${theme}"><div class="wg-top"><h1>Hyper widgets</h1>${themeTabs}</div><p>The widget set by atomic design: tokens → atoms → molecules → organisms → templates. Each widget is a server function <code>w.&lt;name&gt;</code>; styles live in one stylesheet (<code>src/w/$style_w.css</code>), one cascade layer per level, and read only the tokens below — change a token and every widget follows.</p><section><h2>Tokens <small>the only thing a theme sets</small></h2><div class="wg-tokens">${tokens}</div></section>${sections.join("")}</div>`;
 }

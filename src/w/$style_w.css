@@ -47,6 +47,49 @@
   --w-font: 13px;
 }
 :where([data-theme="dark"]) { --w-info: #60a5fa; --w-warning: #f59e0b; --w-shadow: 0 8px 24px rgb(0 0 0 / .45); }
+/* Themes. A theme is only token values, set on any element with data-w-theme — the whole page or one part of it
+   (the gallery switches its own block). Derived tokens are declared again inside a themed element, because a
+   custom property is computed where it is declared: --w-hover made at :root would keep the root's colours. */
+:where([data-w-theme]) {
+  --w-fg-muted: color-mix(in oklab, var(--w-fg) 60%, transparent);
+  --w-fg-faint: color-mix(in oklab, var(--w-fg) 42%, transparent);
+  --w-hover: color-mix(in oklab, var(--w-fg) 6%, transparent);
+  --w-active: color-mix(in oklab, var(--w-fg) 10%, transparent);
+  --w-on-accent: var(--w-surface-document);
+  --w-focus: color-mix(in oklab, var(--w-info) 60%, transparent);
+  --w-surface-chat: color-mix(in oklab, var(--w-surface-chrome) 30%, var(--w-surface-document));
+  --w-surface-raised: var(--w-surface-document);
+  background: var(--w-surface-document);
+  color: var(--w-fg);
+  color-scheme: light;
+}
+[data-w-theme="light"] {
+  --w-surface-document: oklch(100% 0 0); --w-surface-chrome: oklch(96.8% 0.001 240);
+  --w-fg: oklch(21% 0.006 285.885); --w-border: oklch(88.5% 0.004 240); --w-accent: oklch(21% 0.006 285.885);
+  --w-info: #2563eb; --w-success: #1a7f37; --w-warning: #b45309; --w-danger: #cf222e;
+  --w-on-danger: #ffffff; --w-backdrop: rgb(0 0 0 / .35); --w-shadow: 0 8px 24px rgb(0 0 0 / .14);
+}
+[data-w-theme="dark"] {
+  --w-surface-document: oklch(25.33% 0.016 252.42); --w-surface-chrome: oklch(21.5% 0.014 253.1);
+  --w-fg: oklch(96% 0.012 256.8); --w-border: oklch(38% 0.015 252); --w-accent: oklch(96% 0.012 256.8);
+  --w-info: #60a5fa; --w-success: #3fb950; --w-warning: #f59e0b; --w-danger: #f85149;
+  --w-on-danger: #ffffff; --w-backdrop: rgb(0 0 0 / .55); --w-shadow: 0 8px 24px rgb(0 0 0 / .5);
+  color-scheme: dark;
+}
+/* High contrast (WCAG AAA text, after Emacs Modus Operandi): pure black on white, no translucent greys, black
+   lines, deep saturated states, a solid strong focus ring. */
+[data-w-theme="contrast"] {
+  --w-surface-document: #ffffff; --w-surface-chrome: #ececec;
+  --w-fg: #000000; --w-fg-muted: #1f1f1f; --w-fg-faint: #3d3d3d;
+  --w-border: #000000; --w-accent: #000000; --w-on-accent: #ffffff;
+  --w-hover: #dcdcdc; --w-active: #c8c8c8;
+  --w-info: #0031a9; --w-success: #006800; --w-warning: #6f4400; --w-danger: #a60000;
+  --w-on-danger: #ffffff; --w-focus: #0031a9; --w-backdrop: rgb(0 0 0 / .6); --w-shadow: 0 0 0 1px #000000;
+  --w-surface-chat: #f7f7f7;
+}
+[data-w-theme="contrast"] :focus-visible { outline-width: 3px !important; }
+[data-w-theme="contrast"] .w-badge { color: var(--w-tone, var(--w-fg)); border: 1px solid currentColor; background: var(--w-surface-document); }
+
 /* Tone is read by the element that carries it and is NOT inherited: a danger card must not turn the badges and
    icons inside it red. Each toned widget maps its own data-tone to --w-tone on itself. */
 @property --w-tone { syntax: "*"; inherits: false; }
@@ -70,7 +113,7 @@
 .w-btn[data-tone="danger"] { background: var(--w-danger); border-color: var(--w-danger); color: var(--w-on-danger); }
 .w-btn[data-tone="ghost"] { background: none; border-color: transparent; } .w-btn[data-tone="ghost"]:hover { background: var(--w-hover); }
 .w-btn:disabled { opacity: .45; cursor: default; }
-.w-badge { display: inline-flex; align-items: center; height: 1.125rem; padding: 0 .375rem; border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--w-tone, var(--w-fg-muted)); background: color-mix(in oklab, var(--w-tone, var(--w-fg)) 12%, transparent); }
+.w-badge { display: inline-flex; align-items: center; height: 1.125rem; padding: 0 .375rem; border-radius: 999px; font-size: 11px; font-weight: 500; color: color-mix(in oklab, var(--w-tone, var(--w-fg-muted)) 75%, var(--w-fg)); background: color-mix(in oklab, var(--w-tone, var(--w-fg)) 14%, transparent); }
 .w-dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--w-fg-faint); flex: none; }
 .w-dot[data-state="running"] { background: var(--w-info); animation: w-pulse 1.6s ease-in-out infinite; }
 .w-dot[data-state="unread"], .w-dot[data-state="done"] { background: var(--w-success); }

@@ -12,6 +12,9 @@ id: string;
 error: string;
         /** Ts used by the operation. */
 ts?: number }) {
+    // A stop by the person is not an error: agent.stop already wrote one grey "stopped by user" line. Whatever
+    // reports the cancelled run afterwards (the worker loop, a stream, a tool) is swallowed here — no row, no toast.
+    if (/stopped_by_user|stopped by user|^\s*(?:Error:\s*)?(?:aborted|AbortError|This operation was aborted|The operation was aborted)/i.test(String(opts.error ?? ""))) return null;
     const appended = await ctx.fns.session.appendEventWithHtml({
         id: opts.id, type: "error", payload: { error: opts.error }, ts: opts.ts,
     });

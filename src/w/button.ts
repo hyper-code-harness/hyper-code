@@ -13,6 +13,8 @@
  * @param opts.title Tooltip text.
  * @param opts.keys Keyboard shortcut shown after the label as key caps (w.kbd), e.g. "J" or "⌘+Enter".
  * @param opts.id Element id, for a page script or a hotkey that clicks this button.
+ * @param opts.attrs Behaviour hooks (w.hooks): data-*, aria-*, hx-confirm, onclick, form, popovertarget.
+ * @param opts.wide Fills the width of its row (a form's one submit, a card's footer action).
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Button text. */
@@ -37,12 +39,16 @@ export default function (ctx: Context, _session: Session | null, opts: {
     keys?: string;
     /** Element id, for a page script or a hotkey that clicks this button. */
     id?: string;
+    /** Behaviour hooks (w.hooks): data-*, aria-*, hx-confirm, onclick, form, popovertarget. */
+    attrs?: Record<string, string | number | boolean | null | undefined>;
+    /** Fills the width of its row (a form's one submit, a card's footer action). */
+    wide?: boolean;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const marks = opts.marks ? ` ${ctx.fns.w.marks(opts.marks)}`.replace(/ $/, "") : "";
     const title = (opts.title ? ` title="${esc(opts.title)}"` : "") + (opts.id ? ` id="${esc(opts.id)}"` : "");
     const body = `${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: opts.size === "sm" ? 14 : 16 }) : ""}<span>${esc(opts.label)}</span>${opts.keys ? ctx.fns.w.kbd({ keys: opts.keys }) : ""}`;
-    const head = `class="w-btn" data-tone="${opts.tone ?? "neutral"}" data-size="${opts.size ?? "md"}"${marks}${title}`;
+    const head = `class="w-btn" data-tone="${opts.tone ?? "neutral"}" data-size="${opts.size ?? "md"}"${opts.wide ? " data-wide" : ""}${marks}${title}${ctx.fns.w.hooks({ attrs: opts.attrs })}`;
     if (opts.submit) {
         if (opts.action) throw new Error("w.button: submit and action are exclusive — a submit button does what its form does");
         const nv = typeof opts.submit === "object" ? ` name="${esc(opts.submit.name)}" value="${esc(opts.submit.value ?? "1")}"` : "";

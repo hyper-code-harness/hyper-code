@@ -9,15 +9,7 @@ export default {
     render: async (ctx: Context) => {
         const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const row = "flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-base-content hover:bg-base-200";
-        const theme = ctx.fns.procs.ui.button({
-            action: "toggle-theme",
-            html: '<i class="ph ph-moon text-base text-subtle" aria-hidden="true"></i><span class="min-w-0 flex-1 truncate">Theme</span><span class="shrink-0 text-xs text-faint" data-theme-name>Light</span>',
-            appearance: "plain",
-            title: "",
-            ariaLabel: "Switch color theme",
-            class: row,
-            attrs: { id: "theme-toggle", "aria-pressed": "false" },
-        });
+        const theme = ctx.fns.w.pressable({ html: '<i class="ph ph-moon text-base text-subtle" aria-hidden="true"></i><span class="min-w-0 flex-1 truncate">Theme</span><span class="shrink-0 text-xs text-faint" data-theme-name>Light</span>', label: "Switch color theme", title: "", marks: { action: "toggle-theme" }, attrs: { id: "theme-toggle", "aria-pressed": "false" }, class: row });
         const update = `<div class="${row} cursor-default hover:bg-transparent" data-dock-update-row><i class="ph ph-arrows-clockwise text-base text-subtle" aria-hidden="true"></i><span class="min-w-0 flex-1 truncate">Hyper update</span>${await ctx.fns.ui.updateBadge({})}</div>`;
         const links = [["ph-gear-six", "All settings", "/settings"], ["ph-plugs-connected", "LLM connections", "/llms"]]
             .map(([icon, label, href]) => `<a href="${esc(href)}" class="${row}"><i class="ph ${icon} text-base text-subtle" aria-hidden="true"></i><span class="flex-1">${esc(label)}</span></a>`).join("");

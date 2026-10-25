@@ -36,22 +36,13 @@ function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true
     // Beside a message bubble the actions are a context menu (opened by right-click, ui/hotkeys.js): rows with
     // an icon and a label. Copy is done in the browser; the deletes are ordinary htmx posts.
     if (placement === 'side') {
-        const item = (mode: 'one' | 'from', label: string, confirm: string, icon: string) => ctx.fns.procs.ui.button({
-            action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon}" aria-hidden="true"></i><span>${label}</span>`,
-            post: url, swap: 'none', vals: { idx: String(idx), mode }, title: label, ariaLabel: label,
-            class: 'message-menu-item message-menu-item--danger', attrs: { 'hx-confirm': confirm, role: 'menuitem' },
-        });
+        const item = (mode: 'one' | 'from', label: string, confirm: string, icon: string) => ctx.fns.w.pressable({ html: `<i class="ph ${icon}" aria-hidden="true"></i><span>${label}</span>`, label: label, action: { post: url, swap: 'none', vals: { idx: String(idx), mode }, confirm: confirm }, marks: { action: `delete-${mode}` }, attrs: { role: 'menuitem' }, class: 'message-menu-item message-menu-item--danger' });
         return '<button type="button" class="message-menu-item" data-message-copy role="menuitem"><i class="ph ph-copy" aria-hidden="true"></i><span>Copy text</span></button>'
             + '<div class="message-menu-sep" role="separator"></div>'
             + (allowOne ? item('one', 'Delete message', 'delete this message?', 'ph-trash') : '')
             + (allowFrom ? item('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '');
     }
-    const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.procs.ui.button({
-        action: `delete-${mode}`, appearance: 'plain', html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`,
-        post: url, swap: 'none', vals: { idx: String(idx), mode }, title, ariaLabel: title,
-        class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-error/30 hover:bg-error/10 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/30',
-        attrs: { 'hx-confirm': confirm },
-    });
+    const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.w.pressable({ html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`, label: title, action: { post: url, swap: 'none', vals: { idx: String(idx), mode }, confirm: confirm }, marks: { action: `delete-${mode}` }, class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-error/30 hover:bg-error/10 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/30' });
     return '<div class="' + (placement === 'side' ? 'flex gap-1' : 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100') + '">'
         + (allowOne ? actionControl('one', 'Delete message', 'delete this message?', 'ph-trash') : '')
         + (allowFrom ? actionControl('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '')
@@ -266,15 +257,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const been = mins >= 1 ? `${mins} min` : `${secs} s`;
         const limit = Number(ev.timeoutMs) > 0 ? ` of a ${Math.round(Number(ev.timeoutMs) / 60000)} min limit` : '';
         const stop = ev.runId && agentId
-            ? ctx.fns.procs.ui.button({
-                action: 'abort-tool-call',
-                label: `Stop ${String(ev.name ?? 'tool')}`,
-                size: 'xs',
-                class: 'mt-2 rounded-full',
-                title: 'Stop only this call — the agent will continue and read your message',
-                post: `/agent/${encodeURIComponent(agentId)}/tool/${encodeURIComponent(String(ev.runId))}/abort`,
-                swap: 'none',
-            })
+            ? `<div class="mt-2">${ctx.fns.w.button({ label: `Stop ${String(ev.name ?? 'tool')}`, size: "sm", action: { post: `/agent/${encodeURIComponent(agentId)}/tool/${encodeURIComponent(String(ev.runId))}/abort`, swap: 'none' }, marks: { action: 'abort-tool-call' }, title: 'Stop only this call — the agent will continue and read your message' })}</div>`
             : '';
         return eventCard({
             title: `Message received: ${String(ev.name ?? 'tool')} had been running for ${been}${limit}`,

@@ -166,3 +166,14 @@ test("page-level widgets: page, field, form, record carry the automation markers
     const res = w.respond({ html: "ok", toast: { message: "Сохранено" } });
     expect(res.headers.get("HX-Trigger")).toContain("\\u0421");
 });
+
+test("pressable and hooks: behaviour hooks pass, visual attributes are refused", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    const p = w.pressable({ html: "<i></i>", label: "Pin", marks: { action: "toggle-dock-pin" }, attrs: { "data-dock-pin-toggle": "", onclick: "x()" }, class: "dock-btn" });
+    expect(p).toContain('data-action="toggle-dock-pin"'); expect(p).toContain('data-dock-pin-toggle=""'); expect(p).toContain('aria-label="Pin"');
+    expect(() => w.hooks({ attrs: { style: "color:red" } })).toThrow();
+    expect(w.hooks({ attrs: { "anchor-name": "--x" } })).toBe(' style="anchor-name:--x"');
+    expect(w.iconButton({ icon: "trash", label: "Delete", submit: { name: "action", value: "delete" } })).toContain('type="submit" name="action" value="delete"');
+    expect(w.button({ label: "Save", submit: true, wide: true })).toContain("data-wide");
+});

@@ -18,15 +18,15 @@ export default async function (ctx: Context, _session: Session | null, opts: {
   <form hx-popup="chat.saveIcon" hx-popup-params='${params({})}' class="space-y-2 rounded-xl border border-ui-border p-3">
     <div class="text-xs font-medium text-muted">Emoji or letters</div>
     <div class="flex items-center gap-2"><input name="emoji" maxlength="8" placeholder="🦊" class="w-20 rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-center text-lg"><div class="flex flex-wrap gap-1.5">${swatches}</div></div>
-    ${ctx.fns.procs.ui.button({ action: "save-icon-emoji", label: "Use emoji", type: "submit", tone: "primary" })}
+    ${ctx.fns.w.button({ label: "Use emoji", tone: "primary", size: "md", submit: true, marks: { action: "save-icon-emoji" } })}
   </form>
   <form hx-popup="chat.saveIcon" hx-popup-params='${params({})}' class="space-y-2 rounded-xl border border-ui-border p-3">
     <div class="text-xs font-medium text-muted">SVG</div>
     <textarea name="svg" rows="5" placeholder='&lt;svg viewBox="0 0 32 32"&gt;…&lt;/svg&gt;' class="block w-full rounded-lg border border-ui-input bg-base-100 p-2 font-mono text-3xs">${esc(agent.icon ?? "")}</textarea>
     <div class="text-3xs text-faint">Up to 8 KB. Scripts, links and embedded images are removed.</div>
-    ${ctx.fns.procs.ui.button({ action: "save-icon-svg", label: "Use SVG", type: "submit", tone: "primary" })}
+    ${ctx.fns.w.button({ label: "Use SVG", tone: "primary", size: "md", submit: true, marks: { action: "save-icon-svg" } })}
   </form>
-  ${agent.icon ? `<form hx-popup="chat.saveIcon" hx-popup-params='${params({ reset: true })}'>${ctx.fns.procs.ui.button({ action: "reset-icon", label: "Back to model logo", type: "submit" })}</form>` : ""}
+  ${agent.icon ? `<form hx-popup="chat.saveIcon" hx-popup-params='${params({ reset: true })}'>${ctx.fns.w.button({ label: "Back to model logo", size: "md", submit: true, marks: { action: "reset-icon" } })}</form>` : ""}
 </div>`;
     return new Response(ctx.fns.ui.popupContent({ title: `Icon · ${agent.title || id}`, html }), { headers: { "content-type": "text/html; charset=utf-8" } });
 }

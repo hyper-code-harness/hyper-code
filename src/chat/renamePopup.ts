@@ -12,7 +12,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!agent) return new Response("agent not found", { status: 404 });
     const html = `<form hx-popup="chat.rename" hx-popup-params='${esc(JSON.stringify({ agentId: id }))}' class="space-y-3">
   <label class="block text-xs font-medium text-muted">Name<input name="title" value="${esc(agent.title ?? "")}" maxlength="120" autofocus class="mt-1 block w-full rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-sm" placeholder="${esc(id)}"></label>
-  ${ctx.fns.procs.ui.button({ action: "rename-chat", label: "Save", type: "submit", tone: "primary" })}
+  ${ctx.fns.w.button({ label: "Save", tone: "primary", size: "md", submit: true, marks: { action: "rename-chat" } })}
 </form>`;
     return new Response(ctx.fns.ui.popupContent({ title: `Rename · ${agent.title || id}`, html }), { headers: { "content-type": "text/html; charset=utf-8" } });
 }

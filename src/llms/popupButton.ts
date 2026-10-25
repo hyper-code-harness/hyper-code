@@ -1,4 +1,4 @@
-// Popup-local adapter over the shared procs.ui.button primitive. Keeping this
+// Popup-local adapter over the shared w.button primitive. Keeping this
 // tiny wrapper means no popup invents foreground/background classes again.
 /** Renders a theme-safe shared button for LLM popups. */
 /**

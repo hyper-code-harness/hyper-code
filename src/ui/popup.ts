@@ -4,8 +4,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Route parameters captured from the request path. */ params?: Record<string, any>;
     /** Trusted component-owned trigger HTML. */ html: string;
     /** Additional safe HTML attributes. */ attrs?: string;
-    /** Shared button tone. */ tone?: "default" | "primary" | "danger" | "ghost" | "success" | "warning" | "neutral";
-    /** Shared button size. @default "sm" */ size?: "xs" | "sm";
 }): string {
     const attrs: Record<string, string | boolean> = {
         'hx-popup': opts.method,
@@ -22,5 +20,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     delete attrs.class;
     delete attrs.title;
     delete attrs['aria-label'];
-    return ctx.fns.procs.ui.button({ action: 'open-popup', html: opts.html, tone: opts.tone, size: opts.size, appearance: opts.tone ? 'button' : 'plain', class: className, title, ariaLabel, attrs });
+    // A popup trigger draws only what the caller gives it (a chip, a tool cell); a button-looking one is
+    // w.button({ action: { popup } }).
+    return ctx.fns.w.pressable({ html: opts.html, marks: { action: 'open-popup' }, class: className, title, label: ariaLabel, attrs });
 }

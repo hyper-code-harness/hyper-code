@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import render from "./agentMetaPanel";
 import renderSection from "./agentMetaSection";
+import { renderCtx } from "./testRender.entry";
+
+const kit = await renderCtx();
 
 const escapeHtml = ({ text }: any) => String(text)
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -11,7 +14,7 @@ const button = (o: any) => `<button type="${o.type ?? (o.name ? 'submit' : 'butt
 const mkCtx = (extra: any = {}): any => {
     const ctx: any = {
         fns: {
-            procs: { ui: { escape: escapeHtml, button } }, w: { escape: escapeHtml, button },
+            procs: { ui: { escape: escapeHtml, button } }, w: kit.fns.w,
             ui: {
                 toggle,
                 planTaskRow,
@@ -103,7 +106,7 @@ test("renders team members as semantic nested accordions", () => {
     });
     expect(html).toContain("Team");
     expect(html).toContain('data-tone="error"');
-    expect(html).toContain('class="ui-button ui-button--xs ui-button--ghost');
+    expect(html).toContain('class="w-btn" data-tone="ghost" data-size="sm"');
     expect(html).toContain('<progress value="0" max="1">');
 });
 

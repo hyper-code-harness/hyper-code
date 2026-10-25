@@ -36,7 +36,7 @@ export default async function (
     const anchor = "--inplace-" + id;
     const triggerAttrs = String(opts.triggerAttrs ?? "").trim();
     const panelAttrs = String(opts.panelAttrs ?? "").trim();
-    const attrs: Record<string, string | boolean> = { popovertarget: id, 'aria-haspopup': 'dialog', style: 'anchor-name:' + anchor };
+    const attrs: Record<string, string | boolean> = { popovertarget: id, 'aria-haspopup': 'dialog', 'anchor-name': anchor };
     for (const match of triggerAttrs.matchAll(/([\w:-]+)(?:="([^"]*)")?/g)) {
         const name = match[1];
         if (name) attrs[name] = match[2] ?? true;
@@ -48,6 +48,6 @@ export default async function (
     delete attrs.class;
     delete attrs.title;
     delete attrs['aria-label'];
-    return ctx.fns.procs.ui.button({ action: 'open-inplace-popup', html: opts.triggerHtml, appearance: 'plain', class: className, title, ariaLabel, attrs })
+    return ctx.fns.w.pressable({ html: opts.triggerHtml, marks: { action: 'open-inplace-popup' }, class: className, title, label: ariaLabel, attrs })
       + '<div id="' + esc(id) + '" popover style="position-anchor:' + anchor + '" class="inplace-popup-panel"' + (panelAttrs ? ' ' + panelAttrs : '') + '>' + opts.contentHtml + '</div>';
 }

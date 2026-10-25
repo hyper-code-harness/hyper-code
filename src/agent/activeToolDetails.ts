@@ -51,30 +51,18 @@ export default function (
             + (deadline ? ` data-tool-deadline="${deadline}"` : "")
             + `>…</span>`;
 
-        const stop = ctx.fns.procs.ui.button({
-            action: "abort-tool-call",
+        const stop = ctx.fns.w.button({
             label: r.aborted ? "Stopping…" : `Stop this ${r.name} call`,
-            tone: r.aborted ? undefined : "danger",
-            size: "xs",
-            class: "rounded-full",
+            tone: r.aborted ? "neutral" : "danger",
+            size: "sm",
+            marks: { action: "abort-tool-call" },
             title: "Stop only this call — the agent continues and reads your messages",
             disabled: r.aborted,
-            ...(r.aborted ? {} : {
-                post: `/agent/${encodeURIComponent(id)}/tool/${encodeURIComponent(r.id)}/abort`,
-                swap: "none",
-            }),
+            action: r.aborted ? undefined : { post: `/agent/${encodeURIComponent(id)}/tool/${encodeURIComponent(r.id)}/abort`, swap: "none" },
         });
 
         const toBackground = r.detachable && !r.aborted
-            ? ctx.fns.procs.ui.button({
-                action: "detach-tool-call",
-                label: "To background",
-                size: "xs",
-                class: "rounded-full",
-                title: "Stop waiting: the command keeps running as a background job and the agent is told when it ends",
-                post: `/agent/${encodeURIComponent(id)}/tool/${encodeURIComponent(r.id)}/detach`,
-                swap: "none",
-            })
+            ? ctx.fns.w.button({ label: "To background", size: "sm", action: { post: `/agent/${encodeURIComponent(id)}/tool/${encodeURIComponent(r.id)}/detach`, swap: "none" }, marks: { action: "detach-tool-call" }, title: "Stop waiting: the command keeps running as a background job and the agent is told when it ends" })
             : "";
 
         const tail = r.tail.trimEnd();

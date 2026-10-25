@@ -2,13 +2,5 @@
 // paints the pressed state.
 export default {
     order: 10,
-    render: (ctx: Context) => ctx.fns.procs.ui.button({
-        action: "toggle-canvas",
-        html: '<i class="ph ph-square-half" aria-hidden="true"></i>',
-        appearance: "plain",
-        ariaLabel: "Open canvas",
-        title: "Open canvas",
-        class: "canvas-toggle flex size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content aria-pressed:bg-primary/10 aria-pressed:text-primary",
-        attrs: { "data-canvas-toggle": "toggle", "aria-pressed": "false" },
-    }),
+    render: (ctx: Context) => ctx.fns.w.pressable({ html: '<i class="ph ph-square-half" aria-hidden="true"></i>', label: "Open canvas", marks: { action: "toggle-canvas" }, attrs: { "data-canvas-toggle": "toggle", "aria-pressed": "false" }, class: "canvas-toggle flex size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content aria-pressed:bg-primary/10 aria-pressed:text-primary" }),
 } satisfies types.chat.Button;

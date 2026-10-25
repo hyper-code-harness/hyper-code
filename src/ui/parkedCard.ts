@@ -76,7 +76,7 @@ export default function (
         // the credential; another provider brings its own model along.
         const target = a.provider === parked.provider ? swapAccount(current, a.account) : (a.model.endsWith(":") ? "" : a.model);
         const button = target && a.available
-            ? `<form hx-post="/agent/${id}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(target)}"><input type="hidden" name="scope" value="provider">${ctx.fns.procs.ui.button({ action: 'use-model-account', label: 'Use', type: 'submit', size: 'xs' })}</form>`
+            ? `<form hx-post="/agent/${id}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(target)}"><input type="hidden" name="scope" value="provider">${ctx.fns.w.button({ label: 'Use', size: "sm", submit: true, marks: { action: 'use-model-account' } })}</form>`
             : `<span class="text-3xs text-faint">${a.available ? "no model" : "waiting"}</span>`;
         return `<div class="flex items-center gap-1.5 py-0.5">
             ${ctx.fns.ui.modelLogo?.({ model: a.model || `${a.provider}:`, bare: true, compact: true }) ?? ""}
@@ -96,7 +96,7 @@ export default function (
 
     const quickButtons = suggestions.length
         ? `<div class="mt-2 flex flex-wrap gap-1">${suggestions
-            .map((m) => `<form hx-post="/agent/${id}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(m)}"><input type="hidden" name="scope" value="provider">${ctx.fns.procs.ui.button({ action: 'switch-suggested-model', label: m, type: 'submit', size: 'xs', class: 'font-mono text-3xs', title: `switch all agents from ${parked.provider}${account} to ${m} — same model class, billed per token` })}</form>`)
+            .map((m) => `<form hx-post="/agent/${id}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(m)}"><input type="hidden" name="scope" value="provider">${ctx.fns.w.button({ label: m, size: "sm", submit: true, marks: { action: 'switch-suggested-model' }, title: `switch all agents from ${parked.provider}${account} to ${m} — same model class, billed per token` })}</form>`)
             .join("")}</div>`
         : "";
 
@@ -104,13 +104,13 @@ export default function (
         ? `<form hx-post="/agent/${id}/model" hx-swap="none" class="mt-2 space-y-1">
              <select name="model" aria-label="Switch model" class="select select-bordered select-sm w-full font-mono text-2xs">${groups}</select>
              <label class="flex items-center gap-1 text-3xs text-subtle"><input type="checkbox" name="scope" value="provider" class="checkbox checkbox-xs" checked>apply to all on ${esc(parked.provider)}${esc(account)}</label>
-             ${ctx.fns.procs.ui.button({ action: 'switch-model', label: 'Switch', type: 'submit', tone: 'primary', size: 'xs', class: 'w-full' })}
+             ${ctx.fns.w.button({ label: 'Switch', tone: "primary", size: "sm", submit: true, marks: { action: 'switch-model' }, wide: true })}
            </form>`
         : "";
 
     const controls = `<div class="mt-2 flex gap-1">
-        <form hx-post="/agent/${id}/unpark" hx-swap="none" class="contents"><input type="hidden" name="action" value="now">${ctx.fns.procs.ui.button({ action: 'wake-parked-agent', label: 'Wake now', type: 'submit', tone: 'ghost', size: 'xs', title: 'if the quota has not reset yet, the agent will park again' })}</form>
-        <form hx-post="/agent/${id}/unpark" hx-swap="none" class="contents"><input type="hidden" name="action" value="cancel">${ctx.fns.procs.ui.button({ action: 'cancel-parking', label: 'Cancel parking', type: 'submit', tone: 'ghost', size: 'xs', class: 'text-error' })}</form>
+        <form hx-post="/agent/${id}/unpark" hx-swap="none" class="contents"><input type="hidden" name="action" value="now">${ctx.fns.w.button({ label: 'Wake now', tone: "ghost", size: "sm", submit: true, marks: { action: 'wake-parked-agent' }, title: 'if the quota has not reset yet, the agent will park again' })}</form>
+        <form hx-post="/agent/${id}/unpark" hx-swap="none" class="contents"><input type="hidden" name="action" value="cancel">${ctx.fns.w.button({ label: 'Cancel parking', tone: "ghost", size: "sm", submit: true, marks: { action: 'cancel-parking' } })}</form>
       </div>`;
 
     return `<div class="rounded-md border border-warning/40 bg-warning/10 px-2 py-2 text-2xs leading-5">

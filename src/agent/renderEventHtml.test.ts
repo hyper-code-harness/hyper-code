@@ -4,6 +4,9 @@ import toolMeta from "./toolMeta";
 import toolLang from "./toolLang";
 import highlightResult from "./highlightResult";
 import renderEditArgs from "./renderEditArgs";
+import { renderCtx } from "../ui/testRender.entry";
+
+const kit = await renderCtx();
 
 // The renderer asks the registry how a tool presents itself, so the stub ctx
 // carries the real fn rather than a fake one — the icon/label/subject table is
@@ -19,10 +22,7 @@ const ctx = { fns: {
   procs: { ui: {
     escape: ({ text }: any) => String(text),
     button: (o: any) => `<button type="${o.type ?? 'button'}" class="${o.appearance === 'plain' ? o.class ?? '' : `ui-button ui-button--${o.size ?? 'sm'} ui-button--${o.tone ?? 'default'}`}"${o.post ? ` hx-post="${o.post}"` : ''}${o.swap ? ` hx-swap="${o.swap}"` : ''}${o.vals ? ` hx-vals='${JSON.stringify(o.vals)}'` : ''}${o.title ? ` title="${o.title}"` : ''}${o.attrs ? Object.entries(o.attrs).map(([name, value]) => ` ${name}="${String(value)}"`).join('') : ''}>${o.html ?? o.label ?? ''}</button>`,
-  } }, w: {
-    escape: ({ text }: any) => String(text),
-    button: (o: any) => `<button type="${o.type ?? 'button'}" class="${o.appearance === 'plain' ? o.class ?? '' : `ui-button ui-button--${o.size ?? 'sm'} ui-button--${o.tone ?? 'default'}`}"${o.post ? ` hx-post="${o.post}"` : ''}${o.swap ? ` hx-swap="${o.swap}"` : ''}${o.vals ? ` hx-vals='${JSON.stringify(o.vals)}'` : ''}${o.title ? ` title="${o.title}"` : ''}${o.attrs ? Object.entries(o.attrs).map(([name, value]) => ` ${name}="${String(value)}"`).join('') : ''}>${o.html ?? o.label ?? ''}</button>`,
-  },
+  } }, w: kit.fns.w,
   ui: { popup: (opts: any) => `<button type="button" hx-popup="${opts.method}" hx-popup-params='${JSON.stringify(opts.params)}' ${opts.attrs}>${opts.html}</button>` },
 } } as unknown as Context;
 const renderEventHtml = (c: any, event: any, opts: { agentId?: string } = {}) =>
@@ -118,7 +118,7 @@ describe("agent.renderEventHtml", () => {
     expect(html).toContain("assistant chat-glass");
     expect(html).toContain("prose prose-sm max-w-none");
     expect(html).toContain(`hx-post="/agent/a1/messages/delete"`);
-    expect(html).toContain(`"idx":"7"`);
+    expect(html).toContain(`&quot;idx&quot;:&quot;7&quot;`);
     expect(html).toContain(`hx-confirm="delete this message?"`);
   });
 
@@ -194,8 +194,8 @@ describe("agent.renderEventHtml", () => {
     expect(html).toContain("justify-end");
     expect(html).toContain("chat-glass-primary rounded-xl");
     expect(html).not.toContain("bg-gray-900");
-    expect(html).toContain(`"mode":"one"`);
-    expect(html).toContain(`"mode":"from"`);
+    expect(html).toContain(`&quot;mode&quot;:&quot;one&quot;`);
+    expect(html).toContain(`&quot;mode&quot;:&quot;from&quot;`);
     expect(html).toContain(`hx-confirm="delete this and everything after?"`);
     expect(html).toContain('title="Delete message"');
     expect(html).toContain('title="Delete from here"');

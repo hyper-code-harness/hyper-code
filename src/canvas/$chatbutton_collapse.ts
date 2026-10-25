@@ -3,17 +3,5 @@
 // this chat follows canvas.changed; nothing is swapped here. Shown only while the canvas is open (ui.layout CSS).
 export default {
     order: 11,
-    render: (ctx: Context, _session: Session | null, view: types.chat.RenderContext) => ctx.fns.procs.ui.button({
-        action: "canvas-toggle-chat",
-        html: '<i class="ph ph-arrows-in-line-vertical canvas-chat-fold" aria-hidden="true"></i><i class="ph ph-arrows-out-line-vertical canvas-chat-unfold" aria-hidden="true"></i>',
-        appearance: "plain",
-        ariaLabel: "Collapse or expand chat — ⌘\\",
-        title: "Collapse or expand chat — ⌘\\",
-        post: `/canvas/${encodeURIComponent(view.agent.id)}`,
-        vals: { op: "toggleChat" },
-        target: "this",
-        swap: "none",
-        class: "canvas-chat-toggle hidden size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content",
-        attrs: { "data-canvas-chat-toggle": "", "hx-disabled-elt": "this" },
-    }),
+    render: (ctx: Context, _session: Session | null, view: types.chat.RenderContext) => ctx.fns.w.pressable({ html: '<i class="ph ph-arrows-in-line-vertical canvas-chat-fold" aria-hidden="true"></i><i class="ph ph-arrows-out-line-vertical canvas-chat-unfold" aria-hidden="true"></i>', label: "Collapse or expand chat — ⌘\\", action: { post: `/canvas/${encodeURIComponent(view.agent.id)}`, target: "this", swap: "none", vals: { op: "toggleChat" } }, marks: { action: "canvas-toggle-chat" }, attrs: { "data-canvas-chat-toggle": "", "hx-disabled-elt": "this" }, class: "canvas-chat-toggle hidden size-7 items-center justify-center rounded-full text-subtle hover:bg-base-200 hover:text-base-content" }),
 } satisfies types.chat.Button;

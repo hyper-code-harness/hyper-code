@@ -30,7 +30,7 @@ describe("agent reasoning effort", () => {
         expect(html).toContain(`/agent/${agent.id}/effort`);
         const selected = /<button\b[^>]*aria-current="true"[^>]*>/.exec(html)?.[0];
         expect(selected).toBeDefined();
-        expect(selected).toContain("ui-button--active");
+        expect(selected).toContain("bg-primary/10");
         expect(selected).not.toContain("disabled");
     });
 

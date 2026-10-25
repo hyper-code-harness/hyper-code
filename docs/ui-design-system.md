@@ -4,13 +4,14 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
 
 ## Principles
 
-1. **Two colours: grey-blue.** The interface is bichrome — cool greys with a slight blue cast for every surface, line,
-   text and control. Hierarchy comes from the grey steps (chrome → chat → document) and from weight and size, not from
-   colour. Nothing is coloured "for decoration".
-2. **A third colour only when it matters — the super accent.** One saturated accent, used rarely and on purpose: the one
-   thing that needs the person now (a running agent, an unread mention, the primary action of a dialog, focus). If two
-   things on a screen carry it, one of them should not. Semantic states (success, warning, danger) are part of this
-   budget and appear only on the element they describe.
+1. **Two colours: grey and blue.** The interface is drawn with two hues, each a scale of several shades: a cool
+   **grey** scale for surfaces, lines and text (chrome → chat → document, quiet → body text) and a **blue** scale for
+   what is interactive or alive — links, selection, the current item, focus, "running", info. Hierarchy comes from
+   the shades of these two and from weight and size; nothing is coloured for decoration.
+2. **A third colour — the super accent — only when it matters.** One hue outside grey and blue, kept for the one
+   thing that needs the person now (an agent waiting for an answer, an unread mention, the irreversible action in a
+   dialog). If it is in two places on a screen, one of them should not be. Semantic states (success, warning,
+   danger) are rare too and appear only on the element they describe.
 3. **The server draws.** A widget is a function that returns HTML; behaviour is htmx attributes and native HTML
    (popover, details, dialog). Client JS only where nothing else works: dragging, keys, the clipboard.
 4. **Meaning, not looks.** Props say what a thing is (`tone: "danger"`, `state: "running"`, `size: "sm"`), never how it
@@ -29,7 +30,7 @@ per level in `src/w/$style_w.css`). The older `procs.ui.*` components remain unt
 
 ## Palette
 
-The default visual language is bichrome grey-blue (principles 1–2 above): cool neutral surfaces, text, borders and controls, plus one super accent used sparingly. Green, amber and red appear only for semantic success, warning and danger on the element they describe.
+The default visual language is two hues — a grey scale and a blue scale — plus one super accent used sparingly (principles 1–2 above). Green, amber and red appear only for semantic success, warning and danger on the element they describe.
 
 Themes are selected with `data-theme="light"` or `data-theme="dark"` on `<html>`. The early script in `ui.layout` restores `localStorage.hyper-theme`, falling back to the OS preference before the page paints.
 

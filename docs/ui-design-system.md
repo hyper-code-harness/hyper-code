@@ -4,11 +4,11 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
 
 ## Principles
 
-1. **Two colours: grey and blue.** The interface is drawn with two hues, each a scale of several shades: a cool
-   **grey** scale for surfaces, lines and text (chrome → chat → document, quiet → body text) and a **blue** scale for
+1. **Three colours: white, grey and blue.** White is the document — the page you read and write on. The rest is two
+   hues, each a scale of several shades: a cool **grey** scale for surfaces, lines and text (chrome → chat → document, quiet → body text) and a **blue** scale for
    what is interactive or alive — links, selection, the current item, focus, "running", info. Hierarchy comes from
    the shades of these two and from weight and size; nothing is coloured for decoration.
-2. **A third colour — the super accent — only when it matters.** One hue outside grey and blue, kept for the one
+2. **A fourth colour — the super accent — only when it matters.** One hue outside white, grey and blue, kept for the one
    thing that needs the person now (an agent waiting for an answer, an unread mention, the irreversible action in a
    dialog). If it is in two places on a screen, one of them should not be. Semantic states (success, warning,
    danger) are rare too and appear only on the element they describe.
@@ -30,7 +30,7 @@ per level in `src/w/$style_w.css`). The older `procs.ui.*` components remain unt
 
 ## Palette
 
-The default visual language is two hues — a grey scale and a blue scale — plus one super accent used sparingly (principles 1–2 above). Green, amber and red appear only for semantic success, warning and danger on the element they describe.
+The default visual language is white plus two hues — a grey scale and a blue scale — plus one super accent used sparingly (principles 1–2 above). Green, amber and red appear only for semantic success, warning and danger on the element they describe.
 
 Themes are selected with `data-theme="light"` or `data-theme="dark"` on `<html>`. The early script in `ui.layout` restores `localStorage.hyper-theme`, falling back to the OS preference before the page paints.
 

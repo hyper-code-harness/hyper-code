@@ -17,15 +17,18 @@ Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities a
    thing that needs the person now (an agent waiting for an answer, an unread mention, the irreversible action in a
    dialog). If it is in two places on a screen, one of them should not be. Semantic states (success, warning,
    danger) are rare too and appear only on the element they describe.
-3. **Interaction: grey on hover, blue for state, a chevron for what opens.**
+3. **Interaction: rails are buttons, grey on hover, blue for state, a chevron off the rail.**
    - *Hover* on any button, row, tab or tool cell is a **grey backing** (`hover`) and the icon or text going from grey
      to ink. Never blue — the pointer crosses headers and bars all the time; blue there would flicker and stop
      meaning anything. The primary (ink) button lightens a little; a destructive one turns red.
    - *Blue* is for **state**, not for hover: selected / current / open (a light-blue backing and a blue icon), keyboard
      focus (a blue ring), "running", and links in text (always blue; underline on hover).
-   - *What opens something shows it at rest*: a control that opens a panel or a menu carries a chevron ⌄ next to its
-     label (the chat header: icon + name + ⌄); open, the chevron points up and the group is light blue. A control on
-     the right of a header is always an action; on the left is what the pane is.
+   - *On a rail everything is a button.* Rails (the Dock, the folded canvas, header rows) have their own background
+     colour (the chrome grey), and that background is the signal: whatever sits on it can be pressed. Rail controls
+     need no extra marks.
+   - *Off the rail, a chevron is the hint.* A control that opens a panel or a menu where it does not sit on a rail —
+     or where it could read as plain text, like a title — carries a chevron ⌄ next to its label (the chat header:
+     icon + name + ⌄); open, the chevron points up and the group is light blue. On a rail the chevron is optional.
 4. **The server draws.** A widget is a function that returns HTML; behaviour is htmx attributes and native HTML
    (popover, details, dialog). Client JS only where nothing else works: dragging, keys, the clipboard.
 5. **Meaning, not looks.** Props say what a thing is (`tone: "danger"`, `state: "running"`, `size: "sm"`), never how it

@@ -2,9 +2,34 @@
 
 Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities and the Typography plugin; there is no external component framework.
 
+## Principles
+
+1. **Two colours: grey-blue.** The interface is bichrome — cool greys with a slight blue cast for every surface, line,
+   text and control. Hierarchy comes from the grey steps (chrome → chat → document) and from weight and size, not from
+   colour. Nothing is coloured "for decoration".
+2. **A third colour only when it matters — the super accent.** One saturated accent, used rarely and on purpose: the one
+   thing that needs the person now (a running agent, an unread mention, the primary action of a dialog, focus). If two
+   things on a screen carry it, one of them should not. Semantic states (success, warning, danger) are part of this
+   budget and appear only on the element they describe.
+3. **The server draws.** A widget is a function that returns HTML; behaviour is htmx attributes and native HTML
+   (popover, details, dialog). Client JS only where nothing else works: dragging, keys, the clipboard.
+4. **Meaning, not looks.** Props say what a thing is (`tone: "danger"`, `state: "running"`, `size: "sm"`), never how it
+   looks; no classes passed in from outside.
+5. **Tokens only.** Colours, sizes, radii and type come from variables; a theme changes only the variables.
+6. **One action shape.** Everything clickable takes one `Action` with exactly one kind.
+7. **Quiet and flat.** Panes are ruled by 1px lines; grey chrome, white documents. Radius and shadow only for what
+   floats above the page (popovers, menus, the folded chat).
+8. **Dense, on one grid.** Sizes 24 / 28 / 32 / 40 px, text 12–14 px, every header on the same 32 px line.
+9. **Accessible by default.** Labels, focus, keyboard and a high-contrast theme are built in, not added later.
+10. **One thing per file, and it is in the gallery.** Every widget is `w.<name>` and appears on `/rpc/w.gallery`; agents
+    and plugins build their pages from the same set.
+
+The widget set lives in `src/w` (atomic design: tokens → atoms → molecules → organisms → templates, one cascade layer
+per level in `src/w/$style_w.css`). The older `procs.ui.*` components remain until pages move over.
+
 ## Palette
 
-The default visual language is bichrome: neutral surfaces, text, borders, and controls. Green and red are reserved for semantic success and failure/danger states. Informational UI stays neutral rather than introducing a decorative blue accent.
+The default visual language is bichrome grey-blue (principles 1–2 above): cool neutral surfaces, text, borders and controls, plus one super accent used sparingly. Green, amber and red appear only for semantic success, warning and danger on the element they describe.
 
 Themes are selected with `data-theme="light"` or `data-theme="dark"` on `<html>`. The early script in `ui.layout` restores `localStorage.hyper-theme`, falling back to the OS preference before the page paints.
 

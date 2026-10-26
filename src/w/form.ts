@@ -12,6 +12,8 @@
  * @param opts.trigger htmx trigger, e.g. "change" for a filter that applies itself.
  * @param opts.layout Arrangement of the children. @default "row"
  * @param opts.id Element id.
+ * @param opts.confirm Ask before sending (htmx confirm).
+ * @param opts.vals Fixed values sent with the form (htmx hx-vals), instead of hidden inputs.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Form name for the data-form marker. */
@@ -34,9 +36,13 @@ export default function (ctx: Context, _session: Session | null, opts: {
     layout?: "row" | "stack";
     /** Element id. */
     id?: string;
+    /** Fixed values sent with the form (htmx hx-vals), instead of hidden inputs. */
+    vals?: Record<string, string | number | boolean>;
+    /** Ask before sending (htmx confirm). */
+    confirm?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     if (!!opts.post === !!opts.get) throw new Error("w.form needs exactly one of post or get");
     const hx = opts.post ? `hx-post="${esc(opts.post)}"` : `hx-get="${esc(opts.get)}"`;
-    return `<form class="w-form" data-layout="${opts.layout ?? "row"}" ${ctx.fns.w.marks({ form: opts.form })}${opts.id ? ` id="${esc(opts.id)}"` : ""} ${hx} hx-target="${esc(opts.target ?? "#main")}" hx-swap="${opts.swap ?? "innerHTML"}"${opts.push ? ' hx-push-url="true"' : ""}${opts.trigger ? ` hx-trigger="${esc(opts.trigger)}"` : ""}>${opts.body}</form>`;
+    return `<form class="w-form" data-layout="${opts.layout ?? "row"}" ${ctx.fns.w.marks({ form: opts.form })}${opts.id ? ` id="${esc(opts.id)}"` : ""} ${hx} hx-target="${esc(opts.target ?? "#main")}" hx-swap="${opts.swap ?? "innerHTML"}"${opts.push ? ' hx-push-url="true"' : ""}${opts.vals ? ` hx-vals="${esc(JSON.stringify(opts.vals))}"` : ""}${opts.confirm ? ` hx-confirm="${esc(opts.confirm)}"` : ""}${opts.trigger ? ` hx-trigger="${esc(opts.trigger)}"` : ""}>${opts.body}</form>`;
 }

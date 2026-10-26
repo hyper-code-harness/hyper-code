@@ -192,3 +192,21 @@ test("dialog, dialogOpener, textarea and page aside: native dialog form, escaped
     expect(page).toContain('<aside class="w-page-aside"><p>side</p></aside>');
     expect(page.indexOf("w-crumbs")).toBeLessThan(page.indexOf("w-page-title"));
 });
+
+test("menu widgets: palette starts hidden, rows keep hooks and put the pin outside the link, tiles carry size", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    const pal = w.palette({ id: "nav-overlay", label: "Global menu", head: w.search({ url: "/nav/items", target: "#nav-results", id: "nav-q", include: "#nav-tab", trigger: "input changed delay:250ms", variant: "bar", keys: "esc" }), bodyId: "nav-results", hints: [{ keys: "↵", label: "open" }] });
+    expect(pal).toContain('id="nav-overlay" hidden');
+    expect(pal).toContain('id="nav-q" hx-include="#nav-tab" hx-sync="this:replace"');
+    expect(pal).toContain('hx-trigger="input changed delay:250ms"');
+    expect(pal).toContain('id="nav-results"');
+    const row = w.listRow({ label: "<x>", meta: "(da)", action: { href: "/agent/da" }, attrs: { "data-nav-row": true, "data-nav-id": "agent:da" }, end: w.iconButton({ icon: "push-pin", label: "Pin", submit: true }) });
+    expect(row).toMatch(/^<div class="w-row-wrap"><a class="w-row"[^>]*data-nav-row data-nav-id="agent:da"/);
+    expect(row.indexOf("</a>")).toBeLessThan(row.indexOf("<button"));
+    expect(row).toContain("&lt;x&gt;");
+    expect(() => w.listRow({ label: "x", attrs: { class: "evil" } })).toThrow();
+    expect(w.tile({ title: "Chats", size: "wide", body: "" })).toContain('data-size="wide"');
+    expect(w.listSection({ title: "Pinned", tone: "warning", rows: "" })).toContain('data-tone="warning"');
+    expect(w.tabs({ variant: "underline", items: [{ id: "a", label: "A", attrs: { "data-nav-tab": "a" } }], end: "E" })).toContain('<span class="w-tabs-end">E</span>');
+});

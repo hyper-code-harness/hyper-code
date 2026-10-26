@@ -7,6 +7,5 @@ test("inbox widget counts unread received mail and lists the newest, fewer on a 
     const ctx: any = { fns: { inbox: { list: async (o: any) => { asked = o; return mail; } } } };
     const out: any = await widget.render(ctx, null, { size: "S" });
     expect(asked).toMatchObject({ direction: "in" });
-    expect(out.html).toContain(">2<");
-    expect(out.items.map((i: any) => [i.label, i.href, i.icon, i.hint])).toEqual([["S1", "/inbox/m1", "ph-envelope", "bot1"], ["S3", "/inbox/m3", "ph-warning", "bot3"]]);
+    expect(out.items.map((i: any) => [i.label, i.href, i.icon, i.hint])).toEqual([["2 unread", "/inbox", "ph-tray", undefined], ["S1", "/inbox/m1", "ph-envelope", "bot1"], ["S3", "/inbox/m3", "ph-warning", "bot3"]]);
 });

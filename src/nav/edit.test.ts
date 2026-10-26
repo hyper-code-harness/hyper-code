@@ -72,6 +72,6 @@ test("edit ops: move, size, config, rename, move and remove tabs, reset; POST /n
     const html = await ctx.fns.nav.home({ tab: "home", edit: true });
     expect(html).toContain("data-nav-edit-controls");
     expect(html).toContain("data-nav-add");
-    expect(html).toContain('name="op" value="remove"');
+    expect(html).toContain('&quot;op&quot;:&quot;remove&quot;');
     expect(await ctx.fns.nav.home({ tab: "home" })).not.toContain("data-nav-edit-controls");
 });

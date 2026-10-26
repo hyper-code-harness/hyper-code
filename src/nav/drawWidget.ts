@@ -25,7 +25,7 @@ export default async function (
 ): Promise<{ ok: boolean; html: string; cached: boolean; pending?: boolean; error?: string; ms?: number }> {
     const state = ((ctx.state as any).nav ??= {});
     const def = (state.widgets ?? {})[opts.placement.widget] as (types.nav.Widget & types.nav.Registered) | undefined;
-    const note = (text: string) => `<div class="px-2 py-2 text-xs text-faint">${text}</div>`;
+    const note = (text: string, danger = false) => ctx.fns.w.empty({ title: text, tone: danger ? "danger" : "neutral" });
     if (!def) return { ok: false, html: note("unknown widget"), cached: false };
     const size = opts.placement.size ?? def.sizes?.[0] ?? "M";
     const config: Record<string, unknown> = {};
@@ -50,11 +50,10 @@ export default async function (
         ]);
     } catch (error: any) {
         ctx.fns.procs.log.warn({ event: "nav.widget", msg: `${def.id}: ${String(error?.message ?? error)}`, from: def.rel });
-        return { ok: false, html: note("unavailable"), cached: false, error: String(error?.stack ?? error?.message ?? error), ms: Math.round(performance.now() - started) };
+        return { ok: false, html: note("unavailable", true), cached: false, error: String(error?.stack ?? error?.message ?? error), ms: Math.round(performance.now() - started) };
     } finally { if (timer) clearTimeout(timer); }
 
     const output: types.nav.WidgetOutput = typeof out === "string" ? { html: out } : Array.isArray(out) ? { items: out } : out ?? {};
-    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const pinned = await (async () => {
         const all = [...(output.items ?? []), ...(output.sections ?? []).flatMap(s => s.items ?? [])];
         if (!all.some(item => item.pin)) return new Set<string>();
@@ -71,16 +70,15 @@ export default async function (
     for (const section of output.sections ?? []) {
         const body = (section.html ?? "") + (section.items?.length ? await ctx.fns.nav.rows({ items: section.items, pinned }) : "");
         if (!body) continue;
-        const count = section.count !== undefined ? ` · ${section.count}` : "";
-        if (section.collapsed) {
-            sectionParts.push(`<details class="mt-3 border-t border-ui-border pt-2"><summary class="cursor-pointer px-2 py-1 text-xs text-subtle">${esc(section.title)}${count}</summary>${body}</details>`);
-            continue;
-        }
-        const tone = section.tone === "primary" ? "text-primary" : section.tone === "warning" ? "text-warning" : "text-faint";
-        const head = section.title ? `<h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider ${tone}">${esc(section.title)}${count}</h4>` : "";
-        sectionParts.push(`<section class="break-inside-avoid ${section.tone === "primary" ? "mb-3 border-b border-ui-border pb-2" : "mb-2"}">${head}${body}</section>`);
+        sectionParts.push(ctx.fns.w.listSection({
+            title: section.title || undefined,
+            count: section.count,
+            rows: body,
+            tone: section.tone === "primary" ? "info" : section.tone,
+            collapsed: section.collapsed ? true : undefined,
+        }));
     }
-    if (sectionParts.length) parts.push(output.columns ? `<div class="gap-x-4 sm:columns-2 lg:columns-3">${sectionParts.join("")}</div>` : sectionParts.join(""));
+    if (sectionParts.length) parts.push(output.columns ? ctx.fns.w.columns({ body: sectionParts.join("") }) : sectionParts.join(""));
     const html = parts.join("") || note("empty");
     if (ttl) cache.set(key, { at: Date.now(), html });
     return { ok: true, html, cached: false, ms: Math.round(performance.now() - started) };

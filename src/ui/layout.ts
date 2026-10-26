@@ -123,9 +123,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
    Tailwind's font-sans stack), UI chrome — menu rows, tabs, chat header — at 13px regular, reading text at 14px. */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 #input, .chat-composer textarea, .chat-composer button { font-family: inherit; }
-#dock-panel .nav-row { font-size: 13px; font-weight: 400; min-height: 1.875rem; }
-#dock-panel .nav-row > span, #dock-panel .nav-row .text-xs { font-size: 13px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 85%, transparent); }
-#dock-panel .nav-row:hover > span { color: var(--color-base-content); }
 #dock-panel h4, #dock-panel section > h3 { font-size: 11px; font-weight: 500; letter-spacing: .02em; text-transform: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 .canvas-tab, #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 13px; }
 #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; }
@@ -140,10 +137,6 @@ html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* Global menu (⌘/), by the interaction principle: hover is grey; the row chosen with ↑ ↓ is selected (palest blue
    backing, blue icon); the search field in focus turns only its edge line blue (as the chat composer does with its top line), so the
    rounded corners of the box are never cut by a ring. */
-.nav-row[data-nav-selected] { background: color-mix(in oklab, #2563eb 11%, transparent) !important; color: var(--color-base-content); }
-.nav-row[data-nav-selected] > i.ph, .nav-row[data-nav-selected] .chat-icon { color: #2563eb; }
-.nav-search:focus-within { border-bottom-color: #3b82f6; box-shadow: inset 0 -1px 0 #3b82f6; }
-.nav-search:focus-within > .ph-magnifying-glass { color: #2563eb; }
 .dock-panel { display: none; }
 .inplace-popup-panel[data-dock-settings-panel] { width: 15rem; }
 /* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */
@@ -437,9 +430,8 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   #mobile-nav-button { display: inline-flex !important; position: fixed; z-index: 49; top: max(.4rem, env(safe-area-inset-top)); left: .5rem; width: 2.75rem; height: 2.75rem; align-items: center; justify-content: center; border-radius: 9999px; border: 1px solid var(--color-ui-border); background: rgb(from var(--color-base-100) r g b / .82); color: color-mix(in oklab, var(--color-base-content) 72%, transparent); box-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 5px 18px rgb(0 0 0 / .14); backdrop-filter: blur(16px) saturate(120%); -webkit-backdrop-filter: blur(16px) saturate(120%); touch-action: manipulation; }
   #mobile-nav-button:active { transform: scale(.94); }
   #chat-panel > header { padding-left: 3.1rem !important; }
-  #nav-overlay { padding: max(.5rem, env(safe-area-inset-top)) .5rem max(.5rem, env(safe-area-inset-bottom)) !important; }
-  #nav-overlay [role="dialog"] { border-radius: 1.25rem; }
-  #nav-overlay .nav-row { min-height: 3rem; }
+  #nav-overlay { padding: max(.5rem, env(safe-area-inset-top)) .5rem max(.5rem, env(safe-area-inset-bottom)); }
+  #nav-overlay [data-nav-row] { min-height: 3rem; }
   [data-page="agent"] { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
   #chat-panel { width: 100%; min-width: 0; }
   #chat-panel > header { width: calc(100% - 1rem) !important; max-width: none !important; margin-top: .4rem !important; padding-right: .55rem !important; gap: .4rem !important; }

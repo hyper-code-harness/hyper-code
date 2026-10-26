@@ -29,16 +29,24 @@ export default {
         const master = await ctx.fns.nav.rows({ items: [{ id: "project:new", label: "New project", href: "/project/new", icon: "ph-plus", action: true }] }) + shown.map(g => {
             const unread = g.chats.some(a => a.hasUnread);
             const running = g.chats.some(a => a.runState && a.runState !== "idle");
-            return `<button type="button" data-nav-project-pick="${esc(key(g))}" data-nav-id="project:${esc(key(g))}" class="nav-row flex min-h-8 w-full min-w-0 items-center gap-2 rounded px-2 py-1 text-left text-xs outline-none hover:bg-base-200/60 aria-[current=true]:bg-primary/10 aria-[current=true]:font-semibold"><i class="ph ${g.id ? "ph-folder" : "ph-tray"} shrink-0 text-faint" aria-hidden="true"></i><span class="min-w-0 flex-1 truncate">${esc(g.title)}</span>${running ? `<i class="ph ph-circle-notch animate-spin text-faint" aria-label="running"></i>` : ""}${unread ? `<span class="size-1.5 shrink-0 rounded-full bg-primary" aria-label="unread"></span>` : ""}<span class="shrink-0 text-3xs text-faint">${g.chats.length}</span></button>`;
+            // A project row is a button, not a link: ↵ / → shows its chats in the right column (the menu script).
+            return ctx.fns.w.listRow({
+                label: g.title,
+                icon: g.id ? "folder" : "tray",
+                hint: String(g.chats.length),
+                dot: running ? "running" : unread ? "unread" : undefined,
+                action: { action: "nav-project" },
+                attrs: { "data-nav-row": true, "data-nav-project-pick": key(g), "data-nav-id": `project:${key(g)}` },
+            });
         }).join("");
         const panels = await Promise.all(shown.map(async (g, i) => {
             const rows = await ctx.fns.nav.rows({ items: [
                 { id: `project:${key(g)}:new`, label: g.id ? `New agent in ${g.title}` : "New agent", href: g.newHref, icon: "ph-plus", action: true },
                 ...await ctx.fns.nav.chatItems({ agents: g.chats.slice(0, limit) }),
             ] });
-            const more = g.chats.length > limit ? `<p class="px-2 py-1 text-3xs text-faint">${g.chats.length - limit} more — search ⌘/</p>` : "";
-            return `<div data-nav-project-panel="${esc(key(g))}"${i ? " hidden" : ""} class="min-w-0">${rows}${more}</div>`;
+            const more = g.chats.length > limit ? ctx.fns.w.listRow({ label: `${g.chats.length - limit} more — search ⌘/`, icon: "dots-three" }) : "";
+            return `<div data-nav-project-panel="${esc(key(g))}"${i ? " hidden" : ""}>${rows}${more}</div>`;
         }));
-        return { html: `<div class="grid gap-3" style="grid-template-columns:minmax(7rem,11rem) minmax(0,1fr)" data-nav-projects><div class="min-w-0 border-r border-ui-border pr-2">${master}</div><div class="min-w-0">${panels.join("")}</div></div>` };
+        return { html: ctx.fns.w.masterDetail({ master, detail: panels.join(""), attrs: { "data-nav-projects": true } }) };
     },
 } satisfies types.nav.Widget;

@@ -27,7 +27,6 @@ export default async function (
         inlineMs?: number;
     },
 ): Promise<{ html: string; groups: Array<{ id: string; title: string; items: types.nav.Item[]; error?: string }>; pending: string[] }> {
-    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const registry = ((ctx.state as any).nav?.search ?? {}) as Record<string, types.nav.Search & types.nav.Registered>;
     const { tabs } = await ctx.fns.nav.tabs({});
     const tab = tabs.find(t => t.id === opts.tab) ?? tabs[0];
@@ -77,12 +76,15 @@ export default async function (
             const token = crypto.randomUUID();
             late[token] = promise.then(g => ctx.fns.nav.groupHtml({ group: g, pinned }));
             setTimeout(() => { delete late[token]; }, budget + 30_000);
-            parts.push(`<section data-nav-group="${esc(source.id)}" class="mb-2" hx-get="/nav/group/${token}" hx-trigger="load" hx-swap="outerHTML"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-faint">${esc(source.title)}</h4><div class="px-2 py-1 text-3xs text-faint">searching…</div></section>`);
+            // A slow source: its group is a placeholder that htmx replaces once the answer is ready.
+            parts.push(`<div hx-get="/nav/group/${token}" hx-trigger="load" hx-swap="outerHTML">${ctx.fns.w.listSection({ title: source.title, rows: ctx.fns.w.spinner({ kind: "skeleton", lines: 2 }), attrs: { "data-nav-group": source.id } })}</div>`);
             continue;
         }
         groups.push(group);
         parts.push(await ctx.fns.nav.groupHtml({ group, pinned }));
     }
-    const html = parts.some(Boolean) ? `<div class="p-2">${parts.join("")}</div>` : `<div class="px-4 py-5 text-sm text-faint">nothing</div>`;
+    const html = parts.some(Boolean)
+        ? ctx.fns.w.box({ mix: { layout: "stack", pad: "s2" }, body: parts.join("") })
+        : ctx.fns.w.empty({ title: "Nothing found", icon: "magnifying-glass" });
     return { html, groups, pending: pending.filter(p => !settled.has(p.source.id)).map(p => p.source.id) };
 }

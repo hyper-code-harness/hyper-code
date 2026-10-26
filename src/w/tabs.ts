@@ -4,14 +4,17 @@
  * @param opts.items The tabs, in order.
  * @param opts.active Id of the open tab.
  * @param opts.variant Look of the strip. @default "equal"
+ * @param opts.end Trusted HTML at the right end of the strip (tools, an edit toggle).
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The tabs, in order. */
-    items: Array<{ id: string; label: string; icon?: string; count?: number; action?: types.w.Action; close?: types.w.Action }>;
+    items: Array<{ id: string; label: string; icon?: string; count?: number; action?: types.w.Action; close?: types.w.Action; title?: string; attrs?: Record<string, string | number | boolean | null | undefined> }>;
     /** Id of the open tab. */
     active?: string;
     /** Look of the strip. @default "equal" */
     variant?: "equal" | "underline";
+    /** Trusted HTML at the right end of the strip (tools, an edit toggle). */
+    end?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     // Navigation tabs (each opens a page or a canvas tab): a nav of links/buttons with aria-current on the open one —
@@ -20,7 +23,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         const { tag, attrs } = ctx.fns.w.actionAttrs({ action: it.action ?? { action: "select-tab" } });
         const close = it.close ? (() => { const c = ctx.fns.w.actionAttrs({ action: it.close }); return `<${c.tag} class="w-tab-close" aria-label="Close ${esc(it.label)}"${c.attrs}>${ctx.fns.w.icon({ name: "x", size: 12 })}</${c.tag}>`; })() : "";
         const current = it.id === opts.active ? ' aria-current="page"' : "";
-        return `<span class="w-tab"${it.id === opts.active ? " data-active" : ""}><${tag} class="w-tab-main"${current} title="${esc(it.label)}"${attrs}>${it.icon ? ctx.fns.w.icon({ name: it.icon, size: 14 }) : ""}<span class="w-tab-label">${esc(it.label)}</span>${it.count ? `<span class="w-tab-count">${it.count}</span>` : ""}</${tag}>${close}</span>`;
+        return `<span class="w-tab"${it.id === opts.active ? " data-active" : ""}><${tag} class="w-tab-main"${current} title="${esc(it.title ?? it.label)}"${ctx.fns.w.hooks({ attrs: it.attrs })}${attrs}>${it.icon ? ctx.fns.w.icon({ name: it.icon, size: 14 }) : ""}<span class="w-tab-label">${esc(it.label)}</span>${it.count ? `<span class="w-tab-count">${it.count}</span>` : ""}</${tag}>${close}</span>`;
     }).join("");
-    return `<nav class="w-tabs" data-variant="${opts.variant ?? "equal"}" aria-label="Tabs">${tabs}</nav>`;
+    return `<nav class="w-tabs" data-variant="${opts.variant ?? "equal"}" aria-label="Tabs">${tabs}${opts.end ? `<span class="w-tabs-end">${opts.end}</span>` : ""}</nav>`;
 }

@@ -14,11 +14,10 @@ export default async function (
         pinned?: Set<string>;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { group } = opts;
     if (!group.items.length && !group.error) return "";
     const body = group.error
-        ? `<div class="px-2 py-1 text-3xs text-faint">unavailable</div>`
+        ? ctx.fns.w.empty({ title: "unavailable", tone: "danger" })
         : await ctx.fns.nav.rows({ items: group.items, pinned: opts.pinned });
-    return `<section data-nav-group="${esc(group.id)}" class="mb-2"><h4 class="mb-0.5 px-1.5 text-3xs font-semibold uppercase tracking-wider text-faint">${esc(group.title)}</h4>${body}</section>`;
+    return ctx.fns.w.listSection({ title: group.title, rows: body, attrs: { "data-nav-group": group.id } });
 }

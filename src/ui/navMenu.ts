@@ -2,30 +2,30 @@
 // box is empty and grouped search results once the person types (see nav.home / nav.searchAll). The frame,
 // the box, tab switching and keys live here; widgets and search sources come from `$widget_` / `$search_`.
 /** Renders the global navigation dialog: search box, tab strip and widget grid (from GET /nav/items), and its keyboard handling. */
-export default function (_ctx: Context, _session: Session | null, _opts?: {}): string {
-    return `<div id="nav-overlay" class="hidden fixed inset-0 z-50 bg-base-content/35 p-3 backdrop-blur-[1px]" onclick="if(event.target===this)window.__navClose()">
-  <div role="dialog" aria-modal="true" aria-label="Global menu" class="flex h-full w-full flex-col overflow-hidden rounded-xl border border-ui-border bg-base-100 text-base-content shadow-2xl">
-    <div class="nav-search flex items-center gap-3 border-b border-ui-border px-4">
-      <i class="ph ph-magnifying-glass text-base text-faint" aria-hidden="true"></i>
-      <input id="nav-q" name="q" placeholder="Search chats, projects, plugins, people…" autocomplete="off"
-             hx-get="/nav/items" hx-trigger="nav-refresh from:body, input changed delay:250ms" hx-target="#nav-results" hx-include="#nav-tab, #nav-edit" hx-sync="this:replace"
-             class="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-base-content outline-none placeholder:text-faint">
-      <input type="hidden" id="nav-tab" name="tab" value="">
-      <input type="hidden" id="nav-edit" name="edit" value="">
-      <kbd class="kbd kbd-xs">esc</kbd>
-    </div>
-    <div id="nav-results" class="min-h-0 flex-1 overflow-y-auto"><div class="px-4 py-5 text-sm text-faint">loading…</div></div>
-    <div class="flex gap-4 border-t border-ui-border bg-base-200 px-4 py-1.5 text-3xs text-subtle">
-      <span>↑↓ ⌃J/⌃K move</span><span>←→ ⌃H/⌃L column</span><span>⌘←/⌘→ widget</span><span>↵ open</span><span>⌘↵ beside</span><span>⌘1–9 tab</span><span class="ml-auto">⌘/ open</span>
-    </div>
-  </div>
-</div>
+export default function (ctx: Context, _session: Session | null, _opts?: {}): string {
+    const w = ctx.fns.w;
+    // The box sends the open tab and the edit flag with every query (hidden fields read by GET /nav/items).
+    const head = w.search({
+        url: "/nav/items", target: "#nav-results", id: "nav-q", variant: "bar", keys: "esc",
+        placeholder: "Search chats, projects, plugins, people…",
+        trigger: "nav-refresh from:body, input changed delay:250ms", include: "#nav-tab, #nav-edit",
+    }) + '<input type="hidden" id="nav-tab" name="tab" value=""><input type="hidden" id="nav-edit" name="edit" value="">';
+    return w.palette({
+        id: "nav-overlay", label: "Global menu", head, bodyId: "nav-results",
+        body: w.spinner({ kind: "skeleton", lines: 6 }),
+        attrs: { onclick: "if(event.target===this)window.__navClose()" },
+        hints: [
+            { keys: ["↑↓", "⌃J", "⌃K"], label: "move" }, { keys: ["←→", "⌃H", "⌃L"], label: "column" },
+            { keys: ["⌘←", "⌘→"], label: "widget" }, { keys: "↵", label: "open" }, { keys: "⌘↵", label: "beside" },
+            { keys: "⌘1–9", label: "tab" }, { keys: "⌘/", label: "open", end: true },
+        ],
+    }) + `
 <script>
 (function () {
   let sel = 0;
   const overlay = () => document.getElementById('nav-overlay');
   const query = () => document.getElementById('nav-q');
-  const rows = () => Array.from(document.querySelectorAll('#nav-results .nav-row')).filter(row => !row.closest('details:not([open])') && !row.closest('[hidden]'));
+  const rows = () => Array.from(document.querySelectorAll('#nav-results [data-nav-row]')).filter(row => !row.closest('details:not([open])') && !row.closest('[hidden]'));
   // Projects widget (master–detail): the project under the selection shows its chats; the choice is remembered.
   const projectsBox = () => document.querySelector('#nav-results [data-nav-projects]');
   const showProject = id => {
@@ -33,7 +33,8 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     if (!box) return '';
     if (!box.querySelector('[data-nav-project-panel="' + CSS.escape(id) + '"]')) id = box.querySelector('[data-nav-project-panel]')?.getAttribute('data-nav-project-panel') || '';
     box.querySelectorAll('[data-nav-project-panel]').forEach(p => { p.hidden = p.getAttribute('data-nav-project-panel') !== id; });
-    box.querySelectorAll('[data-nav-project-pick]').forEach(b => b.setAttribute('aria-current', String(b.getAttribute('data-nav-project-pick') === id)));
+    // aria-current is present only on the shown project (w.listRow styles any aria-current as the open one).
+    box.querySelectorAll('[data-nav-project-pick]').forEach(b => b.toggleAttribute('aria-current', b.getAttribute('data-nav-project-pick') === id));
     try { localStorage.setItem('hyper.nav.project', id); } catch {}
     return id;
   };
@@ -42,7 +43,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     if (!box) return;
     id = showProject(id);
     if (focusPanel) {
-      const first = box.querySelector('[data-nav-project-panel="' + CSS.escape(id) + '"] .nav-row');
+      const first = box.querySelector('[data-nav-project-panel="' + CSS.escape(id) + '"] [data-nav-row]');
       const index = rows().indexOf(first);
       if (index >= 0) sel = index;
     }
@@ -52,8 +53,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
   const mark = () => rows().forEach((row, index) => {
     const active = index === sel;
     // The keyboard choice is a state (selected: palest blue), not a hover (grey) — docs/ui-design-system.md §3.
-    row.toggleAttribute('data-nav-selected', active);
-    row.setAttribute('aria-selected', String(active));
+    if (active) row.setAttribute('aria-selected', 'true'); else row.removeAttribute('aria-selected');
     if (active) window.__navSelId = row.getAttribute('data-nav-id') || '';
     if (active) row.scrollIntoView({ block: 'nearest' });
   });
@@ -98,7 +98,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     if (project !== null && project !== undefined) { pickProject(project, true); return; }
     const href = row?.getAttribute('href');
     if (!href) return;
-    if (beside || row.getAttribute('target') === '_blank') window.open(href, '_blank', 'noopener');
+    if (beside || row.getAttribute('target') === '_blank' || row.hasAttribute('data-nav-new-tab')) window.open(href, '_blank', 'noopener');
     else location.href = href;
   };
   const tabs = () => Array.from(document.querySelectorAll('#nav-results [data-nav-tab]'));
@@ -132,11 +132,11 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
     event.preventDefault();
     showTab(button.getAttribute('data-nav-tab'));
   });
-  window.__navIsOpen = () => !!overlay() && !overlay().classList.contains('hidden');
+  window.__navIsOpen = () => !!overlay() && !overlay().hidden;
   window.__navOpen = function () {
     sel = 0;
     window.__navSelId = '';
-    overlay().classList.remove('hidden');
+    overlay().hidden = false;
     mark();
     // The body is fetched on open, never on page load: every open shows the current state (the last body
     // stays on screen until the fresh one swaps in, keeping the selection by data-nav-id).
@@ -146,7 +146,7 @@ export default function (_ctx: Context, _session: Session | null, _opts?: {}): s
   window.__navClose = function () {
     const field = document.getElementById('nav-edit');
     if (field) field.value = '';   // the next open fetches without edit controls
-    overlay().classList.add('hidden');
+    overlay().hidden = true;
     setTimeout(() => document.getElementById('input')?.focus(), 0);
   };
   document.addEventListener('htmx:after:swap', event => {

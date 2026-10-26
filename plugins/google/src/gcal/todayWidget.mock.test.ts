@@ -18,5 +18,5 @@ test("gcal Today widget lists upcoming events of today, all-day first by start, 
     expect(widget.ttl).toBeGreaterThan(0);
     void now;
     const empty: any = await widget.render({ fns: { gcal: { agenda: async () => ({ events: [], calendars: [], errors: [] }) } } } as any, null, { size: "S", config: {} });
-    expect(empty.html).toContain("Nothing more today");
+    expect(empty.items).toMatchObject([{ label: "Nothing more today", href: "/gcal/" }]);
 });

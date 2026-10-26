@@ -17,5 +17,5 @@ test("chats widget: a chat in a project carries the project title as its grey hi
     expect(rows.find((r: any) => r.id === "agent:p1").hint).toBe("hyper-design");
     expect(rows.find((r: any) => r.id === "agent:m1").hint).toBeUndefined();
     const html = await ctx.fns.nav.rows({ items: rows });
-    expect(html).toMatch(/text-faint">hyper-design</);
+    expect(html).toContain('<span class="w-row-hint">hyper-design</span>');
 });

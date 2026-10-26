@@ -13,7 +13,7 @@ test("lazy widget: home draws a placeholder without rendering, GET /nav/widget r
     const first: string = await ctx.fns.nav.home({ tab: "t" });
     expect(renders).toBe(0);
     expect(first).toContain('hx-get="/nav/widget?tab=t&amp;id=slow"'.replace("&amp;", "&"));
-    expect(first).toContain("loading…");
+    expect(first).toContain('class="w-skeleton"');
     const res: Response = await route(ctx, null, { req: new Request("http://x/nav/widget?tab=t&id=slow"), params: {} });
     expect(await res.text()).toContain("slow row");
     expect(renders).toBe(1);

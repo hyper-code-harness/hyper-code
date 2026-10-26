@@ -49,9 +49,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <style>
 [data-chat-header]:has([data-agent-running]) .w-chat-icon-ring[data-live] { display: block; }
 .canvas-tab { font-size: 13px; }
-@keyframes chat-icon-spin { to { transform: rotate(360deg); } }
-.chat-run-ring--live .chat-run-dots { transform-origin: 14px 14px; animation: chat-icon-spin 8s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .chat-run-ring--live .chat-run-dots { animation: none; } }
 .glass-panel {
   background-color: rgb(from var(--color-base-100) r g b / .68);
   background-image: linear-gradient(110deg, rgb(255 255 255 / .16), transparent 48%, rgb(255 255 255 / .05));
@@ -334,13 +331,8 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] [data-canvas-navigate] input[name="url"]:focus { background: var(--color-base-200) !important; color: var(--color-base-content); }
   html[data-chrome="flat"] [data-canvas-navigate] :is(button, a) { width: 1.5rem; height: 1.5rem; color: color-mix(in oklab, var(--color-base-content) 50%, transparent); }
   /* The side panel's first row under its header lines up with the address row. */
-  /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring and
-     the dotted run ring stay still (the run ring keeps its time label). */
+  /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring stays still. */
   html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }
-  html[data-chrome="flat"] #chat-panel > header .chat-run-ring--live .chat-run-dots { animation: none; }
-  /* No dotted run-time ring in the header: how long the agent has been at it is the clock at the end of the
-     tool row (w.toolGroup), and "running" is the arc around the stop button. */
-  html[data-chrome="flat"] #chat-panel > header .chat-run-ring { display: none !important; }
   /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
   html[data-chrome="flat"] .canvas-panel > header { font-size: 12px !important; }
   html[data-chrome="flat"] .canvas-tab,

@@ -14,6 +14,7 @@
  * @param opts.keys Keyboard shortcut shown after the label as key caps (w.kbd), e.g. "J" or "⌘+Enter".
  * @param opts.id Element id, for a page script or a hotkey that clicks this button.
  * @param opts.attrs Behaviour hooks (w.hooks): data-*, aria-*, hx-confirm, onclick, form, popovertarget.
+ * A button that opens a popover or menu (action { popover }) ends with a caret, so it reads as a drop-down.
  * @param opts.wide Fills the width of its row (a form's one submit, a card's footer action).
  */
 export default function (ctx: Context, _session: Session | null, opts: {
@@ -47,7 +48,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const marks = opts.marks ? ` ${ctx.fns.w.marks(opts.marks)}`.replace(/ $/, "") : "";
     const title = (opts.title ? ` title="${esc(opts.title)}"` : "") + (opts.id ? ` id="${esc(opts.id)}"` : "");
-    const body = `${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: opts.size === "sm" ? 14 : 16 }) : ""}<span>${esc(opts.label)}</span>${opts.keys ? ctx.fns.w.kbd({ keys: opts.keys }) : ""}`;
+    const body = `${opts.icon ? ctx.fns.w.icon({ name: opts.icon, size: opts.size === "sm" ? 14 : 16 }) : ""}<span>${esc(opts.label)}</span>${opts.keys ? ctx.fns.w.kbd({ keys: opts.keys }) : ""}${opts.action?.popover ? `<i class="w-icon w-btn-caret ph ph-caret-down" data-size="12" aria-hidden="true"></i>` : ""}`;
     const head = `class="w-btn" data-tone="${opts.tone ?? "neutral"}" data-size="${opts.size ?? "md"}"${opts.wide ? " data-wide" : ""}${marks}${title}${ctx.fns.w.hooks({ attrs: opts.attrs })}`;
     if (opts.submit) {
         if (opts.action) throw new Error("w.button: submit and action are exclusive — a submit button does what its form does");

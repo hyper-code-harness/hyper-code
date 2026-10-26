@@ -17,6 +17,7 @@
  * @param opts.end Trusted HTML after the address, before "open in a new tab" (tools, a status).
  * @param opts.placeholder Hint in the empty address field.
  * @param opts.newTab Show "open in a new tab". @default true
+ * @param opts.outlined Draw the address as an outlined field (a browser's own bar), not a quiet line of text. @default false
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The address shown. */
@@ -51,6 +52,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     placeholder?: string;
     /** Show "open in a new tab". @default true */
     newTab?: boolean;
+    /** Draw the address as an outlined field (a browser's own bar), not a quiet line of text. @default false */
+    outlined?: boolean;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     type Hooks = Record<string, string | number | boolean | null | undefined> | undefined;
@@ -59,5 +62,5 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const lead = opts.secure === undefined ? "" : ctx.fns.w.icon({ name: opts.secure ? "lock-simple" : "globe", size: 14 });
     const href = ctx.fns.w.safeUrl({ url: opts.href ?? opts.url });
     const open = href && opts.newTab !== false ? ctx.fns.w.iconButton({ icon: "arrow-square-out", label: "Open in a new tab", action: { href }, size: 24 }) : "";
-    return `<form class="w-address"${ctx.fns.w.hooks({ attrs: opts.attrs })}>${opts.start ?? ""}${opts.steps === false ? "" : btn("arrow-left", "Back", opts.back, opts.backAttrs) + btn("arrow-right", "Forward", opts.forward, opts.forwardAttrs)}${btn("arrow-clockwise", "Reload", opts.reload ?? { action: "reload" }, opts.reloadAttrs)}${lead}<input class="w-address-input"${opts.mono ? " data-mono" : ""} name="url" value="${esc(opts.url)}" ${opts.placeholder ? ` placeholder="${esc(opts.placeholder)}"` : ""} spellcheck="false" autocomplete="off" aria-label="Address">${opts.end ?? ""}${open}</form>`;
+    return `<form class="w-address"${opts.outlined ? " data-outlined" : ""}${ctx.fns.w.hooks({ attrs: opts.attrs })}>${opts.start ?? ""}${opts.steps === false ? "" : btn("arrow-left", "Back", opts.back, opts.backAttrs) + btn("arrow-right", "Forward", opts.forward, opts.forwardAttrs)}${btn("arrow-clockwise", "Reload", opts.reload ?? { action: "reload" }, opts.reloadAttrs)}${lead}<input class="w-address-input"${opts.mono ? " data-mono" : ""} name="url" value="${esc(opts.url)}" ${opts.placeholder ? ` placeholder="${esc(opts.placeholder)}"` : ""} spellcheck="false" autocomplete="off" aria-label="Address">${opts.end ?? ""}${open}</form>`;
 }

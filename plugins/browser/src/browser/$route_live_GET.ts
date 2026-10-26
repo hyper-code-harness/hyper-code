@@ -35,7 +35,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         body: w.box({ mix: { layout: "stack", gap: "s2" }, body: w.box({ body: "Live view", mix: { caption: true } }) + `<div id="lv-info-list">${w.keyValue({ items: [] })}</div>` }),
     });
     const bar = w.addressBar({
-        url: "", placeholder: "Address or search", newTab: false,
+        url: "", placeholder: "Address or search", newTab: false, outlined: true,
         start: tabsPicker,
         back: { action: "live-back" }, backAttrs: { id: "lv-back" },
         forward: { action: "live-forward" }, forwardAttrs: { id: "lv-forward" },

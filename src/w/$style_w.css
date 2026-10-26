@@ -118,6 +118,7 @@
 .w-rail-item { overflow: visible; }
 .w-btn { box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--w-s2); height: var(--w-control); padding: 0 var(--w-s3); border-radius: var(--w-radius-item); border: var(--w-rule-control); background: var(--w-surface-document); color: var(--w-ink); font-family: inherit; font-size: var(--w-text-ui); font-weight: 500; line-height: 1; cursor: pointer; white-space: nowrap; }
 .w-btn[data-wide] { width: 100%; justify-content: center; }
+.w-btn > .w-btn-caret { margin-left: calc(-1 * var(--w-s1)); color: var(--w-ink-faint); } /* a drop-down: the caret sits close to its label */
 .w-btn[data-size="sm"] { height: var(--w-control-sm); padding: 0 var(--w-s2); font-size: var(--w-text-ui); }
 .w-btn:hover { background: color-mix(in oklab, var(--w-ink) 5%, var(--w-surface-document)); }
 .w-btn:is([data-tone="primary"], [data-tone="accent"]) { background: var(--w-ink); border-color: var(--w-ink); color: var(--w-on-ink); } .w-btn:is([data-tone="primary"], [data-tone="accent"]):hover { background: color-mix(in oklab, var(--w-ink) 85%, var(--w-surface-document)); }
@@ -302,6 +303,8 @@ div.w-divider > span { display: inline-flex; align-items: center; gap: var(--w-s
 .w-address { display: flex; align-items: center; gap: 2px; height: var(--w-header); padding: 0 var(--w-s1); border-bottom: var(--w-rule); background: var(--w-surface-document); }
 .w-address-input { flex: 1; min-width: 0; height: var(--w-control-sm); padding: 0 var(--w-s2); border: 0; border-radius: var(--w-radius-item); background: transparent; color: var(--w-ink-muted); font-family: inherit; font-size: var(--w-text-small); }
 .w-address > .w-icon { flex: none; margin: 0 var(--w-s1); color: var(--w-ink-faint); } .w-address-input[data-mono] { font-family: var(--w-mono); }
+.w-address[data-outlined] .w-address-input { margin: 0 var(--w-s1); border: var(--w-rule-control); background: var(--w-surface-document); color: var(--w-ink); }
+.w-address[data-outlined]:focus-within { border-bottom-color: var(--w-border); box-shadow: none; } .w-address[data-outlined] .w-address-input:focus { border-color: var(--w-focus); box-shadow: 0 0 0 1px var(--w-focus); }
 .w-address:focus-within { border-bottom-color: var(--w-focus); box-shadow: inset 0 -1px 0 var(--w-focus); } .w-address-input:focus { color: var(--w-ink); outline: none; }
 .w-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--w-s2); } .w-toolbar-start, .w-toolbar-end { display: flex; align-items: center; gap: var(--w-s2); }
 .w-list { display: flex; flex-direction: column; }

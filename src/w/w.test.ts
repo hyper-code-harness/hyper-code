@@ -353,3 +353,19 @@ test("table: columns from the rows, objects as JSON, html cells trusted, text es
     expect(html).toContain('<td data-mono>{&quot;k&quot;:1}</td>');
     expect(ctx.fns.w.table({ rows: [], empty: "Nothing" })).toContain('class="w-empty"');
 });
+
+test("a button that opens a popover ends with a caret; a plain one has none", async () => {
+    const ctx: any = await mkTestCtx();
+    expect(ctx.fns.w.button({ label: "Tabs", action: { popover: "p" } })).toContain("w-btn-caret ph ph-caret-down");
+    expect(ctx.fns.w.button({ label: "Save", action: { action: "save" } })).not.toContain("w-btn-caret");
+});
+
+test("addressBar: start before the steps, end after the address, placeholder, newTab off", async () => {
+    const ctx: any = await mkTestCtx();
+    const bar = ctx.fns.w.addressBar({ url: "", href: "/x", start: "<b>S</b>", end: "<b>E</b>", placeholder: "Address or search", newTab: false });
+    expect(bar.indexOf("<b>S</b>")).toBeLessThan(bar.indexOf('aria-label="Back"'));
+    expect(bar).toContain('placeholder="Address or search" spellcheck="false" autocomplete="off" aria-label="Address"><b>E</b>');
+    expect(bar).not.toContain("Open in a new tab");
+    expect(ctx.fns.w.addressBar({ url: "/x" })).toContain("Open in a new tab");
+    expect(ctx.fns.w.addressBar({ url: "/x", outlined: true })).toStartWith('<form class="w-address" data-outlined');
+});

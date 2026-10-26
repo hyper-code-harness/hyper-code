@@ -27,7 +27,11 @@ params: Record<string, string> }) {
     // the page, while the ordinary `offset` mode remains the live bottom tail.
     if (before != null) {
         const events = await ctx.fns.session.getEvents({ id, beforeIdx: before, limit });
-        const eventsHtml = await ctx.fns.agent.renderEventsHtml({ events, agentId: id });
+        // The page ends where the screen's first row starts: a run of tool calls cut by the page edge is one row.
+        const after = await ctx.fns.session.getEvents({ id, fromIdx: before, limit: 300 });
+        const stop = after.findIndex((ev: any) => ev?.type !== 'tool_call' && ev?.type !== 'job');
+        const joinRun = (stop < 0 ? after : after.slice(0, stop)).filter((ev: any) => ev?.type === 'tool_call');
+        const eventsHtml = await ctx.fns.agent.renderEventsHtml({ events, agentId: id, joinRun });
         const firstIdx = events.length ? Number(events[0]?.idx ?? 0) : 0;
         const head = firstIdx > 0
             ? `<div id="msg-head" hx-get="/agent/${encodeURIComponent(id)}/events.html?before=${firstIdx}&limit=${limit}" hx-trigger="load-older" hx-target="this" hx-swap="outerHTML" class="flex justify-center py-1">${ctx.fns.w.button({ label: 'older messages', size: "sm", marks: { action: 'load-older-messages' }, attrs: { onclick: "htmx.trigger(this.parentElement, 'load-older')" } })}</div>`
@@ -37,7 +41,9 @@ params: Record<string, string> }) {
 
     const maxIdx = await ctx.fns.session.getMaxEventIdx({ id });
     const events = await ctx.fns.session.getEvents({ id, fromIdx: offset });
-    const eventsHtml = await ctx.fns.agent.renderEventsHtml({ events, agentId: id });
+    // New tool calls continue the row already on screen; the running call is the last cell of the last row.
+    const continueRun = await ctx.fns.agent.toolRunBefore({ agentId: id, beforeIdx: offset });
+    const eventsHtml = await ctx.fns.agent.renderEventsHtml({ events, agentId: id, continueRun, live: true });
 
     // This poll only runs while the chat is on screen, so it IS the reader:
     // move the event watermark past every user-facing completion signal.
@@ -59,7 +65,11 @@ params: Record<string, string> }) {
         every: 30,
     });
 
-    return new Response(eventsHtml + '\n' + tail + usageOob, {
+    // The previous render's own row for the running call (agent.renderToolRun "tools-live") is gone either way:
+    // this render draws the call again where it belongs now. Out-of-band targets are looked up before the main
+    // swap, so this removes only the old row.
+    const dropLive = '<div id="tools-live" hx-swap-oob="delete"></div>';
+    return new Response(dropLive + eventsHtml + '\n' + tail + usageOob, {
         headers: { 'content-type': 'text/html; charset=utf-8' },
     });
 }

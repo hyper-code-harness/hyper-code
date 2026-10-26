@@ -47,45 +47,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <script src="/procs/ui/htmx.js" defer></script>
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">
 <style>
-/* Compact lazy tool links. The tray is assembled client-side so consecutive
-   calls occupy one visual row without wrapping each button in extra markup. */
-.tool-tray { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
 [data-chat-header]:has([data-agent-running]) .w-chat-icon-ring[data-live] { display: block; }
 .canvas-tab { font-size: 13px; }
 @keyframes chat-icon-spin { to { transform: rotate(360deg); } }
 .chat-run-ring--live .chat-run-dots { transform-origin: 14px 14px; animation: chat-icon-spin 8s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .chat-run-ring--live .chat-run-dots { animation: none; } }
-.tool-tray-toggle { display: inline-flex; align-items: center; gap: .3rem; height: 1.5rem; padding: 0 .55rem; border: 1px solid var(--ui-border); border-radius: 9999px; background: rgb(from var(--color-base-100) r g b / .6); font-size: var(--text-2xs); color: var(--color-subtle); cursor: pointer; }
-.tool-tray-toggle:hover { color: var(--color-base-content); border-color: var(--ui-border-strong); }
-/* Folded: failures and the latest call stay on the row. The latest one is
-   marked by the script rather than matched with :last-child, because the live
-   region for the running call also sits in this row and would otherwise take
-   that position — silently hiding the very call the folded row exists to show. */
-.tool-tray--folded > .tool:not(.text-error):not(.tool-latest) { display: none; }
-.tool.tool-tucked {
-  width: 1.333rem; height: 1.333rem; padding: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 9999px;
-  background-color: rgb(from var(--color-base-200) r g b / .62);
-  background-image: none;
-  background-position: initial;
-  background-size: initial;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 14%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 65%, transparent), inset 0 -1px 2px color-mix(in oklab, var(--color-base-content) 10%, transparent), 0 1px 3px color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  backdrop-filter: blur(5px) saturate(135%);
-  -webkit-backdrop-filter: blur(5px) saturate(135%);
-}
-.tool.tool-tucked > i { font-size: .7rem; filter: drop-shadow(0 1px 0 color-mix(in oklab, white 80%, transparent)); }
-.tool { transition: background-color .2s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
-.tool.tool-tucked:hover {
-  background-color: rgb(from var(--color-base-200) r g b / .76);
-  background-image: none;
-  border-color: color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 75%, transparent), inset 0 -2px 3px color-mix(in oklab, var(--color-base-content) 12%, transparent), 0 4px 10px color-mix(in oklab, var(--color-base-content) 16%, transparent);
-  transform: translateY(-2px) scale(1.15);
-  color: var(--color-base-content);
-}
-.tool.tool-tucked:active { transform: translateY(0) scale(1.05); }
 .glass-panel {
   background-color: rgb(from var(--color-base-100) r g b / .68);
   background-image: linear-gradient(110deg, rgb(255 255 255 / .16), transparent 48%, rgb(255 255 255 / .05));
@@ -166,17 +132,6 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   /* The person's message is the one inverted shape: the page's text colour as its fill (dark in light theme, light in dark). */
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary { background-color: var(--color-base-content); color: var(--color-base-100); border: 0; box-shadow: none; border-radius: .75rem; padding: .5rem .85rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [class*="text-white"] { color: color-mix(in oklab, var(--color-base-100) 60%, transparent); }
-  /* Tool calls (Replit-style): a run of calls is one rounded pill of icon cells split by hairlines; the folded
-     "N tool calls" toggle and the running call sit in the same pill. */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray { display: inline-flex; width: auto; max-width: 100%; gap: 0; flex-wrap: wrap; border: 1px solid var(--color-ui-border); border-radius: .45rem; overflow: hidden; background: var(--color-base-100); }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > .tool + .tool, #messages .tool-tray > .tool-tray-toggle + .tool { border-left: 1px solid var(--color-ui-border) !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > #active-tool-call:empty { display: none; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray .tool-tray-toggle { height: 1.375rem; font-size: 11px; border: 0; border-radius: 0; background: transparent; padding: 0 .6rem; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool { width: 1.5rem !important; height: 1.375rem !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; background-image: none !important; box-shadow: none !important; border-top: 0 !important; border-right: 0 !important; border-bottom: 0 !important; backdrop-filter: none !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool-tray > :first-child { border-left: 0 !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool > i { font-size: .7rem; filter: none; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool.text-error { color: var(--color-error); }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .tool:hover { background: color-mix(in oklab, var(--color-base-content) 6%, var(--color-base-100)) !important; transform: none !important; box-shadow: none !important; }
   /* Author line: a quiet small name, not a coloured headline; the avatar beside the bubble is smaller. */
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [data-author] { color: color-mix(in oklab, var(--color-base-100) 65%, transparent) !important; font-weight: 500; font-size: 11px; }
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages [id^="m-"] > img.size-8, body:not([data-presentation="sidebar"]) [data-page="agent"] #messages [id^="m-"] > span.size-8 { width: 1.5rem; height: 1.5rem; font-size: 10px; }
@@ -184,7 +139,6 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   /* One reading column, centred, whatever the window: every row — answers, tool pills, the person's messages,
      dividers — is exactly the same width and starts at the same left edge; the composer's text lines up with it. */
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > * { width: 100%; max-width: 46rem; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > .tool-tray { display: flex !important; width: fit-content; max-width: 46rem; margin-left: max(0px, calc((100% - 46rem) / 2)) !important; margin-right: auto !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > [id^="m-"] .assistant { padding-left: 0 !important; padding-right: 0 !important; }
   /* The chat header follows the same column: the icon and name start where the messages start, ⋯ ends where they end. */
   html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > section#chat-panel > header.w-pane-header { padding-left: max(.75rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; padding-right: max(.375rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; }
@@ -244,7 +198,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 [data-page="agent"][data-chat-collapsed] #messages .chat-glass-primary { max-height: 5.5rem; overflow: hidden; }
 [data-page="agent"][data-chat-collapsed] #messages > [id^="m-"] > .assistant { padding: 0 !important; max-height: 5.5rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
 [data-page="agent"][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) #messages > [id^="m-"] > .assistant { max-height: min(18rem, 45vh); overflow-y: auto; -webkit-mask-image: none; mask-image: none; }
-[data-page="agent"][data-chat-collapsed] #messages .message-menu, [data-page="agent"][data-chat-collapsed] #messages [id^="m-"] .tool-tray { display: none !important; }
+[data-page="agent"][data-chat-collapsed] #messages .message-menu, [data-page="agent"][data-chat-collapsed] #messages .chat-tools { display: none !important; }
 /* Resized from its top-left corner (ui/hotkeys.js): --strip-w/--strip-h; the answer then fills the strip. */
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel[data-strip-sized] { width: var(--strip-w) !important; height: var(--strip-h) !important; max-height: none !important; }
 [data-page="agent"][data-chat-collapsed] > #chat-panel[data-strip-sized] #messages > [id^="m-"] :is(.assistant, .chat-glass-primary) { max-height: none !important; overflow: hidden; -webkit-mask-image: none; mask-image: none; }
@@ -350,9 +304,8 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   #chat-panel > header select { min-height: 2.25rem; }
 
   #chat-panel > header [data-chat-buttons], #chat-panel > header [data-chat-badges] > :not([data-chat-id="agent.status"]) { display: none !important; }
-  #messages, #messages > *, #messages .assistant, #messages .user, #messages .tool { min-width: 0; max-width: 100%; }
+  #messages, #messages > *, #messages .assistant, #messages .user { min-width: 0; max-width: 100%; }
   #messages { overflow-x: hidden !important; }
-  #messages .tool { min-width: 2.25rem; min-height: 2.25rem; padding: .45rem; touch-action: manipulation; }
   #messages button[data-action="delete-one"], #messages button[data-action="delete-from"] { min-width: 2.25rem; min-height: 2.25rem; }
   #messages [data-load-older] { min-height: 2.75rem; padding-inline: 1rem; }
 
@@ -425,19 +378,8 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }
   html[data-chrome="flat"] #chat-panel > header .chat-run-ring--live .chat-run-dots { animation: none; }
   /* No dotted run-time ring in the header: how long the agent has been at it is the clock at the end of the
-     tool row (renderActiveToolCall), and "running" is the arc around the stop button. */
+     tool row (w.toolGroup), and "running" is the arc around the stop button. */
   html[data-chrome="flat"] #chat-panel > header .chat-run-ring { display: none !important; }
-  /* The running call: the last cell of the pill, its icon dimming in and out; how long it runs is plain grey
-     seconds just outside the pill. */
-  #messages .tool-tray { position: relative; overflow: visible !important; }
-  #messages .tool-tray > #active-tool-call { display: contents; }
-  #messages .tool-tray > #active-tool-call > .tool { border-left: 1px solid var(--color-ui-border) !important; }
-  #messages .tool-tray > :first-child:is(#active-tool-call) > .tool { border-left: 0 !important; }
-  #messages .tool-row-clock { position: absolute; left: calc(100% + .5rem); top: 50%; transform: translateY(-50%); font-size: 11px; font-variant-numeric: tabular-nums; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); white-space: nowrap; pointer-events: none; }
-  #messages [data-tool-running] > span.pointer-events-none { display: none !important; }
-  @keyframes tool-glow { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
-  #messages [data-tool-running] > i { animation: tool-glow 1.6s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { #messages [data-tool-running] > i { animation: none; } }
   /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
   html[data-chrome="flat"] .canvas-panel > header { font-size: 12px !important; }
   html[data-chrome="flat"] .canvas-tab,

@@ -37,7 +37,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const activeSleepForView = ctx.fns.agent.getSleepGeneration({ sleepContext: agent.sleepContext, kind: "active" });
     const eventsHtml = activeSleepForView
         ? await ctx.fns.agent.renderSleepContextHtml({ sleepContext: agent.sleepContext!, events, agentId: id })
-        : await ctx.fns.agent.renderEventsHtml({ events, agentId: id });
+        : await ctx.fns.agent.renderEventsHtml({ events, agentId: id, live: true });
     const stopControlHtml = await ctx.fns.agent.renderStatusBar({ agentId: id, part: 'stop' });
     const stopControlRegion = ctx.fns.ui.live({
         id: 'chat-stop-control',
@@ -63,25 +63,7 @@ ${headerHtml}
 ${agent.sleepContext?.active === true
   ? `<div id="msg-tail" hx-get="/agent/${encodeURIComponent(id)}/events.html?offset=${maxIdx + 1}&compact=1" hx-trigger="load" hx-target="this" hx-swap="outerHTML"></div>`
   : `<div id="msg-tail" hx-get="/agent/${encodeURIComponent(id)}/events.html?offset=${maxIdx + 1}" hx-trigger="load" hx-target="this" hx-swap="outerHTML"></div>`}
-${ctx.fns.ui.live({
-  id: 'active-tool-call',
-  url: `/agent/${encodeURIComponent(id)}/active-tool`,
-  topic: `agent:${id}`,
-  // Sits below the last event, so "what is happening now" reads where the eye
-  // already is — inline, as one chip, because a panel here would push the
-  // conversation down every time any tool ran. The watchdog is tight because
-  // this region is the whole answer to "is it alive?" — and it only polls
-  // while a chat is actually open.
-  every: 5,
-  // innerHTML, not the default outerHTML: the route answers with the chip
-  // alone, so an outerHTML swap would overwrite the region with its own
-  // contents — taking the id, hx-get and topic with it. The indicator then
-  // renders exactly once and never updates again, which is the one failure
-  // this feature cannot afford.
-  swap: 'innerHTML',
-  attrs: 'class="flex items-center gap-1 empty:hidden"',
-  html: ctx.fns.agent.renderActiveToolCall({ agentId: id }),
-})}
+
 </div>
 ${await ctx.fns.ui.chatComposer({
   action: `/agent/${encodeURIComponent(id)}?debounceSeconds=0.1`,

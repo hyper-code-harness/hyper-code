@@ -4,6 +4,9 @@ import toolMeta from "./toolMeta";
 import toolLang from "./toolLang";
 import highlightResult from "./highlightResult";
 import renderEditArgs from "./renderEditArgs";
+import renderToolRun from "./renderToolRun";
+import toolCallCell from "./toolCallCell";
+import runningToolCall from "./runningToolCall";
 import { renderCtx } from "../ui/testRender.entry";
 
 const kit = await renderCtx();
@@ -17,7 +20,11 @@ const ctx = { fns: {
     toolLang: (opts: any) => toolLang(ctx, null, opts),
     highlightResult: (opts: any) => highlightResult(ctx, null, opts),
     renderEditArgs: (opts: any) => renderEditArgs(ctx, null, opts),
+    renderToolRun: (opts: any) => renderToolRun(ctx, null, opts),
+    toolCallCell: (opts: any) => toolCallCell(ctx, null, opts),
+    runningToolCall: (opts: any) => runningToolCall(ctx, null, opts),
   },
+  tools: { runs: () => [] },
   markdown: { highlight: async ({ code }: any) => `<pre>${String(code)}</pre>` },
   procs: { ui: {
     escape: ({ text }: any) => String(text),
@@ -44,62 +51,30 @@ describe("agent.renderEventHtml", () => {
   });
 
 
-  test("renders a tool call as a card that names what it acted on", async () => {
-    // The card says the verb and the SUBJECT — "eval 1 + 1", not "args 63c".
-    const evalHtml = await renderEventHtml(ctx, { type: "tool_call", name: "eval", argsHtml: "<pre>a</pre>", resultHtml: "<pre>b</pre>", result: "b", args: { code: "1 + 1" }, isError: false, ts: Date.now(), idx: 7 }, { agentId: "a" });
-    expect(evalHtml).toContain('<button type="button"');
-    expect(evalHtml).not.toContain('<details');
-    expect(evalHtml).toContain('data-title="eval 1 + 1"');
-    expect(evalHtml).toContain("1 + 1");
+  test("renders a tool call as a w.toolGroup cell that names what it acted on", async () => {
+    // The cell says the verb and the SUBJECT — "eval 1 + 1", not "args 63c".
+    const evalHtml = await renderEventHtml(ctx, { type: "tool_call", name: "eval", result: "b", args: { code: "1 + 1" }, isError: false, ts: Date.now(), idx: 7 }, { agentId: "a" });
+    expect(evalHtml).toContain('id="tools-7"');
+    expect(evalHtml).toContain('class="w-tool-group"');
+    expect(evalHtml).toContain('class="w-tool"');
+    expect(evalHtml).toContain('title="eval 1 + 1"');
     expect(evalHtml).toContain("ph-brackets-curly");
     expect(evalHtml).toContain('hx-popup="agent.toolDetails"');
-    expect(evalHtml).toContain('hx-popup-params=');
-    expect(evalHtml).not.toContain('hx-post');
-    expect(evalHtml).not.toContain('hx-target');
-    expect(evalHtml).not.toContain('tool-label');
-    expect(evalHtml).not.toContain('tool-subject');
-    expect(evalHtml).not.toContain('tool-size');
-    expect(evalHtml).not.toContain('tool-status');
-    // Arguments and result alike are fetched from /agent/:id/tool/:idx only
-    // when the compact button is clicked.
-    expect(evalHtml).not.toContain("<pre>b</pre>");
+    expect(evalHtml).toContain('&quot;idx&quot;:7');
+    expect(evalHtml).not.toContain("hx-post");
+    // Arguments and result are fetched only when the cell is clicked.
+    expect(evalHtml).not.toContain(">b<");
 
-    // A write names its path like everything else; it is a circle too.
-    const writeHtml = await renderEventHtml(ctx, { type: "tool_call", name: "write", argsHtml: "<pre>x</pre>", resultHtml: "<pre>ok</pre>", result: "ok", args: { path: "src/foo.ts", content: "x" }, isError: false, ts: Date.now(), idx: 8 }, { agentId: "a" });
+    const writeHtml = await renderEventHtml(ctx, { type: "tool_call", name: "write", args: { path: "src/foo.ts", content: "x" }, result: "ok", isError: false, idx: 8 }, { agentId: "a" });
     expect(writeHtml).toContain("src/foo.ts");
     expect(writeHtml).not.toContain("<details");
-    expect(writeHtml).toContain('hx-popup="agent.toolDetails"');
-    expect(writeHtml).toContain("tool-tucked");
 
-    expect(writeHtml).toContain("tool-tucked");
-    expect(writeHtml).not.toContain("border-gray-200 bg-white");
-
-    const editHtml = await renderEventHtml(ctx, { type: "tool_call", name: "edit", args: { path: "src/foo.ts", edits: [] }, result: "ok", isError: false, ts: Date.now() });
-    expect(editHtml).toContain("tool-tucked");
-
-    const readHtml = await renderEventHtml(ctx, { type: "tool_call", name: "read", args: { path: "src/foo.ts" }, result: "x", isError: false, ts: Date.now() });
-    expect(readHtml).toContain("tool-tucked");
-    // A failure is a red circle — the detail is in the toast that does not fade.
-    const failed = await renderEventHtml(ctx, { type: "tool_call", name: "bash", args: { command: "false" }, result: "[exit 1]", argsHtml: "", resultHtml: "", isError: true, ts: Date.now() });
-    expect(failed).toContain("tool-tucked");
-    expect(failed).toContain('data-error="1"');
-
-    // An old call arrives already tucked, so reloading a long transcript does
-    // not flash a hundred expanded cards.
-    // Age no longer matters: a call is a circle the moment it lands.
-    for (const ts of [Date.now(), Date.now() - 60_000]) {
-        const c = await renderEventHtml(ctx, { type: "tool_call", name: "read", args: { path: "a.ts" }, result: "x", argsHtml: "", resultHtml: "", isError: false, ts });
-        expect(c).toContain("tool-tucked");
-        expect(c).not.toContain("<details");
-    }
-
-    // Errors stay open too so the user sees the failure body without a click.
-    const errHtml = await renderEventHtml(ctx, { type: "tool_call", name: "eval", argsHtml: "<pre>x</pre>", resultHtml: "<pre>err</pre>", result: "err", args: { code: "x" }, isError: true });
-    expect(errHtml).toContain("tool-tucked");
-    expect(errHtml).toContain('data-error="1"');
+    // A failure is a red cell — the detail is one click away.
+    const failed = await renderEventHtml(ctx, { type: "tool_call", name: "bash", args: { command: "false" }, result: "[exit 1]", isError: true });
+    expect(failed).toContain('data-tone="danger"');
 
     // Unknown / legacy event names fall through to the raw name.
-    const legacy = await renderEventHtml(ctx, { type: "tool_call", name: "evalCode", argsHtml: "<pre>a</pre>", resultHtml: "<pre>b</pre>", result: "b", args: { code: "a" }, isError: false });
+    const legacy = await renderEventHtml(ctx, { type: "tool_call", name: "evalCode", args: { code: "a" }, isError: false });
     expect(legacy).toContain("evalCode");
   });
 

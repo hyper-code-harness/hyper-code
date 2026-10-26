@@ -231,21 +231,8 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     }
 
     if (ev.type === "tool_call") {
-        const meta = (ctx as any).fns.agent.toolMeta({ name: ev.name, args: ev.args });
-        // File-changing tools get a stronger outline; errors take precedence.
-        const destructive = new Set(['write', 'edit', 'remove', 'rename']).has(String(ev.name ?? ''));
-        const cardStyle = ev.isError
-            ? 'border-error/55 bg-error/10 text-error'
-            : destructive ? 'border-ui-border-strong bg-transparent text-muted' : 'border-ui-border-strong bg-transparent text-subtle';
-        const bodyMethod = agentId && ev.idx != null ? 'agent.toolDetails' : '';
-        const title = String(meta.label + ' ' + meta.subject).trim();
-
-        return (ctx as any).fns.ui.popup({
-            method: bodyMethod,
-            params: { agentId, idx: Number(ev.idx) },
-            html: '<i class="ph ' + esc(meta.icon) + '" aria-hidden="true"></i>',
-            attrs: 'class="tool tool-tucked shrink-0 rounded-full border ' + cardStyle + '" data-tool="' + esc(ev.name || 'tool') + '" data-title="' + esc(title) + '"' + (ev.isError ? ' data-error="1"' : '') + ' title="' + esc(title) + '" aria-label="' + esc(title) + '"',
-        });
+        // Alone, a call is a one-cell row; the transcript draws runs of calls as one row (agent.renderEventsHtml).
+        return ctx.fns.agent.renderToolRun({ agentId, events: [ev] });
     }
 
     // "Message received; here is what is blocking it." This card is a permanent

@@ -30,7 +30,7 @@ describe('GET /agent/:id', () => {
         const res = await ctx.fns.procs.http.dispatch({ url: '/agent/' + agent.id });
         const html = await res.text();
         expect(html).toContain('hx-popup="agent.modelPicker"');
-        expect(html).toContain('Change provider or model');
+        expect(html).toContain('Change model: mock:test');
     });
 
 });

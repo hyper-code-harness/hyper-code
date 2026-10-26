@@ -117,25 +117,20 @@
         canvas.style.height = `${Math.floor(canvas.height * k)}px`;
     }
 
-    // Tabs menu: "New tab" (drawn by the server) first; then Chrome's open tabs as w.listRow rows, the shown one current.
+    // Tabs menu: "New tab" (drawn by the server) first; then Chrome's open tabs as one-line w.listRow rows (title; address on hover), the shown one current.
     const tabMenu = $("lv-tabmenu"), tabList$ = $("lv-tablist");
     let tabList = [], tabCurrent = "";
     const closePops = () => { for (const p of document.querySelectorAll("[popover]")) { try { p.hidePopover(); } catch {} } };
-    // Focus or typing in the address opens the tab list under it; typing filters it (title or address).
-    const filterTabs = () => {
-        const q = address.value.trim().toLowerCase();
-        for (const row of tabList$.children) row.hidden = !!q && !row.dataset.search.includes(q);
-    };
+    // Focus in the address drops the whole tab list under it; typing does not filter it, Enter navigates.
     // Manual, not auto: an auto popover opened on focus is light-dismissed by the same click's pointerup (the
     // field is outside it), so it flashed and closed. This list closes itself: a press outside the field and the
     // list, focus leaving both, Escape, or a choice.
     tabMenu.popover = "manual";
-    const openTabs = () => { filterTabs(); if (!tabMenu.matches(":popover-open")) { try { tabMenu.showPopover(); } catch {} } };
+    const openTabs = () => { if (!tabMenu.matches(":popover-open")) { try { tabMenu.showPopover(); } catch {} } };
     const hideTabs = () => { try { tabMenu.hidePopover(); } catch {} };
     document.addEventListener("pointerdown", (e) => { if (!tabMenu.contains(e.target) && e.target !== address) hideTabs(); }, true);
     address.addEventListener("focusout", (e) => { if (e.relatedTarget && !tabMenu.contains(e.relatedTarget)) hideTabs(); });
     address.addEventListener("focus", () => { address.select(); openTabs(); });
-    address.addEventListener("input", openTabs);
     address.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideTabs(); canvas.focus(); } });
     function renderTabs(list, current) {
         tabList = list; tabCurrent = current;
@@ -143,20 +138,23 @@
         tabList$.replaceChildren(...list.map((t) => {
             const b = document.createElement("button");
             b.type = "button"; b.className = "w-row"; b.title = t.url || "";
-            b.dataset.search = `${t.title || ""} ${t.url || ""}`.toLowerCase();
             if (t.id === current) b.setAttribute("aria-current", "page");
-            const lead = document.createElement("span"); lead.className = "w-row-lead";
-            const icon = document.createElement("i"); icon.className = "w-icon ph ph-browser"; icon.dataset.size = "16"; icon.setAttribute("aria-hidden", "true");
-            lead.append(icon);
+            // One line, no icon: the tab title (its address on hover, as the row's title).
             const text = document.createElement("span"); text.className = "w-row-text";
             const label = document.createElement("span"); label.className = "w-row-label"; label.textContent = t.title || t.url || t.id;
-            const detail = document.createElement("span"); detail.className = "w-row-detail"; detail.textContent = t.url;
-            text.append(label, detail);
-            b.append(lead, text);
+            text.append(label);
+            b.append(text);
             b.onclick = () => { closePops(); if (t.id !== tabCurrent) send({ t: "switch", id: t.id }); canvas.focus(); };
-            return b;
+            // w.listRow with `end`: a row wrap with a close button that shows on hover or focus; the list stays open.
+            const x = document.createElement("button");
+            x.type = "button"; x.className = "w-icon-button"; x.dataset.size = "24"; x.title = x.ariaLabel = `Close ${t.title || "tab"}`;
+            const xi = document.createElement("i"); xi.className = "w-icon ph ph-x"; xi.dataset.size = "14"; xi.setAttribute("aria-hidden", "true");
+            x.append(xi);
+            x.onclick = (e) => { e.stopPropagation(); send({ t: "close", id: t.id }); address.focus(); };
+            const end = document.createElement("span"); end.className = "w-row-end"; end.append(x);
+            const wrap = document.createElement("div"); wrap.className = "w-row-wrap"; wrap.append(b, end);
+            return wrap;
         }));
-        filterTabs();
     }
     tabMenu.querySelector("[data-live-new]").onclick = () => { closePops(); send({ t: "new" }); address.value = ""; address.focus(); };
 

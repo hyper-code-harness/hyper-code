@@ -416,6 +416,11 @@ export default async function (
                     case "switch":
                         if (typeof m.id === "string" && targets.has(m.id)) await show(m.id);
                         return;
+                    case "close":
+                        // Closes one Chrome tab; Target.targetDestroyed then updates the list and, for the shown one,
+                        // moves the view to the next tab.
+                        if (typeof m.id === "string" && targets.has(m.id)) await call("Target.closeTarget", { targetId: m.id });
+                        return;
                     case "view": {
                         if (m.mode === "auto" || m.mode === "high" || m.mode === "low") {
                             if (m.mode === "auto" && view.mode !== "auto") { view.level = 1; calm = 0; }

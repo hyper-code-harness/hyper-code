@@ -7,7 +7,6 @@ body.lv > .w-address .w-address-input { min-width: var(--w-width-name); }
 /* The Chrome tabs drop down from the address field, as wide as it. */
 #lv-nav .w-address-input { anchor-name: --lv-tabmenu; }
 #lv-tabmenu { left: anchor(left); width: anchor-size(width) !important; }
-#lv-tablist .w-row[hidden] { display: none; }
 #lv-quality { height: var(--w-control-sm); border-color: transparent; background: none; }
 #lv-status { white-space: nowrap; }
 #lv-info-list .w-kv dt { width: var(--w-width-label); }

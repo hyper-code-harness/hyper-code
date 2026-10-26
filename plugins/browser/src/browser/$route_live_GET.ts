@@ -15,10 +15,10 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const sheets = styles.filter(s => s.href === "/w/w.css" || s.href === "/browser/live.css").map(s => `<link rel="stylesheet" href="${s.href}">`).join("");
 
     // Chrome tabs open under the address when it takes focus (like a browser's suggestions): no separate opener.
-    // live.js shows the popover on focus and typing, filters the rows by the typed text; Enter still navigates.
+    // live.js shows the whole list on focus; typing does not filter it; Enter navigates.
     const tabsList = w.popover({
         id: "lv-tabmenu", label: "Chrome tabs",
-        body: w.list({ label: "Chrome tabs", body: w.listRow({ label: "New tab", icon: "plus", tone: "primary", action: { action: "live-new-tab" }, attrs: { "data-live-new": true } }) + `<div id="lv-tablist"></div>` }),
+        body: w.list({ label: "Chrome tabs", body: w.listRow({ label: "New tab", tone: "primary", action: { action: "live-new-tab" }, attrs: { "data-live-new": true } }) + `<div id="lv-tablist"></div>` }),
     });
     const paste = w.popover({
         id: "lv-paste", label: "Type text into the page", placement: "below-end", width: 320,

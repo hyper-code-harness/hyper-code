@@ -94,7 +94,7 @@
     document.addEventListener('click', e => {
         const copy = e.target.closest?.('[data-message-copy]');
         if (copy) {
-            const bubble = copy.closest('[id^="m-"]')?.querySelector('.chat-glass-primary, .assistant');
+            const bubble = copy.closest('[id^="m-"]')?.querySelector('.chat-glass-primary, .assistant, .w-msg-text');
             const text = bubble?.cloneNode(true);
             text?.querySelectorAll('[data-author], [data-message-menu], button, .sr-only').forEach(n => n.remove());
             navigator.clipboard?.writeText((text?.innerText ?? '').replace(/\s*\d{1,2}:\d{2}\s*$/, '').trim()).catch(() => {});

@@ -4,6 +4,8 @@
  * @param opts.role Who speaks.
  * @param opts.html Trusted body HTML (rendered markdown for agents, escaped text for people).
  * @param opts.author Name shown for people and other agents.
+ * @param opts.authorHref The author's name links here (another agent's chat).
+ * @param opts.meta Quiet text after the name (hop count, on whose behalf).
  * @param opts.avatar Trusted avatar HTML for people and other agents (w.avatar).
  * @param opts.ts Time of the message, ms since epoch.
  * @param opts.attachments Images and files under the text.
@@ -16,6 +18,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
     html: string;
     /** Name shown for people and other agents. */
     author?: string;
+    /** The author's name links here (another agent's chat). */
+    authorHref?: string;
+    /** Quiet text after the name (hop count, on whose behalf). */
+    meta?: string;
     /** Trusted avatar HTML for people and other agents (w.avatar). */
     avatar?: string;
     /** Time of the message, ms since epoch. */
@@ -30,6 +36,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const files = (opts.attachments ?? []).map(a => ({ ...a, url: ctx.fns.w.safeUrl({ url: a.url, image: !!a.image }) })).filter(a => a.url).map(a => a.image
         ? `<a class="w-attach-img" href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.name)}" loading="lazy"></a>`
         : `<a class="w-attach-file" href="${esc(a.url)}" target="_blank" rel="noopener">${ctx.fns.w.icon({ name: "file", size: 14 })}<span>${esc(a.name)}</span></a>`).join("");
-    const author = opts.author && opts.role !== "agent" ? `<div class="w-msg-author">${esc(opts.author)}</div>` : "";
+    const href = opts.authorHref ? ctx.fns.w.safeUrl({ url: opts.authorHref }) : "";
+    const name = href ? `<a href="${esc(href)}">${esc(opts.author)}</a>` : esc(opts.author);
+    const author = opts.author && opts.role !== "agent"
+        ? `<div class="w-msg-author">${name}${opts.meta ? `<span class="w-msg-author-meta">${esc(opts.meta)}</span>` : ""}</div>`
+        : "";
     return `<div class="w-msg" data-role="${opts.role}"${opts.menu ? ` data-menu="${esc(opts.menu)}"` : ""}>${opts.role === "peer" ? (opts.avatar ?? "") : ""}<div class="w-msg-body">${author}${files ? `<div class="w-msg-files">${files}</div>` : ""}<div class="w-msg-text">${opts.html}</div>${time ? `<div class="w-msg-meta">${time}</div>` : ""}</div>${opts.role === "user" ? (opts.avatar ?? "") : ""}</div>`;
 }

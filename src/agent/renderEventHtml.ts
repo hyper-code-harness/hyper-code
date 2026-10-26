@@ -43,7 +43,7 @@ function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true
             + (allowFrom ? item('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '');
     }
     const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.w.pressable({ html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`, label: title, action: { post: url, swap: 'none', vals: { idx: String(idx), mode }, confirm: confirm }, marks: { action: `delete-${mode}` }, class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-error/30 hover:bg-error/10 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/30' });
-    return '<div class="' + (placement === 'side' ? 'flex gap-1' : 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100') + '">'
+    return '<div class="' + 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100' + '">'
         + (allowOne ? actionControl('one', 'Delete message', 'delete this message?', 'ph-trash') : '')
         + (allowFrom ? actionControl('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '')
         + '</div>';
@@ -96,12 +96,14 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     const ev = opts.event;
     const agentId = String(opts.agentId ?? ev?.agentId ?? '');
     if (!ev || typeof ev !== "object") return "";
-    const eventCard = (card: any) => (ctx as any).fns.ui.chatEventCard
-        ? (ctx as any).fns.ui.chatEventCard(card)
-        : `<div class="w-full rounded-lg border border-ui-border bg-base-200/45 px-3 py-2"><div class="flex items-center gap-2 text-xs font-semibold">${card.icon ? `<i class="ph ph-${esc(card.icon)}"></i>` : ''}<span>${esc(card.title)}</span>${card.badge ?? ''}</div>${card.body ? `<div class="mt-1 text-2xs">${card.body}</div>` : ''}${card.details ? `<details><summary>Details</summary>${card.details}</details>` : ''}</div>`;
-    const badge = (label: string, tone: 'neutral' | 'info' | 'success' | 'warning' | 'error' = 'neutral') => (ctx as any).fns.ui.statusBadge
-        ? (ctx as any).fns.ui.statusBadge({ label, tone })
-        : `<span class="badge badge-sm">${esc(label)}</span>`;
+    // Lifecycle events (plan, goal, wake, delegation, compaction…) are quiet lines in the conversation
+    // (w.eventNote), not cards: a tone on the icon, a short badge, the body under the line, details folded.
+    type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
+    const wTone = (tone?: Tone): types.w.Tone => tone === 'error' ? 'danger' : (tone ?? 'neutral');
+    const eventCard = (card: { title: string; icon?: string; tone?: Tone; badge?: string; body?: string; details?: string; href?: string }) =>
+        ctx.fns.w.eventNote({ text: card.title, icon: card.icon, tone: wTone(card.tone), badge: card.badge, body: card.body, details: card.details, href: card.href, ts: Number(ev.ts) || undefined });
+    // The badge is its label; the note draws it in the note's tone.
+    const badge = (label: string, _tone?: Tone) => label;
 
     if (ev.excludedFromLlm) {
         // Collapsed out of the LLM's view after a successful correction — the
@@ -119,29 +121,19 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             const am = ev.agentMessage ?? {};
             const fromId = String(am.from ?? String(ev.actor ?? '').slice(6));
             const sender = (ctx as any).fns.auth?.author ? await (ctx as any).fns.auth.author({ userId: 'agent:' + fromId }).catch(() => null) : null;
-            const hue = sender?.hue ?? 210;
             const name = sender?.name ?? ('agent ' + fromId);
             const body = String(am.body ?? ev.text ?? '');
             const ownerName = am.onBehalfOf ? await (ctx as any).fns.auth?.getUser?.({ id: String(am.onBehalfOf) }).then((u: any) => u?.name ?? null).catch(() => null) : null;
-            const meta = [am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
+            const meta = ['agent', am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
             const senderRow = ((await ctx.fns.procs.db.select({ sql: 'SELECT icon, model FROM agents WHERE id = ?', params: [fromId] }).catch(() => [])) as any[])[0];
-            const senderIcon = senderRow
-                ? ctx.fns.w.chatIcon({ icon: senderRow.icon ?? '', model: String(senderRow.model ?? ''), size: 'md' })
-                : '<i class="ph ph-robot text-base text-faint" aria-hidden="true"></i>';
-            return '<div id="m-' + idx + '" class="group relative flex items-end justify-start gap-2 pb-0" data-agent-message="' + esc(fromId) + '">'
-                // The sender's own chat icon (its avatar, else its model logo) — the same face it has in the menu.
-                + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="agent-message-avatar inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-base-200 no-underline" title="' + esc(name) + '">' + senderIcon + '</a>'
-                + '<div class="relative mr-auto max-w-[80%]">'
-                + '<div class="rounded-2xl rounded-bl-md border px-3.5 py-2 whitespace-pre-wrap break-words shadow-sm bg-base-200 text-base-content" style="border-color:hsl(' + hue + ' 55% 45% / .5)">'
-                + '<div class="mb-0.5 flex items-center gap-1.5 text-xs font-semibold leading-tight whitespace-normal">'
-                + '<a href="/agent/' + encodeURIComponent(fromId) + '" class="no-underline hover:underline" data-author="agent:' + esc(fromId) + '" style="color:hsl(' + hue + ' 70% 60%)">' + esc(name) + '</a>'
-                + '<span class="rounded-full border border-ui-border px-1.5 text-3xs font-normal text-subtle">agent</span>'
-                + (meta ? '<span class="text-3xs font-normal text-subtle">' + esc(meta) + '</span>' : '')
-                + '</div>'
-                + appendTime(esc(body), ev.ts, 'light')
-                + '</div>'
+            const href = '/agent/' + encodeURIComponent(fromId);
+            // The sender's own chat icon (its avatar, else its model logo) — the same face it has in the menu.
+            const avatar = '<a href="' + esc(href) + '" title="' + esc(name) + '" data-author="agent:' + esc(fromId) + '">'
+                + ctx.fns.w.chatIcon({ icon: senderRow?.icon ?? '', model: String(senderRow?.model ?? ''), size: 'md' }) + '</a>';
+            return '<div id="m-' + idx + '" data-agent-message="' + esc(fromId) + '">'
+                + ctx.fns.w.message({ role: 'peer', author: name, authorHref: href, meta, avatar, html: esc(body), ts: Number(ev.ts) || undefined })
                 + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
-                + '</div></div>';
+                + '</div>';
         }
         const ragFunctions = Array.isArray(ev.functionRag?.functions) ? ev.functionRag.functions : [];
         const ragNames = ragFunctions.map((item: any) => String(typeof item === "string" ? item : item?.name ?? "")).filter(Boolean);
@@ -227,7 +219,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     }
 
     if (ev.type === "thinking") {
-        return eventCard({ title: `Thinking · ${ev.text?.length ?? 0} chars`, icon: 'brain', tone: 'neutral', details: `<pre class="whitespace-pre-wrap font-mono text-2xs leading-snug text-muted">${esc(ev.text || '')}</pre>` });
+        return ctx.fns.w.thinking({ text: String(ev.text ?? ''), seconds: Number(ev.seconds ?? ev.durationSec) || undefined });
     }
 
     if (ev.type === "tool_call") {
@@ -364,7 +356,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
 
     if (ev.type === "team_update") {
         const title = ev.taskTitle ? `Agent ${ev.memberId} · ${ev.taskTitle}` : `Agent ${ev.memberId} · ${ev.event}`;
-        return eventCard({ title, icon: 'users-three', tone: ev.event === 'failed' || ev.event === 'blocked' ? 'error' : ev.event === 'completed' ? 'success' : 'info', badge: badge(String(ev.event ?? 'update'), ev.event === 'failed' || ev.event === 'blocked' ? 'error' : ev.event === 'completed' ? 'success' : 'info'), href: '/agent/' + encodeURIComponent(String(ev.memberId ?? '')), body: esc(ev.summary ?? ''), attrs: 'data-team-update="' + esc(ev.event) + '"' });
+        return eventCard({ title, icon: 'users-three', tone: ev.event === 'failed' || ev.event === 'blocked' ? 'error' : ev.event === 'completed' ? 'success' : 'info', badge: badge(String(ev.event ?? 'update'), ev.event === 'failed' || ev.event === 'blocked' ? 'error' : ev.event === 'completed' ? 'success' : 'info'), href: '/agent/' + encodeURIComponent(String(ev.memberId ?? '')), body: esc(ev.summary ?? '') });
     }
 
 

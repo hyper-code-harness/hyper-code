@@ -215,7 +215,6 @@ describe("agent.renderEventHtml", () => {
     expect(html).toContain("Condition met");
     expect(html).toContain(">watch</span>");
     expect(html).toContain("<summary");
-    expect(html).toContain("Details");
     expect(html).toContain('&quot;subject&quot;: &quot;Hello&quot;');
     expect(html).not.toContain("Wake condition met:");
   });

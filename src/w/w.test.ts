@@ -276,3 +276,16 @@ test("composer: slots, attachments, ids for the page script; sendButton; disclos
     const ring = w.ring({ value: 46, action: { popup: { method: "chat.compactPopup" } }, title: "Context 46%" });
     expect(ring).toMatch(/^<button class="w-ring-button" title="Context 46%" aria-label="Context 46%" type="button" hx-popup="chat.compactPopup"/);
 });
+
+test("eventNote: tone, badge, body and a safe link; message: peer author links and meta", async () => {
+    const ctx: any = await mkTestCtx();
+    const note = ctx.fns.w.eventNote({ text: "Agent at", icon: "users-three", tone: "danger", badge: "blocked", body: "<b>why</b>", href: "/agent/at" });
+    expect(note).toContain('data-tone="danger"');
+    expect(note).toContain('<a class="w-note-text" href="/agent/at">');
+    expect(note).toContain('class="w-badge" data-tone="danger">blocked<');
+    expect(note).toContain('<div class="w-note-body"><b>why</b></div>');
+    expect(ctx.fns.w.eventNote({ text: "x", href: "javascript:alert(1)" })).not.toContain("href=");
+    const peer = ctx.fns.w.message({ role: "peer", author: "Оливия", authorHref: "/agent/at", meta: "hop 1", html: "hi" });
+    expect(peer).toContain('<a href="/agent/at">Оливия</a>');
+    expect(peer).toContain('class="w-msg-author-meta">hop 1<');
+});

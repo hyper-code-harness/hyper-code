@@ -245,3 +245,13 @@ test("chatIcon: the model logo or the chat's own icon, a turning ring while it r
     expect(pic).toContain('<img src="data:image/svg+xml,');
     expect(pic).not.toContain("size-");
 });
+
+test("paneHeader, disclosure and popover take behaviour hooks and refuse visual attributes", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    const html = w.paneHeader({ lead: w.popover({ id: "p1", attrs: { "data-src": "/x" }, body: "b", trigger: w.disclosure({ label: "Chat", popover: "p1", attrs: { "data-chat-part": "icon" } }) }), attrs: { "data-chat-header": "a1" } });
+    expect(html).toContain('<header class="w-pane-header" data-chat-header="a1">');
+    expect(html).toContain('data-chat-part="icon"');
+    expect(html).toMatch(/class="w-popover"[^>]*data-src="\/x"/);
+    expect(() => w.disclosure({ label: "x", popover: "p", attrs: { class: "big" } })).toThrow();
+});

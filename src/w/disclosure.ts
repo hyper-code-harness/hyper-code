@@ -6,6 +6,7 @@
  * @param opts.popover Id of the popover or menu it opens (w.popover / w.menu).
  * @param opts.lead Trusted HTML before the label (an icon, a chat icon).
  * @param opts.meta Quiet text after the label (an id, a count).
+ * @param opts.attrs Behaviour hooks (w.hooks): data-*, aria-*, id — for page scripts and tests.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The visible label (a title, a name). */
@@ -16,8 +17,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
     lead?: string;
     /** Quiet text after the label (an id, a count). */
     meta?: string;
+    /** Behaviour hooks (w.hooks): data-*, aria-*, id — for page scripts and tests. */
+    attrs?: Record<string, string | number | boolean | null | undefined>;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const { attrs } = ctx.fns.w.actionAttrs({ action: { popover: opts.popover } });
-    return `<button class="w-disclosure"${attrs}>${opts.lead ?? ""}<span class="w-disclosure-label">${esc(opts.label)}</span>${opts.meta ? `<span class="w-disclosure-meta">${esc(opts.meta)}</span>` : ""}${ctx.fns.w.icon({ name: "caret-down", size: 12 })}</button>`;
+    return `<button class="w-disclosure"${attrs}${ctx.fns.w.hooks({ attrs: opts.attrs })}>${opts.lead ?? ""}<span class="w-disclosure-label">${esc(opts.label)}</span>${opts.meta ? `<span class="w-disclosure-meta">${esc(opts.meta)}</span>` : ""}${ctx.fns.w.icon({ name: "caret-down", size: 12 })}</button>`;
 }

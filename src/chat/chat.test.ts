@@ -62,7 +62,8 @@ describe("chat header parts", () => {
         expect(html).toMatch(/popovertarget="chat-panel-a1"[^>]*data-chat-part="icon"|data-chat-part="icon"[^>]*popovertarget="chat-panel-a1"/);
         // Icon + name + chevron are the one trigger of the panel; Rename… lives in the panel's Appearance card.
         expect(html).not.toContain('hx-popup="chat.renamePopup"');
-        expect(html).toContain('chat-head-caret');
+        expect(html).toContain('class="w-pane-header"');
+        expect(html).toContain('class="w-disclosure"');
         expect(html).toContain("Header test");
         expect(html).toContain('data-chat-id="agent.workspace"');
         expect(html).toContain("Files · /tmp/proj");

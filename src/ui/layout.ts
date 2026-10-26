@@ -50,23 +50,11 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* Compact lazy tool links. The tray is assembled client-side so consecutive
    calls occupy one visual row without wrapping each button in extra markup. */
 .tool-tray { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
-/* Chat header trigger: icon + name + ⌄ open the chat panel. Rest: quiet, the chevron says it opens; hover: grey
-   backing on the whole group; open: light blue and the chevron turned up. */
-.chat-head-trigger { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; height: 1.625rem; margin-left: -.375rem; padding: 0 .375rem 0 .25rem; border-radius: .375rem; color: var(--color-base-content); cursor: pointer; }
-#chat-panel .chat-head-trigger:hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent) !important; }
-.chat-head-trigger:hover .chat-head-caret { color: var(--color-base-content); }
-#chat-panel .chat-head-trigger:has(+ :popover-open), #chat-panel .chat-head-trigger[aria-expanded="true"] { background: color-mix(in oklab, #2563eb 12%, transparent) !important; }
-.chat-head-trigger:has(+ :popover-open) .chat-head-caret { color: #2563eb; transform: rotate(180deg); }
-.chat-head-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-.chat-head-id { flex: none; color: color-mix(in oklab, var(--color-base-content) 42%, transparent); }
-.chat-head-caret { flex: none; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 42%, transparent); transition: transform .15s; }
-#chat-panel > header .chat-head-trigger .w-chat-icon { transform: none !important; }
-.inplace-popup-panel[id^="chat-panel-"] { right: auto; left: anchor(left); width: min(30rem, calc(100vw - 1.5rem)); max-height: min(36rem, calc(100vh - 5rem)); overflow-y: auto; padding: .6rem; }
-.chat-header:has([data-agent-running]) .w-chat-icon-ring[data-live] { display: block; }
+[data-chat-header]:has([data-agent-running]) .w-chat-icon-ring[data-live] { display: block; }
+.canvas-tab { font-size: 13px; }
 @keyframes chat-icon-spin { to { transform: rotate(360deg); } }
 .chat-run-ring--live .chat-run-dots { transform-origin: 14px 14px; animation: chat-icon-spin 8s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .chat-run-ring--live .chat-run-dots { animation: none; } }
-.inplace-popup-panel[id^="chat-panel-"] .chat-row { justify-content: flex-start; min-height: 1.85rem; }
 .tool-tray-toggle { display: inline-flex; align-items: center; gap: .3rem; height: 1.5rem; padding: 0 .55rem; border: 1px solid var(--ui-border); border-radius: 9999px; background: rgb(from var(--color-base-100) r g b / .6); font-size: var(--text-2xs); color: var(--color-subtle); cursor: pointer; }
 .tool-tray-toggle:hover { color: var(--color-base-content); border-color: var(--ui-border-strong); }
 /* Folded: failures and the latest call stay on the row. The latest one is
@@ -115,8 +103,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
    Tailwind's font-sans stack), UI chrome — menu rows, tabs, chat header — at 13px regular, reading text at 14px. */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 #input, .chat-composer textarea, .chat-composer button { font-family: inherit; }
-.canvas-tab, #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 13px; }
-#chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; }
 /* Message context menu (right-click on a message, ui/hotkeys.js puts it at the pointer). */
 #messages .message-menu { display: none; }
 #messages [data-message-menu-open] .message-menu { position: fixed; z-index: 70; left: var(--menu-x, 0); top: var(--menu-y, 0); display: flex; flex-direction: column; min-width: 11rem; padding: .25rem; border: 1px solid var(--color-ui-border); border-radius: .5rem; background: var(--color-base-100); box-shadow: 0 8px 24px rgb(0 0 0 / .14); color: var(--color-base-content); font-size: 13px; white-space: nowrap; }
@@ -174,11 +160,6 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 @media (min-width: 701px) {
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel { margin: .5rem .5rem .5rem 0; border: 1px solid var(--color-ui-border); border-radius: 1rem; overflow: hidden; background: var(--chat-bg); }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-canvas-open]) > #chat-panel { margin-left: .25rem; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header { position: relative; inset: auto; margin: 0 !important; width: 100% !important; max-width: none; height: 2rem; border: 0; border-bottom: 1px solid var(--color-ui-border); border-radius: 0; padding-left: .5rem; padding-right: .375rem; background: var(--color-base-200) !important; background-image: none !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; font-family: inherit; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header [data-chat-part="name"] { font-family: inherit; font-size: 13px; font-weight: 500; color: var(--color-base-content); }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header .w-chat-icon { transform: scale(.85); }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header button,
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header a { max-height: 1.5rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) .chat-dot-grid { padding-top: 1rem !important; padding-bottom: 1rem !important; background-image: none; background-color: var(--chat-bg); }
   /* The composer is the card's footer, a mirror of its header: full width, a hairline above, the text field and
      its toolbar flat inside it; focus shows as a thin accent line on top instead of a floating ring. */
@@ -212,7 +193,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > [id^="m-"] .assistant { padding-left: 0 !important; padding-right: 0 !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer .chat-box { max-width: calc(46rem + 1rem); margin: 0 auto; }
   /* The chat header follows the same column: the icon and name start where the messages start, ⋯ ends where they end. */
-  html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > section#chat-panel > header.chat-header.chat-header { padding-left: max(.75rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; padding-right: max(.375rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; }
+  html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > section#chat-panel > header.w-pane-header { padding-left: max(.75rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; padding-right: max(.375rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer:focus-within { border-top-color: #3b82f6; box-shadow: inset 0 1px 0 #3b82f6; }
 }
 /* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the
@@ -257,7 +238,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 }
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) { max-height: min(24rem, 55vh); }
 [data-page="agent"][data-chat-collapsed] > #chat-panel > header { position: absolute; top: .35rem; right: .5rem; left: auto; width: auto !important; margin: 0 !important; padding: 0 !important; background: none; border: 0; box-shadow: none; z-index: 2; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel > header > :not([data-chat-buttons]) { display: none !important; }
+[data-page="agent"][data-chat-collapsed] > #chat-panel > header > :not(.w-pane-actions), [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-chat-badges] { display: none !important; }
 [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-chat-buttons] > :not([data-chat-id="canvas.collapse"]) { display: none !important; }
 [data-page="agent"][data-chat-collapsed] #messages > * { max-width: none; }
 /* Folded strip as a slide: only the latest answer of the agent, no tool calls, no other messages, no scrolling —
@@ -297,7 +278,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 [data-page="agent"][data-chat-collapsed] .chat-composer button { min-width: 0; }
 [data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child { min-height: 1.75rem; gap: .125rem; }
 [data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child :is(button, [popovertarget]) { height: 1.75rem !important; min-height: 0 !important; }
-html [data-page="agent"][data-chat-collapsed] > #chat-panel > header.chat-header { height: auto !important; min-height: 0 !important; background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; top: .375rem !important; right: .375rem !important; }
+html [data-page="agent"][data-chat-collapsed] > #chat-panel > header.w-pane-header { height: auto !important; min-height: 0 !important; background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; position: absolute; top: .375rem !important; right: .375rem !important; left: auto; z-index: 2; }
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle] { width: 1.75rem !important; height: 1.75rem !important; border-radius: 9999px !important; background: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle]:hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 [data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child button[type="submit"], [data-page="agent"][data-chat-collapsed] #chat-stop-control button { width: 1.75rem !important; height: 1.75rem !important; }
@@ -333,7 +314,7 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   background-attachment: local;
 }
 
-.chat-dot-grid { padding-top: 4rem !important; padding-bottom: 6.5rem !important; }
+.chat-dot-grid { padding-top: 1rem !important; padding-bottom: 6.5rem !important; }
 .chat-dot-grid > * {
   width: 100%;
   max-width: 48rem;
@@ -411,7 +392,6 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   #nav-overlay [data-nav-row] { min-height: 3rem; }
   [data-page="agent"] { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
   #chat-panel { width: 100%; min-width: 0; }
-  #chat-panel > header { width: calc(100% - 1rem) !important; max-width: none !important; margin-top: .4rem !important; padding-right: .55rem !important; gap: .4rem !important; }
   button, a, select, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
   #chat-panel > header button:not(.hidden), #chat-panel > header a:not(.hidden) { min-width: 2.25rem; min-height: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
   #chat-panel > header select { min-height: 2.25rem; }
@@ -435,7 +415,7 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   #messages table { display: block; overflow-x: auto; }
   .chat-composer > * { max-width: 100%; min-width: 0; }
 
-  .chat-dot-grid { padding: 3.75rem .5rem 6.25rem !important; }
+  .chat-dot-grid { padding: 1rem .5rem 6.25rem !important; }
   .chat-dot-grid > * { max-width: 100% !important; }
   .chat-composer { width: calc(100% - .75rem) !important; max-width: none !important; margin-bottom: max(.25rem, env(safe-area-inset-bottom)) !important; padding-top: .5rem !important; }
   .chat-composer .glass-input { font-size: 16px !important; }
@@ -478,17 +458,13 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* One header system for every pane (side panel, canvas tabs, chat): 32px, the same grey, 13px titles —
      medium for the pane's own name, regular for tabs —, 12px muted secondary text, and every icon button the
      same 28px square with a 15px icon in the same grey. */
-  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
-  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; color: var(--color-base-content) !important; }
-  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
+  html[data-chrome="flat"] .canvas-panel > header { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
   html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
   html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
-  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
-  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
-  html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
-  html[data-chrome="flat"] #chat-panel > header.chat-header .w-chat-icon { transform: none; }
+  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *) > i.ph { font-size: 15px; }
+  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   /* The canvas address row: one quiet 32px row in the UI font, not a second header in monospace. */
   html[data-chrome="flat"] [data-canvas-navigate] { height: 2rem !important; border-bottom: 1px solid var(--color-ui-border); background: var(--color-base-100); padding: 0 .375rem !important; gap: .125rem !important; }
   html[data-chrome="flat"] [data-canvas-navigate] input[name="url"] { font-family: inherit !important; font-size: 12px !important; height: 1.5rem; background: transparent !important; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
@@ -517,12 +493,10 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   #messages [data-tool-running] > i { animation: tool-glow 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { #messages [data-tool-running] > i { animation: none; } }
   /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
-  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) { font-size: 12px !important; }
+  html[data-chrome="flat"] .canvas-panel > header { font-size: 12px !important; }
   html[data-chrome="flat"] .canvas-tab,
-  html[data-chrome="flat"] .canvas-tab span,
-  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 12px !important; line-height: 1rem; }
-  html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px !important; }
-  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 14px !important; }
+  html[data-chrome="flat"] .canvas-tab span { font-size: 12px !important; line-height: 1rem; }
+  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *) > i.ph { font-size: 14px !important; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
   /* Fewer things in the composer: the context ring and the quiet prompt-inject icon live in the ⋯ panel (Context
      card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still
@@ -541,7 +515,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
        chat    = --chat-bg — the conversation (between chrome and white)
        surface = base-100  — documents: canvas page, active tab, address row, composer, pills, menus
      The chat header and inactive canvas tabs used base-300 at 60% (a darker, slightly different grey). */
-  html[data-chrome="flat"] #chat-panel > header.chat-header.chat-header,
   html[data-chrome="flat"] .canvas-tab:not([aria-current]) { background: var(--color-base-200) !important; background-image: none !important; }
   html[data-chrome="flat"] .canvas-tab:not([aria-current]):hover { background: color-mix(in oklab, var(--color-base-content) 5%, var(--color-base-200)) !important; }
 }

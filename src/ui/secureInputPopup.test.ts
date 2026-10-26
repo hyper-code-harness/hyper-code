@@ -12,5 +12,7 @@ test('popup script owns secure-input cancellation and has no duplicate target de
 test('secure-input submit does not replace the prompt with an empty loading popup', async () => {
     const source = await Bun.file(new URL('./$script_rpc.js', import.meta.url)).text();
     expect(source).toContain("method === 'secureInput.submit'");
-    expect(source).toContain('if (!secureSubmit)');
+    // Submit and the pending-prompt check are quiet: no loading dialog replaces the prompt.
+    expect(source).toContain('const quiet = secureSubmit');
+    expect(source).toContain('if (!quiet) window.hyperPopup?.loading');
 });

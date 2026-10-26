@@ -18,11 +18,12 @@ export default {
         const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
         const s = opts.input.spec;
         const otp = s.mode === "otp";
-        const attrs = otp ? 'inputmode="numeric" autocomplete="one-time-code" placeholder="123456"'
-            : s.mode === "password" ? 'autocomplete="new-password" placeholder="••••••••"' : 'autocomplete="off"';
-        return `<input name="value" type="${s.mode === "text" ? "text" : "password"}" required maxlength="${Number(s.maxlength)}" ${attrs} `
-            + `class="input input-bordered input-sm w-full bg-base-100 ${otp ? "font-mono tracking-[0.3em]" : ""}" aria-label="${esc(opts.input.title)}">`
-            + `<p class="font-mono text-3xs text-faint">→ ${esc(s.saveAs)} · the value is hidden from both the agent and chat history</p>`;
+        const w = ctx.fns.w;
+        return w.input({
+            name: "value", type: s.mode === "text" ? "text" : "password", required: true, maxlength: Number(s.maxlength), label: opts.input.title,
+            ...(otp ? { inputmode: "numeric" as const, autocomplete: "one-time-code", placeholder: "123456", mono: true }
+                : s.mode === "password" ? { autocomplete: "new-password", placeholder: "••••••••" } : { autocomplete: "off" }),
+        }) + w.box({ body: `→ ${esc(s.saveAs)} · the value is hidden from both the agent and chat history`, mix: { mono: true, text: "small", ink: "faint" } });
     },
     async submit(ctx: Context, opts: { input: types.input.Row; values: types.input.FormValues }) {
         const s = opts.input.spec;
@@ -38,6 +39,7 @@ export default {
         return { result: { ref: s.saveAs }, summary: `secret ${s.saveAs} is stored — use it via bash({ secrets: { VAR: "${s.saveAs}" } })` };
     },
     done(ctx: Context, opts: { input: types.input.Row }) {
-        return `<p class="text-2xs text-muted"><i class="ph ph-lock-simple" aria-hidden="true"></i> saved as <code>${ctx.fns.w.escape({ text: opts.input.result?.ref ?? opts.input.spec.saveAs })}</code></p>`;
+        const w = ctx.fns.w;
+        return w.box({ mix: { layout: "row", gap: "s1", text: "small", ink: "muted" }, body: w.icon({ name: "lock-simple", size: 14 }) + " saved as " + w.box({ tag: "span", body: w.escape({ text: opts.input.result?.ref ?? opts.input.spec.saveAs }), mix: { mono: true } }) });
     },
 } satisfies types.input.Kind;

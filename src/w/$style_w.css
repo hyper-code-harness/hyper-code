@@ -142,7 +142,7 @@
 .w-input, .w-select { box-sizing: border-box; height: var(--w-control); padding: 0 var(--w-s2); border: var(--w-rule-control); border-radius: var(--w-radius-item); background: var(--w-surface-document); color: var(--w-ink); font-family: inherit; font-size: var(--w-text-ui); min-width: 0; }
 .w-input[data-width="fill"], .w-select[data-width="fill"] { flex: 1 1 auto; width: 100%; } .w-input[data-width="short"] { width: var(--w-width-label); flex: none; }
 .w-input::placeholder { color: var(--w-ink-faint); } .w-input:focus, .w-select:focus { outline: none; border-color: var(--w-focus); box-shadow: 0 0 0 1px var(--w-focus); }
-.w-input[aria-invalid="true"] { border-color: var(--w-danger); }
+.w-input[aria-invalid="true"] { border-color: var(--w-danger); } .w-input[data-mono] { font-family: var(--w-mono); letter-spacing: var(--w-caps-spacing); }
 .w-textarea { box-sizing: border-box; width: 100%; min-height: calc(3 * var(--w-row)); padding: var(--w-s2); border: var(--w-rule-control); border-radius: var(--w-radius-item); background: var(--w-surface-document); color: var(--w-ink); font-family: inherit; font-size: var(--w-text-ui); line-height: 1.5; resize: vertical; field-sizing: content; max-height: var(--w-height-textarea); }
 .w-textarea:is([rows="1"], [rows="2"]) { min-height: 0; }
 .w-textarea::placeholder { color: var(--w-ink-faint); } .w-textarea:focus { outline: none; border-color: var(--w-focus); box-shadow: 0 0 0 1px var(--w-focus); }

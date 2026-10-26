@@ -17,6 +17,9 @@
  * @param opts.maxlength Most characters.
  * @param opts.pattern Regular expression the value must match.
  * @param opts.width Width: auto by content, fill the row, or a short label-sized box. @default "fill"
+ * @param opts.autocomplete Browser autofill hint (off, current-password, new-password, one-time-code, email …).
+ * @param opts.inputmode Keyboard a phone shows (numeric for a code).
+ * @param opts.mono Monospace with spaced letters, for a code or a key typed character by character. @default false
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Submitted field name; also the data-field marker. */
@@ -49,8 +52,14 @@ export default function (ctx: Context, _session: Session | null, opts: {
     pattern?: string;
     /** Width: auto by content, fill the row, or a short label-sized box. @default "fill" */
     width?: "auto" | "fill" | "short";
+    /** Browser autofill hint (off, current-password, new-password, one-time-code, email …). */
+    autocomplete?: string;
+    /** Keyboard a phone shows (numeric for a code). */
+    inputmode?: "text" | "numeric" | "decimal" | "tel" | "email" | "url" | "search";
+    /** Monospace with spaced letters, for a code or a key typed character by character. @default false */
+    mono?: boolean;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const a = (n: string, v: unknown) => v === undefined || v === null || v === "" ? "" : ` ${n}="${esc(v)}"`;
-    return `<input class="w-input" data-width="${opts.width ?? "fill"}" ${ctx.fns.w.marks({ field: opts.name })} name="${esc(opts.name)}" type="${opts.type ?? "text"}" value="${esc(opts.value ?? "")}"${a("placeholder", opts.placeholder)}${a("aria-label", opts.label)}${a("id", opts.id)}${a("min", opts.min)}${a("max", opts.max)}${a("step", opts.step)}${a("maxlength", opts.maxlength)}${a("pattern", opts.pattern)}${a("aria-describedby", opts.describedBy)}${opts.required ? " required" : ""}${opts.invalid ? ' aria-invalid="true"' : ""}>`;
+    return `<input class="w-input" data-width="${opts.width ?? "fill"}"${opts.mono ? " data-mono" : ""} ${ctx.fns.w.marks({ field: opts.name })} name="${esc(opts.name)}" type="${opts.type ?? "text"}" value="${esc(opts.value ?? "")}"${a("placeholder", opts.placeholder)}${a("aria-label", opts.label)}${a("id", opts.id)}${a("min", opts.min)}${a("max", opts.max)}${a("step", opts.step)}${a("maxlength", opts.maxlength)}${a("pattern", opts.pattern)}${a("autocomplete", opts.autocomplete)}${a("inputmode", opts.inputmode)}${a("aria-describedby", opts.describedBy)}${opts.required ? " required" : ""}${opts.invalid ? ' aria-invalid="true"' : ""}>`;
 }

@@ -18,5 +18,5 @@ export default function (ctx: Context, _session: Session | null, opts: {
         const stop = ctx.fns.w.pressable({ html: '<span class="w-send-stop" aria-hidden="true"></span>', label: "Stop generation", title: "Stop this run", action: opts.stop ?? { action: "stop" }, marks: opts.marks, class: "w-send" });
         return `<span class="w-send-wrap" data-running>${stop}</span>`;
     }
-    return `<button type="submit" class="w-send" title="Send · Enter" aria-label="Send message">${ctx.fns.w.icon({ name: "arrow-up", size: 16 })}</button>`;
+    return `<button type="submit" class="w-send" title="Send · Enter" aria-label="Send message">${ctx.fns.w.icon({ name: "arrow-up", size: 14 })}</button>`;
 }

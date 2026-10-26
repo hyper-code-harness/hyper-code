@@ -151,10 +151,11 @@
         if (!panel.firstElementChild) panel.dispatchEvent(new Event('dock-panel-load'));
         markCurrent();
     }
-    // The open chat's row in the side panel is marked current. Rows are nav rows (nav.rows) keyed data-nav-id="agent:<id>".
+    // The open chat's row in the side panel is marked current (w.listRow styles aria-current). Rows are nav rows
+    // (nav.rows → w.listRow) keyed data-nav-id="agent:<id>".
     function markCurrent() {
         const here = /^\/agent\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1];
-        document.querySelectorAll('#dock-panel .nav-row[data-nav-id^="agent:"]').forEach(a => {
+        document.querySelectorAll('#dock-panel [data-nav-row][data-nav-id^="agent:"]').forEach(a => {
             if (a.dataset.navId === 'agent:' + here) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
     }

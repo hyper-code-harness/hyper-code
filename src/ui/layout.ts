@@ -88,8 +88,7 @@ html[data-dock-mode="menu"] .dock-panel-resizer { display: block; flex: 0 0 .25r
 body[data-presentation="sidebar"] .dock-panel-resizer { display: none !important; }
 html.dock-panel-resizing, html.dock-panel-resizing body { user-select: none; cursor: col-resize; }
 html.dock-panel-resizing iframe { pointer-events: none; }
-.dock-panel-row[aria-current="page"], #dock-panel .nav-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
-#dock-panel .nav-row[aria-current="page"] > span { color: var(--color-base-content); font-weight: 500; }
+.dock-panel-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 .dock-panel-project[open] > summary { color: var(--color-base-content); }
 /* Dot: the strip goes away and the menu circle moves into the top row of the page — the canvas tab row
    (h-8, inside a panel with my-2 ml-2) or the chat header — which makes room for it on the left. */

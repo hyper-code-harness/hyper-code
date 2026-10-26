@@ -243,7 +243,7 @@
     // number unnecessary to state.
     const GUIDED_MS = 7000;
 
-    // Client-side counterpart of procs.ui.button for controls created after page load.
+    // Client-side counterpart of w.button for controls created after page load.
     // Dynamic widgets must use this factory instead of embedding raw button markup.
     function actionButton({ action, label = "", className = "", ariaLabel = "" }) {
         const control = document.createElement("button");

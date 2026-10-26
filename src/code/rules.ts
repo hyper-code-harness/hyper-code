@@ -34,6 +34,18 @@ export default function (
             }
         });
     }
+    // Hyper draws with w.*; procs.ui belongs to the vendored framework and is used only inside
+    // src/procs/. Text-level on purpose: `const ui = ctx.fns.procs.ui; ui.button(...)` is an
+    // alias the call graph cannot see, and that is exactly how six pages kept drawing with it.
+    // A comment that only names it is not a use.
+    if (!/(^|\/)src\/procs\//.test(opts.rel) && !/^procs\//.test(opts.rel) && /\.(ts|tsx)$/.test(opts.rel)) {
+        opts.text.split("\n").forEach((text, i) => {
+            const code = text.replace(/\/\/.*$/, "");
+            if (/\bfns\s*\.\s*procs\s*\.\s*ui\b|\bfns\.procs\[\s*['"]ui['"]\s*\]/.test(code)) {
+                out.push({ line: i + 1, rule: "procs-ui", severity: "error", detail: "uses procs.ui, the vendored framework's own kit — Hyper draws with w.* (docs/ui-design-system.md has the mapping)" });
+            }
+        });
+    }
     // Browser scripts get only the text-level rules above; the AST rules below are for TypeScript.
     if (/\.(m?js)$/.test(opts.rel)) return out;
     const sf = ts.createSourceFile(opts.rel, opts.text, ts.ScriptTarget.Latest, true,

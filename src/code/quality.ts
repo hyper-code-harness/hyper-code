@@ -40,7 +40,7 @@ type Finding = {
  * @param opts.root Limit findings to one scan root, such as `core` for `src/`. Defaults to `core` for the dead-code checks, whose answer is meaningless for plugins.
  * @param opts.severity Only report this severity: `error` or `warn`.
  * @param opts.include Which checks to run. Omit for all of them. @default ["boundary","unresolved","dead","test-only","rules","floating-promise","untested","tags","deprecated"]
- * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`, `unknown-tag`, `tag-arg`, `deprecated`.
+ * @param opts.rule Only this rule, e.g. `empty-catch`, `lost-cause`, `formdata-to-string`, `floating-promise`, `untested`, `unknown-tag`, `tag-arg`, `deprecated`, `procs-ui`.
  * @param opts.limit Maximum findings to return. @default 50 @minimum 1 @maximum 500
  */
 export default async function (

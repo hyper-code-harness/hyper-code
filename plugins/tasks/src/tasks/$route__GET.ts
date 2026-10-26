@@ -9,7 +9,7 @@
  * @returns The rendered task-list page.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
-    const ui = ctx.fns.procs.ui;
+    const w = ctx.fns.w;
     const url = new URL(opts.req.url);
     const view = url.searchParams.get('view') === 'closed' ? 'closed' : 'open';
     const q = (url.searchParams.get('q') ?? '').trim();
@@ -18,49 +18,52 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const open = tasks.filter((task) => task.status !== 'done' && matches(task));
     const closed = tasks.filter((task) => task.status === 'done' && matches(task));
     const visible = view === 'closed' ? closed : open;
+    const esc = (v: unknown) => w.escape({ text: v });
+    const qs = (v: string) => `/tasks?view=${v}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
 
     const row = (task: types.tasks.Task) => {
         const lines = task.description.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
         const running = task.status === 'running';
         const done = task.status === 'done';
-        const badge = running ? ui.badge({ text: 'agent running', tone: 'warning' })
-            : task.agentId ? ui.badge({ text: 'chat attached', tone: 'info' }) : '';
-        return ui.listItem({
+        const href = `/tasks/${encodeURIComponent(task.id)}`;
+        const rest = lines.slice(1).join(' ').slice(0, 180);
+        return w.record({
             entity: 'task', id: task.id, status: task.status,
-            href: `/tasks/${encodeURIComponent(task.id)}`,
-            icon: done ? 'ph-check-circle' : 'ph-dot-outline',
-            tone: done ? 'info' : running ? 'warning' : 'success',
-            title: lines[0] || 'Untitled task',
-            badges: badge,
-            text: lines.slice(1).join(' ').slice(0, 180),
-            meta: [`#${task.id.slice(0, 8)}`, task.workspaceMode === 'isolated' ? 'isolated workspace' : '~/.hyper/tasks', `updated ${relativeTime(Number(task.updatedAt))}`],
-            right: task.agentId ? ui.button({ action: 'open-chat', id: task.id, href: `/agent/${encodeURIComponent(task.agentId)}`, html: '<i class="ph ph-chat-circle text-lg" aria-hidden="true"></i>', tone: 'ghost', size: 'xs', title: 'Open attached chat', ariaLabel: 'Open attached chat' }) : '',
+            cells: [
+                { role: 'state', html: w.icon({ name: done ? 'check-circle' : 'dot-outline', size: 16 }), tone: done ? 'info' : running ? 'warning' : 'success' },
+                { role: 'title', grow: true, title: lines[0] || 'Untitled task', html: `<a href="${esc(href)}">${esc(lines[0] || 'Untitled task')}</a>${rest ? ` <span class="${w.mix({ mixes: [{ ink: "muted" }] })}">${esc(rest)}</span>` : ''}` },
+                { role: 'badge', html: running ? w.badge({ text: 'agent running', tone: 'warning' }) : task.agentId ? w.badge({ text: 'chat attached', tone: 'info' }) : '' },
+                { role: 'workspace', wide: true, text: `#${task.id.slice(0, 8)} · ${task.workspaceMode === 'isolated' ? 'isolated workspace' : '~/.hyper/tasks'}` },
+                { role: 'updated', width: 'label', text: relativeTime(Number(task.updatedAt)) },
+            ],
+            end: task.agentId ? w.iconButton({ icon: 'chat-circle', label: 'Open attached chat', action: { href: `/agent/${encodeURIComponent(task.agentId)}` } }) : '',
         });
     };
 
-    const newTask = ui.dialog({
+    const newTask = w.dialog({
         id: 'new-task', title: 'Create a new task', post: '/tasks', submitLabel: 'Create task', size: 'lg',
-        body: `<label class="block"><span class="mb-1.5 block text-sm font-semibold">Description</span>${ui.textarea({ name: 'description', rows: 7, required: true, placeholder: 'What should the agent do?', ariaLabel: 'Description' })}</label>
-          <label class="block"><span class="mb-1.5 block text-sm font-semibold">Workspace</span>${ui.select({ name: 'workspaceMode', value: 'default', placeholder: 'Workspace', options: [{ value: 'default', label: 'Shared · ~/.hyper/tasks' }, { value: 'isolated', label: 'Isolated · ~/.hyper/tasks/<task-id>' }] })}<span class="mt-1.5 block text-xs text-subtle">The directory is created when the attached agent starts.</span></label>`,
+        body: w.field({ name: 'description', label: 'Description', for: 'new-task-description', required: true, control: w.textarea({ name: 'description', id: 'new-task-description', rows: 7, required: true, placeholder: 'What should the agent do?' }) })
+            + w.field({ name: 'workspaceMode', label: 'Workspace', for: 'new-task-workspace', help: 'The directory is created when the attached agent starts.', control: w.select({ name: 'workspaceMode', id: 'new-task-workspace', value: 'default', options: [{ value: 'default', label: 'Shared · ~/.hyper/tasks' }, { value: 'isolated', label: 'Isolated · ~/.hyper/tasks/<task-id>' }] }) }),
     });
+
+    const tabs = w.tabs({ variant: 'underline', active: view, items: [
+        { id: 'open', label: 'Open', icon: 'dot-outline', count: open.length, action: { href: qs('open') } },
+        { id: 'closed', label: 'Closed', icon: 'check', count: closed.length, action: { href: qs('closed') } },
+    ] });
+    const search = w.form({ form: 'task-search', get: '/tasks', push: true, trigger: 'input changed delay:250ms from:find input, submit',
+        body: `<input type="hidden" name="view" value="${esc(view)}">${w.input({ name: 'q', type: 'search', value: q, placeholder: 'Search tasks', label: 'Search tasks', width: 'auto' })}` });
+    const empty = q
+        ? w.empty({ title: 'No matching tasks', hint: `Nothing matches “${q}”.`, icon: 'magnifying-glass' })
+        : w.empty({ title: view === 'closed' ? 'No closed tasks' : 'No open tasks', hint: 'Create a task to start an agent.', icon: 'check-square' });
 
     return {
         title: 'Tasks',
-        main: ui.listPage({
+        main: w.page({
             page: 'tasks',
             title: 'Tasks',
             lead: 'One focused agent chat for every task.',
-            actions: ui.dialogButton({ dialog: 'new-task', label: 'New task', icon: 'ph-plus', tone: 'success', action: 'new-task' }),
-            tabs: ui.tabs({ current: view, items: [
-                { value: 'open', label: 'Open', icon: 'ph-dot-outline', count: open.length, href: `/tasks?view=open${q ? `&q=${encodeURIComponent(q)}` : ''}` },
-                { value: 'closed', label: 'Closed', icon: 'ph-check', count: closed.length, href: `/tasks?view=closed${q ? `&q=${encodeURIComponent(q)}` : ''}` },
-            ] }),
-            filters: ui.filterBar({ href: '/tasks', q, placeholder: 'Search tasks', hidden: { view } }),
-            rows: visible.map(row).join(''),
-            empty: q
-                ? { title: 'No matching tasks', text: `Nothing matches “${q}”.`, icon: 'ph-magnifying-glass' }
-                : { title: view === 'closed' ? 'No closed tasks' : 'No open tasks', text: 'Create a task to start an agent.', icon: 'ph-check-square' },
-            extra: newTask,
+            actions: w.dialogOpener({ dialog: 'new-task', label: 'New task', icon: 'plus', tone: 'success', action: 'new-task' }),
+            body: w.toolbar({ start: tabs, end: search }) + (visible.length ? w.card({ flush: true, body: visible.map(row).join('') }) : empty) + newTask,
         }),
     };
 }

@@ -10,7 +10,7 @@
  * @returns The rendered dashboard page.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request }) {
-    const ui = ctx.fns.procs.ui;
+    const w = ctx.fns.w;
     const url = new URL(opts.req.url);
     const hours = Math.max(1, Math.min(Number(url.searchParams.get("hours") ?? 24) || 24, 8760));
 
@@ -20,30 +20,23 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         { label: "24h", value: "24" },
         { label: "7d", value: "168" },
         { label: "30d", value: "720" },
-    ].map(item => ({ ...item, href: `/telemetry?hours=${item.value}` }));
+    ].map(item => ({ ...item, action: { href: `/telemetry?hours=${item.value}` } }));
 
-    const actions = `<div class="flex shrink-0 flex-wrap items-center gap-2">
-  ${ui.segmented({ items: windows, value: String(hours) })}
-  ${ui.button({ action: "maintain", html: '<i class="ph ph-broom"></i>Compact', tone: "default", size: "sm", title: "Rotate the open page and compact closed pages to parquet", attrs: { "hx-post": `/telemetry/maintain?hours=${hours}`, "hx-target": "#telemetry-body", "hx-swap": "outerHTML", "hx-indicator": "#telemetry-body" } })}
-  ${ui.button({ action: "refresh", html: '<i class="ph ph-arrows-clockwise"></i>Refresh', tone: "primary", size: "sm", attrs: { "hx-get": `/telemetry/body?hours=${hours}`, "hx-target": "#telemetry-body", "hx-swap": "outerHTML", "hx-indicator": "#telemetry-body" } })}
-</div>`;
+    const fragment = { target: "#telemetry-body", swap: "outerHTML" as const };
+    const actions = `${w.segmented({ name: "window", items: windows, value: String(hours) })}
+  ${w.button({ label: "Compact", icon: "broom", size: "sm", marks: { action: "maintain" }, title: "Rotate the open page and compact closed pages to parquet", attrs: { "hx-indicator": "#telemetry-body" }, action: { post: `/telemetry/maintain?hours=${hours}`, ...fragment } })}
+  ${w.button({ label: "Refresh", icon: "arrows-clockwise", tone: "primary", size: "sm", marks: { action: "refresh" }, attrs: { "hx-indicator": "#telemetry-body" }, action: { get: `/telemetry/body?hours=${hours}`, ...fragment } })}`;
 
-    // The shared page shell carries no padding of its own, so the dashboard owns
-    // its container: a readable measure, real gutters, and breathing room at the
-    // top — without them every card sits flush against the window frame.
-    const body = `<div class="mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-6">
-  <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
-    <div class="min-w-0">
-      <h1 class="text-2xl font-semibold tracking-tight">Telemetry</h1>
-      <p class="mt-1 text-sm text-subtle">Spans from the built-in tracer, paged as NDJSON and compacted to parquet.</p>
-    </div>
-    ${actions}
-  </header>
-  ${await ctx.fns.telemetry.dashboard({ hours })}
-</div>`;
+    const body = w.page({
+        page: "telemetry",
+        title: "Telemetry",
+        lead: "Spans from the built-in tracer, paged as NDJSON and compacted to parquet.",
+        actions,
+        body: await ctx.fns.telemetry.dashboard({ hours }),
+    });
 
     return {
         title: "Telemetry",
-        main: ui.page({ page: "telemetry", main: body }),
+        main: body,
     };
 }

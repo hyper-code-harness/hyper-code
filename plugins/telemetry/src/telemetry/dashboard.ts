@@ -22,8 +22,8 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     /** Rows per ranked table. @default 10 @minimum 1 @maximum 100 */
     limit?: number;
 }): Promise<string> {
-    const ui = ctx.fns.procs.ui;
-    const esc = (value: unknown) => ui.escape({ text: value });
+    const w = ctx.fns.w;
+    const esc = (value: unknown) => w.escape({ text: value });
     const hours = Math.max(1, Math.min(Number(opts?.hours ?? 24), 8760));
     const limit = Math.max(1, Math.min(Number(opts?.limit ?? 10), 100));
 
@@ -34,10 +34,11 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     ]);
 
     if (!stats.ok) {
-        return `<div id="telemetry-body">${ui.alert({
+        return `<div id="telemetry-body">${w.empty({
             tone: "danger",
+            icon: "warning",
             title: "Cannot read span storage",
-            text: `${stats.error ?? "unknown error"} — install DuckDB or set DUCKDB_BIN.`,
+            hint: `${stats.error ?? "unknown error"} — install DuckDB or set DUCKDB_BIN.`,
         })}</div>`;
     }
 
@@ -132,7 +133,7 @@ ${tile({ label: "Storage", value: bytes(storage.totalBytes), sub: `${storage.col
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
         <span class="truncate text-xs font-medium">${esc(kind.name)}</span>
-        ${kind.errors ? ui.badge({ text: `${num(kind.errors)} err`, tone: "danger" }) : ""}
+        ${kind.errors ? w.badge({ text: `${num(kind.errors)} err`, tone: "danger" }) : ""}
       </div>
       <div class="mt-0.5 text-micro text-faint">${esc(num(kind.count))} spans · p50 ${esc(ms(kind.p50))} · max ${esc(ms(kind.max))}</div>
     </div>

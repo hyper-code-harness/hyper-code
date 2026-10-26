@@ -11,39 +11,39 @@
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     const task = await ctx.fns.tasks.get({ id: opts.params.id! });
     if (!task) return new Response('Not found', { status: 404 });
-    const ui = ctx.fns.procs.ui;
-    const esc = (value: unknown) => ui.escape({ text: value });
+    const w = ctx.fns.w;
+    const esc = (value: unknown) => w.escape({ text: value });
+    const muted = w.mix({ mixes: [{ ink: 'muted', text: 'small' }] });
     const id = encodeURIComponent(task.id);
     const lines = task.description.split(/\r?\n/);
     const titleIndex = lines.findIndex((line) => line.trim());
     const title = titleIndex >= 0 ? lines[titleIndex]!.trim() : 'Untitled task';
     const body = lines.slice(titleIndex + 1).join('\n').trim();
-    const statusBadge = task.status === 'done' ? ui.badge({ text: 'Closed', tone: 'info' })
-        : task.status === 'running' ? ui.badge({ text: 'In progress', tone: 'warning' })
-        : ui.badge({ text: 'Open', tone: 'success' });
-    const statusOptions = ([['todo', 'Open', 'ph-dot-outline'], ['running', 'In progress', 'ph-spinner'], ['done', 'Closed', 'ph-check-circle']] as const)
-        .map(([status, label, icon]) => ui.button({
-            action: 'set-status', id: status, post: `/tasks/${id}/status`, vals: { status }, tone: task.status === status ? 'primary' : 'ghost', active: task.status === status,
-            class: 'w-full justify-start', html: `<i class="ph ${icon}" aria-hidden="true"></i>${label}`,
+    const statusBadge = task.status === 'done' ? w.badge({ text: 'Closed', tone: 'info' })
+        : task.status === 'running' ? w.badge({ text: 'In progress', tone: 'warning' })
+        : w.badge({ text: 'Open', tone: 'success' });
+    const statusOptions = ([['todo', 'Open', 'dot-outline'], ['running', 'In progress', 'spinner'], ['done', 'Closed', 'check-circle']] as const)
+        .map(([status, label, icon]) => w.button({
+            label, icon, wide: true, tone: task.status === status ? 'primary' : 'ghost',
+            marks: { action: 'set-status', id: status, status: task.status === status ? 'active' : '' },
+            action: { post: `/tasks/${id}/status`, vals: { status } },
         })).join('');
     const agentPanel = task.agentId
-        ? ui.toolbar({ left: `<div><p class="font-semibold">Agent chat ${esc(task.agentId)}</p><p class="mt-1 text-sm text-subtle">Workspace: <code class="rounded bg-base-200 px-1 py-0.5 text-xs">${esc(task.workspaceDir)}</code></p></div>`, right: ui.button({ action: 'open-agent-chat', href: `/agent/${encodeURIComponent(task.agentId)}`, html: '<i class="ph ph-arrow-square-out" aria-hidden="true"></i>Open chat' }) })
-        : ui.toolbar({ left: '<div><p class="font-semibold">No agent started</p><p class="mt-1 text-sm text-subtle">Start a dedicated chat in the selected workspace.</p></div>', right: ui.button({ action: 'start-agent', post: `/tasks/${id}/start`, tone: 'success', html: '<i class="ph ph-play" aria-hidden="true"></i>Start agent' }) });
+        ? w.toolbar({ start: `<div><strong>Agent chat ${esc(task.agentId)}</strong><div class="${muted}">Workspace: <code>${esc(task.workspaceDir)}</code></div></div>`, end: w.button({ label: 'Open chat', icon: 'arrow-square-out', marks: { action: 'open-agent-chat' }, action: { href: `/agent/${encodeURIComponent(task.agentId)}` } }) })
+        : w.toolbar({ start: `<div><strong>No agent started</strong><div class="${muted}">Start a dedicated chat in the selected workspace.</div></div>`, end: w.button({ label: 'Start agent', icon: 'play', tone: 'success', marks: { action: 'start-agent' }, action: { post: `/tasks/${id}/start` } }) });
+    const workspace = task.workspaceDir || (task.workspaceMode === 'isolated' ? '~/.hyper/tasks/<task-id>' : '~/.hyper/tasks');
     return {
         title,
-        main: ui.detailPage({
+        main: w.page({
             page: 'task',
-            back: { href: '/tasks', label: 'Back to tasks' },
-            title, id: task.id.slice(0, 8),
-            status: statusBadge,
-            meta: [`created ${new Date(Number(task.createdAt)).toLocaleString()}`],
-            main: `${ui.card({ title: 'Description', body: body ? `<pre class="whitespace-pre-wrap break-words font-sans text-sm">${esc(body)}</pre>` : '<p class="text-sm text-faint">No additional description.</p>' })}
-              <div class="mt-5">${ui.card({ title: 'Agent', body: agentPanel })}</div>`,
-            aside: [
-                { title: 'Status', body: `<div class="space-y-1">${statusOptions}</div>` },
-                { title: 'Workspace', body: `<p class="text-muted"><i class="ph ph-folder mr-1" aria-hidden="true"></i>${esc(task.workspaceMode === 'isolated' ? 'Isolated' : 'Shared')}</p><p class="mt-1 break-all text-xs text-subtle">${esc(task.workspaceDir || (task.workspaceMode === 'isolated' ? '~/.hyper/tasks/<task-id>' : '~/.hyper/tasks'))}</p>` },
-                { title: 'Development', body: `<p class="text-muted"><i class="ph ph-chat-circle mr-1" aria-hidden="true"></i>${task.agentId ? `<a href="/agent/${encodeURIComponent(task.agentId)}" class="text-primary hover:underline">Attached chat</a>` : 'No chat yet'}</p>` },
-            ],
+            crumbs: w.crumbs({ items: [{ label: 'Tasks', href: '/tasks' }, { label: `#${task.id.slice(0, 8)}` }] }),
+            title,
+            lead: `${statusBadge} <span class="${muted}">created ${esc(new Date(Number(task.createdAt)).toLocaleString())}</span>`,
+            body: w.card({ title: 'Description', body: body ? `<pre class="${w.mix({ mixes: [{ text: 'read' }] })}" style="white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;margin:0">${esc(body)}</pre>` : `<span class="${muted}">No additional description.</span>` })
+                + w.card({ title: 'Agent', body: agentPanel }),
+            aside: w.card({ title: 'Status', body: statusOptions })
+                + w.card({ title: 'Workspace', body: w.keyValue({ items: [{ key: 'Mode', value: task.workspaceMode === 'isolated' ? 'Isolated' : 'Shared' }, { key: 'Path', html: `<code>${esc(workspace)}</code>` }] }) })
+                + w.card({ title: 'Development', body: task.agentId ? `<a href="/agent/${encodeURIComponent(task.agentId)}">Attached chat</a>` : `<span class="${muted}">No chat yet</span>` }),
         }),
     };
 }

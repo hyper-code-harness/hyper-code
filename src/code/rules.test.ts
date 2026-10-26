@@ -78,4 +78,12 @@ describe("code.rules", () => {
         expect(await check(`window.hyperLive.subscribe({ types: ['dock.changed'], onEvent: refresh, resync: refresh });\n`, "src/dock/$script_dock.js")).toEqual([]);
         expect(await check(`document.addEventListener('hyper-events', compat);\n`, "src/procs/events/client.js")).toEqual([]);
     });
+
+    test("procs.ui outside the framework is an error, aliases included; comments and src/procs are fine", async () => {
+        const alias = await check(`export default function (ctx) {\n    const ui = ctx.fns.procs.ui;\n    return ui.button({ label: "x" });\n}\n`, "tasks/$route__GET.ts");
+        expect(alias.map(h => [h.rule, h.line])).toEqual([["procs-ui", 2]]);
+        expect((await check(`export default (ctx) => ctx.fns.procs.ui.escape({ text: "a" });\n`)).map(h => h.rule)).toEqual(["procs-ui"]);
+        expect(await check(`// procs.ui.respond used to do this; ctx.fns.procs.ui is gone\nexport default () => 1;\n`)).toEqual([]);
+        expect(await check(`export default (ctx) => ctx.fns.procs.ui.escape({ text: "a" });\n`, "procs/http/handle.ts")).toEqual([]);
+    });
 });

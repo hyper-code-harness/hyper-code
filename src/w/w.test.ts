@@ -177,3 +177,18 @@ test("pressable and hooks: behaviour hooks pass, visual attributes are refused",
     expect(w.iconButton({ icon: "trash", label: "Delete", submit: { name: "action", value: "delete" } })).toContain('type="submit" name="action" value="delete"');
     expect(w.button({ label: "Save", submit: true, wide: true })).toContain("data-wide");
 });
+
+test("dialog, dialogOpener, textarea and page aside: native dialog form, escaped, opener points at it", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    const d = w.dialog({ id: "new task", title: "<New>", post: "/tasks", submitLabel: "Create", body: w.textarea({ name: "description", value: "<b>", rows: 99, required: true }) });
+    expect(d).toContain('<dialog id="new-task" class="w-dialog"');
+    expect(d).toContain("&lt;New&gt;");
+    expect(d).toContain('hx-post="/tasks"'); expect(d).toContain("data-dialog-form");
+    expect(d).toContain('data-dialog-close=""'); expect(d).toContain('type="submit"');
+    expect(d).toContain('rows="40" required>&lt;b&gt;</textarea>');
+    expect(w.dialogOpener({ dialog: "new task", label: "New" })).toContain('data-dialog-open="new-task"');
+    const page = w.page({ page: "task", title: "T", body: "<p>main</p>", aside: "<p>side</p>", crumbs: w.crumbs({ items: [{ label: "Tasks", href: "/tasks" }, { label: "T" }] }) });
+    expect(page).toContain('<aside class="w-page-aside"><p>side</p></aside>');
+    expect(page.indexOf("w-crumbs")).toBeLessThan(page.indexOf("w-page-title"));
+});

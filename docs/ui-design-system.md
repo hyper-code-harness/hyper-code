@@ -238,8 +238,10 @@ inside widgets (principles 1, 3, 9, 13). Widgets themselves keep their own seman
 
 ## Legacy app styles (`procs.ui.*`, `ui-*` tokens)
 
-Application code does not call `procs.ui.*`; everything outside `src/procs/` draws with `w.*`
-(`code.quality({ rule: "deprecated" })` reports 0 calls). The visual `procs.ui.*` components are marked
+Application code does not use `procs.ui.*`; everything outside `src/procs/` draws with `w.*`. The
+`procs-ui` rule of `code.quality` is an error for any reference to `ctx.fns.procs.ui` outside `src/procs/`,
+an alias such as `const ui = ctx.fns.procs.ui` included (the call graph cannot see through an alias). Hand-written
+`ui-button` classes are the same thing in disguise: use `w.button`, or `class="w-btn" data-tone data-size`. The visual `procs.ui.*` components are marked
 `@deprecated`, keep working for compatibility, and each one names its replacement:
 
 | `procs.ui.*` | `w.*` |
@@ -247,7 +249,9 @@ Application code does not call `procs.ui.*`; everything outside `src/procs/` dra
 | escape, attr | `w.escape`, `w.marks` |
 | button | `w.button` (`submit`, `marks`, `attrs`, `keys`, `wide`), `w.iconButton`, or `w.pressable` for chrome styled by its container |
 | page, heading, row | `w.page`, `w.heading`, `w.record` |
-| field, form, select | `w.input` + `w.field`, `w.form`, `w.select` |
+| field, form, select, textarea | `w.input` + `w.field`, `w.form`, `w.select`, `w.textarea` |
+| dialog, dialogButton | `w.dialog`, `w.dialogOpener` |
+| listPage, detailPage, filterBar | `w.page` (`aside`, `crumbs`) + `w.toolbar` with `w.tabs` and a `w.form` search, rows as `w.record` in a flush `w.card` |
 | breadcrumb, segmented, stats, sparkline | `w.crumbs`, `w.segmented`, `w.stats`, `w.sparkline` |
 | respond | `w.respond` |
 | notice | `w.toast` (carries `data-role="notice"`) |

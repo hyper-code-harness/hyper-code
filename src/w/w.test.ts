@@ -314,3 +314,12 @@ test("timer counts in the browser from data hooks; code tints a diff side", asyn
     expect(await ctx.fns.w.code({ code: "a", diff: "add" })).toContain('data-diff="add"');
     expect(ctx.fns.w.mix({ mixes: [{ pre: true, end: true }] })).toBe("wx-pre wx-end");
 });
+
+test("switch: a checkbox with role switch, checked when on; the hint is one quiet line", async () => {
+    const ctx: any = await mkTestCtx();
+    const on = ctx.fns.w.switch({ name: "rag", label: "RAG <x>", hint: "why", on: true });
+    expect(on).toContain('<input type="checkbox" role="switch" data-field="rag" name="rag" value="1" checked>');
+    expect(on).toContain("RAG &lt;x&gt;");
+    expect(on).toContain('<span class="w-switch-hint">why</span>');
+    expect(ctx.fns.w.switch({ name: "g", label: "G", disabled: true })).toContain(" disabled>");
+});

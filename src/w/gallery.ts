@@ -73,6 +73,7 @@ export default async function (
                 ["badge", () => ["neutral", "info", "success", "warning", "danger", "super"].map(t => w.badge({ text: t, tone: t })).join(" ")],
                 ["dot", () => ["idle", "running", "unread", "waiting", "done", "warning", "error"].map(s => w.dot({ state: s, label: s })).join(" &nbsp; ")],
                 ["kbd", () => [w.kbd({ keys: "⌘B" }), w.kbd({ keys: "⌘⇧P" }), w.kbd({ keys: "Ctrl+\\" })].join(" ")],
+                ["switch", () => w.switch({ name: "rag", label: "Function RAG", hint: "Retrieve runtime functions for each prompt", on: true }) + w.switch({ name: "gate", label: "Pre-retrieval Gate", hint: "Requires Function RAG", disabled: true })],
                 ["timer", () => [w.timer({ since: now - 12000 }), w.timer({ since: now - 65000, deadline: now + 55000, format: "clock" })].join(" · ")],
                 ["time", () => [w.time({ ts: now - 60000 }), w.time({ ts: now - 3600e3, format: "ago" }), w.time({ ts: now - 5 * 86400e3, format: "date" })].join(" · ")],
                 ["chatIcon", () => [w.chatIcon({ model: "anthropic:claude-opus-4-5" }), w.chatIcon({ model: "anthropic:claude-opus-4-5", active: true }), w.chatIcon({ model: "openai:gpt-5", size: "md" }), w.chatIcon({ icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>', size: "md", active: true }), w.chatIcon({ model: "anthropic:claude-opus-4-5", size: "lg" })].join(" ")],

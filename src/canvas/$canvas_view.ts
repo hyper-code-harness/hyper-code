@@ -54,18 +54,18 @@ export default {
         const shown = q < 0 ? url : (() => { try { return url.slice(0, q + 1) + decodeURIComponent(url.slice(q + 1)); } catch { return url; } })();
         const back = Array.isArray(opts.item.state.back) ? opts.item.state.back.length : 0;
         const fwd = Array.isArray(opts.item.state.forward) ? opts.item.state.forward.length : 0;
-        const btn = (attr: string, icon: string, label: string, on: boolean) =>
-            `<button type="button" ${attr} ${on ? "" : "disabled"} title="${label}" aria-label="${label}" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content disabled:opacity-30 disabled:hover:bg-transparent"><i class="ph ph-${icon}" aria-hidden="true"></i></button>`;
-        const bar = `<form data-canvas-navigate="${opts.item.id}" data-canvas-navigate-kind="view" class="flex h-9 shrink-0 items-center gap-1 border-b border-ui-border bg-base-100 px-2">
-  ${btn(`data-canvas-step="back"`, "arrow-left", "Back", back > 0)}
-  ${btn(`data-canvas-step="forward"`, "arrow-right", "Forward", fwd > 0)}
-  ${btn("data-canvas-reload", "arrow-clockwise", "Reload page", true)}
-  <input name="url" value="${esc(shown)}" spellcheck="false" autocomplete="off" aria-label="Address" class="min-w-0 flex-1 rounded-md bg-base-200/70 px-2 py-1 font-mono text-xs outline-none focus:bg-base-200 focus:ring-1 focus:ring-ui-border">
-  <a href="${esc(url)}" target="_blank" rel="noopener" title="Open in a new browser tab" aria-label="Open in a new browser tab" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>
-</form>`;
+        const w = ctx.fns.w;
+        // ◀ ▶ step through the addresses this tab has shown (canvas.navigate history); canvas.js drives them by these hooks.
+        const bar = w.addressBar({
+            url: shown, href: url, mono: true,
+            back: back > 0 ? { action: "canvas-back" } : undefined, backAttrs: { "data-canvas-step": "back" },
+            forward: fwd > 0 ? { action: "canvas-forward" } : undefined, forwardAttrs: { "data-canvas-step": "forward" },
+            reload: { action: "reload-canvas-tab" }, reloadAttrs: { "data-canvas-reload": true },
+            attrs: { "data-canvas-navigate": opts.item.id, "data-canvas-navigate-kind": "view" },
+        });
         const r = await ctx.fns.rpc.render({ url });
-        const frag = `<div data-canvas-view="${opts.item.id}" data-rpc-status="${r.status}" class="min-h-0 flex-1 overflow-auto">${r.html}</div>`;
-        return `<div class="flex h-full flex-col">${bar}${frag}</div>`;
+        const frag = `<div data-canvas-view="${opts.item.id}" data-rpc-status="${r.status}">${r.html}</div>`;
+        return w.pane({ header: bar, body: frag });
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
         const a = opts.item.args;

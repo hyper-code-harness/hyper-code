@@ -323,3 +323,16 @@ test("switch: a checkbox with role switch, checked when on; the hint is one quie
     expect(on).toContain('<span class="w-switch-hint">why</span>');
     expect(ctx.fns.w.switch({ name: "g", label: "G", disabled: true })).toContain(" disabled>");
 });
+
+test("addressBar is a form named url with hooks; tabs carry hooks on the tab and its close button", async () => {
+    const ctx: any = await mkTestCtx();
+    const bar = ctx.fns.w.addressBar({ url: "https://x.dev/a", secure: true, steps: false, attrs: { "data-canvas-navigate": 7 }, reloadAttrs: { "data-canvas-reload": true } });
+    expect(bar).toStartWith('<form class="w-address" data-canvas-navigate="7">');
+    expect(bar).toContain('name="url" value="https://x.dev/a"');
+    expect(bar).toContain("ph-lock-simple");
+    expect(bar).not.toContain('aria-label="Back"');
+    expect(bar).toContain("data-canvas-reload");
+    const tabs = ctx.fns.w.tabs({ items: [{ id: "1", label: "A", attrs: { "data-canvas-tab": 1 }, close: { action: "close" }, closeAttrs: { "data-canvas-close-item": 1 } }], active: "1" });
+    expect(tabs).toContain('data-canvas-tab="1"');
+    expect(tabs).toContain('class="w-tab-close" aria-label="Close A" data-canvas-close-item="1"');
+});

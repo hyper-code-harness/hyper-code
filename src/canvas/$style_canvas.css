@@ -1,3 +1,24 @@
+/* The canvas panel: one column — the header (w.paneHeader with w.tabs), then the active tab's body. While the
+   canvas is closed only its w.rail shows (ui.layout hides the rest). */
+.canvas-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; flex: 1; overflow: hidden; background: var(--w-surface-document); }
+.canvas-panel > [data-canvas-rail] { display: none; }
+[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > :not([data-canvas-rail]) { display: none !important; }
+[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > [data-canvas-rail] { display: flex; width: 100%; height: 100%; }
+.canvas-panel > .w-pane-header { padding-right: var(--w-s1); }
+.canvas-panel .w-tabs { overflow-x: auto; scrollbar-width: none; }
+/* Many tabs: each keeps room for its icon and a few letters, then the strip scrolls instead of squeezing labels to nothing. */
+.canvas-panel .w-tabs[data-variant="equal"] .w-tab { min-width: var(--w-width-label); }
+.canvas-panel .w-tab-main { padding: 0 var(--w-s6) 0 var(--w-s3); }
+[data-canvas-body] { flex: 1; min-height: 0; overflow: auto; }
+[data-canvas-body][data-empty] { display: grid; place-items: center; }
+[data-canvas-body] > .w-pane > .w-pane-body:has(> iframe) { overflow: hidden; }
+[data-canvas-body] > .w-pane > .w-pane-body:has([data-frames-notice]) { overflow: auto; }
+/* A site that forbids framing: the frame only with the canvas-frames extension, the notice otherwise. */
+iframe[data-needs-frames] { display: none !important; } html[data-hyper-frames] iframe[data-needs-frames] { display: block !important; } html[data-hyper-frames] [data-frames-notice] { display: none; }
+[data-frames-notice] .w-card { max-width: 28rem; }
+[data-canvas-files] { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+/* A tab body that frames something (a site, a live browser, an html page) fills the body edge to edge. */
+[data-canvas-body] iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 /* Canvas loading state. A tab action (select, link, back/forward, address bar) marks the body busy until the
    panel answer is in. The old content goes away at once, together with the tab highlight — the body never shows
    the previous tab under the new one's name. The spinner and the top bar come only after a delay, so a fast
@@ -13,7 +34,7 @@
     inset: 0 0 auto 0;
     height: 2px;
     z-index: 5;
-    background: linear-gradient(90deg, transparent 0%, var(--color-primary, #0969da) 40%, var(--color-primary, #0969da) 60%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, var(--w-live) 40%, var(--w-live) 60%, transparent 100%);
     background-size: 40% 100%;
     background-repeat: no-repeat;
     opacity: 0;
@@ -29,7 +50,7 @@
     margin: -11px 0 0 -11px;
     border-radius: 50%;
     border: 2px solid color-mix(in oklab, currentColor 15%, transparent);
-    border-top-color: var(--color-primary, #0969da);
+    border-top-color: var(--w-live);
     opacity: 0;
     animation: canvas-busy-in .01s linear .25s forwards, canvas-busy-spin .7s linear infinite;
 }

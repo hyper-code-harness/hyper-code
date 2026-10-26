@@ -36,7 +36,7 @@ export default {
         // The page is served by its own route under a CSP header with a sandbox directive (canvas.htmlFrame);
         // the attribute sandbox here is the second lock. No allow-same-origin: an opaque origin.
         const src = `/canvas/${encodeURIComponent(opts.agentId)}/item/${opts.item.id}/frame`;
-        return `<iframe data-canvas-frame="${opts.item.id}" sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock allow-downloads allow-popups allow-popups-to-escape-sandbox" src="${esc(src)}" title="${esc(opts.item.title)}" referrerpolicy="no-referrer" class="block h-full w-full border-0 bg-white"></iframe>`;
+        return `<iframe data-canvas-frame="${opts.item.id}" sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock allow-downloads allow-popups allow-popups-to-escape-sandbox" src="${esc(src)}" title="${esc(opts.item.title)}" referrerpolicy="no-referrer"></iframe>`;
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
         const a = opts.item.args;

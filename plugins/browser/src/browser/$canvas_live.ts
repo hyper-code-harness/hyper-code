@@ -24,7 +24,7 @@ export default {
     render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
         const target = String(opts.item.args?.target ?? "");
         const src = `/browser/live${target ? `?${new URLSearchParams({ target })}` : ""}`;
-        return `<iframe src="${Bun.escapeHTML(src)}" title="Live browser" class="block h-full w-full border-0"></iframe>`;
+        return `<iframe src="${Bun.escapeHTML(src)}" title="Live browser"></iframe>`;
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
         return `live Chrome tab ${String(opts.item.args?.target ?? "").slice(0, 8)} — ${opts.item.title}`;

@@ -26,18 +26,19 @@ test("GET /canvas/framesExtension.zip serves the canvas frames extension as a zi
     }
 }, 30_000);
 
-test("a url tab for a site that forbids framing offers the extension download next to the open-in-new-tab link", () => {
-    const ctx: any = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
+test("a url tab for a site that forbids framing offers the extension download next to the open-in-new-tab link", async () => {
+    const ctx: any = await mkTestCtx();
     const item: any = { id: 1, title: "google.com", args: { url: "https://www.google.com/", embeddable: false, reason: "X-Frame-Options: SAMEORIGIN" } };
     const html = String(urlKind.render(ctx, { agentId: "a", item }));
     expect(html).toContain('href="/canvas/framesExtension.zip"');
     expect(html).toContain("chrome://extensions");
     expect(html).toContain("Open in a new tab");
-    expect(html).toContain("html[data-hyper-frames] .hyper-url-notice{display:none}");
+    expect(html).toContain("data-needs-frames");
+    expect(html).toContain("<div data-frames-notice>");
 });
 
-test("a url tab follows the address the extension reported, until the tab is pointed somewhere else", () => {
-    const ctx: any = { fns: { procs: { ui: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } }, w: { escape: ({ text }: { text: string }) => Bun.escapeHTML(text) } } };
+test("a url tab follows the address the extension reported, until the tab is pointed somewhere else", async () => {
+    const ctx: any = await mkTestCtx();
     const opened = "https://www.google.com/";
     const moved = "https://www.google.com/search?q=hyper";
     const item: any = { id: 1, title: "google.com", args: { url: opened, embeddable: false }, state: { url: moved, title: "hyper - Google", from: opened } };

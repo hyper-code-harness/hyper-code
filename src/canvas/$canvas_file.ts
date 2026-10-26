@@ -27,7 +27,6 @@ export default {
         return { args: { path: at.path, host: at.host ?? "local", mode, ...(tab ? { tab } : {}) }, title: at.host ? `${at.host}:${name}` : name };
     },
     async render(ctx: Context, opts: { agentId: string; item: types.canvas.Item }) {
-        const esc = (text: string) => ctx.fns.w.escape({ text });
         const a = opts.item.args;
         try {
             const host = a.host && a.host !== "local" ? String(a.host) : undefined;
@@ -35,9 +34,9 @@ export default {
             if (!info) throw new Error(`file not found: ${host ? host + ":" : ""}${a.path}`);
             const tab = ["preview", "code", "edit"].includes(a.tab) ? a.tab : a.mode === "preview" ? "preview" : a.mode === "source" ? "code" : "";
             const view = await ctx.fns.files.view({ path: String(a.path), host, isDir: info.isDir, tab, wide: true, assetsBase: true });
-            return `<div data-canvas-files class="flex h-full min-h-0 flex-col">${view.html}</div>`;
+            return `<div data-canvas-files>${view.html}</div>`;
         } catch (error: any) {
-            return `<div class="flex h-full items-center justify-center p-6 text-sm text-faint">${esc(String(error?.message ?? error))}</div>`;
+            return ctx.fns.w.empty({ icon: "warning", title: "This file could not be opened", hint: String(error?.message ?? error), tone: "danger" });
         }
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {

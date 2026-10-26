@@ -49,40 +49,27 @@ export default {
         const url = typeof st.url === "string" && st.from === opened && /^https?:\/\//.test(st.url) ? st.url : opened;
         // Separate origin, so allow-same-origin only lets the site keep its own cookies and storage; no
         // allow-top-navigation, so a frame-busting script cannot take the app page away.
-        const frame = (cls: string) => `<iframe src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads" data-canvas-url-frame referrerpolicy="no-referrer" allow="fullscreen; clipboard-write" class="${cls} h-full w-full border-0 bg-white"></iframe>`;
+        const w = ctx.fns.w;
+        const frame = (hook: Record<string, boolean>) => `<iframe src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads" data-canvas-url-frame${Object.keys(hook).map(k => ` ${k}`).join("")} referrerpolicy="no-referrer" allow="fullscreen; clipboard-write"></iframe>`;
         // A small browser chrome: the address (editable — Enter navigates this tab) and "open in a new tab".
-        // Reload is the panel's own button. Back/forward inside the site are not ours to drive: the frame is
-        // another origin.
-        const bar = `<form data-canvas-navigate="${opts.item.id}" data-canvas-url-from="${esc(opened)}" class="flex h-9 shrink-0 items-center gap-1.5 border-b border-ui-border bg-base-100 px-2">
-  <button type="button" data-canvas-reload title="Reload page" aria-label="Reload page" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-  <i class="ph ph-${url.startsWith("https:") ? "lock-simple" : "globe"} shrink-0 text-faint" aria-hidden="true"></i>
-  <input name="url" value="${esc(url)}" spellcheck="false" autocomplete="off" aria-label="Address" class="min-w-0 flex-1 rounded-md bg-base-200/70 px-2 py-1 text-xs outline-none focus:bg-base-200 focus:ring-1 focus:ring-ui-border">
-  <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Open in a new browser tab" aria-label="Open in a new browser tab" class="flex size-7 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-base-content"><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>
-</form>`;
-        const wrap = (inner: string) => `<div class="flex h-full flex-col">${bar}<div class="relative min-h-0 flex-1">${inner}</div></div>`;
+        // Back/forward inside the site are not ours to drive: the frame is another origin.
+        const bar = w.addressBar({ url, secure: url.startsWith("https:"), steps: false, attrs: { "data-canvas-navigate": opts.item.id, "data-canvas-url-from": opened }, reload: { action: "reload-canvas-tab" }, reloadAttrs: { "data-canvas-reload": true } });
+        const wrap = (inner: string) => w.pane({ header: bar, body: inner });
         if (a.embeddable === false) {
-            // With the canvas-frames extension (extensions/canvas-frames) the browser drops the framing
-            // headers inside Hyper tabs and marks <html data-hyper-frames>; then the frame shows and the
-            // notice hides. Without it only the notice is visible.
-            return wrap(`<style>.hyper-url-frame{display:none}html[data-hyper-frames] .hyper-url-frame{display:block}html[data-hyper-frames] .hyper-url-notice{display:none}</style>
-${frame("hyper-url-frame")}
-<div class="hyper-url-notice flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-  <div class="text-base font-medium">${esc(new URL(opened).hostname)} does not allow embedding in another page</div>
-  <div class="max-w-md text-sm text-faint">${esc(String(a.reason ?? ""))}</div>
-  <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Open in a new tab</a>
-  <div class="mt-4 max-w-md rounded-lg border border-ui-border p-4 text-left text-sm">
-    <div class="font-medium">Show such sites right here</div>
-    <div class="mt-1 text-faint">Install the Hyper canvas frames extension for Chrome. Inside Hyper tabs only, it lets pages that forbid embedding open in the canvas.</div>
-    <ol class="mt-2 list-decimal space-y-0.5 pl-5 text-faint">
-      <li><a href="/canvas/framesExtension.zip" download class="link">Download the extension</a> and unzip it.</li>
-      <li>Open <code>chrome://extensions</code> and turn on Developer mode.</li>
-      <li>Load unpacked → choose the <code>hyper-canvas-frames</code> folder, then reload this page.</li>
-    </ol>
-    <a href="/canvas/framesExtension.zip" download class="btn btn-sm btn-primary mt-3"><i class="ph ph-download-simple" aria-hidden="true"></i> Download extension</a>
-  </div>
-</div>`);
+            // The site forbids framing. With the Hyper canvas frames extension (it marks <html data-hyper-frames>)
+            // the frame shows anyway; without it, a notice says why and how to get the extension.
+            const steps = w.list({ body: [
+                w.listRow({ label: "Download the extension and unzip it", icon: "download-simple", action: { href: "/canvas/framesExtension.zip" } }),
+                w.listRow({ label: "Open chrome://extensions and turn on Developer mode", icon: "toggle-right" }),
+                w.listRow({ label: "Load unpacked → the hyper-canvas-frames folder, then reload this page", icon: "folder-open" }),
+            ].join("") });
+            const help = w.card({ title: "Show such sites right here", icon: "puzzle-piece", body: w.box({ body: w.box({ body: "Install the Hyper canvas frames extension for Chrome. Inside Hyper tabs only, it lets pages that forbid embedding open in the canvas.", mix: { ink: "muted" } }) + steps, mix: { layout: "stack", gap: "s2" } }) });
+            const notice = w.box({ mix: { layout: "stack", gap: "s4", align: "center", pad: "s6" }, body:
+                w.empty({ icon: "prohibit", title: `${new URL(opened).hostname} does not allow embedding in another page`, hint: String(a.reason ?? ""), action: w.button({ label: "Open in a new tab", icon: "arrow-square-out", action: { href: url } }) })
+                + help });
+            return wrap(frame({ "data-needs-frames": true }) + `<div data-frames-notice>${notice}</div>`);
         }
-        return wrap(frame("block"));
+        return wrap(frame({}));
     },
     describe(_ctx: Context, opts: { item: types.canvas.Item }) {
         const a = opts.item.args;

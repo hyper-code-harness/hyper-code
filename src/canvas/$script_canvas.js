@@ -26,6 +26,8 @@
         root.querySelectorAll('[data-canvas-chat-toggle]').forEach(b => {
             b.setAttribute('aria-pressed', String(collapsed));
             b.title = (collapsed ? 'Expand chat' : 'Collapse chat') + ' — ' + CHAT_KEY_LABEL;
+            const icon = b.querySelector('.ph');
+            if (icon) { icon.classList.toggle('ph-arrows-in-simple', collapsed); icon.classList.toggle('ph-arrows-out-simple', !collapsed); }
             b.setAttribute('aria-label', b.title);
         });
         root.querySelectorAll('[data-canvas-toggle="toggle"]').forEach(b => {
@@ -258,9 +260,9 @@
             event.preventDefault();
             if (tab.hasAttribute('aria-current')) return;
             // Show the choice at once; the panel with its body follows in the one answer.
-            const ON = ['bg-base-100', 'text-base-content'], OFF = ['border-b', 'bg-base-300/60', 'text-muted', 'hover:bg-base-300'];
-            root.querySelectorAll('[data-canvas-tab][aria-current]').forEach(t => { t.removeAttribute('aria-current'); t.classList.remove(...ON); t.classList.add(...OFF); });
-            tab.setAttribute('aria-current', 'true'); tab.classList.remove(...OFF); tab.classList.add(...ON);
+            // Highlight at once (w.tabs: data-active on the tab, aria-current on its button); the panel answer confirms.
+            root.querySelectorAll('[data-canvas-tab][aria-current]').forEach(t => { t.removeAttribute('aria-current'); t.closest('.w-tab')?.removeAttribute('data-active'); });
+            tab.setAttribute('aria-current', 'page'); tab.closest('.w-tab')?.setAttribute('data-active', '');
             tabAction(root, { activeItemId: Number(tab.getAttribute('data-canvas-tab')) });
             return;
         }
@@ -287,12 +289,10 @@
         const reopen = event.target.closest?.('[data-canvas-reopen]');
         if (reopen && root.contains(reopen)) {
             event.preventDefault();
-            reopen.closest('details')?.removeAttribute('open');
+            reopen.closest('[popover]')?.hidePopover?.();
             tabAction(root, { reopenItemId: Number(reopen.getAttribute('data-canvas-reopen')) });
             return;
         }
-        // A click elsewhere closes the recently-closed menu.
-        for (const menu of root.querySelectorAll('[data-canvas-history][open]')) if (!menu.contains(event.target)) menu.removeAttribute('open');
         const toggle = event.target.closest?.('[data-canvas-toggle]');
         if (toggle && root.contains(toggle)) {
             event.preventDefault();

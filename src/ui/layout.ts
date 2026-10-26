@@ -48,7 +48,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <link rel="stylesheet" href="/ui/vendor/phosphor.css">
 <style>
 [data-chat-header]:has([data-agent-running]) .w-chat-icon-ring[data-live] { display: block; }
-.canvas-tab { font-size: 13px; }
 .glass-panel {
   background-color: rgb(from var(--color-base-100) r g b / .68);
   background-image: linear-gradient(110deg, rgb(255 255 255 / .16), transparent 48%, rgb(255 255 255 / .05));
@@ -83,7 +82,6 @@ html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column;
    (h-8, inside a panel with my-2 ml-2) or the chat header — which makes room for it on the left. */
 /* The circle's slot mirrors the right end of the tab row (history, reload, close): a cell with a bottom border
    and a hairline towards the tabs; the circle itself looks like those buttons. */
-html[data-dock-mode="dot"] [data-page="agent"][data-canvas-open] > .canvas-panel > header::before { content: ""; flex: none; width: 2.5rem; border-right: 1px solid var(--color-ui-border); border-bottom: 1px solid var(--color-ui-border); }
 html[data-dock-mode="dot"] [data-page="agent"]:not([data-canvas-open]) #chat-panel > header { padding-left: 2.75rem !important; }
 html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left: 2.75rem; }
 /* Hovered (or holding focus / an open popover) the circle unfolds into the whole bar over the page, the circle
@@ -130,17 +128,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 /* Closed canvas = a folded bar like the Dock: a 40px column at the chat's left with the same 32px grey header
    cell (opens the canvas) and one icon per tab (opens it on that tab). Always there, so the canvas can always be
    opened from the same place; empty canvas = just the header cell. */
-.canvas-rail { display: none; }
 [data-page="agent"]:not([data-canvas-open]) > .canvas-panel { display: flex !important; flex: 0 0 2.5rem !important; width: 2.5rem !important; margin: 0 !important; border: 0 !important; border-right: 1px solid var(--color-ui-border) !important; border-radius: 0 !important; box-shadow: none !important; background: var(--color-base-200) !important; overflow: hidden; }
-[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > :not(.canvas-rail) { display: none !important; }
-[data-page="agent"]:not([data-canvas-open]) > .canvas-panel > .canvas-rail { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; }
-.canvas-rail-head { display: grid; place-items: center; width: 100%; height: 2rem; flex: none; border-bottom: 1px solid var(--color-ui-border); color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-.canvas-rail-head > i { font-size: 15px; }
-.canvas-rail-head:hover { color: var(--color-base-content); background: color-mix(in oklab, var(--color-base-content) 6%, transparent); }
-.canvas-rail-tab { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; margin-top: .375rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-.canvas-rail-tab > i { font-size: 15px; }
-.canvas-rail-tab:hover { color: var(--color-base-content); background: color-mix(in oklab, var(--color-base-content) 7%, transparent); }
-.canvas-rail-tab.is-active { color: var(--color-base-content); background: var(--color-base-100); box-shadow: 0 0 0 1px var(--color-ui-border); }
 @media (max-width: 700px) { [data-page="agent"]:not([data-canvas-open]) > .canvas-panel { display: none !important; } }
 [data-page="agent"][data-canvas-open] > .canvas-panel { display: flex; }
 [data-page="agent"][data-canvas-open] > .canvas-resizer { display: block; flex: 0 0 8px; cursor: col-resize; position: relative; touch-action: none; }
@@ -151,9 +139,6 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 /* Collapsed chat (canvas_state.chat_collapsed, ⌘\ — canvas.toggleChat): the canvas takes the whole page and the
    chat floats over its bottom as a strip — the composer and, above it, the latest message. Hovering or focusing
    the strip shows a little more of the conversation; the header button / ⌘\ brings the column back. */
-[data-page="agent"][data-canvas-open] .canvas-chat-toggle { display: inline-flex; }
-[data-canvas-chat-toggle] .canvas-chat-unfold, [data-page="agent"][data-chat-collapsed] [data-canvas-chat-toggle] .canvas-chat-fold { display: none; }
-[data-page="agent"][data-chat-collapsed] [data-canvas-chat-toggle] .canvas-chat-unfold { display: inline; }
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-resizer { display: none; }
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-panel { margin-right: .5rem; }
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel {
@@ -318,13 +303,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* One header system for every pane (side panel, canvas tabs, chat): 32px, the same grey, 13px titles —
      medium for the pane's own name, regular for tabs —, 12px muted secondary text, and every icon button the
      same 28px square with a 15px icon in the same grey. */
-  html[data-chrome="flat"] .canvas-panel > header { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
-  html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-  html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
-  html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
-  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *) > i.ph { font-size: 15px; }
-  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   /* The canvas address row: one quiet 32px row in the UI font, not a second header in monospace. */
   html[data-chrome="flat"] [data-canvas-navigate] { height: 2rem !important; border-bottom: 1px solid var(--color-ui-border); background: var(--color-base-100); padding: 0 .375rem !important; gap: .125rem !important; }
   html[data-chrome="flat"] [data-canvas-navigate] input[name="url"] { font-family: inherit !important; font-size: 12px !important; height: 1.5rem; background: transparent !important; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
@@ -334,11 +312,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring stays still. */
   html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }
   /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
-  html[data-chrome="flat"] .canvas-panel > header { font-size: 12px !important; }
-  html[data-chrome="flat"] .canvas-tab,
-  html[data-chrome="flat"] .canvas-tab span { font-size: 12px !important; line-height: 1rem; }
-  html[data-chrome="flat"] .canvas-panel > header :is(button, a, summary):not(.canvas-tab *):not([popover] *) > i.ph { font-size: 14px !important; }
-  html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
   /* Fewer things in the composer: the context ring and the quiet prompt-inject icon live in the ⋯ panel (Context
      card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still
      shows as its chip above the text. */
@@ -356,8 +329,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
        chat    = --chat-bg — the conversation (between chrome and white)
        surface = base-100  — documents: canvas page, active tab, address row, composer, pills, menus
      The chat header and inactive canvas tabs used base-300 at 60% (a darker, slightly different grey). */
-  html[data-chrome="flat"] .canvas-tab:not([aria-current]) { background: var(--color-base-200) !important; background-image: none !important; }
-  html[data-chrome="flat"] .canvas-tab:not([aria-current]):hover { background: color-mix(in oklab, var(--color-base-content) 5%, var(--color-base-200)) !important; }
 }
 </style>
 

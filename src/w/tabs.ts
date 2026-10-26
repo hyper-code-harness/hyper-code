@@ -1,14 +1,14 @@
 /**
  * Draws a tab strip: equal-width tabs that fill a header row (the canvas) or an underlined strip (pages).
  * Each tab can carry an icon, a count and a close button.
- * @param opts.items The tabs, in order.
+ * @param opts.items The tabs, in order; attrs and closeAttrs are behaviour hooks (w.hooks) on the tab and its close button.
  * @param opts.active Id of the open tab.
  * @param opts.variant Look of the strip. @default "equal"
  * @param opts.end Trusted HTML at the right end of the strip (tools, an edit toggle).
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The tabs, in order. */
-    items: Array<{ id: string; label: string; icon?: string; count?: number; action?: types.w.Action; close?: types.w.Action; title?: string; attrs?: Record<string, string | number | boolean | null | undefined> }>;
+    items: Array<{ id: string; label: string; icon?: string; count?: number; action?: types.w.Action; close?: types.w.Action; title?: string; attrs?: Record<string, string | number | boolean | null | undefined>; closeAttrs?: Record<string, string | number | boolean | null | undefined> }>;
     /** Id of the open tab. */
     active?: string;
     /** Look of the strip. @default "equal" */
@@ -21,7 +21,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     // not role="tablist", which promises arrow-key tab panels these strips do not have.
     const tabs = (opts.items ?? []).map(it => {
         const { tag, attrs } = ctx.fns.w.actionAttrs({ action: it.action ?? { action: "select-tab" } });
-        const close = it.close ? (() => { const c = ctx.fns.w.actionAttrs({ action: it.close }); return `<${c.tag} class="w-tab-close" aria-label="Close ${esc(it.label)}"${c.attrs}>${ctx.fns.w.icon({ name: "x", size: 12 })}</${c.tag}>`; })() : "";
+        const close = it.close ? (() => { const c = ctx.fns.w.actionAttrs({ action: it.close }); return `<${c.tag} class="w-tab-close" aria-label="Close ${esc(it.label)}"${ctx.fns.w.hooks({ attrs: it.closeAttrs })}${c.attrs}>${ctx.fns.w.icon({ name: "x", size: 12 })}</${c.tag}>`; })() : "";
         const current = it.id === opts.active ? ' aria-current="page"' : "";
         return `<span class="w-tab"${it.id === opts.active ? " data-active" : ""}><${tag} class="w-tab-main"${current} title="${esc(it.title ?? it.label)}"${ctx.fns.w.hooks({ attrs: it.attrs })}${attrs}>${it.icon ? ctx.fns.w.icon({ name: it.icon, size: 14 }) : ""}<span class="w-tab-label">${esc(it.label)}</span>${it.count ? `<span class="w-tab-count">${it.count}</span>` : ""}</${tag}>${close}</span>`;
     }).join("");

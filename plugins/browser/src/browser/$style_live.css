@@ -1,0 +1,23 @@
+/* The live view page (/browser/live): the toolbar is w.addressBar with w widgets in it; this sheet only lays out
+   the page — toolbar on top, the picture centred on a chrome-grey stage below — and keeps the toolbar's extras
+   from crowding the address on a narrow pane. */
+body.lv { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--w-surface-chrome); color: var(--w-ink); font-family: system-ui, sans-serif; font-size: var(--w-text-ui); }
+body.lv > .w-address { flex: none; }
+body.lv > .w-address .w-address-input { min-width: var(--w-width-name); }
+/* The tabs opener carries the current tab's title: a few words, then an ellipsis. */
+#lv-tabs { max-width: var(--w-width-name); }
+#lv-tabs > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lv-quality { height: var(--w-control-sm); border-color: transparent; background: none; }
+#lv-status { white-space: nowrap; }
+#lv-info-list .w-kv dt { width: var(--w-width-label); }
+#lv-info-list .w-kv dd { font-family: var(--w-mono); font-size: var(--w-text-small); }
+#lv-info-list .w-kv dd[data-tone="danger"] { color: var(--w-danger); } #lv-info-list .w-kv dd[data-tone="success"] { color: var(--w-success); }
+body.lv > main { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+/* The picture is Chrome's page: white paper whatever the theme; greyed out while it is stale. */
+#lv-screen { background: #fff; outline: none; cursor: default; border-radius: var(--w-radius-item); box-shadow: var(--w-shadow-raised); transition: filter var(--w-motion-fast); }
+body.lv > main[data-stale="1"] #lv-screen { filter: grayscale(.6) opacity(.6); }
+/* Narrow pane: the address keeps its room; the tab title and the status word fold to their icons. */
+@media (max-width: 560px) {
+    #lv-tabs > span, #lv-status .w-dot-label > span:last-child { display: none; }
+    #lv-quality { display: none; }
+}

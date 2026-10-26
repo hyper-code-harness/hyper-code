@@ -4,25 +4,29 @@
 (() => {
     const $ = (id) => document.getElementById(id);
     const canvas = $("lv-screen"), g = canvas.getContext("2d");
-    const tabs = $("lv-tabs"), address = $("lv-address"), status = $("lv-status");
+    const tabs = $("lv-tabs"), address = document.querySelector("#lv-nav input[name=url]"), status = $("lv-status");
     const params = new URLSearchParams(location.search);
     let target = params.get("target") || "";
     let ws = null, meta = null, decoding = false, latest = null, retry = 1000, lastError = "", opened = false;
     // What the status pill and the info panel show: the socket to Hyper, the last
     // health report from the server (Chrome's answer time) and when a frame came.
     const diag = { socket: "connecting", openedAt: 0, lastFrameAt: 0, health: null, closes: 0, lastClose: "" };
-    const banner = $("lv-banner"), stage = canvas.parentElement;
+    const stage = canvas.parentElement;
 
     // The pill carries a short, stable word; the full reason lives in the info panel (and the
     // pill's tooltip), so a reconnect loop does not make the toolbar jump. Nothing is laid over
     // the picture: a stale picture is only greyed out.
+    // The pill is a w.dot with its word: ok → done (green), wait → waiting, bad → error.
+    const dotState = { ok: "done", wait: "waiting", bad: "error" };
+    const statusDot = status.querySelector(".w-dot"), statusWord = status.querySelector(".w-dot-label > span:last-child");
     const setStatus = (text, cls, detail) => {
-        if (status.textContent !== text) status.textContent = text;
+        if (statusWord.textContent !== text) statusWord.textContent = text;
         status.dataset.state = cls || "";
+        statusDot.dataset.state = dotState[cls] || "idle";
         status.title = detail ? `${detail} — click for details` : "Connection details";
         renderInfo();
     };
-    const showBanner = (text) => { banner.hidden = true; stage.dataset.stale = text ? "1" : ""; };
+    const showBanner = (text) => { stage.dataset.stale = text ? "1" : ""; };
     // "live" only when Chrome answers; a static page sends no frames, so the
     // server's health ping (every 3 s) is the proof of life, frames are a bonus.
     function judge() {
@@ -113,32 +117,32 @@
         canvas.style.height = `${Math.floor(canvas.height * k)}px`;
     }
 
-    // Tabs menu: "New tab" first, always; then Chrome's open tabs, the shown one marked.
-    const tabMenu = $("lv-tabmenu"), tabsLabel = $("lv-tabs-label");
+    // Tabs menu: "New tab" (drawn by the server) first; then Chrome's open tabs as w.listRow rows, the shown one current.
+    const tabMenu = $("lv-tabmenu"), tabList$ = $("lv-tablist"), tabsLabel = tabs.querySelector("span");
     let tabList = [], tabCurrent = "";
+    const closePops = () => { for (const p of document.querySelectorAll("[popover]")) { try { p.hidePopover(); } catch {} } };
     function renderTabs(list, current) {
         tabList = list; tabCurrent = current;
         const cur = list.find((t) => t.id === current);
         tabsLabel.textContent = cur ? (cur.title || cur.url || "Tab") : "Tabs";
         tabs.title = `${list.length} Chrome tab${list.length === 1 ? "" : "s"}`;
-        const item = (cls, html, onclick) => {
+        tabList$.replaceChildren(...list.map((t) => {
             const b = document.createElement("button");
-            b.type = "button"; b.setAttribute("role", "menuitem"); if (cls) b.className = cls;
-            b.append(...html); b.onclick = onclick;
+            b.type = "button"; b.className = "w-row"; b.title = t.url || "";
+            if (t.id === current) b.setAttribute("aria-current", "page");
+            const lead = document.createElement("span"); lead.className = "w-row-lead";
+            const icon = document.createElement("i"); icon.className = "w-icon ph ph-browser"; icon.dataset.size = "16"; icon.setAttribute("aria-hidden", "true");
+            lead.append(icon);
+            const text = document.createElement("span"); text.className = "w-row-text";
+            const label = document.createElement("span"); label.className = "w-row-label"; label.textContent = t.title || t.url || t.id;
+            const detail = document.createElement("span"); detail.className = "w-row-detail"; detail.textContent = t.url;
+            text.append(label, detail);
+            b.append(lead, text);
+            b.onclick = () => { closePops(); if (t.id !== tabCurrent) send({ t: "switch", id: t.id }); canvas.focus(); };
             return b;
-        };
-        const fresh = item("new", ["＋ New tab"], () => { closePops(); send({ t: "new" }); address.value = ""; address.focus(); });
-        const rows = list.map((t) => {
-            const box = document.createElement("span"); box.className = "t";
-            const title = document.createElement("b"); title.textContent = t.title || t.url || t.id;
-            const url = document.createElement("small"); url.textContent = t.url;
-            box.append(title, url);
-            const b = item("", [box], () => { closePops(); if (t.id !== tabCurrent) send({ t: "switch", id: t.id }); canvas.focus(); });
-            if (t.id === current) b.setAttribute("aria-current", "true");
-            return b;
-        });
-        tabMenu.replaceChildren(fresh, document.createElement("hr"), ...rows);
+        }));
     }
+    tabMenu.querySelector("[data-live-new]").onclick = () => { closePops(); send({ t: "new" }); address.value = ""; address.focus(); };
 
     // Canvas position → page CSS pixels. The canvas keeps the frame's aspect, so
     // one scale per axis from its drawn box to the frame's device size.
@@ -198,7 +202,7 @@
     const info = $("lv-info"), infoList = $("lv-info-list");
     const ago = (t) => t ? `${((Date.now() - t) / 1000).toFixed(1)} s ago` : "never";
     function renderInfo() {
-        if (!info || info.hidden) return;
+        if (!info || !info.matches(":popover-open")) return;
         const h = diag.health || {};
         const rows = [
             ["Page", location.host],
@@ -213,46 +217,34 @@
             ["Input", h.inputs != null ? `${h.inputs} events` : "—"],
             ["Error", lastError || "—", lastError ? "bad" : ""],
         ];
-        infoList.replaceChildren(...rows.flatMap(([k, v, cls]) => {
+        // w.keyValue markup: <dl class="w-kv"><div><dt/><dd/></div>…; a bad value is danger, a good one success.
+        const dl = infoList.querySelector(".w-kv");
+        dl.replaceChildren(...rows.map(([k, v, cls]) => {
+            const row = document.createElement("div");
             const dt = document.createElement("dt"); dt.textContent = k;
-            const dd = document.createElement("dd"); dd.textContent = v; if (cls) dd.className = cls;
-            return [dt, dd];
+            const dd = document.createElement("dd"); dd.textContent = v;
+            if (cls) dd.dataset.tone = cls === "bad" ? "danger" : "success";
+            row.append(dt, dd);
+            return row;
         }));
     }
     setInterval(renderInfo, 1000);
-    status.onclick = () => { info.hidden = !info.hidden; status.setAttribute("aria-pressed", String(!info.hidden)); $("lv-paste").hidden = true; tabMenu.hidden = true; tabs.setAttribute("aria-expanded", "false"); renderInfo(); };
+    info.addEventListener("toggle", renderInfo);
 
     $("lv-back").onclick = () => send({ t: "back" });
     $("lv-forward").onclick = () => send({ t: "forward" });
     $("lv-reload").onclick = () => send({ t: "reload" });
-    tabs.onclick = () => {
-        const open = tabMenu.hidden;
-        closePops();
-        tabMenu.hidden = !open; tabs.setAttribute("aria-expanded", String(open));
-    };
-    address.addEventListener("keydown", (e) => { if (e.key === "Enter") { send({ t: "navigate", url: address.value }); canvas.focus(); } });
-    const pasteBox = $("lv-paste");
-    $("lv-insert").onclick = () => {
-        pasteBox.hidden = !pasteBox.hidden; info.hidden = true; tabMenu.hidden = true; tabs.setAttribute("aria-expanded", "false");
-        $("lv-insert").setAttribute("aria-pressed", String(!pasteBox.hidden));
-        if (!pasteBox.hidden) $("lv-paste-text").focus();
-    };
+    // The address is a w.addressBar form: Enter submits it.
+    $("lv-nav").addEventListener("submit", (e) => { e.preventDefault(); send({ t: "navigate", url: address.value }); canvas.focus(); });
+    const pasteBox = $("lv-paste"), pasteText = $("lv-paste-text");
+    pasteBox.addEventListener("toggle", (e) => { if (e.newState === "open") pasteText.focus(); });
     $("lv-paste-send").onclick = () => {
-        const text = $("lv-paste-text").value;
+        const text = pasteText.value;
         if (text) send({ t: "insert", text });
-        $("lv-paste-text").value = ""; pasteBox.hidden = true; $("lv-insert").setAttribute("aria-pressed", "false"); canvas.focus();
+        pasteText.value = ""; closePops(); canvas.focus();
     };
-    // Popups close on Escape and on a click anywhere outside them and their buttons.
-    const closePops = () => {
-        pasteBox.hidden = true; info.hidden = true; tabMenu.hidden = true;
-        $("lv-insert").setAttribute("aria-pressed", "false"); status.setAttribute("aria-pressed", "false"); tabs.setAttribute("aria-expanded", "false");
-    };
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (!pasteBox.hidden || !info.hidden || !tabMenu.hidden)) { e.stopPropagation(); closePops(); canvas.focus(); } }, true);
-    document.addEventListener("mousedown", (e) => {
-        const t = e.target;
-        if (pasteBox.contains(t) || info.contains(t) || tabMenu.contains(t) || tabs.contains(t) || $("lv-insert").contains(t) || status.contains(t)) return;
-        closePops();
-    }, true);
+    // Popovers close on Escape and outside clicks by themselves; back to the picture after either.
+    for (const p of document.querySelectorAll("[popover]")) p.addEventListener("toggle", (e) => { if (e.newState === "closed" && !document.querySelector(":popover-open")) canvas.focus({ preventScroll: true }); });
 
     connect();
     canvas.focus();

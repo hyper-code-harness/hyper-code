@@ -20,6 +20,7 @@ describe('agent.stop', () => {
           mutateScratchpad: () => {},
         },
         events: { refreshAgentMeta: () => {} },
+        tools: { runs: () => [], abortRun: () => ({ aborted: false }) },
       },
     };
     const res = await stop(ctx, null, { agent, clearQueue: true });
@@ -46,6 +47,7 @@ describe('agent.stop', () => {
         },
         session: { appendEventWithHtml: () => {}, syncAgentState: () => {}, mutateScratchpad: () => {} },
         events: { refreshAgentMeta: () => {} },
+        tools: { runs: () => [], abortRun: () => ({ aborted: false }) },
       },
     };
     await stop(ctx, null, { agent, clearQueue: false });
@@ -70,10 +72,30 @@ describe('agent.stop', () => {
         appendEventWithHtml: () => {}, syncAgentState: () => {},
       },
       events: { refreshAgentMeta: () => {} },
+      tools: { runs: () => [], abortRun: () => ({ aborted: false }) },
     } };
     await stop(ctx, null, { agent });
     expect(committed.plan.pausedAt).toBe(1600);
     expect(committed.plan.tasks[0]).toMatchObject({ activeSince: null, elapsedMs: 650 });
+  });
+
+  // The bug: stop aborted the run but left the tool call itself running. A bash command
+  // started before the press went on to its own end, and the chat kept spinning on work
+  // the person had already stopped.
+  test('aborts every tool call this agent has in flight', async () => {
+    const aborted: string[] = [];
+    const agent: any = { id: 'a1', abortController: null, isStreaming: true };
+    const ctx: any = { fns: {
+      procs: { db: { run: () => ({ changes: 1 }) } },
+      session: { appendEventWithHtml: () => {}, syncAgentState: () => {}, mutateScratchpad: () => {} },
+      events: { refreshAgentMeta: () => {} },
+      tools: {
+        runs: ({ agentId }: any) => agentId === 'a1' ? [{ id: 'r1' }, { id: 'r2' }] : [],
+        abortRun: ({ id }: any) => { aborted.push(id); return { aborted: true }; },
+      },
+    } };
+    await stop(ctx, null, { agent });
+    expect(aborted).toEqual(['r1', 'r2']);
   });
 
 });

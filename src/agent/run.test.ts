@@ -45,12 +45,12 @@ describe('agent.run', () => {
     test('parallel calls in one reply each get their own answer', async () => {
         const ctx: any = await quietCtx();
         ctx.fns.files.read = async (_c: any, _s: any, o: any) => `READ:${o.path}`;
-        ctx.fns.files.grep = async () => [{ path: 'a.ts', line: 1, column: 2, text: 'hit' }];
+
 
         const agent = await mkAgent(ctx, [
             { toolCalls: [
                 { name: 'read', args: { path: 'a.ts' } },
-                { name: 'grep', args: { pattern: 'hit' } },
+                { name: 'read', args: { path: 'b.ts' } },
             ] },
             { text: 'оба готовы' },
         ]);
@@ -60,7 +60,7 @@ describe('agent.run', () => {
         expect(msgs.map((m: any) => m.role)).toEqual(['user', 'assistant', 'tool', 'tool', 'assistant']);
         expect(msgs[1]!.tool_calls).toHaveLength(2);
         expect(msgs[2]!.content).toBe('READ:a.ts');
-        expect(msgs[3]!.content).toBe('a.ts:1:2: hit');
+        expect(msgs[3]!.content).toBe('READ:b.ts');
         expect([msgs[2]!.tool_call_id, msgs[3]!.tool_call_id])
             .toEqual(msgs[1]!.tool_calls.map((c: any) => c.id));
     });
@@ -88,7 +88,7 @@ describe('agent.run', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
 
         const wire = ctx.fns.agent.wireTools({ agent, api: 'anthropic' });
-        expect(wire.map((t: any) => t.name).sort()).toEqual(['bash', 'edit', 'eval', 'find', 'grep', 'read', 'respondHtml', 'write']);
+        expect(wire.map((t: any) => t.name).sort()).toEqual(['bash', 'edit', 'eval', 'read', 'respondHtml', 'write']);
 
         const narrowed = ctx.fns.agent.wireTools({ agent: { ...agent, tools: ['read'] }, api: 'openai' });
         expect(narrowed).toHaveLength(1);
@@ -225,6 +225,26 @@ describe('transcript surgery keeps JSON pairs intact', () => {
         const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
         expect(msgs.filter((m: any) => m.message_type === 'goal_feedback')).toHaveLength(2);
         expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(2);
+    });
+
+    // The bug the stop button had: a run aborted between two turns threw nothing, because
+    // every await had already returned. The loop went straight on to the next model call,
+    // so a chat with tools queued up kept working long after the press.
+    test('a run aborted between turns stops instead of starting the next model call', async () => {
+        const ctx: any = await quietCtx();
+        const agent = await mkAgent(ctx, [
+            { text: 'working', toolCalls: [{ name: 'read', args: { path: 'a.ts' } }] },
+            { text: 'should never be requested' },
+        ]);
+        // Abort the way the stop button does: while a tool call is being executed.
+        ctx.fns.files.read = async () => { agent.abortController?.abort('stopped_by_user'); return 'x'; };
+
+        await expect(ctx.fns.agent.run({ agent, userText: 'go' })).rejects.toThrow('stopped_by_user');
+
+        // One model call was made, not two: the second turn of the script is untouched.
+        expect(agent.scratchpad.mockTurn).toBe(1);
+        const msgs = await ctx.fns.session.getMessages({ id: agent.id });
+        expect(msgs.map((m: any) => m.content)).not.toContain('should never be requested');
     });
 
 });

@@ -72,7 +72,7 @@ test("canvas.search ranks pages from the function index, plugins' too; the promp
     const prompt = await ctx.fns.canvas.promptSection({});
     expect(prompt).toContain("Three kinds of tab");
     expect(prompt).toContain("canvas.search({ query })");
-    expect(prompt).toMatch(/There are \d+ \(plugins' too\)/);
+    expect(prompt).toMatch(/there are \d+, find one/);
     expect(prompt).not.toContain("`files.page`");
-    expect(prompt.length).toBeLessThan(3200);
+    expect(prompt.length).toBeLessThan(1400);
 });

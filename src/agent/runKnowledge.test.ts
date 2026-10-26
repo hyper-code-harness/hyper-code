@@ -17,7 +17,7 @@ function harness(turns: any[], scratchpad: any = { knowledgeTrackingEnabled: tru
         procs: { db: { select: async () => [{ i: Math.max(-1, ...rows.filter(r => r.role === 'user').map(r => r.idx)) }] } },
         llm: { stream: async () => { const turn = turns.shift(); if (turn instanceof Error) throw turn; return turn ?? { text: 'done' }; } },
         markdown: { render: async ({ source }: any) => source },
-        tools: { call: async ({ name }: any) => ({ output: 'tool persisted', ...(name === 'respondHtml' ? { terminal: { type: 'html', html: '<p>final</p>', text: 'final' } } : {}) }) },
+        tools: { list: () => [], call: async ({ name }: any) => ({ output: 'tool persisted', ...(name === 'respondHtml' ? { terminal: { type: 'html', html: '<p>final</p>', text: 'final' } } : {}) }) },
         knowledge: { updateSidecar: async (o: any) => { launches.push({ messageIdx: o.messageIdx, rows: rows.map(r => ({ ...r })) }); } },
     } };
     return { ctx, agent, rows, launches, execute: (already = false) => run(ctx, null, { agent, userText: 'question', userMessageAlreadyAppended: already }) };

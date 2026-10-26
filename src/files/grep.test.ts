@@ -17,6 +17,16 @@ beforeAll(async () => {
 });
 afterAll(async () => { await rm(DIR, { recursive: true, force: true }); });
 
+// grep and find are no longer declared as model-facing tools (the model uses
+// bash + ripgrep). The implementations stay, callable by hand and from eval —
+// this is that call path, with tools.call's agent-scoped ctx reproduced.
+const callTool = async (ctx: any, name: 'grep' | 'find', args: any, agent?: any) => {
+    let c = ctx;
+    if (agent) { c = Object.create(ctx); c.session = ctx.fns.session.forAgent({ agent }); }
+    try { return { output: String(await c.fns.tools[name](args)), isError: false }; }
+    catch (e: any) { return { output: `Error: ${e?.message ?? e}`, isError: true }; }
+};
+
 const at = async () => {
     const ctx: any = await mkTestCtx();
     ctx.fns.files.resolveSafe = (_c: any, _s: any, o: any) => o.path ? `${DIR}/${o.path}` : DIR;
@@ -73,14 +83,14 @@ describe('files.grep', () => {
 describe('grep tool output', () => {
     test('says when it hit the limit', async () => {
         const ctx = await at();
-        const out = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', limit: 1 } });
+        const out = await callTool(ctx, 'grep', { pattern: 'alpha', limit: 1 });
         expect(out.output).toContain('stopped at the limit of 1 matches');
     });
 
     test('complains loudly when ripgrep is missing', async () => {
         const ctx = await at();
         ctx.fns.files.rgPath = () => null;
-        const out = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', path: 'src' } });
+        const out = await callTool(ctx, 'grep', { pattern: 'alpha', path: 'src' });
         expect(out.output).toContain('ripgrep (rg) is not installed');
         expect(out.output).toContain('brew install ripgrep');
         // …and still returns the matches, from the fallback scan
@@ -103,7 +113,7 @@ describe('grep is rooted in the agent workspace', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
         agent.workspaceDir = DIR;
 
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha' }, agent });
+        const r = await callTool(ctx, 'grep', { pattern: 'alpha' }, agent);
         expect(r.output).toContain('src/a.ts:1:7: const alpha = 1;');
         // the repo this test runs from also contains "alpha" nowhere near src/a.ts
         expect(r.output).not.toContain('/Users/');
@@ -114,17 +124,17 @@ describe('grep is rooted in the agent workspace', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
         agent.workspaceDir = DIR;
 
-        const rel = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', path: 'src' }, agent });
+        const rel = await callTool(ctx, 'grep', { pattern: 'alpha', path: 'src' }, agent);
         expect(rel.output).toContain('src/b.ts');
         expect(rel.output).not.toContain('ignored.txt');
 
-        const abs = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', path: `${DIR}/src` }, agent });
+        const abs = await callTool(ctx, 'grep', { pattern: 'alpha', path: `${DIR}/src` }, agent);
         expect(abs.output).toContain('b.ts:1:14:');
     });
 
     test('an agent with no workspace falls back to the server cwd', async () => {
         const ctx: any = await mkTestCtx();
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'rgPath', path: 'src/files/rgPath.ts', limit: 2 } });
+        const r = await callTool(ctx, 'grep', { pattern: 'rgPath', path: 'src/files/rgPath.ts', limit: 2 });
         expect(r.output).toContain('src/files/rgPath.ts');
     });
 });
@@ -135,14 +145,14 @@ describe('grep regressions found by the agent', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
         agent.workspaceDir = DIR;
 
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', path: 'src/b.ts' }, agent });
+        const r = await callTool(ctx, 'grep', { pattern: 'alpha', path: 'src/b.ts' }, agent);
         expect(r.isError).toBe(false);
         expect(r.output).toContain('src/b.ts:1:14: export const alpha');
         expect(r.output).not.toContain('a.ts');
 
         // …and the fallback scan agrees (same workspace, so pass the agent)
         ctx.fns.files.rgPath = () => null;
-        const fb = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', path: 'src/b.ts' }, agent });
+        const fb = await callTool(ctx, 'grep', { pattern: 'alpha', path: 'src/b.ts' }, agent);
         expect(fb.output).toContain('src/b.ts:1:14: export const alpha');
         expect(fb.output).not.toContain('a.ts');
     });
@@ -152,7 +162,7 @@ describe('grep regressions found by the agent', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
         agent.workspaceDir = DIR;
 
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: '[' }, agent });
+        const r = await callTool(ctx, 'grep', { pattern: '[' }, agent);
         expect(r.isError).toBe(true);
         expect(r.output).toContain('regex parse error');
         // the useful part lives on the lines AFTER the first one
@@ -164,7 +174,7 @@ describe('grep regressions found by the agent', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
         agent.workspaceDir = DIR;
 
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'gamma', path: 'src', context: 1 }, agent });
+        const r = await callTool(ctx, 'grep', { pattern: 'gamma', path: 'src', context: 1 }, agent);
         expect(r.output).toContain('src/a.ts-2- const Beta = 2;');
         expect(r.output).toContain('src/a.ts:3:7: const gamma');
     });
@@ -175,7 +185,7 @@ describe('grep regressions found by the agent', () => {
         agent.workspaceDir = DIR;
         await Bun.write(`${DIR}/src/long.ts`, 'const huge = "' + 'x'.repeat(2000) + '";\n');
 
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'const huge', path: 'src' }, agent });
+        const r = await callTool(ctx, 'grep', { pattern: 'const huge', path: 'src' }, agent);
         expect(r.output).toContain('… (+');
         expect(r.output).toContain('some lines were cut at 400 chars');
     });
@@ -188,9 +198,7 @@ describe('hashline output feeds edit directly', () => {
         agent.workspaceDir = DIR;
         await Bun.write(`${DIR}/src/hash.ts`, 'const one = 1;\nconst two = 2;\n');
 
-        const r = await ctx.fns.tools.call({
-            name: 'grep', args: { pattern: 'two', path: 'src/hash.ts', hashline: true }, agent,
-        });
+        const r = await callTool(ctx, 'grep', { pattern: 'two', path: 'src/hash.ts', hashline: true }, agent);
         // path:ANCHOR:col: text — the anchor is <line><hash>, not a bare line number
         const row = r.output.split('\n')[0]!;
         const anchor = row.split(':')[1]!;
@@ -212,18 +220,18 @@ describe('find', () => {
         const agent = await ctx.fns.agent.start({ model: 'mock:test' });
         agent.workspaceDir = DIR;
 
-        const ts = await ctx.fns.tools.call({ name: 'find', args: { pattern: '*.ts' }, agent });
+        const ts = await callTool(ctx, 'find', { pattern: '*.ts' }, agent);
         expect(ts.output).toContain('src/a.ts');
         expect(ts.output).toContain('src/b.ts');
         expect(ts.output).not.toContain('node_modules');
 
-        const ignored = await ctx.fns.tools.call({ name: 'find', args: { pattern: 'ignored.txt' }, agent });
+        const ignored = await callTool(ctx, 'find', { pattern: 'ignored.txt' }, agent);
         expect(ignored.output).toContain('no files matched');
 
-        const everywhere = await ctx.fns.tools.call({ name: 'find', args: { pattern: 'ignored.txt', noIgnore: true }, agent });
+        const everywhere = await callTool(ctx, 'find', { pattern: 'ignored.txt', noIgnore: true }, agent);
         expect(everywhere.output).toContain('ignored.txt');
 
-        const capped = await ctx.fns.tools.call({ name: 'find', args: { pattern: '*.ts', limit: 1 }, agent });
+        const capped = await callTool(ctx, 'find', { pattern: '*.ts', limit: 1 }, agent);
         expect(capped.output).toContain('stopped at the limit of 1 paths');
     });
 
@@ -233,7 +241,7 @@ describe('find', () => {
         agent.workspaceDir = DIR;
 
         // A deadline that cannot be hit must not change the answer.
-        const r = await ctx.fns.tools.call({ name: 'grep', args: { pattern: 'alpha', path: 'src', timeout: 30 }, agent });
+        const r = await callTool(ctx, 'grep', { pattern: 'alpha', path: 'src', timeout: 30 }, agent);
         expect(r.isError).toBe(false);
         expect(r.output).toContain('src/a.ts');
     });

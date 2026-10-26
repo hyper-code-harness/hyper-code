@@ -15,6 +15,8 @@ const BLOCKED = new Set(["__proto__", "prototype", "constructor"]);
  * @param opts.fn Function name instead of url.
  * @param opts.params Arguments with fn.
  * @param opts.user The person the view reads as; defaults to the session's.
+ * @param opts.agentId The agent the view reads as when there is no person — the canvas passes the tab's agent,
+ * because a panel request carries no agent on its session and an instance without sign-in has no owner either.
  * @param opts.timeoutMs Give up after this long. @default 30000
  */
 export default async function (ctx: Context, session: Session | null, opts: {
@@ -26,6 +28,8 @@ export default async function (ctx: Context, session: Session | null, opts: {
     params?: Record<string, unknown>;
     /** The person the view reads as; defaults to the session's. */
     user?: { id: string; role?: string; [key: string]: unknown } | null;
+    /** The agent the view reads as when there is no person; defaults to the session's. */
+    agentId?: string;
     /** Give up after this long. @default 30000 */
     timeoutMs?: number;
 }): Promise<{ html: string; status: number; fn: string }> {
@@ -54,7 +58,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
     try { meta = ctx.fns.runtime.docs.get({ name }); } catch { return out(404, { error: `no such function: ${name}` }); }
     if (!meta.view) return out(405, { error: `${name} is not a view: only functions tagged @view open by address` });
     let user = opts.user !== undefined ? opts.user : ((session as any)?.user ?? null);
-    const agentId = (session as any)?.agentId;
+    const agentId = (session as any)?.agentId ?? opts.agentId;
     // Neither a person nor an agent (an open instance without sign-in, a panel drawn outside a request): the
     // instance is its owner's, so the view reads as the owner — the same rule as GET /rpc.
     if (!user && !agentId) user = ((await ctx.fns.procs.db.select({ sql: "SELECT id, email, name, role FROM users WHERE role = 'owner' ORDER BY created_at LIMIT 1", params: [] })) as any[])[0] ?? null;
@@ -65,7 +69,9 @@ export default async function (ctx: Context, session: Session | null, opts: {
 
     // The view reads as the person when there is one (memory.visible and friends use session.user).
     const as: any = Object.create(ctx);
-    as.session = user ? { ...((session as any) ?? { kind: "http" }), user, agentId: undefined } : session;
+    as.session = user
+        ? { ...((session as any) ?? { kind: "http" }), user, agentId: undefined }
+        : (agentId && (session as any)?.agentId !== agentId ? { ...((session as any) ?? { kind: "http" }), agentId } : session);
     let fn: any = as.fns;
     for (const p of parts) fn = fn?.[p];
     if (typeof fn !== "function") return out(404, { error: `no such function: ${name}` });

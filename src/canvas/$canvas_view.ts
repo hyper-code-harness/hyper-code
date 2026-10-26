@@ -63,7 +63,9 @@ export default {
             reload: { action: "reload-canvas-tab" }, reloadAttrs: { "data-canvas-reload": true },
             attrs: { "data-canvas-navigate": opts.item.id, "data-canvas-navigate-kind": "view" },
         });
-        const r = await ctx.fns.rpc.render({ url });
+        // The tab knows whose it is; a panel request does not carry an agent on its session, and an instance
+        // without sign-in has no person either — so a view over memory would have nobody to read as.
+        const r = await ctx.fns.rpc.render({ url, agentId: opts.agentId });
         const frag = `<div data-canvas-view="${opts.item.id}" data-rpc-status="${r.status}">${r.html}</div>`;
         return w.pane({ header: bar, body: frag });
     },

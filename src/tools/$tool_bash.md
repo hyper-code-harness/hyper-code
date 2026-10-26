@@ -2,14 +2,18 @@
 description: >-
   Run a shell command via `bash -c`. Runs in the agent's workspace unless cwd says otherwise.
   Returns stdout; a non-zero exit returns [exit N] with stderr, and a command that outruns
-  timeout is killed and reported with whatever it printed.
+  timeout is killed and reported with whatever it printed. Output is cut to its LAST 300 lines;
+  filter it (grep, head, sed -n) rather than printing whole files or logs.
 marker: bash
+outputLimits:
+  retain: tail
+  maxLines: 300
 promptSnippet: "run shell commands (ls, git, tests)"
 promptGuidelines:
-  - "To work on another machine pass host (an alias from ~/.ssh/config, list with ctx.fns.remote.servers({})) to bash, read, write or edit — no ssh quoting needed; the connection is kept open between calls."
-  - "Give bash a timeout when a command could hang (a server, a watcher, a prompt) — and make it generous: a slow search needs minutes, and a timeout that is too tight kills work that was about to succeed."
-  - "For anything that takes more than a minute or two (builds, full test suites, deploys, downloads, a server that must come up) pass background: true — or background: { afterMs: 30000 } when it may finish quickly: done in time → the normal result, still running → a job id. A job keeps running and you get ONE message with exit code and output tail when it ends — end your turn instead of waiting or polling. Several jobs can run at once. jobs.logs({ id }) reads full output, jobs.cancel({ id }) stops one, jobs.list({}) shows what is running."
-  - "To locate files use the find tool and to search contents use grep; `bash find ~` walks every node_modules on the machine and dies on the clock."
+  - "To work on another machine pass host (an alias from ~/.ssh/config) to bash, read, write or edit; the connection is kept open between calls."
+  - "Give bash a generous timeout when a command could hang (a server, a watcher, a prompt)."
+  - "Anything over a minute or two (builds, full test suites, deploys) → background: true, or background: { afterMs: 30000 } when it may finish quickly. You get ONE message when the job ends — end your turn, do not poll. jobs.logs / jobs.cancel / jobs.list({ id })."
+  - "Search with `rg -n pattern` (contents) and `rg --files -g glob` (names); never `find ~`."
 parameters:
   type: object
   properties:

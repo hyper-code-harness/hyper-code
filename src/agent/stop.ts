@@ -14,6 +14,15 @@ clearQueue?: boolean }) {
     try { agent.samplingAbortController?.abort('stopped_by_user'); } catch {}
     try { agent.abortController?.abort('stopped_by_user'); } catch {}
 
+    // And the tool calls this agent has in flight. Aborting the run only breaks out
+    // between turns: a bash command or a fetch started before the press keeps running
+    // to its own end, and the person watching the chat sees the spinner they just
+    // stopped carry on. Each call reports an honest "stopped by the user" result,
+    // exactly as the per-call abort button does.
+    for (const run of ctx.fns.tools.runs({ agentId: agent.id })) {
+        try { ctx.fns.tools.abortRun({ id: run.id }); } catch {}
+    }
+
     // Reset run state on the agent row. clearQueue also drops the pending debounce window.
     // An explicit user stop pauses plan continuation. It is resumed only by a
     // new user run or a new plan, never by automatic recovery.

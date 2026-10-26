@@ -18,6 +18,32 @@
  */
 export default async function (
     ctx: Context,
+    session: Session | null,
+    opts: {
+        /** Live agent whose transcript and turn state are updated. */
+        agent: types.agent.Agent;
+        /** User input to append unless already persisted by ingestion. */
+        userText: string;
+        /** Skip appending input for worker-claimed messages. @default false */
+        userMessageAlreadyAppended?: boolean;
+    },
+) {
+    // One turn is one trace: `agent.turn` is the root span, and every llm.request and tool.execute of this run
+    // nests under it through telemetry's AsyncLocalStorage. The trace id is carried on the session too, so a
+    // span taken on a ctx derived later (tools.call rebuilds the session) still lands in the same trace.
+    const telemetry: any = (ctx.fns.procs as any).telemetry;
+    if (typeof telemetry?.safeSpan !== "function") return await runTurn(ctx, session, opts);
+    const traced: any = Object.create(ctx);
+    traced.session = { ...((session ?? (ctx as any).session) ?? {}), trace: { id: crypto.randomUUID().replaceAll("-", "") } };
+    return await telemetry.safeSpan({
+        name: "agent.turn",
+        attrs: { "agent.id": opts.agent.id, "agent.model": opts.agent.model },
+        fn: () => runTurn(traced, traced.session, opts),
+    });
+}
+
+async function runTurn(
+    ctx: Context,
     _session: Session | null,
     opts: {
         /** Live agent whose transcript and turn state are updated. */
@@ -103,6 +129,15 @@ export default async function (
     const planAttempts: Record<string, number> = {};
     let totalPlanInjections = 0;
     while (true) {
+        // The person pressed stop (or the lease was revoked) between two turns: every
+        // await above returned normally, so nothing threw and nothing noticed. Without
+        // this the loop happily started the NEXT model call on an aborted run — the
+        // button cleared run_state in the database while the loop kept talking, and the
+        // chat stayed alive until the whole chain of tools finished by itself.
+        if (ac.signal.aborted) {
+            delete agent.scratchpad.activeStatusLine;
+            throw Object.assign(new Error(String(ac.signal.reason ?? 'run_aborted')), { aborted: true });
+        }
         if (++turns > MAX_TURNS) {
             await ctx.fns.session.appendErrorEvent({ id: agent.id, error: `run hit the ${MAX_TURNS}-turn cap — closing; send a message to continue` });
             await ctx.fns.session.appendMessage({ id: agent.id, message: {
@@ -135,7 +170,10 @@ export default async function (
         const sampling = new AbortController();
         agent.samplingAbortController = sampling;
         const onRunAbort = () => sampling.abort(ac.signal.reason ?? "run_aborted");
-        ac.signal.addEventListener("abort", onRunAbort, { once: true });
+        // addEventListener on a signal that is ALREADY aborted never fires, so a stop
+        // that landed while the previous turn was running would leave this sampling
+        // controller live and the request would go out in full.
+        if (ac.signal.aborted) onRunAbort(); else ac.signal.addEventListener("abort", onRunAbort, { once: true });
         let streamed: any;
         try {
             streamed = await ctx.fns.llm.stream({
@@ -316,7 +354,9 @@ export default async function (
         let terminal: { type: 'html'; html: string; text: string } | undefined;
         for (const call of toolCalls) {
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
-            const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
+            // The tool's own declaration says how much of its output the model sees and which end.
+            const declared = ctx.fns.tools.list({}).find((t: any) => t.wireName === call.name);
+            const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name, limits: declared?.outputLimits });
 
             // Events store data, never rendered markup. renderEventHtml builds
             // the current view on every read, so renderer improvements apply to

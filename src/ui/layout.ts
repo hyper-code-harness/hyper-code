@@ -33,7 +33,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <script>(function(){try{var saved=localStorage.getItem('hyper-theme');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch(_){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light'}})()</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <script>(function(){try{var c=localStorage.getItem('hyper-chrome');document.documentElement.dataset.chrome=c==='cards'?'cards':'flat'}catch(_){document.documentElement.dataset.chrome='flat'}})()</script>
-<script>(function(){var m='menu';try{var v=localStorage.getItem('hyper-dock-mode');if(v==='bar'||v==='dot'||v==='menu')m=v}catch(_){}if(m!=='bar')document.documentElement.dataset.dockMode=m})()</script>
+<script>(function(){var m='menu';try{var v=localStorage.getItem('hyper-dock-mode');if(v==='bar'||v==='dot'||v==='menu')m=v}catch(_){}if(m!=='bar')document.documentElement.dataset.dockMode=m;try{var w=parseInt(localStorage.getItem('hyper-dock-panel-w'),10);if(w>=180&&w<=640)document.documentElement.style.setProperty('--dock-panel-w',w+'px')}catch(_){}})()</script>
 <title>${esc(pageTitle)}</title>
 <link rel="icon" href="${esc(favicon)}">
 <!-- htmx 4 (framework bundle). Inheritance stays explicit (htmx 4 default):
@@ -73,9 +73,21 @@ html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */
 @media (max-width: 700px) { html[data-dock-mode] .dock-panel { display: none !important; } }
 body[data-presentation="sidebar"] .dock-panel { display: none !important; }
-html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: 16.5rem; flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-left: 0; border-radius: 0 1rem 1rem 0; overflow: hidden; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
+html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: var(--dock-panel-w, 16.5rem); flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-left: 0; border-radius: 0 1rem 1rem 0; overflow: hidden; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
 /* Bar and panel are one card: the bar gives up its right corners and gap, its right border is the divider. */
 /* The grey header cell of the bar (in bar and menu mode alike, so opening the panel moves nothing); with the panel it runs across both: the menu circle sits in the bar's part of it, under it the same hairline. */
+/* Drag the panel's right edge (/dock/dock.js); the width is per device in localStorage 'hyper-dock-panel-w',
+   double click resets it. The strip sits in the 4px gap the panel's right margin already leaves, so showing
+   it moves nothing; ::before widens the grab area without widening the strip. */
+.dock-panel-resizer { display: none; }
+html[data-dock-mode="menu"] .dock-panel-resizer { display: block; flex: 0 0 .25rem; margin-left: -.25rem; position: relative; z-index: 6; cursor: col-resize; touch-action: none; }
+.dock-panel-resizer::before { content: ""; position: absolute; inset: 0 -3px; }
+.dock-panel-resizer::after { content: ""; position: absolute; inset: .5rem 1px; border-radius: 2px; background: transparent; transition: background .15s; }
+.dock-panel-resizer:hover::after, .dock-panel-resizer:focus-visible::after, html.dock-panel-resizing .dock-panel-resizer::after { background: var(--color-primary); }
+@media (max-width: 700px) { html[data-dock-mode] .dock-panel-resizer { display: none !important; } }
+body[data-presentation="sidebar"] .dock-panel-resizer { display: none !important; }
+html.dock-panel-resizing, html.dock-panel-resizing body { user-select: none; cursor: col-resize; }
+html.dock-panel-resizing iframe { pointer-events: none; }
 .dock-panel-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 .dock-panel-project[open] > summary { color: var(--color-base-content); }
 /* Dot: the strip goes away and the menu circle moves into the top row of the page — the canvas tab row
@@ -359,6 +371,7 @@ ${opts.headExtra ?? ""}
   ${hideNavigation ? "" : ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', label: "Open agents and pages", title: "Agents and pages", marks: { action: "open-global-menu-mobile" }, attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" }, class: "hidden" })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
   ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
+  ${hideNavigation ? "" : '<div class="dock-panel-resizer" data-dock-panel-resizer tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize the projects and chats panel" title="Drag to resize · double click to reset"></div>'}
     <script src="/canvas/canvas.js?v=3" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->

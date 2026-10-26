@@ -66,3 +66,15 @@ test("the extension reports frame navigation only from frames directly inside a 
     expect(source).toContain("ancestorOrigins");
     expect(source).toContain("hyperFrames: 1");
 }, 30_000);
+
+test("a url tab has back and forward over the addresses it was pointed at, in an outlined address bar", async () => {
+    const ctx: any = await mkTestCtx();
+    const fresh: any = { id: 1, title: "example.com", args: { url: "https://example.com/", embeddable: true }, state: {} };
+    const a = String(urlKind.render(ctx, { agentId: "a", item: fresh }));
+    expect(a).toContain("data-outlined");
+    expect(a).toMatch(/<button[^>]*disabled[^>]*data-canvas-step="back"|data-canvas-step="back"[^>]*disabled/);
+    const moved: any = { ...fresh, state: { back: ["https://example.org/"], forward: [] } };
+    const b = String(urlKind.render(ctx, { agentId: "a", item: moved }));
+    expect(b).toContain('data-action="canvas-back"');
+    expect(b).not.toContain('data-action="canvas-forward"');
+});

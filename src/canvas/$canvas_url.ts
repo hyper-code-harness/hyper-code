@@ -51,9 +51,18 @@ export default {
         // allow-top-navigation, so a frame-busting script cannot take the app page away.
         const w = ctx.fns.w;
         const frame = (hook: Record<string, boolean>) => `<iframe src="${esc(url)}" title="${esc(opts.item.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads" data-canvas-url-frame${Object.keys(hook).map(k => ` ${k}`).join("")} referrerpolicy="no-referrer" allow="fullscreen; clipboard-write"></iframe>`;
-        // A small browser chrome: the address (editable — Enter navigates this tab) and "open in a new tab".
-        // Back/forward inside the site are not ours to drive: the frame is another origin.
-        const bar = w.addressBar({ url, secure: url.startsWith("https:"), steps: false, attrs: { "data-canvas-navigate": opts.item.id, "data-canvas-url-from": opened }, reload: { action: "reload-canvas-tab" }, reloadAttrs: { "data-canvas-reload": true } });
+        // A small browser chrome like the live view's: back, forward, reload, the outlined address (Enter navigates
+        // this tab) and "open in a new tab". Back/forward step through the addresses this tab was pointed at
+        // (canvas.navigate history) — the frame is another origin, its own history is not ours to drive.
+        const back = Array.isArray(opts.item.state?.back) ? opts.item.state.back.length : 0;
+        const fwd = Array.isArray(opts.item.state?.forward) ? opts.item.state.forward.length : 0;
+        const bar = w.addressBar({
+            url, secure: url.startsWith("https:"), outlined: true,
+            back: back > 0 ? { action: "canvas-back" } : undefined, backAttrs: { "data-canvas-step": "back" },
+            forward: fwd > 0 ? { action: "canvas-forward" } : undefined, forwardAttrs: { "data-canvas-step": "forward" },
+            reload: { action: "reload-canvas-tab" }, reloadAttrs: { "data-canvas-reload": true },
+            attrs: { "data-canvas-navigate": opts.item.id, "data-canvas-url-from": opened },
+        });
         const wrap = (inner: string) => w.pane({ header: bar, body: inner });
         if (a.embeddable === false) {
             // The site forbids framing. With the Hyper canvas frames extension (it marks <html data-hyper-frames>)

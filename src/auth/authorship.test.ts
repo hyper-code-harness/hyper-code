@@ -130,7 +130,8 @@ test("who is online: everyone in Hyper (left bar) and who is in this chat (inspe
     expect(all).toContain('<img src="https://lh3.googleusercontent.com/a/v=s96-c"');
     expect(all).toContain("(2 tabs)");
     expect(all).toContain(">NR<");
-    expect(all).toContain("flex-col");
+    expect(all).toContain('data-layout="column"');
+    expect(all).toContain("data-online style=");
     // Nikolai does not see himself.
     const nikSees = await rn.fns.auth.online({});
     expect(nikSees).toContain('data-online="' + val!.id + '"');
@@ -152,5 +153,5 @@ test("who is online: everyone in Hyper (left bar) and who is in this chat (inspe
     expect(ctx.fns.auth.onlineRegion({ agentId: "a" })).toContain('hx-get="/auth/online?agent=a"');
     expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('data-live-topic="presence"');
     expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('hx-swap="innerHTML"');
-    expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('min-h-7');
+    expect(ctx.fns.auth.onlineRegion({ layout: "column" })).toContain('data-layout="column"');
 });

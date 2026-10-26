@@ -7,18 +7,14 @@ export default {
     zone: "bottom",
     order: 5,
     render: async (ctx: Context) => {
-        const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
-        const row = "flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-base-content hover:bg-base-200";
-        const theme = ctx.fns.w.pressable({ html: '<i class="ph ph-moon text-base text-subtle" aria-hidden="true"></i><span class="min-w-0 flex-1 truncate">Theme</span><span class="shrink-0 text-xs text-faint" data-theme-name>Light</span>', label: "Switch color theme", title: "", marks: { action: "toggle-theme" }, attrs: { id: "theme-toggle", "aria-pressed": "false" }, class: row });
-        const update = `<div class="${row} cursor-default hover:bg-transparent" data-dock-update-row><i class="ph ph-arrows-clockwise text-base text-subtle" aria-hidden="true"></i><span class="min-w-0 flex-1 truncate">Hyper update</span>${await ctx.fns.ui.updateBadge({})}</div>`;
-        const links = [["ph-gear-six", "All settings", "/settings"], ["ph-plugs-connected", "LLM connections", "/llms"]]
-            .map(([icon, label, href]) => `<a href="${esc(href)}" class="${row}"><i class="ph ${icon} text-base text-subtle" aria-hidden="true"></i><span class="flex-1">${esc(label)}</span></a>`).join("");
-        return `<div class="mb-1 flex w-full justify-center">` + await ctx.fns.ui.inplacePopup({
-            id: "dock-settings-popup",
-            triggerHtml: '<i class="ph ph-gear-six text-base" aria-hidden="true"></i><span data-dock-settings-dot hidden class="pointer-events-none absolute right-0.5 top-0.5 size-2 rounded-full bg-info"></span>',
-            triggerAttrs: `class="relative flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content" title="Settings" aria-label="Settings"`,
-            panelAttrs: `aria-label="Settings" data-placement="side" data-dock-settings-panel`,
-            contentHtml: `<div class="w-full min-w-0">${theme}${update}<div class="my-1 border-t border-ui-border"></div>${links}</div>`,
-        }) + `</div>`;
+        const w = ctx.fns.w;
+        // id="theme-toggle" and data-theme-name are what /dock/dock.js flips and paints (icon sun/moon, name Light/Dark).
+        const theme = w.listRow({ label: "Theme", icon: "moon", hint: "Light", action: { action: "toggle-theme" }, attrs: { id: "theme-toggle", "aria-pressed": "false", "data-theme-row": true } });
+        const update = w.listRow({ label: "Hyper update", icon: "arrows-clockwise", attrs: { "data-dock-update-row": true } });
+        const links = w.listRow({ label: "All settings", icon: "gear-six", action: { href: "/settings" } }) + w.listRow({ label: "LLM connections", icon: "plugs-connected", action: { href: "/llms" } });
+        const body = w.list({ body: theme + `<div class="dock-update-row">${update}${await ctx.fns.ui.updateBadge({})}</div>` + w.divider({}) + links });
+        // The gear carries a dot while an update is waiting (painted by /dock/dock.js from the badge in the panel).
+        const gear = w.railItem({ label: "Settings", face: `${w.icon({ name: "gear-six" })}<span class="w-dot" data-state="unread" data-dock-settings-dot hidden></span>`, action: { popover: "dock-settings-popup" } });
+        return w.popover({ id: "dock-settings-popup", label: "Settings", placement: "side", width: 240, body, trigger: gear });
     },
 } satisfies types.dock.Item;

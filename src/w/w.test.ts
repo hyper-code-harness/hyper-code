@@ -40,6 +40,15 @@ test("popover and menu: the opener is the widget itself — no button inside a b
     expect(html).toContain('role="menuitem" tabindex="-1"');
 });
 
+test("avatar: online is a mark the theme draws, not a different size", async () => {
+    const ctx: any = await mkTestCtx();
+    const on = await ctx.fns.w.avatar({ name: "Roman Pogorov", size: 24, online: true });
+    const off = await ctx.fns.w.avatar({ name: "Roman Pogorov", size: 24 });
+    expect(on).toContain("data-online");
+    expect(off).not.toContain("data-online");
+    expect(on).toContain('data-size="24"');
+});
+
 test("toolGroup: a folded run draws each call once", async () => {
     const ctx: any = await mkTestCtx();
     const calls = Array.from({ length: 8 }, (_, i) => ({ icon: "terminal", title: `call ${i}`, error: i === 3 }));

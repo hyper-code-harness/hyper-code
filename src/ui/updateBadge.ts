@@ -14,8 +14,9 @@ export default async function (
 ): Promise<string> {
     const status = opts.status;
     const visible = !!status && status.state !== "current";
-    const tone = status?.state === "available" ? "bg-info/15 text-info" : status?.state === "dirty" || status?.state === "diverged" ? "bg-warning/15 text-warning" : "bg-error/15 text-error";
+    const tone = status?.state === "available" ? "info" : status?.state === "dirty" || status?.state === "diverged" ? "warning" : "danger";
     const label = status?.message ?? "Check for Hyper updates";
     const text = status?.state === "available" ? String(status.behind || "!") : "!";
-    return `<a id="hyper-update-badge" href="/update" hx-get="/update/status" hx-trigger="${status ? "every 15m" : "load, every 15m"}" hx-swap="outerHTML" aria-label="${Bun.escapeHTML(label)}" title="${Bun.escapeHTML(label)}" class="mt-1 size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${tone}" style="display:${visible ? "flex" : "none"}">${visible ? Bun.escapeHTML(text) : ""}</a>`;
+    // hx-swap outerHTML replaces this very link on every poll; hidden while Hyper is current (/dock/dock.js reads it for the gear's dot).
+    return `<a id="hyper-update-badge" href="/update" hx-get="/update/status" hx-trigger="${status ? "every 15m" : "load, every 15m"}" hx-swap="outerHTML" aria-label="${Bun.escapeHTML(label)}" title="${Bun.escapeHTML(label)}"${visible ? "" : " hidden"}>${visible ? ctx.fns.w.badge({ text, tone }) : ""}</a>`;
 }

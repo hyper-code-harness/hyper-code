@@ -159,6 +159,7 @@ div.w-divider > span { display: inline-flex; align-items: center; gap: var(--w-s
 .w-avatar { display: inline-grid; place-items: center; width: var(--w-control-sm); height: var(--w-control-sm); border-radius: var(--w-radius-round); overflow: hidden; flex: none; font-size: var(--w-text-small); font-weight: 500; color: var(--w-ink-muted); background: var(--w-hover); }
 .w-avatar[data-size="20"] { width: var(--w-control-xs); height: var(--w-control-xs); font-size: var(--w-text-small) } .w-avatar[data-size="32"] { width: var(--w-control-lg); height: var(--w-control-lg); font-size: var(--w-text-small) } .w-avatar[data-size="40"] { width: var(--w-rail); height: var(--w-rail); font-size: var(--w-text-read) }
 .w-avatar[data-kind="agent"] { background: var(--w-surface-chrome); color: var(--w-ink); } .w-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.w-avatar[data-online] { outline: calc(var(--w-focus-width) * .75) solid var(--w-success); outline-offset: calc(var(--w-focus-width) / 2); }
 @media (prefers-reduced-motion: reduce) { [data-w-theme] *, [data-w-theme] *::before, [data-w-theme] *::after { animation: none !important; transition: none !important; } }
 .w-color { display: inline-flex; align-items: center; gap: var(--w-s2); font-size: var(--w-text-ui); }
 .w-color input { width: var(--w-control); height: var(--w-control); padding: 0; border: var(--w-rule); border-radius: var(--w-radius-item); background: none; cursor: pointer; }

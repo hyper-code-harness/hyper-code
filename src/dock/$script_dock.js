@@ -1,5 +1,5 @@
-// The Dock's own editing: drag entries within and between the two zones, right click for
-// hide / move / reset. Moves happen in place (entries keep their live scripts), then the new
+// The Dock's own editing: right click for hide / move / pin / reset — no drag, the order is the default
+// one. Moves happen in place (entries keep their live scripts), then the new
 // layout is saved for this person. Showing a hidden entry or resetting reloads the page.
 (() => {
     if (window.__hyperDockInstalled) return;
@@ -21,33 +21,6 @@
         await fetch('/dock/layout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true }) });
         location.reload();
     }
-
-    // ── drag ────────────────────────────────────────────────────────────────
-    let dragged = null;
-    document.addEventListener('dragstart', e => {
-        const item = e.target.closest?.('#dock .dock-item[data-dock-id]');
-        if (!item) return;
-        dragged = item;
-        item.classList.add('opacity-40');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', item.dataset.dockId);
-    });
-    document.addEventListener('dragover', e => {
-        if (!dragged) return;
-        const z = e.target.closest?.('#dock .dock-zone');
-        if (!z) return;
-        e.preventDefault();
-        const after = [...z.querySelectorAll(':scope > .dock-item')].filter(x => x !== dragged)
-            .find(x => { const r = x.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
-        if (after) z.insertBefore(dragged, after); else z.appendChild(dragged);
-    });
-    document.addEventListener('dragend', () => {
-        if (!dragged) return;
-        dragged.classList.remove('opacity-40');
-        dragged = null;
-        save();
-    });
-    const arm = () => document.querySelectorAll('#dock .dock-item[data-dock-id]').forEach(x => { x.draggable = true; });
 
     // ── context menu ────────────────────────────────────────────────────────
     let menu = null;
@@ -111,7 +84,7 @@
         if (!button.closest('[popover]')) button.title = dark ? 'Use light theme' : 'Use dark theme';
         const icon = button.querySelector('i');
         if (icon) { icon.classList.remove('ph-sun', 'ph-moon'); icon.classList.add(dark ? 'ph-sun' : 'ph-moon'); }
-        const name = button.querySelector('[data-theme-name]');
+        const name = button.querySelector('[data-theme-name], .w-row-hint');
         if (name) name.textContent = dark ? 'Dark' : 'Light';
     }
     document.addEventListener('click', e => {
@@ -126,7 +99,7 @@
     // ── refresh after a pin changes (HX-Trigger dock-refresh, or the dock.changed event) ──
     let refreshing = false;
     async function refresh() {
-        if (refreshing || dragged || document.querySelector('#dock :popover-open')) return;
+        if (refreshing || document.querySelector('#dock :popover-open')) return;
         refreshing = true;
         try {
             const res = await fetch('/dock', { cache: 'no-store' });
@@ -215,12 +188,11 @@
     function paintUpdate() {
         const badge = document.getElementById('hyper-update-badge');
         const dot = document.querySelector('#dock [data-dock-settings-dot]');
-        if (dot) dot.hidden = !badge || badge.style.display === 'none';
+        if (dot) dot.hidden = !badge || badge.hidden;
     }
     document.addEventListener('htmx:after:swap', paintUpdate);
     document.addEventListener('htmx:afterSwap', paintUpdate);
 
-    const setup = () => { arm(); paintMode(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
+    const setup = () => { paintMode(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
-    document.addEventListener('htmx:after:swap', arm);
 })();

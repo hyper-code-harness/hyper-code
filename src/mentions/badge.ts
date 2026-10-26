@@ -19,11 +19,8 @@ export default async function (
     const items = await ctx.fns.mentions.list({ userId: me, unreadOnly: true, limit: 20 });
     const rows = await ctx.fns.mentions.rowsHtml({ items });
     const label = `${count} unread mention${count === 1 ? "" : "s"}`;
-    return `<div id="mentions-badge"${meAttr} class="mt-1">` + await ctx.fns.ui.inplacePopup({
-        id: "mentions-popup",
-        triggerHtml: `<span class="flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-full bg-primary px-1.5 text-xs font-semibold tabular-nums text-primary-content"><span aria-hidden="true">@</span>${count}</span>`,
-        triggerAttrs: `class="flex items-center justify-center" title="${label}" aria-label="${label}"`,
-        panelAttrs: `aria-label="Mentions" data-placement="side"`,
-        contentHtml: `<div class="w-80 max-w-[80vw]"><div class="mb-1 border-b border-ui-border px-2 pb-1.5 text-xs font-semibold">Mentions</div><div class="max-h-[60vh] overflow-y-auto">${rows}</div></div>`,
-    }) + '</div>';
+    const w = ctx.fns.w;
+    const body = w.listSection({ title: "Mentions", rows: rows });
+    return `<div id="mentions-badge"${meAttr}>` + w.popover({ id: "mentions-popup", label: "Mentions", placement: "side", width: 320, body,
+        trigger: w.railItem({ label, icon: "at", badge: count, action: { popover: "mentions-popup" } }) }) + "</div>";
 }

@@ -74,7 +74,7 @@ export default async function (
                 ["dot", () => ["idle", "running", "unread", "waiting", "done", "warning", "error"].map(s => w.dot({ state: s, label: s })).join(" &nbsp; ")],
                 ["kbd", () => [w.kbd({ keys: "⌘B" }), w.kbd({ keys: "⌘⇧P" }), w.kbd({ keys: "Ctrl+\\" })].join(" ")],
                 ["time", () => [w.time({ ts: now - 60000 }), w.time({ ts: now - 3600e3, format: "ago" }), w.time({ ts: now - 5 * 86400e3, format: "date" })].join(" · ")],
-                ["avatar", async () => [await w.avatar({ name: "Nikolai Ryzhikov", size: 32 }), await w.avatar({ name: "Roman Pogorov", size: 24 }), me ? await w.avatar({ agentId: me, size: 32 }) : "", await w.avatar({ name: "?", size: 20 })].join(" ")],
+                ["avatar", async () => [await w.avatar({ name: "Nikolai Ryzhikov", size: 32 }), await w.avatar({ name: "Roman Pogorov", size: 24 }), await w.avatar({ name: "Mike Ryzhikov", size: 24, online: true }), me ? await w.avatar({ agentId: me, size: 32 }) : "", await w.avatar({ name: "?", size: 20 })].join(" ")],
                 ["divider", () => w.divider({}) + w.divider({ label: "stopped by user" })],
                 ["spinner", () => [w.spinner({ kind: "arc" }), w.spinner({ kind: "arc", size: 20 }), w.spinner({ kind: "glow", html: w.icon({ name: "terminal", size: 16 }) })].join(" ") + w.spinner({ kind: "skeleton", lines: 2 })],
                 ["ring", () => [w.ring({ value: 30, label: "30%" }), w.ring({ value: 75, label: "75%" }), w.ring({ value: 95, label: "95%" }), w.ring({ value: 2, max: 5, tone: "info", label: "2/5" })].join(" ")],

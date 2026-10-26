@@ -4,11 +4,14 @@
    bar — the strip (default); menu — the strip plus the projects-and-chats panel beside it (#dock-panel);
    dot — only the menu button stays, in the first header cell of the page, and hovering unfolds the whole bar. */
 #dock { flex: none; position: relative; z-index: var(--w-layer-mark, 2); }
-#dock .w-rail-items { padding-top: var(--w-s1); scrollbar-width: none; }
+#dock .w-rail-items { scrollbar-width: none; }
 #dock .w-rail-items::-webkit-scrollbar { display: none; }
+/* One rhythm top to bottom: every entry is a 28px rail item, s1 apart; wrappers add no space of their own and
+   an empty entry (a hidden badge) takes none. */
 #dock .dock-zone, #dock .dock-item, #dock .dock-me { display: flex; flex-direction: column; align-items: center; gap: var(--w-s1); width: 100%; }
+#dock .dock-item:not(:has(.w-rail-item:not([hidden] *), .w-avatar)) { display: none; }
+#dock .dock-badge[hidden], #dock #mentions-badge[hidden] { display: none; }
 #dock #dock-top { flex: 1; min-height: 0; }
-#dock .dock-item[draggable="true"] { cursor: grab; }
 
 /* The pin toggle draws both icons; the mode picks one. */
 #dock .dock-pin-on { display: none; }
@@ -24,3 +27,17 @@ html[data-dock-mode="dot"] #dock:not(:hover, :focus-within, :has(:popover-open))
 html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) { bottom: 0; height: auto; background: var(--w-surface-chrome); border-right: var(--w-rule); box-shadow: var(--w-shadow-raised); }
 html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) .w-rail-head { border-bottom: var(--w-rule); }
 html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) [data-dock-id="menu"] { border: 0; background: none; }
+
+/* A count badge on an entry that is all about the count (gaps) reads in its tone. */
+.dock-badge[data-tone="warning"] .w-badge-mark { background: var(--w-warning); }
+
+/* Who is online: the same 24px avatars as the person below, ringed green; in the bar they stack like entries. */
+.auth-online { display: flex; align-items: center; gap: var(--w-s1); } .auth-online[data-layout="column"] { flex-direction: column; }
+.auth-online-face { display: inline-grid; place-items: center; width: var(--w-control); height: var(--w-control); }
+.auth-online-region[data-layout="row"] { display: flex; align-items: center; flex: none; }
+
+/* The update row in the settings popover: the row with its status badge at the end. */
+.dock-update-row { display: flex; align-items: center; gap: var(--w-s2); } .dock-update-row > .w-row { flex: 1; min-width: 0; }
+.dock-update-row > #hyper-update-badge[hidden] { display: none; }
+#dock [data-dock-settings-dot] { position: absolute; top: 1px; right: 1px; width: var(--w-dot-small); height: var(--w-dot-small); }
+#dock [data-dock-settings-dot][hidden] { display: none; }

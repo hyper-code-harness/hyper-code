@@ -19,7 +19,7 @@ export default async function (
     const budget = Math.max(50, Math.min(10_000, opts.timeoutMs ?? 1500));
     const { top, bottom, hidden } = await ctx.fns.dock.items({});
     const labels = Object.fromEntries([...top, ...bottom, ...hidden].map(x => [x.id, x.label ?? x.id]));
-    const draw = async (item: types.dock.Registered): Promise<string> => {
+    const draw = async (item: types.dock.Registered, fixed = false): Promise<string> => {
         try {
             let timer: ReturnType<typeof setTimeout> | undefined;
             const out = await Promise.race([
@@ -28,19 +28,23 @@ export default async function (
             ]).finally(() => clearTimeout(timer));
             if (!out) return "";
             const html = typeof out === "string" ? out : await ctx.fns.dock.drawButton({ id: item.id, button: out });
-            return html ? `<div class="dock-item" data-dock-id="${esc(item.id)}"${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""} data-dock-label="${esc(item.label ?? item.id)}">${html}</div>` : "";
+            return html ? `<div class="dock-item" data-dock-id="${esc(item.id)}"${fixed ? " data-dock-fixed" : ""}${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""} data-dock-label="${esc(item.label ?? item.id)}">${html}</div>` : "";
         } catch (error: any) {
             ctx.fns.procs.log.warn({ event: "dock.render.failed", msg: `${item.id}: ${String(error?.message ?? error)}` });
             return "";
         }
     };
-    // The settings gear is drawn last, under the person, whatever zone the layout gives it.
+    // People and the gear are not sections to reorder: who is online sits right above the person, the gear under
+    // them, whatever zone an older saved layout gives them; both are fixed (no context menu).
+    const online = [...top, ...bottom].find(x => x.id === "auth.online");
     const gear = [...top, ...bottom].find(x => x.id === "settings");
-    const [topHtml, bottomHtml, me, gearHtml] = await Promise.all([
-        Promise.all(top.filter(x => x !== gear).map(draw)),
-        Promise.all(bottom.filter(x => x !== gear).map(draw)),
+    const movable = (x: types.dock.Registered) => x !== gear && x !== online;
+    const [topHtml, bottomHtml, onlineHtml, me, gearHtml] = await Promise.all([
+        Promise.all(top.filter(movable).map(x => draw(x))),
+        Promise.all(bottom.filter(movable).map(x => draw(x))),
+        online ? draw(online, true) : Promise.resolve(""),
         ctx.fns.auth.meBadge({}).catch(() => ""),
-        gear ? draw(gear) : Promise.resolve(""),
+        gear ? draw(gear, true) : Promise.resolve(""),
     ]);
     const w = ctx.fns.w;
     // The three fixed buttons carry data-dock-fixed (no context menu); their clicks are named actions /dock/dock.js handles.
@@ -56,6 +60,6 @@ export default async function (
         attrs: { id: "dock", "data-dock-hidden": JSON.stringify(hidden.map(x => x.id)), "data-dock-labels": JSON.stringify(labels) },
         head: menu,
         items: pinToggle + panelToggle + zoneTop,
-        foot: zoneBottom + (me ? `<div class="dock-me" data-dock-id="me" data-dock-fixed data-dock-label="Account">${me}</div>` : "") + gearHtml,
-    }) + `<script src="/dock/dock.js?v=3" defer></script>`;
+        foot: zoneBottom + onlineHtml + (me ? `<div class="dock-me" data-dock-id="me" data-dock-fixed data-dock-label="Account">${me}</div>` : "") + gearHtml,
+    }) + `<script src="/dock/dock.js?v=4" defer></script>`;
 }

@@ -14,5 +14,8 @@ export default async function (
     const stale=Boolean(cache?.stale || (cache?.checkedAt && Date.now()-cache.checkedAt>330000));
     const visible=typeof count==='number'&&count>0;
     const label=visible?count+' active gaps'+(stale?' — stale; last complete check '+new Date(cache!.checkedAt!).toISOString():''):'Gaps';
-    return '<a id="gap-count-badge" href="/gaps"'+(visible?'':' hidden')+' aria-label="'+Bun.escapeHTML(label)+'" title="'+Bun.escapeHTML(label)+'" class="mt-1 size-7 shrink-0 items-center justify-center rounded-full bg-warning/20 text-warning-content text-xs font-semibold tabular-nums hover:bg-warning/30" style="'+(visible?'display:flex':'display:none')+'">'+(visible?count:'')+'</a>';
+    // The live script swaps the whole element by id, so the id sits on a wrapper; hidden when there is nothing to count.
+    if(!visible) return '<div id="gap-count-badge" hidden class="dock-badge" data-count="0"></div>';
+    const item=ctx.fns.w.railItem({label,icon:'list-checks',badge:count!,action:{href:'/gaps'}});
+    return '<div id="gap-count-badge" class="dock-badge" data-tone="warning" data-count="'+count+'">'+item+'</div>';
 }

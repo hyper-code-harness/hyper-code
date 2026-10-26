@@ -19,19 +19,15 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!here.length) return "";
     const esc = (v: string) => ctx.fns.w.escape({ text: v });
     const column = opts.layout === "column";
-    const size = column ? "size-7 text-[0.6rem]" : "size-6 text-[0.55rem]";
-    const ring = "ring-2 ring-success ring-offset-1 ring-offset-base-100";
     const faces: string[] = [];
     for (const p of here) {
         const a = await ctx.fns.auth.author({ userId: p.id });
         if (!a) continue;
-        const face = a.picture
-            ? `<img src="${esc(a.picture)}" alt="" class="${size} rounded-full object-cover ${ring}" referrerpolicy="no-referrer">`
-            : `<span class="inline-flex ${size} items-center justify-center rounded-full font-semibold text-white ${ring}" style="background:hsl(${a.hue} 55% 45%)">${esc(a.initials)}</span>`;
         const where = opts.agentId ? "in this chat" : "online";
-        faces.push(`<span class="inline-flex" title="${esc(a.name)} — ${where}${!opts.agentId && p.tabs > 1 ? ` (${p.tabs} tabs)` : ""}" data-online="${esc(a.id)}">${face}</span>`);
+        const face = await ctx.fns.w.avatar({ name: a.name, src: a.picture ?? undefined, size: 24, online: true });
+        faces.push(`<span class="auth-online-face" title="${esc(a.name)} — ${where}${!opts.agentId && p.tabs > 1 ? ` (${p.tabs} tabs)` : ""}" data-online="${esc(a.id)}">${face}</span>`);
     }
     if (!faces.length) return "";
     const label = opts.agentId ? "In this chat" : "Online now";
-    return `<div class="flex ${column ? "flex-col" : ""} items-center gap-1.5" aria-label="${label}: ${faces.length}">${faces.join("")}</div>`;
+    return `<div class="auth-online" data-layout="${column ? "column" : "row"}" aria-label="${label}: ${faces.length}">${faces.join("")}</div>`;
 }

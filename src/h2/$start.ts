@@ -88,7 +88,15 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         const body = method === "GET" || method === "HEAD" ? undefined
             : new ReadableStream({ start(c) { req.on("data", (d: Buffer) => c.enqueue(new Uint8Array(d))); req.on("end", () => c.close()); req.on("error", e => c.error(e)); } });
         try {
-            const out: Response = await inner.fetch(new Request(url, { method, headers, body, signal: abort.signal, duplex: "half" } as any));
+            const incoming = new Request(url, { method, headers, body, signal: abort.signal, duplex: "half" } as any);
+            // Server-owned provenance, never a client-controlled forwarding header.
+            const peers: WeakMap<Request, string> = ((ctx.state as any).httpTransportPeers ??= new WeakMap());
+            peers.set(incoming, req.socket?.remoteAddress ?? "unknown");
+            let out: Response;
+            try {
+                // Bun server.fetch clones Request and loses private provenance; invoke the same pipeline directly.
+                out = await ctx.fns.procs.http.handle({ req: incoming, server: inner }) ?? new Response(null, { status: 500 });
+            } finally { peers.delete(incoming); }
             const h: Record<string, string | string[]> = {};
             out.headers.forEach((v, k) => {
                 // Connection-specific headers are illegal in HTTP/2.

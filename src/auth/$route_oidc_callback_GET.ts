@@ -7,8 +7,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const forwardedProto = opts.req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
     const cookieUrl = forwardedProto === "https" ? "https://hyper.invalid/" : opts.req.url;
     const clear = ctx.fns.procs.auth.cookie({ name: "hyper_oidc_state", url: cookieUrl });
-    const fail = (message: string) => {
+    const fail = (_message: string) => {
+        const message = "Sign-in could not be completed";
         ctx.fns.procs.log.warn({ event: "auth.oidc.failed", msg: message });
+        // Local ingress deliberately exposes no login/setup page; do not redirect into an OIDC retry loop.
+        if (ctx.env.HYPER_LOCAL_INGRESS) return new Response(message, { status: 403, headers: { "cache-control": "no-store", "set-cookie": clear } });
         return new Response(null, { status: 303, headers: { location: `/auth/login?error=${encodeURIComponent(message)}`, "cache-control": "no-store", "set-cookie": clear } });
     };
     const cfg = await ctx.fns.auth.oidcConfig({});
@@ -41,7 +44,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const user = await ctx.fns.auth.linkIdentity({ provider: "oidc", sub: String(claims.sub), email, name: String(claims.name ?? email.split("@")[0]), picture: typeof claims.picture === "string" ? claims.picture : null, autoCreate });
     if (!user) return fail(`${email} is not allowed to sign in to this Hyper`);
 
-    const s = await ctx.fns.auth.oidcSession({ action: "create", req: opts.req, userId: user.id, refreshToken: tokens.refresh_token ?? null });
+    const s = await ctx.fns.auth.oidcSession({ action: "create", req: opts.req, userId: user.id, refreshToken: tokens.refresh_token ?? null, accessToken: tokens.access_token ?? null, expiresIn: tokens.expires_in });
     let next = String(carried.email || "/");
     if (!next.startsWith("/") || next.startsWith("//")) next = "/";
     const headers = new Headers({ location: next, "cache-control": "no-store" });

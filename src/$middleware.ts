@@ -3,6 +3,8 @@
 // today's open local behavior but is still attached to the session, so authorship is recorded.
 export default async function (ctx: Context, session: Session | null, opts: { req: Request }): Promise<Response | void> {
     const url = new URL(opts.req.url);
+    // Private ingress resolver must never enter ordinary sign-in/redirect/owner assertion paths.
+    if (url.pathname === "/auth/local-ingress/session") return ctx.fns.auth.localIngressSession({ req: opts.req });
     // Browsers opening a page over plain HTTP go to the HTTPS/HTTP2 address.
     const toHttps = ctx.fns.h2.redirect({ req: opts.req });
     if (toHttps) return toHttps;

@@ -12,6 +12,9 @@
  * @param opts.req Incoming request (cookie source; also picks cookie security flags).
  * @param opts.userId User to create the session for (create only).
  * @param opts.refreshToken Provider refresh token (create only).
+ * @param opts.accessToken Provider access token from the verified code exchange (create only).
+ * @param opts.expiresIn Provider access-token lifetime in seconds, capped at 900. @default 300
+ * @param opts.includeAccessToken Include a secret access token only for a server-proven private ingress request. @default false
  */
 export default async function (
     ctx: Context,
@@ -25,9 +28,25 @@ export default async function (
         userId?: string;
         /** Provider refresh token (create only). */
         refreshToken?: string | null;
+        /** Provider access token from a verified code exchange; encrypted with the refresh token. */
+        accessToken?: string | null;
+        /** Provider access-token lifetime in seconds; capped at 15 minutes. @default 300 */
+        expiresIn?: number;
+        /** Return a secret token only to the private ingress resolver, never UI/RPC. @default false */
+        includeAccessToken?: boolean;
     },
-): Promise<{ user: types.auth.User | null; setCookie: string | null }> {
+): Promise<{ user: types.auth.User | null; setCookie: string | null; accessToken?: string }> {
+    if (opts.includeAccessToken && !(ctx.state as any).authLocalIngressRequests?.has(opts.req)) throw new Error("Private session resolution required");
     const db = ctx.fns.procs.db;
+    // Versioned bundle in the existing encrypted column: no plaintext storage or migration.
+    const unpack = (value: string): { refreshToken: string; accessToken?: string; accessExpiresAt?: number } => {
+        if (!value.startsWith("{")) return { refreshToken: value }; // legacy encrypted refresh token
+        const parsed = JSON.parse(value);
+        if (parsed.version !== 1 || typeof parsed.refreshToken !== "string") throw new Error("Invalid session envelope");
+        return parsed;
+    };
+    const lifetime = (seconds: number | undefined) => Math.max(0, Math.min(900, Number.isFinite(seconds) ? Number(seconds) : 300)) * 1000;
+    const readBundle = async (envelope: string, sid: string) => unpack(await ctx.fns.secrets.decryptLocal({ namespace: "auth-session", name: sid, envelope }));
     const ACCESS_SECONDS = 15 * 60;          // cookie lifetime; renewed silently
     const RENEW_BEFORE = 2 * 60;             // renew this close to expiry
     const SESSION_MAX_MS = 90 * 86400 * 1000; // hard cap regardless of activity
@@ -44,7 +63,7 @@ export default async function (
         if (!user) return { user: null, setCookie: null };
         const sid = "s_" + Bun.randomUUIDv7().replace(/-/g, "");
         const now = Date.now();
-        const refreshEnc = opts.refreshToken ? await ctx.fns.secrets.encryptLocal({ namespace: "auth-session", name: sid, value: opts.refreshToken }) : null;
+        const refreshEnc = opts.refreshToken ? await ctx.fns.secrets.encryptLocal({ namespace: "auth-session", name: sid, value: JSON.stringify({ version: 1, refreshToken: opts.refreshToken, accessToken: opts.accessToken ?? null, accessExpiresAt: now + lifetime(opts.expiresIn) }) }) : null;
         await db.run({
             sql: "INSERT INTO auth_sessions (id, user_id, provider, refresh_enc, created_at, refreshed_at, expires_at) VALUES (?, ?, 'oidc', ?, ?, ?, ?)",
             params: [sid, user.id, refreshEnc, now, now, now + SESSION_MAX_MS],
@@ -61,6 +80,7 @@ export default async function (
     if (!claims || claims.kind) return { user: null, setCookie: null };
     claims.__expired = typeof claims.exp === "number" && claims.exp * 1000 < Date.now();
     const sid = String(claims.jti ?? "");
+    if (opts.includeAccessToken && !sid.startsWith("s_")) return { user: null, setCookie: null };
     if (!sid.startsWith("s_")) return { user: claims.__expired ? null : await ctx.fns.auth.getUser({ id: String(claims.sub) }), setCookie: null };
 
     const rows = await db.select({ sql: "SELECT * FROM auth_sessions WHERE id = ? AND revoked_at IS NULL", params: [sid] }) as any[];
@@ -70,7 +90,9 @@ export default async function (
     if (!user) return { user: null, setCookie: null };
 
     const secondsLeft = Number(claims.exp ?? 0) - Math.floor(Date.now() / 1000);
-    if (!claims.__expired && secondsLeft > RENEW_BEFORE) return { user, setCookie: null };
+    const bundle = opts.includeAccessToken && s.refresh_enc ? await readBundle(String(s.refresh_enc), sid) : null;
+    const accessValid = !!bundle?.accessToken && Number(bundle.accessExpiresAt) > Date.now() + 30_000;
+    if (!claims.__expired && secondsLeft > RENEW_BEFORE && (!opts.includeAccessToken || accessValid)) return { user, setCookie: null, ...(opts.includeAccessToken ? { accessToken: bundle!.accessToken } : {}) };
 
     // Renew through the provider: this is where a disabled user or a stolen/reused token is caught.
     // The provider rotates refresh tokens and treats a reused one as theft (it ends the whole sign-in),
@@ -81,7 +103,7 @@ export default async function (
     const cfg = await ctx.fns.auth.oidcConfig({});
     if (!cfg || !s.refresh_enc) {
         // Provider not configured or unreachable: allow a short grace only if the token is still valid.
-        return { user: claims.__expired ? null : user, setCookie: null };
+        return { user: opts.includeAccessToken || claims.__expired ? null : user, setCookie: null };
     }
     const RENEW_DEBOUNCE_MS = 30_000;
     const inflight: Map<string, Promise<"renewed" | "refused" | "unreachable">> = ((ctx.state as any).authOidcRenewals ??= new Map());
@@ -92,8 +114,10 @@ export default async function (
             return await pool.begin(async (tx: any) => {
                 const [row] = await tx.unsafe("SELECT refresh_enc, refreshed_at, revoked_at FROM auth_sessions WHERE id = $1 FOR UPDATE", [sid]);
                 if (!row || row.revoked_at != null) return "refused";
-                if (Date.now() - Number(row.refreshed_at) < RENEW_DEBOUNCE_MS) return "renewed"; // someone just did it
-                const refreshToken = await ctx.fns.secrets.decryptLocal({ namespace: "auth-session", name: sid, envelope: String(row.refresh_enc) });
+                const previous = await readBundle(String(row.refresh_enc), sid);
+                const validAccess = !!previous.accessToken && Number(previous.accessExpiresAt) > Date.now() + 30_000;
+                if (Date.now() - Number(row.refreshed_at) < RENEW_DEBOUNCE_MS && (!opts.includeAccessToken || validAccess)) return "renewed";
+                const refreshToken = previous.refreshToken;
                 const res = await fetch(cfg.tokenEndpoint, {
                     method: "POST",
                     headers: { "content-type": "application/x-www-form-urlencoded", authorization: "Basic " + btoa(`${encodeURIComponent(cfg.clientId)}:${encodeURIComponent(cfg.clientSecret)}`) },
@@ -107,7 +131,7 @@ export default async function (
                     return "refused";
                 }
                 const t: any = await res.json();
-                const enc = t.refresh_token ? await ctx.fns.secrets.encryptLocal({ namespace: "auth-session", name: sid, value: String(t.refresh_token) }) : row.refresh_enc;
+                const enc = await ctx.fns.secrets.encryptLocal({ namespace: "auth-session", name: sid, value: JSON.stringify({ version: 1, refreshToken: typeof t.refresh_token === "string" && t.refresh_token ? t.refresh_token : previous.refreshToken, accessToken: typeof t.access_token === "string" ? t.access_token : null, accessExpiresAt: Date.now() + lifetime(t.expires_in) }) });
                 await tx.unsafe("UPDATE auth_sessions SET refresh_enc = $1, refreshed_at = $2 WHERE id = $3", [enc, Date.now(), sid]);
                 return "renewed";
             });
@@ -116,6 +140,14 @@ export default async function (
     }
     const outcome = await pending.catch(() => "unreachable" as const);
     if (outcome === "refused") return { user: null, setCookie: null };
-    if (outcome === "unreachable") return { user: claims.__expired ? null : user, setCookie: null }; // network blip: keep a valid token, don't revoke
-    return { user, setCookie: await cookieFor(user, sid) };
+    if (outcome === "unreachable") return { user: opts.includeAccessToken || claims.__expired ? null : user, setCookie: null }; // network blip: keep a valid token, don't revoke
+    const setCookie = await cookieFor(user, sid);
+    if (opts.includeAccessToken) {
+        const latest = await db.select({ sql: "SELECT * FROM auth_sessions WHERE id = ? AND revoked_at IS NULL", params: [sid] }) as any[];
+        const row = latest[0];
+        const tokens = row?.refresh_enc ? await readBundle(String(row.refresh_enc), sid) : null;
+        if (!tokens?.accessToken || Number(tokens.accessExpiresAt) <= Date.now() + 30_000 || !await ctx.fns.auth.getUser({ id: user.id })) return { user: null, setCookie };
+        return { user, setCookie, accessToken: tokens.accessToken };
+    }
+    return { user, setCookie };
 }

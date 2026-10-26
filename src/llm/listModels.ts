@@ -50,8 +50,15 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
         "kimi:kimi-k2-thinking",
     ];
     // The subscription catalogue is discovered independently of Moonshot API models.
-    const codingModels = await ctx.fns.llm.kimiCodingModels({});
-    if (codingModels.length) out["kimi-coding"] = codingModels;
+    // Every logged-in Kimi Coding account, not just the default slot (same bug as Codex had).
+    try {
+        const kimiAccounts = ((await ctx.fns.llm.listAccounts({ provider: "kimi-coding" })) as any[])
+            .filter(entry => !entry.needsReconnect)
+            .map(entry => String(entry.account || "default"));
+        const codingModels = (await Promise.all(kimiAccounts.map(account =>
+            ctx.fns.llm.kimiCodingModels({ account }).catch(() => [] as string[])))).flat();
+        if (codingModels.length) out["kimi-coding"] = codingModels;
+    } catch { /* no Kimi login — omit */ }
     if (await configured("openai:gpt-5-codex")) out.openai = [
         "openai:gpt-5-codex",
         "openai:gpt-5.1-mini",
@@ -114,25 +121,35 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
     } catch { /* no key / unreachable — omit */ }
 
 
-    // Codex (ChatGPT subscription) — only if user has a valid JWT.
-    // Models pulled live from /codex/models (subscription-gated whitelist).
+    // Codex (ChatGPT subscription) — every logged-in account, not just "default".
+    // A login made from Settings lands in a named slot (~/.hyper/accounts/codex/<name>),
+    // so checking only ~/.codex/auth.json hid every OpenAI model from a person who
+    // had in fact logged in. Named accounts get `codex/<name>:` routes, exactly the
+    // form resolveEndpoint accepts. Models pulled live from /codex/models
+    // (subscription-gated whitelist), per account because plans differ.
     try {
-        const tok = await ctx.fns.llm.refreshCodex?.({});
-        if (tok) {
-            const version = await ctx.fns.llm.codexCliVersion({});
-            const url = `https://chatgpt.com/backend-api/codex/models?client_version=${encodeURIComponent(version)}`;
-            const r = await fetch(url, {
-                headers: { "authorization": `Bearer ${tok}`, "originator": "codex_cli_rs" },
-                signal: AbortSignal.timeout(3000),
-            });
-            if (r.ok) {
+        const accounts = ((await ctx.fns.llm.listAccounts({ provider: "codex" })) as any[])
+            .filter(entry => !entry.needsReconnect)
+            .map(entry => String(entry.account || "default"));
+        const version = accounts.length ? await ctx.fns.llm.codexCliVersion({}) : "";
+        const url = `https://chatgpt.com/backend-api/codex/models?client_version=${encodeURIComponent(version)}`;
+        const ids = (await Promise.all(accounts.map(async account => {
+            try {
+                const tok = await ctx.fns.llm.refreshCodex({ account });
+                if (!tok) return [];
+                const r = await fetch(url, {
+                    headers: { "authorization": `Bearer ${tok}`, "originator": "codex_cli_rs" },
+                    signal: AbortSignal.timeout(3000),
+                });
+                if (!r.ok) return [];
                 const j: any = await r.json();
-                const ids = (j.models ?? [])
+                const prefix = account === "default" ? "codex" : `codex/${account}`;
+                return (j.models ?? [])
                     .filter((m: any) => m.visibility !== "hidden" && m.visibility !== "hide" && m.supported_in_api !== false)
-                    .map((m: any) => `codex:${m.slug}`);
-                if (ids.length) out.codex = ids;
-            }
-        }
+                    .map((m: any) => `${prefix}:${m.slug}`);
+            } catch { return []; /* this account is unreachable — the others still count */ }
+        }))).flat();
+        if (ids.length) out.codex = ids;
     } catch { /* not logged in or unreachable — omit */ }
 
     // Claude subscription models. We cannot query an account-specific model
@@ -154,9 +171,19 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
         "claude-fable-5",
         "claude-fable-5-1",
     ];
+    // Every Claude Code login: the default keychain entry and each named slot under
+    // ~/.hyper/accounts/claude-code/<name>, as `claude-code/<name>:` routes.
     try {
-        const tok = await ctx.fns.llm.refreshClaudeCode?.({});
-        if (tok) out["claude-code"] = claudeModels.map(id => `claude-code:${id}`);
+        const claudeAccounts = ((await ctx.fns.llm.listAccounts({ provider: "claude-code" })) as any[])
+            .filter(entry => entry.provider === "claude-code" && !entry.needsReconnect)
+            .map(entry => String(entry.account || "default"));
+        const live = await Promise.all(claudeAccounts.map(async account =>
+            (await ctx.fns.llm.refreshClaudeCode({ account }).catch(() => null)) ? account : null));
+        const ids = live.filter((a): a is string => !!a).flatMap(account => {
+            const prefix = account === "default" ? "claude-code" : `claude-code/${account}`;
+            return claudeModels.map(id => `${prefix}:${id}`);
+        });
+        if (ids.length) out["claude-code"] = ids;
     } catch { /* no keychain access — omit */ }
 
     try {

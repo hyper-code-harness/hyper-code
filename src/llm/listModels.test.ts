@@ -2,6 +2,40 @@ import { test, expect, describe } from "bun:test";
 import listModels from "./listModels";
 
 describe("llm.listModels", () => {
+    // The bug: a Codex login made from Settings lives in a named slot, but the catalogue
+    // only asked for the default one — so a logged-in person saw no OpenAI models at all.
+    test("every logged-in Codex account contributes its models under its own route", async () => {
+        const asked: string[] = [];
+        const realFetch = globalThis.fetch;
+        globalThis.fetch = (async () => new Response(JSON.stringify({ models: [{ slug: "gpt-x" }, { slug: "hidden", visibility: "hidden" }] }))) as any;
+        try {
+            const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+                kimiCodingModels: async () => [],
+                resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
+                listAccounts: async () => [{ account: "personal", needsReconnect: false }, { account: "stale", needsReconnect: true }],
+                codexCliVersion: async () => "1.0.0",
+                refreshCodex: async ({ account }: any) => { asked.push(account); return "token"; },
+            } } } as unknown as Context;
+            const groups = await listModels(ctx, null, { skipNodes: true });
+            expect(groups.codex).toEqual(["codex/personal:gpt-x"]);
+            expect(asked).toEqual(["personal"]);
+        } finally { globalThis.fetch = realFetch; }
+    });
+
+    test("named Claude Code and Kimi Coding logins show up too, not only the default slot", async () => {
+        const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
+            listAccounts: async ({ provider }: any) => provider === "claude-code"
+                ? [{ provider: "claude-code", account: "work", needsReconnect: false }]
+                : provider === "kimi-coding" ? [{ provider: "kimi-coding", account: "home", needsReconnect: false }] : [],
+            refreshClaudeCode: async ({ account }: any) => account === "work" ? "token" : null,
+            kimiCodingModels: async ({ account }: any) => account === "home" ? ["kimi-coding/home:k2"] : [],
+        } } } as unknown as Context;
+        const groups = await listModels(ctx, null, { skipNodes: true });
+        expect(groups["claude-code"]).toContain("claude-code/work:claude-sonnet-4-6");
+        expect(groups["claude-code"]!.some(m => m.startsWith("claude-code:"))).toBe(false);
+        expect(groups["kimi-coding"]).toEqual(["kimi-coding/home:k2"]);
+    });
     test("omits static remote catalogues when their credentials are absent", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
             kimiCodingModels: async () => [],
@@ -21,6 +55,7 @@ describe("llm.listModels", () => {
             kimiCodingModels: async () => [],
             resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
             refreshClaudeCode: async () => "token",
+            listAccounts: async ({ provider }: any) => provider === "claude-code" ? [{ provider, account: "default", needsReconnect: false }] : [],
             anthropicOAuthStatus: async () => ({ connected: true, accounts: [{ account: "personal", needsReconnect: false }] }),
         } } } as unknown as Context;
         const groups = await listModels(ctx, null);

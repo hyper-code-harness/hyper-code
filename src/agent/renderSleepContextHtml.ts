@@ -41,8 +41,11 @@ export default async function (
     const sourceOffset = Math.max(0, Number(generation.sourceOffset ?? 0));
     const hidden = Math.max(0, tailStart);
 
-    return `<div class="rounded-lg border border-ui-border bg-base-200 px-3 py-2 text-xs text-muted">
-  <div class="flex items-center gap-2 font-medium"><i class="ph ph-moon-stars"></i> Compact context active</div>
-  <div class="mt-1 text-subtle">The model sees the consolidation and recent messages. Full history is preserved; ${hidden} of ${sourceOffset} original messages are hidden.</div>
-</div>\n${syntheticHtml}${tailHtml ? `\n<div class="flex items-center gap-2 py-1 text-3xs uppercase tracking-wide text-faint"><span class="h-px flex-1 bg-ui-border"></span>recent messages<span class="h-px flex-1 bg-ui-border"></span></div>\n${tailHtml}` : ""}`;
+    const w = ctx.fns.w;
+    const head = w.eventNote({
+        text: "Compact context active",
+        icon: "moon-stars",
+        body: w.escape({ text: `The model sees the consolidation and recent messages. Full history is preserved; ${hidden} of ${sourceOffset} original messages are hidden.` }),
+    });
+    return `${head}\n${syntheticHtml}${tailHtml ? `\n${w.divider({ label: "recent messages" })}\n${tailHtml}` : ""}`;
 }

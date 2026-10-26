@@ -20,4 +20,7 @@ html[data-dock-mode="dot"] #dock { position: absolute; z-index: var(--w-layer-po
 html[data-dock-mode="dot"] #dock .w-rail-head { border-bottom: 0; }
 html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-id="menu"] { border: var(--w-rule); border-radius: var(--w-radius-round); background: var(--w-surface-document); }
 html[data-dock-mode="dot"] #dock:not(:hover, :focus-within, :has(:popover-open)) > :not(.w-rail-head) { display: none; }
-html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) { bottom: var(--w-s2); height: auto; border: var(--w-rule); border-left: 0; border-top: 0; border-radius: 0 0 var(--w-radius-window) 0; background: var(--w-surface-raised); box-shadow: var(--w-shadow-raised); }
+/* Unfolded it is the same grey bar in the same place as in bar mode, only over the page (a shadow, no layout shift). */
+html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) { bottom: 0; height: auto; background: var(--w-surface-chrome); border-right: var(--w-rule); box-shadow: var(--w-shadow-raised); }
+html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) .w-rail-head { border-bottom: var(--w-rule); }
+html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) [data-dock-id="menu"] { border: 0; background: none; }

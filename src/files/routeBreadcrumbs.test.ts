@@ -12,8 +12,9 @@ describe("GET /files — breadcrumbs", () => {
         const res = await ctx.fns.procs.http.dispatch({ url: "/files?path=src" });
         expect(res.status).toBe(200);
         const html = await res.text();
-        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "" })}" class="font-semibold text-primary hover:underline">workspace</a>`);
-        expect(html).toContain(`href="${await ctx.fns.files.browserUrl({ path: "src" })}"`);
+        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "" })}">workspace</a>`);
+        // The open folder is the last crumb: current, not a link (w.crumbs).
+        expect(html).toContain('<span aria-current="page">src</span>');
     });
 
     test("an absolute path keeps the leading slash in every crumb", async () => {
@@ -24,10 +25,10 @@ describe("GET /files — breadcrumbs", () => {
         const html = await res.text();
 
         // Root crumb is "/", not an unlabelled link.
-        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "/" })}" class="font-semibold text-primary hover:underline">/</a>`);
+        expect(html).toContain(`<a href="${await ctx.fns.files.browserUrl({ path: "/" })}">/</a>`);
         expect(html).not.toContain(`hover:underline"></a>`);
-        // Every intermediate crumb is absolute too.
-        for (const part of dir.split("/").filter(Boolean).map((_, i, all) => "/" + all.slice(0, i + 1).join("/"))) {
+        // Every intermediate crumb is absolute too (the last one is the open folder, not a link).
+        for (const part of dir.split("/").filter(Boolean).map((_, i, all) => "/" + all.slice(0, i + 1).join("/")).slice(0, -1)) {
             expect(html).toContain(`href="${await ctx.fns.files.browserUrl({ path: part })}"`);
         }
     });
@@ -85,7 +86,7 @@ describe("GET /files — reachable as an htmx fragment", () => {
         const res = await ctx.fns.procs.http.dispatch({ url: "/files?path=README.md&tab=preview", headers: hx });
         const html = await res.text();
         expect(res.status).toBe(200);
-        expect(html).toContain("prose");
+        expect(html).toContain('class="w-markdown"');
     });
 
     test("a file view uses the same centered GitHub-width container as a directory", async () => {
@@ -93,9 +94,8 @@ describe("GET /files — reachable as an htmx fragment", () => {
         const res = await ctx.fns.procs.http.dispatch({ url: "/files?path=README.md&tab=preview", headers: hx });
         const html = await res.text();
         expect(res.status).toBe(200);
-        expect(html).toContain("mx-auto flex min-h-full w-full max-w-5xl flex-col");
-        expect(html).toContain("rounded-lg border border-ui-border bg-base-100");
-        expect(html).toContain("bg-base-100 flex-1");
+        expect(html).toContain("<div data-file-page><div data-file-column>");
+        expect(html).toContain("<div data-file-card>");
         expect(html).not.toContain("dot-grid-surface");
     });
 

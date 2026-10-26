@@ -336,3 +336,9 @@ test("addressBar is a form named url with hooks; tabs carry hooks on the tab and
     expect(tabs).toContain('data-canvas-tab="1"');
     expect(tabs).toContain('class="w-tab-close" aria-label="Close A" data-canvas-close-item="1"');
 });
+
+test("crumbs: no separator after a slash root; plain links skip the htmx swap", async () => {
+    const ctx: any = await mkTestCtx();
+    const html = ctx.fns.w.crumbs({ items: [{ label: "/", href: "/f/" }, { label: "Users", href: "/f/Users" }, { label: "me" }], plain: true });
+    expect(html).toContain('<a href="/f/">/</a><a href="/f/Users">Users</a><span class="w-crumb-sep" aria-hidden="true">/</span><span aria-current="page">me</span>');
+});

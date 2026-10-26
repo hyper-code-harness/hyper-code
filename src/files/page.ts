@@ -26,5 +26,5 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!info || (await ctx.fns.files.isPrivateResult({ path, host }))) throw new Error(`file not found: ${host ? host + ":" : ""}${path}`);
     const tab = (["preview", "code", "edit"].includes(String(opts.tab)) ? opts.tab : "") as "" | "preview" | "code" | "edit";
     const view = await ctx.fns.files.view({ path, host, isDir: info.isDir, tab, wide: true, assetsBase: true });
-    return `<div data-canvas-files class="flex h-full min-h-0 flex-col">${view.html}</div>`;
+    return `<div data-canvas-files>${view.html}</div>`;
 }

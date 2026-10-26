@@ -50,22 +50,22 @@
 
     const statusEl = document.getElementById("save-status");
     let timer = null;
-    function status(text, cls) {
+    function status(text, tone) {
         if (!statusEl) return;
         statusEl.textContent = text;
-        statusEl.className = "text-xs " + cls;
-        statusEl.classList.remove("hidden");
+        statusEl.dataset.tone = tone;
+        statusEl.hidden = false;
     }
 
     const saveExt = EditorView.updateListener.of((u) => {
         if (!u.docChanged) return;
         if (timer) clearTimeout(timer);
-        status("modified", "text-warning");
+        status("modified", "warning");
         timer = setTimeout(() => {
             const body = u.state.doc.toString();
             fetch(cfg.saveUrl, { method: "PUT", headers: { "content-type": "text/plain" }, body })
-                .then(r => status(r.ok ? "saved" : "save failed", r.ok ? "text-success" : "text-error"))
-                .catch(() => status("save failed", "text-error"));
+                .then(r => status(r.ok ? "saved" : "save failed", r.ok ? "success" : "danger"))
+                .catch(() => status("save failed", "danger"));
         }, 800);
     });
 
@@ -108,14 +108,14 @@
     function enableVim() {
         if (!vimExt) vimExt = cm.vim.vim();
         editor.dispatch({ effects: StateEffect.appendConfig.of(vimExt) });
-        if (vimStatus) { vimStatus.classList.remove("hidden"); vimStatus.textContent = "-- NORMAL --"; }
+        if (vimStatus) { vimStatus.hidden = false; vimStatus.textContent = "-- NORMAL --"; }
     }
     function disableVim() {
         const doc = editor.state.doc.toString();
         editor.destroy();
         editor = new EditorView({ state: EditorState.create({ doc, extensions }), parent: host });
         window.__cmView = editor;
-        if (vimStatus) vimStatus.classList.add("hidden");
+        if (vimStatus) vimStatus.hidden = true;
     }
 
     if (vimToggle) {

@@ -40,7 +40,7 @@ describe("GET /files — media preview", () => {
                 const html = await (await ctx.fns.procs.http.dispatch({ url: `/files?path=${encodeURIComponent(path)}` })).text();
                 expect(html).toContain(element);
                 expect(html).toContain(await ctx.fns.files.browserUrl({ path }));
-                if (file === "paper.pdf") expect(html).toContain(`<iframe src="${await ctx.fns.files.browserUrl({ path })}?raw=1"`);
+                if (file === "paper.pdf") expect(html).toContain(`<iframe data-file-frame src="${await ctx.fns.files.browserUrl({ path })}?raw=1"`);
             }
         } finally {
             await rm(dir, { recursive: true, force: true });

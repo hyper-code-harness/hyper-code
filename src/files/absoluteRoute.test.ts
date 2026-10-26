@@ -62,7 +62,7 @@ describe("GET /files/absolute — path-based Files URLs", () => {
             expect(response.status).toBe(200);
             expect(html).toContain("Embedded");
             expect(html).not.toContain('id="dock"');
-            expect(html).toContain("max-w-none");
+            expect(html).toContain("<div data-file-page data-wide>");
         } finally {
             await rm(dir, { recursive: true, force: true });
         }

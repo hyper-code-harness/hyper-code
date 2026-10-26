@@ -11,7 +11,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
     // ?host=<alias> browses a directory on an SSH host (remote workspace).
     const host = url.searchParams.get("host") || undefined;
     if (host && !(await ctx.fns.remote.servers({})).some(s => s.name === host)) {
-        return { status: 400, title: "files", main: page(`<div class="p-6 text-error">unknown host: <code>${esc(host)}</code></div>`) };
+        return { status: 400, title: "files", main: page(ctx.fns.w.empty({ icon: "warning", title: `Unknown host: ${host}`, tone: "danger" })) };
     }
     // Remote links must be absolute: a relative or ~ path is resolved on the host
     // once and the page is served for that absolute path.
@@ -32,7 +32,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
         return {
             status: 404,
             title: path || "files",
-            main: page(`<div class="p-6 text-error">not found: <code>${esc(path)}</code></div>`),
+            main: page(ctx.fns.w.empty({ icon: "file-x", title: `Not found: ${path}`, tone: "danger" })),
         };
     }
 
@@ -50,12 +50,9 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
 }
 
 function page(body: string): string {
-    return `<div class="flex-1 flex flex-col overflow-hidden">${body}</div>`;
+    return `<div data-files-page>${body}</div>`;
 }
 
-function esc(s: any): string {
-    return String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch]!));
-}
 
 // Absolute path of a (non-directory) file on an SSH host, or null.
 async function resolveRemoteFile(ctx: Context, host: string, path: string): Promise<string | null> {

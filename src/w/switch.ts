@@ -7,6 +7,7 @@
  * @param opts.hint One quiet line under the label on what it does.
  * @param opts.title Tooltip, e.g. why it has no effect right now.
  * @param opts.disabled Shown but not changeable.
+ * @param opts.id Id of the checkbox, for a page script that reads it.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Submitted field name; also the data-field marker. Checked sends value 1, unchecked sends nothing. */
@@ -21,8 +22,10 @@ export default function (ctx: Context, _session: Session | null, opts: {
     title?: string;
     /** Shown but not changeable. */
     disabled?: boolean;
+    /** Id of the checkbox, for a page script that reads it. */
+    id?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const text = `<span class="w-switch-text"><span>${esc(opts.label)}</span>${opts.hint ? `<span class="w-switch-hint">${esc(opts.hint)}</span>` : ""}</span>`;
-    return `<label class="w-switch"${opts.title ? ` title="${esc(opts.title)}"` : ""}>${text}<input type="checkbox" role="switch" ${ctx.fns.w.marks({ field: opts.name })} name="${esc(opts.name)}" value="1"${opts.on ? " checked" : ""}${opts.disabled ? " disabled" : ""}><span class="w-switch-track" aria-hidden="true"></span></label>`;
+    return `<label class="w-switch"${opts.title ? ` title="${esc(opts.title)}"` : ""}>${text}<input type="checkbox" role="switch" ${ctx.fns.w.marks({ field: opts.name })} name="${esc(opts.name)}" value="1"${opts.id ? ` id="${esc(opts.id)}"` : ""}${opts.on ? " checked" : ""}${opts.disabled ? " disabled" : ""}><span class="w-switch-track" aria-hidden="true"></span></label>`;
 }

@@ -91,7 +91,7 @@ test("canvas shows a file from the catalog as a tab pinned to the agent, switche
     expect((await (await post({ activeItemId: two.id })).json()).activeItemId).toBe(two.id);
     const panel = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/canvas/${a.id}/panel` })).text();
     expect(panel).toContain("data-canvas-files");
-    expect(panel).toContain('class="prose');
+    expect(panel).toContain('class="w-markdown"');
     expect(panel).toMatch(/href="\/files\/absolute\/[^"]*\/README\.md\?tab=code"/);
 
     // A link inside the file tab moves the same tab: README → its Code view, then to the folder.

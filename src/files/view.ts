@@ -47,28 +47,20 @@ async function renderDir(ctx: Context, path: string, wide = false, embedded = fa
     const visible = await Promise.all(listed.map(async entry => ({ entry, denied: await ctx.fns.files.isPrivateResult({ path: path ? `${path.replace(/\/$/, "")}/${entry.name}` : entry.name, host }) })));
     const entries = visible.filter(item => !item.denied).map(item => item.entry);
     const crumbs = await breadcrumbs(ctx, path, embedded, host);
-    const rows = (await Promise.all(entries.map(async (e, index) => {
+    const w = ctx.fns.w;
+    const rows = (await Promise.all(entries.map(async e => {
         // Joining an absolute parent must not double the slash: "/" + "Users".
         const full = path ? `${path.replace(/\/$/, "")}/${e.name}` : e.name;
-        const icon = e.isDir ? "ph-folder-simple ph-fill text-primary/70" : `${fileIcon(e.name)} text-subtle`;
-        const href = await browserHref(ctx, full, embedded, host);
-        return `<a href="${href}" class="group grid h-9 grid-cols-[minmax(0,1fr)_7rem] items-center border-t border-ui-border/60 px-4 text-sm first:border-t-0 hover:bg-base-200/60">
-<span class="flex min-w-0 items-center gap-3"><i class="ph ${icon} text-base"></i><span class="truncate text-base-content group-hover:text-primary">${esc(e.name)}</span></span>
-<span class="text-right text-xs text-faint">${e.isDir ? "Directory" : fileKind(e.name)}</span>
-</a>`;
+        return w.listRow({ label: e.name, icon: e.isDir ? "folder-simple" : fileIcon(e.name), hint: e.isDir ? "Directory" : fileKind(e.name), action: { href: await browserHref(ctx, full, embedded, host) } });
     }))).join("");
-    const body = `<div class="bg-base-100 flex-1 overflow-y-auto ${wide ? "p-3" : "px-6 py-5"}">
-<div class="mx-auto w-full ${wide ? "max-w-none" : "max-w-5xl"}">
-  <div class="mb-3 flex min-w-0 items-center gap-2 text-sm text-muted">${crumbs}</div>
-  <div class="overflow-hidden rounded-lg border border-ui-border bg-base-100">
-    <div class="flex h-10 items-center gap-2 border-b border-ui-border bg-base-200/50 px-4">
-      <i class="ph ph-folder-open text-subtle"></i><span class="min-w-0 flex-1 truncate text-sm font-semibold text-base-content">${esc(path ? basename(path) || path : "workspace")}</span>
-      <span class="text-xs text-subtle">${entries.length} item${entries.length === 1 ? "" : "s"}</span>
-    </div>
-    <div>${rows || '<div class="px-4 py-10 text-center text-sm text-subtle">This directory is empty.</div>'}</div>
-  </div>
-</div>
-</div>`;
+    const card = w.card({
+        title: path ? basename(path) || path : "workspace",
+        icon: "folder-open",
+        actions: w.box({ body: `${entries.length} item${entries.length === 1 ? "" : "s"}`, mix: { text: "small", ink: "faint" }, tag: "span" }),
+        flush: true,
+        body: w.list({ body: rows, label: "Files", empty: "This directory is empty." }),
+    });
+    const body = frame(crumbs + card, wide);
     return { title: path || "files", html: body };
 }
 
@@ -88,42 +80,38 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
     // Binary media must never pass through files.read(), which decodes as UTF-8.
     const content = isMedia ? "" : await ctx.fns.files.read({ path, host });
 
-    const tabCls = (id: string) => id === tab
-        ? "rounded px-3 py-1 text-xs font-semibold text-base-content bg-base-100 shadow-sm"
-        : "rounded px-3 py-1 text-xs text-muted hover:text-base-content";
+    const w = ctx.fns.w;
     const fileUrl = await browserHref(ctx, path, embedded, host);
-    const tabLink = (id: string, label: string) =>
-        `<a href="${fileUrl}?tab=${id}" class="${tabCls(id)}">${label}</a>`;
-
-    const tabs: string[] = [];
-    if (isMd || isHtml || isMedia) tabs.push(tabLink("preview", "Preview"));
+    const modes: Array<{ label: string; value: string; action: types.w.Action }> = [];
+    if (isMd || isHtml || isMedia) modes.push({ label: "Preview", value: "preview", action: { href: `${fileUrl}?tab=preview` } });
     if (!isMedia) {
-        tabs.push(tabLink("code", "Code"));
-        tabs.push(tabLink("edit", "Edit"));
+        modes.push({ label: "Code", value: "code", action: { href: `${fileUrl}?tab=code` } });
+        modes.push({ label: "Edit", value: "edit", action: { href: `${fileUrl}?tab=edit` } });
     }
 
     let contentEl = "";
     const rawUrl = fileUrl;
+    // Media and framed previews fill the card; text views scroll inside it.
     if (tab === "preview" && isImage) {
-        contentEl = `<div class="flex flex-1 items-center justify-center overflow-auto bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] p-8"><img src="${rawUrl}" alt="${esc(name)}" class="max-h-full max-w-full object-contain shadow-lg" loading="eager"></div>`;
+        contentEl = `<div data-file-media="image"><img src="${rawUrl}" alt="${esc(name)}" loading="eager"></div>`;
     } else if (tab === "preview" && isVideo) {
-        contentEl = `<div class="flex flex-1 items-center justify-center overflow-auto bg-black p-6"><video src="${rawUrl}" class="max-h-full max-w-full" controls preload="metadata"></video></div>`;
+        contentEl = `<div data-file-media="video"><video src="${rawUrl}" controls preload="metadata"></video></div>`;
     } else if (tab === "preview" && isAudio) {
-        contentEl = `<div class="flex flex-1 flex-col items-center justify-center gap-5 bg-base-200 p-8"><i class="ph ph-waveform text-6xl text-faint"></i><div class="text-sm font-medium text-muted">${esc(name)}</div><audio src="${rawUrl}" class="w-full max-w-xl" controls preload="metadata"></audio></div>`;
+        contentEl = `<div data-file-media="audio">${w.empty({ icon: "waveform", title: name })}<audio src="${rawUrl}" controls preload="metadata"></audio></div>`;
     } else if (tab === "preview" && isPdf) {
         // ?raw=1: a frame is a navigation (Sec-Fetch-Dest: iframe), so without it the Files page would frame itself.
-        contentEl = `<iframe src="${rawUrl}?raw=1" title="${esc(name)}" class="flex-1 w-full border-0 bg-base-200"></iframe>`;
+        contentEl = `<iframe data-file-frame src="${rawUrl}?raw=1" title="${esc(name)}"></iframe>`;
     } else if (tab === "preview" && isMd) {
-        let html = await ctx.fns.markdown.render({ source: content, fileBaseDir: assetsBase && !host ? dirname(path) : undefined });
+        let html = await w.markdown({ source: content, baseDir: assetsBase && !host ? dirname(path) : undefined });
         // Shown inside another page (the canvas), relative images would resolve against that page's URL.
         if (assetsBase) {
             const dirUrl = (await ctx.fns.files.browserUrl({ path: dirname(path), host })).replace(/\/$/, "");
             html = html.replace(/(<(?:img|source|video|audio)\b[^>]*?\bsrc=")([^"]*)"/gi, (full, head, src) =>
                 !src || /^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith("/") || src.startsWith("#") ? full : `${head}${dirUrl}/${src.replace(/^\.\//, "")}"`);
         }
-        contentEl = `<div class="flex-1 overflow-auto p-6"><div class="prose prose-sm max-w-none">${html}</div></div>`;
+        contentEl = `<div data-file-prose>${html}</div>`;
     } else if (tab === "preview" && isHtml) {
-        contentEl = `<iframe srcdoc="${esc(content)}" class="flex-1 w-full border-0" sandbox="allow-scripts"></iframe>`;
+        contentEl = `<iframe data-file-frame srcdoc="${esc(content)}" sandbox="allow-scripts"></iframe>`;
     } else if (tab === "edit") {
         // The editor's bootstrap rides INSIDE main, not in headExtra: an htmx
         // request gets the fragment only, and the whole <head> is thrown away
@@ -132,7 +120,7 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
         // htmx re-inserts <script> nodes it finds in swapped content and keeps
         // their order, so the config and the loader run here exactly as they
         // did from the head on a cold page load.
-        contentEl = `<div id="cm-editor" class="flex-1 overflow-hidden"></div>
+        contentEl = `<div id="cm-editor" data-file-editor></div>
 <script>window.__editor = ${scriptJson({
             saveUrl: `/files?path=${encodeURIComponent(path)}${host ? `&host=${encodeURIComponent(host)}` : ""}`,
             content,
@@ -140,31 +128,19 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
         })};</script>
 <script src="/files/editor.js"></script>`;
     } else {
-        const html = await ctx.fns.markdown.highlight({ code: content, lang: shikiLang });
-        contentEl = `<div class="flex-1 overflow-auto text-xs bg-base-100 [&_pre]:m-0 [&_pre]:rounded-none [&_pre]:p-4 [&_pre]:!bg-base-100">${html}</div>`;
+        contentEl = `<div data-file-code>${await w.code({ code: content, lang: shikiLang, lineNumbers: true })}</div>`;
     }
 
     const crumbs = await breadcrumbs(ctx, path, embedded, host);
-    const body = `
-<div class="bg-base-100 flex-1 min-h-0 overflow-auto ${wide ? "p-3" : "px-6 py-5"}">
-  <div class="mx-auto flex min-h-full w-full ${wide ? "max-w-none" : "max-w-5xl"} flex-col">
-    <div class="mb-3 flex min-w-0 items-center gap-2 text-sm">${crumbs}</div>
-    <div class="flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-lg border border-ui-border bg-base-100">
-      <div class="flex h-11 shrink-0 items-center gap-3 border-b border-ui-border bg-base-200/50 px-3">
-        <nav class="flex items-center gap-0.5 rounded-md bg-base-300/60 p-0.5">${tabs.join("")}</nav>
-        <div class="flex min-w-0 flex-1 items-center gap-2">
-          <i class="ph ${fileIcon(name)} text-subtle"></i>
-          <span class="min-w-0 flex-1 truncate text-sm font-semibold text-base-content">${esc(name)}</span>
-          <span id="save-status" class="text-xs hidden"></span>
-          ${tab === "edit" ? `<label class="flex cursor-pointer items-center gap-1 text-xs text-subtle"><input type="checkbox" id="vim-toggle" class="h-3 w-3">vim</label>` : ""}
-          <span class="shrink-0 text-xs text-faint">${isMedia ? ext.toUpperCase() : `${content.length} chars · ${content.split("\n").length} lines`}</span>
-        </div>
-      </div>
-      ${tab === "edit" ? `<div id="vim-status" class="hidden shrink-0 bg-base-content px-3 py-0.5 font-mono text-xs text-base-100"></div>` : ""}
-      ${contentEl}
-    </div>
-  </div>
-</div>`;
+    const meta = isMedia ? ext.toUpperCase() : `${content.length} chars · ${content.split("\n").length} lines`;
+    // The editor script fills #save-status and #vim-status and reads #vim-toggle.
+    const tools = w.segmented({ items: modes, value: tab, name: "file-tab" })
+        + `<span id="save-status" data-file-status hidden></span>`
+        + (tab === "edit" ? w.switch({ name: "vim", label: "vim", id: "vim-toggle" }) : "")
+        + w.box({ body: esc(meta), mix: { text: "small", ink: "faint" }, tag: "span" });
+    const head = w.paneHeader({ title: name, lead: w.icon({ name: fileIcon(name), size: 16 }), actions: tools });
+    const vim = tab === "edit" ? `<div id="vim-status" data-file-vim hidden></div>` : "";
+    const body = frame(crumbs + `<div data-file-card>${head}${vim}${contentEl}</div>`, wide);
 
     return { title: path, html: body };
 }
@@ -179,13 +155,18 @@ async function breadcrumbs(ctx: Context, path: string, embedded = false, host?: 
     const absolute = path.startsWith("/");
     const parts = path.split("/").filter(Boolean);
     const rootPath = absolute ? "/" : "";
-    const rootLabel = (host ? `<i class="ph ph-hard-drives"></i> ${esc(host)}:` : "") + (absolute ? "/" : "workspace");
-    const links = [`<a href="${await browserHref(ctx, rootPath, embedded, host)}" class="font-semibold text-primary hover:underline">${rootLabel}</a>`];
+    const items: Array<{ label: string; href?: string }> = [{ label: `${host ? `${host}:` : ""}${absolute ? "/" : "workspace"}`, href: await browserHref(ctx, rootPath, embedded, host) }];
     for (let i = 0; i < parts.length; i++) {
         const sub = (absolute ? "/" : "") + parts.slice(0, i + 1).join("/");
-        links.push(`<a href="${await browserHref(ctx, sub, embedded, host)}" class="font-semibold text-primary hover:underline">${esc(parts[i]!)}</a>`);
+        items.push({ label: parts[i]!, href: await browserHref(ctx, sub, embedded, host) });
     }
-    return links.join(` <i class="ph ph-caret-right text-3xs text-faint"></i> `);
+    // Plain links: the Files page and a canvas tab both follow them (a page load, or canvas.navigate).
+    return ctx.fns.w.crumbs({ items, plain: true });
+}
+
+// The page column: a centred GitHub-width column, or edge to edge when shown in a narrow pane (wide).
+function frame(inner: string, wide: boolean): string {
+    return `<div data-file-page${wide ? " data-wide" : ""}><div data-file-column>${inner}</div></div>`;
 }
 
 async function browserHref(ctx: Context, path: string, embedded: boolean, host?: string): Promise<string> {
@@ -197,12 +178,12 @@ async function browserHref(ctx: Context, path: string, embedded: boolean, host?:
 
 function fileIcon(name: string): string {
     const ext = extname(name).slice(1).toLowerCase();
-    if (IMAGE_EXT.has(ext)) return "ph-image text-faint";
-    if (VIDEO_EXT.has(ext)) return "ph-video text-faint";
-    if (AUDIO_EXT.has(ext)) return "ph-music-note text-faint";
-    if (ext === "pdf") return "ph-file-pdf text-faint";
-    if (["ts", "tsx", "js", "jsx", "json", "css", "html", "md", "py", "go", "rs"].includes(ext)) return "ph-file-code text-faint";
-    return "ph-file text-faint";
+    if (IMAGE_EXT.has(ext)) return "image";
+    if (VIDEO_EXT.has(ext)) return "video";
+    if (AUDIO_EXT.has(ext)) return "music-note";
+    if (ext === "pdf") return "file-pdf";
+    if (["ts", "tsx", "js", "jsx", "json", "css", "html", "md", "py", "go", "rs"].includes(ext)) return "file-code";
+    return "file";
 }
 
 function fileKind(name: string): string {

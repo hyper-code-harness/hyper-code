@@ -1,32 +1,23 @@
-/* The look of a `@view` fragment (rpc.page), the same in a canvas view tab and in a full Hyper page. */
-/* In the base layer: a page's own classes (Tailwind utilities, prose, a viewer's components) always win over
-   these defaults, and they touch only elements without a class: bare html — a note, a saved page — still gets
-   them, a component (Files: breadcrumbs, tabs, file rows) and markdown in `.prose` keep their own look. Unlayered and
-   on every element, `.rpc-view a` underlined the Files breadcrumbs, tabs and file names. */
+/* The frame of a `@view` fragment (rpc.page), the same in a canvas view tab and in a full Hyper page. Views are
+   built from w widgets, which carry their own look; this sheet only pads the column and gives bare html — a
+   saved page, a hand-written view — readable defaults. In the base layer, and only on elements without a
+   class, so any widget or a page's own classes win. */
 @layer base {
-    .rpc-view { padding: 16px 20px; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
-    .rpc-view h1:not([class], .prose *) { font-size: 1.45em; font-weight: 650; margin: .2em 0 .6em; }
-    .rpc-view h2:not([class], .prose *) { font-size: 1.2em; font-weight: 620; margin: 1.2em 0 .5em; }
-    .rpc-view h3:not([class], .prose *) { font-size: 1.05em; font-weight: 600; margin: 1em 0 .4em; }
-    .rpc-view p:not([class], .prose *), .rpc-view ul:not([class], .prose *), .rpc-view ol:not([class], .prose *), .rpc-view pre:not([class], .prose *), .rpc-view table:not([class], .prose *) { margin: 0 0 .8em; }
-    .rpc-view ul:not([class], .prose *) { list-style: disc; padding-left: 1.4em; }
-    .rpc-view ol:not([class], .prose *) { list-style: decimal; padding-left: 1.4em; }
-    .rpc-view a:not([class], .prose *) { color: var(--color-primary, #0969da); text-decoration: underline; text-underline-offset: 2px; }
-    .rpc-view table:not([class], .prose *) { border-collapse: collapse; width: 100%; font-size: 13px; }
-    .rpc-view th:not([class], .prose *), .rpc-view td:not([class], .prose *) { border: 1px solid var(--color-base-300, #d0d7de); padding: 5px 8px; text-align: left; vertical-align: top; }
-    .rpc-view th:not([class], .prose *) { font-weight: 600; }
-    /* Inline code only: the bare <code> inside a highlighted <pre class="shiki"> (Files code tab) must not get a
-       background and padding, or every wrapped line shows as a grey box. */
-    .rpc-view code:not([class], .prose *, pre *), .rpc-view pre:not([class], .prose *) { background: var(--color-base-200, #f6f8fa); border-radius: 4px; font: 12px ui-monospace, monospace; }
-    .rpc-view code:not([class], .prose *, pre *) { padding: 1px 4px; }
-    .rpc-view pre:not([class], .prose *) { padding: 10px; overflow: auto; }
-    .rpc-view blockquote:not([class], .prose *) { border-left: 3px solid var(--color-base-300, #d0d7de); padding-left: 10px; opacity: .85; }
-    .rpc-view .rpc-error { color: var(--color-error, #cf222e); }
-    .rpc-view .rpc-muted { opacity: .6; font-size: 12px; }
-    /* A viewer that lays itself out (files.page) fills the tab instead of sitting in a padded column. */
-    .rpc-view:has(> [data-canvas-files]) { padding: 0; height: 100%; }
-    /* A view that runs an app in a frame (rpc.frame) fills the whole view. */
-    .rpc-view:has(> [data-rpc-frame]) { padding: 0; height: 100%; }
+    .rpc-view { padding: var(--w-s4) var(--w-s6); font-size: var(--w-text-read); line-height: var(--w-line-read); color: var(--w-ink); overflow-wrap: anywhere; }
+    .rpc-view :is(h1, h2, h3):not([class], .w-markdown *, .prose *) { margin: 1.1em 0 .4em; line-height: 1.3; font-weight: 500; }
+    .rpc-view h1:not([class], .w-markdown *, .prose *) { font-size: 1.45em; } .rpc-view h2:not([class], .w-markdown *, .prose *) { font-size: 1.2em; } .rpc-view h3:not([class], .w-markdown *, .prose *) { font-size: 1.05em; }
+    .rpc-view :is(p, ul, ol, pre, table, blockquote):not([class], .w-markdown *, .prose *) { margin: 0 0 .8em; }
+    .rpc-view ul:not([class], .w-markdown *, .prose *) { list-style: disc; padding-left: 1.4em; }
+    .rpc-view ol:not([class], .w-markdown *, .prose *) { list-style: decimal; padding-left: 1.4em; }
+    .rpc-view a:not([class], .w-markdown *, .prose *) { color: var(--w-link); text-decoration: none; }
+    .rpc-view a:not([class], .w-markdown *, .prose *):hover { text-decoration: underline; text-underline-offset: 2px; }
+    .rpc-view table:not([class], .w-markdown *, .prose *) { border-collapse: collapse; font-size: var(--w-text-ui); }
+    .rpc-view :is(th, td):not([class], .w-markdown *, .prose *, .w-table *) { border: var(--w-rule); padding: var(--w-s1) var(--w-s3); text-align: left; vertical-align: top; }
+    .rpc-view code:not([class], .w-markdown *, .prose *, pre *) { padding: .1em .35em; border-radius: var(--w-radius-item); background: var(--w-hover); font-family: var(--w-mono); font-size: .88em; }
+    .rpc-view pre:not([class], .w-markdown *, .prose *, .w-code *) { padding: var(--w-s3); overflow: auto; border: var(--w-rule); border-radius: var(--w-radius-item); font-family: var(--w-mono); font-size: var(--w-text-ui); }
+    .rpc-view blockquote:not([class], .w-markdown *, .prose *) { padding-left: .875em; border-left: 3px solid var(--w-border); color: var(--w-ink-muted); }
+    /* A viewer that lays itself out (files.page) or runs an app in a frame (rpc.frame) fills the tab. */
+    .rpc-view:has(> :is([data-canvas-files], [data-rpc-frame])) { padding: 0; height: 100%; }
     .rpc-frame { height: 100%; min-height: 480px; }
-    .rpc-frame > iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--color-base-100, #fff); }
+    .rpc-frame > iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--w-surface-document); }
 }

@@ -29,14 +29,14 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const link = (key: string) => ctx.fns.rpc.url({ fn: "memory.view", params: { key } });
     const top = String(r.key).split("/")[0] ?? "";
     const listLink = ctx.fns.rpc.url({ fn: "memory.table", params: { prefix: top + "/" } });
-    const head = `<p class="rpc-muted"><a href="${esc(listLink)}">${esc(top)}/</a> · ${esc(r.visibility)} · ${esc(r.type)}${r.kind ? " · " + esc(r.kind) : ""} · v${Number(r.version)} · ${new Date(Number(r.updated_at)).toISOString().slice(0, 16).replace("T", " ")}</p>`;
+    const w = ctx.fns.w;
+    const meta = `<a class="w-link" href="${esc(listLink)}">${esc(top)}/</a> · ${esc(r.visibility)} · ${esc(r.type)}${r.kind ? " · " + esc(r.kind) : ""} · v${Number(r.version)} · ${new Date(Number(r.updated_at)).toISOString().slice(0, 16).replace("T", " ")}`;
+    const titled = (body: string, lead?: string) => w.box({ body: w.heading({ title: String(r.title ?? r.key), meta }) + (lead ? w.box({ body: esc(lead), mix: { ink: "muted" } }) : "") + body, mix: { layout: "stack", gap: "s4" } });
 
-    if (r.type === "jsonb") {
-        return `${head}<h1>${esc(r.title ?? r.key)}</h1>${r.description ? `<p>${esc(r.description)}</p>` : ""}<pre>${esc(JSON.stringify(r.data, null, 2))}</pre>`;
-    }
+    if (r.type === "jsonb") return titled(await w.code({ code: JSON.stringify(r.data, null, 2), lang: "json" }), r.description ?? undefined);
     const path = String(r.url ?? "").startsWith("file://") ? String(r.url).slice(7) : "";
     const f = path ? Bun.file(path) : null;
-    if (!f || !(await f.exists())) return `${head}<h1>${esc(r.title ?? r.key)}</h1><p class="rpc-error">the file is missing: ${esc(path)}</p>`;
+    if (!f || !(await f.exists())) return titled(w.empty({ title: "The file is missing", hint: path, icon: "file-x", tone: "danger" }));
     const text = await f.text();
     // A saved page (pages/*.html, e.g. a former canvas html tab) keeps its own look: its <style> is scoped to
     // this block, scripts and handlers are removed. A page that needs its scripts is an html canvas tab.
@@ -44,7 +44,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
         const scope = `[data-memory-page="${Number(r.id)}"]`;
         return `<div data-memory-page="${Number(r.id)}">${ctx.fns.rpc.cleanHtml({ html: text, scope })}</div>`;
     }
-    if (r.type === "code" || !/\.(md|markdown)$/i.test(path)) return `${head}<h1>${esc(r.title ?? r.key)}</h1><pre>${esc(text)}</pre>`;
+    if (r.type === "code" || !/\.(md|markdown)$/i.test(path)) return titled(await w.code({ code: text, lang: path.split(".").pop() || "text", title: path.split("/").pop() }));
 
     // Markdown: drop front matter, turn [[name]] and relative .md links into links to the other note.
     const dir = String(r.key).includes("/") ? String(r.key).slice(0, String(r.key).lastIndexOf("/") + 1) : "";
@@ -53,5 +53,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
     md = md.replace(/\]\((?!https?:|\/|#|mailto:)([^)\s]+\.md)\)/g, (_m, rel: string) => `](${link((dir + rel).replace(/(^|\/)\.\//g, "$1"))})`);
     // Notes are written by agents: raw html inside the markdown is cleaned before it joins the app page.
     const html = ctx.fns.rpc.cleanHtml({ html: await ctx.fns.markdown.render({ source: md }) });
-    return `${head}${html}`;
+    // A note starts with its own # title: only the meta line above it.
+    return w.box({ body: w.box({ body: meta, mix: { text: "small", ink: "faint" } }) + `<div class="w-markdown">${html}</div>`, mix: { layout: "stack", gap: "s3" } });
 }

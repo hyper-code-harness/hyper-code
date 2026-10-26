@@ -342,3 +342,14 @@ test("crumbs: no separator after a slash root; plain links skip the htmx swap", 
     const html = ctx.fns.w.crumbs({ items: [{ label: "/", href: "/f/" }, { label: "Users", href: "/f/Users" }, { label: "me" }], plain: true });
     expect(html).toContain('<a href="/f/">/</a><a href="/f/Users">Users</a><span class="w-crumb-sep" aria-hidden="true">/</span><span aria-current="page">me</span>');
 });
+
+test("table: columns from the rows, objects as JSON, html cells trusted, text escaped, no rows → empty", async () => {
+    const ctx: any = await mkTestCtx();
+    const html = ctx.fns.w.table({ rows: [{ a: "<b>", n: 2 }, { a: { html: "<i>x</i>" }, o: { k: 1 } }] });
+    expect(html).toContain('<th scope="col">a</th><th scope="col">n</th><th scope="col">o</th>');
+    expect(html).toContain("&lt;b&gt;");
+    expect(html).toContain("<td><i>x</i></td>");
+    expect(html).toContain("<td data-num>2</td>");
+    expect(html).toContain('<td data-mono>{&quot;k&quot;:1}</td>');
+    expect(ctx.fns.w.table({ rows: [], empty: "Nothing" })).toContain('class="w-empty"');
+});

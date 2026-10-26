@@ -242,6 +242,16 @@ div.w-divider > span { display: inline-flex; align-items: center; gap: var(--w-s
 .w-tooltip:hover::after, .w-tooltip:focus-within::after { display: block; }
 .w-kv { display: grid; gap: var(--w-s1) var(--w-s6); margin: 0; font-size: var(--w-text-ui); } .w-kv[data-cols="2"] { grid-template-columns: 1fr 1fr; }
 .w-kv > div { display: flex; gap: var(--w-s3); min-width: 0; } .w-kv dt { flex: none; width: var(--w-width-label); color: var(--w-ink-faint); } .w-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+/* w.table — records as columns: hairline rows, chrome header, sideways scroll instead of a wider page. */
+.w-table { max-width: 100%; overflow-x: auto; border: var(--w-rule); border-radius: var(--w-radius-item); }
+.w-table table { width: 100%; border-collapse: collapse; overflow-wrap: normal; word-break: normal; font-size: var(--w-text-ui); line-height: var(--w-line-ui); }
+.w-table th { position: sticky; top: 0; background: var(--w-surface-chrome); color: var(--w-ink-muted); font-weight: 500; text-align: left; white-space: nowrap; }
+.w-table :is(th, td) { padding: var(--w-s1) var(--w-s3); border-bottom: var(--w-rule); vertical-align: top; }
+.w-table tbody tr:last-child td { border-bottom: 0; }
+.w-table td { white-space: nowrap; } /* values stay on one line; a narrow pane scrolls the table sideways */
+.w-table td:has(div) { white-space: normal; min-width: var(--w-width-popup-min); } /* a cell with a note under its text wraps, never into a letter column */
+.w-table td[data-num] { text-align: right; font-variant-numeric: tabular-nums; }
+.w-table td[data-mono] { font-family: var(--w-mono); font-size: var(--w-text-small); color: var(--w-ink-muted); }
 .w-attach-file { display: inline-flex; align-items: center; gap: var(--w-s2); padding: var(--w-s1) var(--w-s2); border-radius: var(--w-radius-item); background: color-mix(in oklab, currentColor 10%, transparent); color: inherit; font-size: var(--w-text-small); text-decoration: none; }
 .w-tool { display: inline-grid; place-items: center; width: var(--w-control-sm); height: var(--w-control-sm); border: 0; border-left: var(--w-rule); background: none; color: var(--w-ink-muted); cursor: pointer; }
 .w-tool[data-tone="danger"] { color: var(--w-tone); } .w-tool-failed { color: var(--w-danger); } .w-tool[data-running] { color: var(--w-live); } .w-tool[data-running] .w-icon { animation: w-pulse var(--w-motion-slow) ease-in-out infinite; }

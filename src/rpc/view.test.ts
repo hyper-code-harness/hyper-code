@@ -115,7 +115,9 @@ describe("canvas = url", () => {
         const note: string = await as.fns.memory.view({ key: "notes/a.md" });
         expect(note).toContain("Note A");
         expect(note).toContain(ctx.fns.rpc.url({ fn: "memory.view", params: { key: "notes/b.md" } }).replace(/&/g, "&amp;"));
-        expect(await as.fns.memory.view({ key: "todo/x" })).toContain("&quot;status&quot;: &quot;open&quot;");
+        const record: string = await as.fns.memory.view({ key: "todo/x" });
+        expect(record).toContain('<figure class="w-code"');
+        expect(record).toContain('"status": "open"');
         const table: string = await as.fns.memory.table({ prefix: "notes/" });
         expect(table).toContain("notes/a.md");
         expect(table).not.toContain("todo/x");

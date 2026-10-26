@@ -42,9 +42,22 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const view = (r: any) => ctx.fns.rpc.url({ fn: "memory.view", params: { id: Number(r.id) } });
     const filter = (p: Record<string, unknown>) => ctx.fns.rpc.url({ fn: "memory.table", params: p });
     const prefixes = [...new Set(rows.map(r => String(r.key).split("/")[0] + "/"))];
-    const nav = `<p class="rpc-muted"><a href="${esc(filter({}))}">all</a>${prefixes.map(p => ` · <a href="${esc(filter({ prefix: p }))}">${esc(p)}</a>`).join("")}</p>`;
+    const w = ctx.fns.w;
+    // The prefixes as one quiet row of links (plain: a canvas tab follows its own links).
+    const nav = w.box({ body: [`<a class="w-link" href="${esc(filter({}))}">all</a>`, ...prefixes.map(p => `<a class="w-link" href="${esc(filter({ prefix: p }))}">${esc(p)}</a>`)].join(" · "), mix: { text: "small", ink: "faint" } });
     const title = [opts.prefix, opts.kind, opts.visibility, opts.type].filter(Boolean).join(" · ") || "all";
-    if (!rows.length) return `${nav}<h1>Memory: ${esc(title)}</h1><p class="rpc-muted">nothing here</p>`;
-    const body = rows.map(r => `<tr><td><a href="${esc(view(r))}">${esc(r.key)}</a></td><td>${esc(r.title ?? "")}${r.description ? `<div class="rpc-muted">${esc(String(r.description).slice(0, 200))}</div>` : ""}</td><td>${esc(r.status ?? r.fn_status ?? "")}</td><td>${esc(r.kind ?? "")}</td><td>${esc(r.visibility)}</td><td class="rpc-muted">${new Date(Number(r.updated_at)).toISOString().slice(0, 10)}</td></tr>`).join("");
-    return `${nav}<h1>Memory: ${esc(title)}</h1><table><thead><tr><th>key</th><th>title</th><th>status</th><th>kind</th><th>level</th><th>updated</th></tr></thead><tbody>${body}</tbody></table>`;
+    const head = w.heading({ title: `Memory: ${title}`, meta: nav });
+    if (!rows.length) return w.box({ body: head + w.empty({ title: "Nothing here", icon: "tray" }), mix: { layout: "stack", gap: "s4" } });
+    const table = w.table({
+        columns: [{ key: "key" }, { key: "title" }, { key: "status" }, { key: "kind" }, { key: "level" }, { key: "updated" }],
+        rows: rows.map(r => ({
+            key: { html: `<a class="w-link" href="${esc(view(r))}">${esc(r.key)}</a>` },
+            title: { html: esc(r.title ?? "") + (r.description ? w.box({ body: esc(String(r.description).slice(0, 200)), mix: { text: "small", ink: "faint" } }) : "") },
+            status: r.status ?? r.fn_status ?? "",
+            kind: r.kind ?? "",
+            level: r.visibility,
+            updated: new Date(Number(r.updated_at)).toISOString().slice(0, 10),
+        })),
+    });
+    return w.box({ body: head + table, mix: { layout: "stack", gap: "s4" } });
 }

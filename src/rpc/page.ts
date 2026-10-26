@@ -8,8 +8,8 @@
 /**
  * Turns the result of a `@view` function into the html fragment served at its address.
  *
- * Use from GET /rpc/<fn> (and tests): a string result is html as it is; an array of objects becomes a table; any
- * other value is pretty JSON; an error becomes a readable error block. The fragment is wrapped in
+ * Use from GET /rpc/<fn> (and tests): a string result is html as it is; an array of objects becomes a w.table; any
+ * other value is pretty JSON; an error becomes a w.empty in the danger tone. The fragment is wrapped in
  * `<div class="rpc-view">` so the rpc stylesheet applies the same way in a canvas tab and in a full page.
  * @param opts.title Page title, usually the function name.
  * @param opts.value What the view function returned.
@@ -23,14 +23,12 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Error text instead of a value. */
     error?: string;
 }): string {
-    const esc = (text: string) => ctx.fns.w.escape({ text });
+    const w = ctx.fns.w;
+    const esc = (text: string) => w.escape({ text });
     let body: string;
-    if (opts.error !== undefined) body = `<p class="rpc-error">${esc(opts.error)}</p><p class="rpc-muted">${esc(opts.title)}</p>`;
+    if (opts.error !== undefined) body = w.empty({ title: opts.error, hint: opts.title, icon: "warning-circle", tone: "danger" });
     else if (typeof opts.value === "string") body = opts.value;
-    else if (Array.isArray(opts.value) && opts.value.length && opts.value.every(r => r && typeof r === "object" && !Array.isArray(r))) {
-        const cols = [...new Set(opts.value.flatMap(r => Object.keys(r as object)))];
-        const cell = (v: unknown) => v == null ? "" : typeof v === "object" ? `<code>${esc(JSON.stringify(v))}</code>` : esc(String(v));
-        body = `<table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${opts.value.map(r => `<tr>${cols.map(c => `<td>${cell((r as any)[c])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-    } else body = `<pre>${esc(JSON.stringify(opts.value ?? null, null, 2))}</pre>`;
+    else if (Array.isArray(opts.value) && opts.value.length && opts.value.every(r => r && typeof r === "object" && !Array.isArray(r))) body = w.table({ rows: opts.value as Array<Record<string, unknown>> });
+    else body = w.box({ body: esc(JSON.stringify(opts.value ?? null, null, 2)), mix: { mono: true, pre: true, text: "ui" } });
     return `<div class="rpc-view" data-rpc-view="${esc(opts.title)}">${body}</div>`;
 }

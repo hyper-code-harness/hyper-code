@@ -307,10 +307,8 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring stays still. */
   html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }
   /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
-  /* Fewer things in the composer: the context ring and the quiet prompt-inject icon live in the ⋯ panel (Context
-     card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still
-     shows as its chip above the text. */
-  html[data-chrome="flat"] #chat-context-ring { display: none !important; }
+  /* Fewer things in the composer: the quiet prompt-inject icon lives in the ⋯ panel (a non-default prompt inject
+     still shows as its chip above the text). The context ring always stays in the composer. */
   html[data-chrome="flat"] #form .w-composer-meters > [data-chat-part="prompt-inject"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   html[data-chrome="flat"] #chat-panel > header [data-chat-id="agent.inspector"] { display: none !important; }
   /* Canvas buttons live with the canvas (its bar or its header); the chat header keeps the name and ⋯ only.

@@ -137,7 +137,7 @@ async function renderFile(ctx: Context, path: string, tabParam: string, wide = f
     const tools = w.segmented({ items: modes, value: tab, name: "file-tab" })
         + `<span id="save-status" data-file-status hidden></span>`
         + (tab === "edit" ? w.switch({ name: "vim", label: "vim", id: "vim-toggle" }) : "")
-        + w.box({ body: esc(meta), mix: { text: "small", ink: "faint" }, tag: "span" });
+        + `<span data-file-meta>${w.box({ body: esc(meta), mix: { text: "small", ink: "faint" }, tag: "span" })}</span>`;
     const head = w.paneHeader({ title: name, lead: w.icon({ name: fileIcon(name), size: 16 }), actions: tools });
     const vim = tab === "edit" ? `<div id="vim-status" data-file-vim hidden></div>` : "";
     const body = frame(crumbs + `<div data-file-card>${head}${vim}${contentEl}</div>`, wide);

@@ -22,6 +22,6 @@ export default async function (
 
     const esc = (value: unknown) => ctx.fns.w.escape({ text: String(value ?? "") });
     const body = await ctx.fns.agent.modelPickerHtml({ current: String(agent.model ?? ""), mode: "agent", agentId: id });
-    const html = body.includes("data-model-picker") ? `${body}<p class="mt-3 border-t border-ui-border pt-2 text-3xs text-faint">This changes only agent <span class="font-mono">${esc(id)}</span>. Chat history stays unchanged; the next call uses the selected account and model.</p>` : body;
+    const html = body.includes("data-model-picker") ? body + ctx.fns.w.box({ body: `This changes only agent ${esc(id)}. Chat history stays unchanged; the next call uses the selected account and model.`, mix: { text: "small", ink: "faint", line: "top", padY: "s2" } }) : body;
     return new Response(ctx.fns.ui.popupContent({ title: "Provider, account and model", kind: "model-picker", class: "w-full max-w-3xl", html }), { headers: { "content-type": "text/html; charset=utf-8" } });
 }

@@ -17,13 +17,13 @@ describe("agent.modelPicker", () => {
         expect(html).toContain("mock:test");
         expect(html).toContain("mock:other");
         expect(html).toContain("OpenAI API");
-        expect(html).toContain('aria-current="true"');
+        expect(html).toContain('aria-current="page"');
         expect(html).toContain(`/agent/${agent.id}/model`);
         expect(html).toContain("data-model-provider-tab");
-        expect(html).toContain('name="scope" value="agent"');
+        expect(html).toContain('&quot;scope&quot;:&quot;agent&quot;');
         expect(html).toContain("aria-selected");
         expect(html).toContain("data-model-provider-panel");
-        expect(html).toContain('class="hidden min-h-0"');
+        expect(html).toContain('data-model-provider-panel hidden');
 
     });
 
@@ -57,7 +57,7 @@ describe("agent.modelPicker", () => {
         expect(html).toContain("anna → Codex");
         expect(html).toContain("anna → Claude Code");
         expect(html).toContain("97% left");
-        expect(html).toContain('value="hyper/anna:claude-y"');
+        expect(html).toContain('data-model-route="hyper/anna:claude-y"');
         expect(html).not.toContain("Hyper nodes");
     });
 
@@ -97,9 +97,9 @@ describe("agent.modelPicker", () => {
         ctx.fns.llm.listModels = async () => ({ "claude-code": ["claude-code:claude-haiku-4-5", "claude-code:claude-sonnet-5", "claude-code:claude-opus-5"] });
         ctx.fns.llm.listAccounts = async () => ([{ provider: "claude-code", account: "default", available: false, needsReconnect: false, usedPercent: 100, planType: "team" }]);
         const html = await (await ctx.fns.agent.modelPicker({ agentId: agent.id })).text();
-        expect(html).toContain("3 models");
+        expect(html).toContain(">3<");
         expect(html).toContain("claude-code:claude-opus-5");
-        expect(html).not.toMatch(/claude-code:claude-opus-5[\s\S]*?disabled/);
+        expect(html).not.toMatch(/data-model-route="claude-code:claude-opus-5"[^>]*aria-disabled/);
     });
 
 
@@ -111,7 +111,7 @@ describe("agent.modelPicker", () => {
         const html = await (await ctx.fns.agent.modelPicker({ agentId: agent.id })).text();
         expect(html).toContain("Reconnect required");
         expect(html).toContain("codex/expired:gpt-test");
-        expect(html).toMatch(/codex\/expired:gpt-test[\s\S]*?disabled/);
+        expect(html).toMatch(/data-model-route="codex\/expired:gpt-test"[^>]*aria-disabled/);
     });
 
 });

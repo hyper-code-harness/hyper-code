@@ -28,12 +28,15 @@ export default async function (
      high:{label:"High",detail:"Hard debugging and planning",icon:"ph-brain"},
      xhigh:{label:"Max",detail:"Deepest supported reasoning",icon:"ph-sparkle"},
     };
+    const w = ctx.fns.w;
     const rows = caps.supported.map((effort) => {
      const info=copy[effort]!; const selected=effort===requested;
-     const html=`<i class="ph ${info.icon} text-base" aria-hidden="true"></i><span class="min-w-0 flex-1"><span class="block text-xs font-medium">${esc(info.label)}</span><span class="block text-3xs text-faint">${esc(info.detail)}</span></span>${selected?'<i class="ph ph-check-circle text-primary" aria-hidden="true"></i>':''}`;
-     return `<form hx-post="/agent/${encodeURIComponent(id)}/effort" hx-swap="none"><input type="hidden" name="effort" value="${effort}">${ctx.fns.w.pressable({html,submit:true,marks:{action:"set-reasoning-effort"},class:`flex w-full items-center gap-3 rounded-lg text-left ${selected?"border-primary/30 bg-primary/10 text-primary":"text-muted"}`,attrs:selected?{"aria-current":"true"}:{}})}</form>`;
+     return w.listRow({ label: info.label, detail: info.detail, icon: info.icon.replace(/^ph-/, ""), current: selected, hint: selected ? "current" : undefined,
+       action: { post: `/agent/${encodeURIComponent(id)}/effort`, vals: { effort } }, attrs: { "data-action": "set-reasoning-effort" } });
     }).join("");
-    const note = resolved.downgraded ? `<div class="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-3xs text-warning">Requested ${esc(requested)}; this model applies ${esc(resolved.applied)}.</div>` : "";
-    const html=`<div class="space-y-3"><div><div class="font-mono text-3xs text-faint">${esc(target.model)}</div><div class="mt-1 text-xs text-subtle">Controls model-side reasoning for future turns of this agent.</div></div><div class="grid gap-1.5">${rows}</div>${note}</div>`;
+    const note = resolved.downgraded ? w.eventNote({ text: `Requested ${requested}; this model applies ${resolved.applied}.`, icon: "warning", tone: "warning" }) : "";
+    const html = w.box({ mix: { layout: "stack", gap: "s3" }, body:
+        w.box({ mix: { layout: "stack", gap: "s1" }, body: w.box({ body: esc(target.model), mix: { mono: true, text: "small", ink: "faint" } }) + w.box({ body: "Controls model-side reasoning for future turns of this agent.", mix: { ink: "muted" } }) })
+        + w.list({ body: rows, label: "Reasoning effort" }) + note });
     return new Response(ctx.fns.ui.popupContent({title:"Reasoning effort",kind:"effort-picker",class:"w-full max-w-sm",html}),{headers:{"content-type":"text/html; charset=utf-8"}});
 }

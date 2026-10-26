@@ -72,16 +72,24 @@ export default async function (
     });
     entries.push(...await proxyEntries(ctx, listed ?? {}, accountRows, currentRoute, current));
 
-    const providerNav = entries.map((entry, providerIndex) => {
+    const w = ctx.fns.w;
+    const navRow = (entry: Entry, providerIndex: number) => {
         const selected = isSelectedProvider(entries, entry, providerIndex, currentRoute);
         const name = entry.node ?? labels[entry.provider] ?? entry.provider;
         const count = entry.accounts.reduce((sum, account) => sum + (account.models?.length ?? 0), 0) || entry.models.length;
-        const mark = entry.node ? '<i class="ph ph-arrows-left-right size-4 shrink-0 text-faint" aria-hidden="true"></i>' : ctx.fns.ui.modelLogo({ model: entry.models[0] ?? entry.provider + ":?", bare: true, compact: true });
-        const badge = entry.node ? '<span class="rounded bg-warning/15 px-1 text-3xs font-semibold text-warning">proxy</span>' : "";
-        const html = `${mark}<span class="truncate">${esc(name)}</span>${badge}<span class="ml-auto text-3xs text-faint" title="${count} models">${count}</span>`;
-        const heading = entry.node && !entries[providerIndex - 1]?.node ? '<p class="px-2 pb-0.5 pt-2 text-3xs uppercase tracking-wide text-faint">via proxy</p>' : "";
-        return heading + ctx.fns.w.pressable({ html: html, label: entry.node ? `Show models relayed by Hyper node ${entry.node}` : `Show ${name} accounts`, marks: { action: "select-model-provider" }, attrs: { "data-model-provider-tab": true, "aria-selected": selected, onclick: providerScript(providerIndex) }, class: `flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs ${selected ? "bg-primary/10 font-medium text-primary" : "text-subtle"}` });
-    }).join("");
+        return w.listRow({
+            label: name,
+            meta: entry.node ? "proxy" : undefined,
+            icon: entry.node ? "arrows-left-right" : undefined,
+            lead: entry.node ? undefined : ctx.fns.ui.modelLogo({ model: entry.models[0] ?? entry.provider + ":?", bare: true, compact: true }),
+            hint: String(count),
+            action: { action: "select-model-provider" },
+            attrs: { "data-model-provider-tab": true, "aria-selected": String(selected), "aria-label": entry.node ? `Show models relayed by Hyper node ${entry.node}` : `Show ${name} accounts`, onclick: providerScript(providerIndex) },
+        });
+    };
+    const own = entries.map((entry, i) => entry.node ? "" : navRow(entry, i)).join("");
+    const proxied = entries.map((entry, i) => entry.node ? navRow(entry, i) : "").join("");
+    const providerNav = own + (proxied ? w.listSection({ title: "via proxy", rows: proxied }) : "");
 
     const providerPanels = entries.map((entry, providerIndex) => {
         const providerSelected = isSelectedProvider(entries, entry, providerIndex, currentRoute);
@@ -89,8 +97,15 @@ export default async function (
             const selected = isSelectedAccount(entry, account, accountIndex, currentRoute, current);
             const quota = account.usedPercent == null ? "usage —" : `${Math.round(100 - account.usedPercent)}% left`;
             const plan = account.planType ? planName(entry.provider, account.planType) : "";
-            const html = `<span class="min-w-0 flex-1">${account.label ? `<span class="flex items-center gap-1.5 text-xs font-medium">${ctx.fns.ui.modelLogo({ model: `${account.upstream}:?`, bare: true, compact: true })}<span class="truncate">${esc(account.label)}</span></span>` : `<span class="block truncate text-xs font-medium">${esc(account.account === "default" ? "main" : account.account)}</span>`}<span class="block truncate text-micro text-faint">${esc([plan, quota].filter(Boolean).join(" · "))}</span></span>${account.needsReconnect ? '<span class="text-micro text-error">Reconnect required</span>' : !account.available ? '<span class="text-micro text-error">limit</span>' : ""}`;
-            return ctx.fns.w.pressable({ html: html, label: `Use account ${account.account}`, marks: { action: "select-model-account" }, disabled: !account.available && !selected, attrs: { "data-model-account-tab": true, "aria-selected": selected, onclick: accountScript(accountIndex) }, class: `flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left ${selected ? "bg-primary/10 text-primary" : "text-muted"}` });
+            return w.listRow({
+                label: account.label ?? (account.account === "default" ? "main" : account.account),
+                lead: account.label ? ctx.fns.ui.modelLogo({ model: `${account.upstream}:?`, bare: true, compact: true }) : undefined,
+                detail: [plan, quota].filter(Boolean).join(" · "),
+                hint: account.needsReconnect ? "Reconnect required" : !account.available ? "limit" : undefined,
+                dot: account.needsReconnect || !account.available ? "error" : undefined,
+                action: { action: "select-model-account" },
+                attrs: { "data-model-account-tab": true, "aria-selected": String(selected), "aria-label": `Use account ${account.account}`, "aria-disabled": !account.available && !selected ? "true" : undefined, onclick: accountScript(accountIndex) },
+            });
         }).join("");
         const modelPanels = entry.accounts.map((account, accountIndex) => {
             const accountSelected = isSelectedAccount(entry, account, accountIndex, currentRoute, current);
@@ -98,21 +113,35 @@ export default async function (
             const rows = list.map(baseModel => {
                 const target = account.models ? baseModel : withAccount(baseModel, entry.provider, account.account);
                 const selected = target === current;
-                const modelId = parseRoute(target).modelId;
-                const html = `<span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium">${esc(modelId)}</span><span class="block truncate font-mono text-micro text-faint">${esc(target)}</span></span>${selected ? '<i class="ph ph-check-circle text-primary" aria-hidden="true"></i>' : '<i class="ph ph-arrow-right text-faint" aria-hidden="true"></i>'}`;
-                const button = ctx.fns.w.pressable({ html: html, title: account.needsReconnect ? "Reconnect this account in LLM connections before selecting it" : undefined, marks: { action: "select-model" }, disabled: mode === "form" ? account.needsReconnect : selected || account.needsReconnect, attrs: { "data-model-route": target, ...(selected ? { "aria-current": "true" } : {}), ...(mode === "form" ? { onclick: FORM_SELECT } : {}) }, class: `flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left ${selected ? "border-primary/30 bg-primary/10 text-primary" : "text-muted"}` });
-                return mode === "form" ? button : `<form hx-post="/agent/${encodeURIComponent(id)}/model" hx-swap="none" class="contents"><input type="hidden" name="model" value="${esc(target)}"><input type="hidden" name="scope" value="agent">${button}</form>`;
+                const disabled = account.needsReconnect;
+                return w.listRow({
+                    label: parseRoute(target).modelId,
+                    detail: target,
+                    current: selected,
+                    hint: selected ? "current" : undefined,
+                    // The agent route reads model and scope from the posted form; scope=agent changes only this agent.
+                    action: mode === "form" ? { action: "select-model" } : { post: `/agent/${encodeURIComponent(id)}/model`, vals: { model: target, scope: "agent" } },
+                    attrs: {
+                        "data-model-route": target,
+                        "aria-disabled": disabled ? "true" : undefined,
+                        "aria-label": account.needsReconnect ? "Reconnect this account in LLM connections before selecting it" : undefined,
+                        onclick: mode === "form" ? FORM_SELECT : undefined,
+                    },
+                });
             }).join("");
             const heading = account.label ? `${entry.node} → ${account.label}` : account.account === "default" ? "main" : account.account;
             const sub = entry.node ? `relayed through Hyper node ${entry.node} · hyper/${entry.node}:` : `${entry.provider}${account.account === "default" ? "" : `/${account.account}`}:`;
-            return `<section data-model-account-panel class="${accountSelected ? "" : "hidden "}min-h-0"><div class="mb-2 flex items-center justify-between gap-2"><div><h3 class="text-xs font-semibold">${esc(heading)}</h3><p class="text-micro text-faint">${esc(sub)}</p></div>${account.planType ? `<span class="badge badge-sm">${esc(planName(account.upstream ?? entry.provider, account.planType))}</span>` : ""}</div><div class="grid gap-1.5">${rows}</div></section>`;
+            const head = w.heading({ title: heading, meta: esc(sub), actions: account.planType ? w.badge({ text: planName(account.upstream ?? entry.provider, account.planType) }) : undefined });
+            return `<div data-model-account-panel${accountSelected ? "" : " hidden"}>${head}${w.list({ body: rows, label: `${heading} models` })}</div>`;
         }).join("");
-        return `<section data-model-provider-panel class="${providerSelected ? "" : "hidden "}min-h-0"><div class="grid min-h-0 grid-cols-[8rem_minmax(0,1fr)] gap-3"><nav aria-label="Accounts" class="space-y-1 border-r border-ui-border pr-3">${accountNav}</nav><div>${modelPanels}</div></div></section>`;
+        return `<div data-model-provider-panel${providerSelected ? "" : " hidden"}>${w.masterDetail({ master: w.list({ body: accountNav, label: "Accounts" }), detail: modelPanels })}</div>`;
     }).join("");
 
-    if (!entries.length) return '<div class="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-subtle">No configured model providers are available.</div>';
-    const picker = `<div data-model-picker class="grid min-h-0 grid-cols-1 gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]"><nav aria-label="Providers" class="max-h-[58vh] space-y-1 overflow-auto border-b border-ui-border pb-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-3">${providerNav}</nav><div class="max-h-[58vh] overflow-auto pr-1">${providerPanels}</div></div>`;
-    if (mode === "form") return `<div data-model-picker-field class="rounded-lg border border-ui-border bg-base-100 p-3"><input type="hidden" name="model" value="${esc(current)}"><p class="mb-2 text-xs text-subtle">Model: <span data-model-picker-current class="font-mono text-primary">${esc(current || "—")}</span></p>${picker}</div>`;
+    if (!entries.length) return w.empty({ title: "No configured model providers are available.", icon: "warning" });
+    const picker = w.masterDetail({ master: w.list({ body: providerNav, label: "Providers" }), detail: providerPanels, attrs: { "data-model-picker": true } });
+    if (mode === "form") return `<div data-model-picker-field><input type="hidden" name="model" value="${esc(current)}">`
+        + w.box({ body: `Model: <span data-model-picker-current>${esc(current || "—")}</span>`, mix: { text: "small", ink: "muted", mono: true, padY: "s2" } })
+        + picker + `</div>`;
     return picker;
 }
 
@@ -182,6 +211,6 @@ function stripAccount(model:string){const p=parseRoute(model);return `${p.provid
 function withAccount(model:string,provider:string,account:string){const p=parseRoute(model);return `${provider}${account==="default"?"":`/${account}`}:${p.modelId}`;}
 function sameBaseModel(a:string,b:string){const x=parseRoute(a),y=parseRoute(b);return x.provider===y.provider&&x.modelId===y.modelId;}
 function planName(provider:string,plan:string){const p=plan.toLowerCase();if(provider==="codex"&&p==="prolite")return "ChatGPT Go";return p.charAt(0).toUpperCase()+p.slice(1);}
-function providerScript(index:number){return `const root=this.closest('[data-model-picker]');root.querySelectorAll('[data-model-provider-tab]').forEach((tab,i)=>{const on=i===${index};tab.setAttribute('aria-selected',String(on));tab.classList.toggle('bg-primary/10',on);tab.classList.toggle('font-medium',on);tab.classList.toggle('text-primary',on)});root.querySelectorAll(':scope > div > [data-model-provider-panel]').forEach((panel,i)=>panel.classList.toggle('hidden',i!==${index}))`;}
-const FORM_SELECT = `const field=this.closest('[data-model-picker-field]');const route=this.dataset.modelRoute;field.querySelector('input[name=model]').value=route;field.querySelector('[data-model-picker-current]').textContent=route;field.querySelectorAll('[data-model-route]').forEach(b=>{const on=b===this;b.toggleAttribute('aria-current',on);b.classList.toggle('bg-primary/10',on);b.classList.toggle('border-primary/30',on);b.classList.toggle('text-primary',on);b.classList.toggle('text-muted',!on);const i=b.querySelector('i.ph');if(i)i.className=on?'ph ph-check-circle text-primary':'ph ph-arrow-right text-faint'})`;
-function accountScript(index:number){return `const panel=this.closest('[data-model-provider-panel]');panel.querySelectorAll('[data-model-account-tab]').forEach((tab,i)=>{const on=i===${index};tab.setAttribute('aria-selected',String(on));tab.classList.toggle('bg-primary/10',on);tab.classList.toggle('text-primary',on)});panel.querySelectorAll('[data-model-account-panel]').forEach((item,i)=>item.classList.toggle('hidden',i!==${index}))`;}
+function providerScript(index:number){return `const root=this.closest('[data-model-picker]');root.querySelectorAll('[data-model-provider-tab]').forEach((tab,i)=>tab.setAttribute('aria-selected',String(i===${index})));root.querySelectorAll('[data-model-provider-panel]').forEach((panel,i)=>panel.hidden=i!==${index})`;}
+const FORM_SELECT = `const field=this.closest('[data-model-picker-field]');const route=this.dataset.modelRoute;field.querySelector('input[name=model]').value=route;field.querySelector('[data-model-picker-current]').textContent=route;field.querySelectorAll('[data-model-route]').forEach(b=>b.toggleAttribute('aria-current',b===this))`;
+function accountScript(index:number){return `const panel=this.closest('[data-model-provider-panel]');panel.querySelectorAll('[data-model-account-tab]').forEach((tab,i)=>tab.setAttribute('aria-selected',String(i===${index})));panel.querySelectorAll('[data-model-account-panel]').forEach((item,i)=>item.hidden=i!==${index})`;}

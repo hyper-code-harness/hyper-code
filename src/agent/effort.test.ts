@@ -25,12 +25,12 @@ describe("agent reasoning effort", () => {
         const agent = await ctx.fns.agent.start({ model: "anthropic-oauth:claude-sonnet-4-6" });
         const html = await (await ctx.fns.agent.effortPicker({ agentId: agent.id })).text();
         expect(html).toContain("Reasoning effort");
-        expect(html).toContain('value="high"');
-        expect(html).not.toContain('value="xhigh"');
+        expect(html).toContain('&quot;effort&quot;:&quot;high&quot;');
+        expect(html).not.toContain('&quot;effort&quot;:&quot;xhigh&quot;');
         expect(html).toContain(`/agent/${agent.id}/effort`);
-        const selected = /<button\b[^>]*aria-current="true"[^>]*>/.exec(html)?.[0];
+        const selected = /<button\b[^>]*aria-current="page"[^>]*>/.exec(html)?.[0];
         expect(selected).toBeDefined();
-        expect(selected).toContain("bg-primary/10");
+        expect(selected).toContain('class="w-row"');
         expect(selected).not.toContain("disabled");
     });
 

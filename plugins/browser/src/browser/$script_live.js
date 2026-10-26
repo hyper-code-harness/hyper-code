@@ -126,10 +126,17 @@
         const q = address.value.trim().toLowerCase();
         for (const row of tabList$.children) row.hidden = !!q && !row.dataset.search.includes(q);
     };
+    // Manual, not auto: an auto popover opened on focus is light-dismissed by the same click's pointerup (the
+    // field is outside it), so it flashed and closed. This list closes itself: a press outside the field and the
+    // list, focus leaving both, Escape, or a choice.
+    tabMenu.popover = "manual";
     const openTabs = () => { filterTabs(); if (!tabMenu.matches(":popover-open")) { try { tabMenu.showPopover(); } catch {} } };
+    const hideTabs = () => { try { tabMenu.hidePopover(); } catch {} };
+    document.addEventListener("pointerdown", (e) => { if (!tabMenu.contains(e.target) && e.target !== address) hideTabs(); }, true);
+    address.addEventListener("focusout", (e) => { if (e.relatedTarget && !tabMenu.contains(e.relatedTarget)) hideTabs(); });
     address.addEventListener("focus", () => { address.select(); openTabs(); });
     address.addEventListener("input", openTabs);
-    address.addEventListener("keydown", (e) => { if (e.key === "Escape") { tabMenu.hidePopover(); address.blur(); } });
+    address.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideTabs(); canvas.focus(); } });
     function renderTabs(list, current) {
         tabList = list; tabCurrent = current;
         const cur = list.find((t) => t.id === current);

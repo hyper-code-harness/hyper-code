@@ -255,3 +255,24 @@ test("paneHeader, disclosure and popover take behaviour hooks and refuse visual 
     expect(html).toMatch(/class="w-popover"[^>]*data-src="\/x"/);
     expect(() => w.disclosure({ label: "x", popover: "p", attrs: { class: "big" } })).toThrow();
 });
+
+test("composer: slots, attachments, ids for the page script; sendButton; disclosure and ring open a popup", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    const html = w.composer({ post: "/agent/a1", id: "form", files: "image/*", hidden: { requestId: "" }, tools: "<i>T</i>", meters: "<i>M</i>", above: "<i>A</i>", attrs: { "data-form": "chat" } });
+    expect(html).toContain('<form class="w-composer" id="form" data-form="chat" hx-post="/agent/a1"');
+    expect(html).toContain('hx-encoding="multipart/form-data"');
+    expect(html).toContain('id="files" accept="image/*"');
+    expect(html).toContain('id="input"');
+    expect(html).toContain('data-attach-button');
+    expect(html).toContain('<div class="w-composer-above"><i>A</i></div>');
+    expect(html).toContain('<span class="w-composer-meters"><i>M</i></span>');
+    expect(html).toContain('<input type="hidden" name="requestId" value="">');
+    expect(w.composer({ post: "/x" })).not.toContain("multipart");
+    expect(w.sendButton({})).toContain('type="submit" class="w-send"');
+    expect(w.sendButton({ running: true, stop: { post: "/stop" } })).toMatch(/w-send-wrap" data-running>.*hx-post="\/stop"/);
+    expect(w.disclosure({ label: "Opus", popup: { method: "agent.modelPicker", params: { agentId: "a1" } } })).toContain('hx-popup="agent.modelPicker"');
+    expect(() => w.disclosure({ label: "x" })).toThrow();
+    const ring = w.ring({ value: 46, action: { popup: { method: "chat.compactPopup" } }, title: "Context 46%" });
+    expect(ring).toMatch(/^<button class="w-ring-button" title="Context 46%" aria-label="Context 46%" type="button" hx-popup="chat.compactPopup"/);
+});

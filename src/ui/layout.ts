@@ -119,7 +119,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
    Tailwind's font-sans stack), UI chrome — menu rows, tabs, chat header — at 13px regular, reading text at 14px. */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 #input, .chat-composer textarea, .chat-composer button { font-family: inherit; }
-#dock-panel h4, #dock-panel section > h3 { font-size: 11px; font-weight: 500; letter-spacing: .02em; text-transform: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 .canvas-tab, #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 13px; }
 #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; }
 /* Message context menu (right-click on a message, ui/hotkeys.js puts it at the pointer). */
@@ -483,26 +482,23 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* One header system for every pane (side panel, canvas tabs, chat): 32px, the same grey, 13px titles —
      medium for the pane's own name, regular for tabs —, 12px muted secondary text, and every icon button the
      same 28px square with a 15px icon in the same grey. */
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
-  html[data-chrome="flat"] #dock-panel > div > div:first-child > span { font-size: 13px; font-weight: 500; color: var(--color-base-content); letter-spacing: 0; }
+  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; color: var(--color-base-content) !important; }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
   html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
   html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
+  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
   html[data-chrome="flat"] #chat-panel > header.chat-header .chat-icon { transform: none; }
-  html[data-chrome="flat"] #dock-panel > div > div:first-child { padding-left: .75rem !important; padding-right: .375rem !important; }
   /* The canvas address row: one quiet 32px row in the UI font, not a second header in monospace. */
   html[data-chrome="flat"] [data-canvas-navigate] { height: 2rem !important; border-bottom: 1px solid var(--color-ui-border); background: var(--color-base-100); padding: 0 .375rem !important; gap: .125rem !important; }
   html[data-chrome="flat"] [data-canvas-navigate] input[name="url"] { font-family: inherit !important; font-size: 12px !important; height: 1.5rem; background: transparent !important; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
   html[data-chrome="flat"] [data-canvas-navigate] input[name="url"]:focus { background: var(--color-base-200) !important; color: var(--color-base-content); }
   html[data-chrome="flat"] [data-canvas-navigate] :is(button, a) { width: 1.5rem; height: 1.5rem; color: color-mix(in oklab, var(--color-base-content) 50%, transparent); }
   /* The side panel's first row under its header lines up with the address row. */
-  html[data-chrome="flat"] #dock-panel > div > div:nth-child(2) > a:first-child { margin-top: .25rem; }
   /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring and
      the dotted run ring stay still (the run ring keeps its time label). */
   html[data-chrome="flat"] #chat-panel > header .chat-icon-ring { display: none !important; }
@@ -525,13 +521,12 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   #messages [data-tool-running] > i { animation: tool-glow 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { #messages [data-tool-running] > i { animation: none; } }
   /* Headers: one small type everywhere — 12px, medium for names, regular for tabs. */
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) { font-size: 12px !important; }
-  html[data-chrome="flat"] #dock-panel > div > div:first-child > span,
+  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) { font-size: 12px !important; }
   html[data-chrome="flat"] .canvas-tab,
   html[data-chrome="flat"] .canvas-tab span,
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-size: 12px !important; line-height: 1rem; }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px !important; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 14px !important; }
+  html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 14px !important; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
   /* Fewer things in the composer: the context ring and the quiet prompt-inject icon live in the ⋯ panel (Context
      card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still

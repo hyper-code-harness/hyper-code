@@ -28,7 +28,7 @@ export default async function (
             ]).finally(() => clearTimeout(timer));
             if (!out) return "";
             const html = typeof out === "string" ? out : await ctx.fns.dock.drawButton({ id: item.id, button: out });
-            return html ? `<div class="dock-item flex w-full flex-col items-center" data-dock-id="${esc(item.id)}"${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""} data-dock-label="${esc(item.label ?? item.id)}">${html}</div>` : "";
+            return html ? `<div class="dock-item" data-dock-id="${esc(item.id)}"${item.pinned ? ` data-dock-pinned="${item.pinned}"` : ""} data-dock-label="${esc(item.label ?? item.id)}">${html}</div>` : "";
         } catch (error: any) {
             ctx.fns.procs.log.warn({ event: "dock.render.failed", msg: `${item.id}: ${String(error?.message ?? error)}` });
             return "";
@@ -42,19 +42,20 @@ export default async function (
         ctx.fns.auth.meBadge({}).catch(() => ""),
         gear ? draw(gear) : Promise.resolve(""),
     ]);
-    const menu = ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-base" aria-hidden="true"></i>', label: "Open global menu", title: "Global menu — ⌘/", marks: { action: "open-global-menu" }, attrs: { onclick: "window.__navOpen?.()" }, class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content" });
-    // Opens and closes the projects-and-chats panel beside the Dock (menu mode); /dock/dock.js handles the click.
-    const panelToggle = ctx.fns.w.pressable({ html: '<i class="ph ph-sidebar-simple text-base" aria-hidden="true"></i>', label: "Projects and chats", title: "Projects and chats — ⌘B", marks: { action: "toggle-dock-panel" }, attrs: { "data-dock-panel-toggle": "" }, class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content" });
-    // Keeps the bar or folds it into the menu circle (it then unfolds on hover); /dock/dock.js handles the click.
-    const pinToggle = ctx.fns.w.pressable({ html: '<i class="ph ph-push-pin-slash text-base dock-pin-off" aria-hidden="true"></i><i class="ph ph-push-pin text-base dock-pin-on" aria-hidden="true"></i>', label: "Collapse or pin the bar", title: "Collapse the bar into the circle", marks: { action: "toggle-dock-pin" }, attrs: { "data-dock-pin-toggle": "" }, class: "flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content" });
-    return `<nav id="dock" aria-label="Dock" data-dock-hidden="${esc(JSON.stringify(hidden.map(x => x.id)))}" data-dock-labels="${esc(JSON.stringify(labels))}" class="my-2 ml-2 mr-1 flex h-[calc(100%-1rem)] w-10 shrink-0 flex-col items-center rounded-2xl border border-ui-border py-2 shadow-sm">
-    <div class="dock-fixed flex w-full flex-col items-center" data-dock-id="menu" data-dock-label="Hyper">${menu}</div>
-    <div class="dock-fixed mt-1 flex w-full flex-col items-center" data-dock-id="pin">${pinToggle}</div>
-    <div class="dock-fixed flex w-full flex-col items-center" data-dock-id="panel">${panelToggle}</div>
-    <div id="dock-top" class="dock-zone mt-1 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto" data-dock-zone="top">${topHtml.join("")}</div>
-    <div id="dock-bottom" class="dock-zone flex w-full flex-col items-center gap-1" data-dock-zone="bottom">${bottomHtml.join("")}</div>
-    ${me ? `<div class="dock-fixed mt-1 flex w-full flex-col items-center" data-dock-id="me" data-dock-label="Account">${me}</div>` : ""}
-    ${gearHtml}
-    <script src="/dock/dock.js?v=2" defer></script>
-  </nav>`;
+    const w = ctx.fns.w;
+    // The three fixed buttons carry data-dock-fixed (no context menu); their clicks are named actions /dock/dock.js handles.
+    const menu = w.railItem({ label: "Global menu — ⌘/", icon: "squares-four", action: { action: "open-global-menu" }, attrs: { "data-dock-id": "menu", "data-dock-fixed": true, "data-dock-label": "Hyper" } });
+    // Keeps the bar or folds it into the menu circle (it then unfolds on hover); both icons are drawn, CSS shows the one for the mode.
+    const pinToggle = w.railItem({ label: "Collapse the bar into the circle", face: `<span class="dock-pin-off">${w.icon({ name: "push-pin-slash" })}</span><span class="dock-pin-on">${w.icon({ name: "push-pin" })}</span>`, action: { action: "toggle-dock-pin" }, attrs: { "data-dock-id": "pin", "data-dock-fixed": true } });
+    // Opens and closes the projects-and-chats panel beside the Dock (menu mode); aria-pressed follows the mode.
+    const panelToggle = w.railItem({ label: "Projects and chats — ⌘B", icon: "sidebar-simple", pressed: false, action: { action: "toggle-dock-panel" }, attrs: { "data-dock-id": "panel", "data-dock-fixed": true } });
+    const zoneTop = `<div id="dock-top" class="dock-zone" data-dock-zone="top">${topHtml.join("")}</div>`;
+    const zoneBottom = `<div id="dock-bottom" class="dock-zone" data-dock-zone="bottom">${bottomHtml.join("")}</div>`;
+    return w.rail({
+        label: "Dock",
+        attrs: { id: "dock", "data-dock-hidden": JSON.stringify(hidden.map(x => x.id)), "data-dock-labels": JSON.stringify(labels) },
+        head: menu,
+        items: pinToggle + panelToggle + zoneTop,
+        foot: zoneBottom + (me ? `<div class="dock-me" data-dock-id="me" data-dock-fixed data-dock-label="Account">${me}</div>` : "") + gearHtml,
+    }) + `<script src="/dock/dock.js?v=3" defer></script>`;
 }

@@ -102,7 +102,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
   color: var(--color-base-content);
 }
 .tool.tool-tucked:active { transform: translateY(0) scale(1.05); }
-#dock,
 .glass-panel {
   background-color: rgb(from var(--color-base-100) r g b / .68);
   background-image: linear-gradient(110deg, rgb(255 255 255 / .16), transparent 48%, rgb(255 255 255 / .05));
@@ -111,12 +110,9 @@ export default async function (ctx: Context, session: Session | null, opts: {
   -webkit-backdrop-filter: blur(12px) saturate(115%);
 }
 /* The top zone scrolls when pins outgrow it; a soft fade at the bottom edge says there is more. */
-#dock-top { scrollbar-width: none; mask-image: linear-gradient(to bottom, black calc(100% - 1.25rem), transparent); padding-bottom: 1rem; }
-#dock-top::-webkit-scrollbar { display: none; }
 /* Dock modes (html[data-dock-mode], per device in localStorage 'hyper-dock-mode', ⌘B cycles, /dock/dock.js):
    bar — the icon strip (default); menu — the same strip widened with labels; dot — only the menu circle stays,
    at the very same place, and the page takes the whole width. */
-#dock { transition: width .16s ease; }
 /* Menu: the thin Dock stays; a ChatGPT-like panel with projects and recent chats opens beside it
    (#dock-panel, drawn by dock.panel, loaded on first open and kept live on the agents topic). */
 /* One type scale for the whole shell: the same family and smoothing everywhere (the composer's textarea used
@@ -142,34 +138,20 @@ html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* No side panel on a phone or in the browser-sidebar presentation: there is no room for it. */
 @media (max-width: 700px) { html[data-dock-mode] .dock-panel { display: none !important; } }
 body[data-presentation="sidebar"] .dock-panel { display: none !important; }
-html[data-dock-mode="menu"] #dock [data-dock-panel-toggle] { background: color-mix(in oklab, var(--color-base-content) 9%, transparent); color: var(--color-base-content); }
 html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: 16.5rem; flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-left: 0; border-radius: 0 1rem 1rem 0; overflow: hidden; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
 /* Bar and panel are one card: the bar gives up its right corners and gap, its right border is the divider. */
-html[data-dock-mode="menu"] #dock { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
 /* The grey header cell of the bar (in bar and menu mode alike, so opening the panel moves nothing); with the panel it runs across both: the menu circle sits in the bar's part of it, under it the same hairline. */
-html:not([data-dock-mode="dot"]) #dock { padding-top: 0; overflow: hidden; }
-html:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] { display: grid; place-items: center; height: 2rem; flex: none; border-bottom: 1px solid var(--color-ui-border); background: color-mix(in oklab, var(--color-base-300) 60%, transparent); margin-bottom: .375rem; }
-html:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button { width: 1.5rem; height: 1.5rem; margin: 0; transform: translateY(3px); }
 .dock-panel-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 .dock-panel-project[open] > summary { color: var(--color-base-content); }
 /* Dot: the strip goes away and the menu circle moves into the top row of the page — the canvas tab row
    (h-8, inside a panel with my-2 ml-2) or the chat header — which makes room for it on the left. */
-html[data-dock-mode="dot"] #dock { position: absolute; z-index: 46; top: .625rem; left: .75rem; width: auto; height: auto; margin: 0; padding: 0; border: 0; border-radius: 9999px; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 /* The circle's slot mirrors the right end of the tab row (history, reload, close): a cell with a bottom border
    and a hairline towards the tabs; the circle itself looks like those buttons. */
 html[data-dock-mode="dot"] [data-page="agent"][data-canvas-open] > .canvas-panel > header::before { content: ""; flex: none; width: 2.5rem; border-right: 1px solid var(--color-ui-border); border-bottom: 1px solid var(--color-ui-border); }
 html[data-dock-mode="dot"] [data-page="agent"]:not([data-canvas-open]) #chat-panel > header { padding-left: 2.75rem !important; }
 html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left: 2.75rem; }
-html[data-dock-mode="dot"] #dock:not(:hover, :focus-within, :has(:popover-open)) > :not([data-dock-id="menu"]) { display: none !important; }
 /* Hovered (or holding focus / an open popover) the circle unfolds into the whole bar over the page, the circle
    staying where it was; the pin button in it keeps the bar for good. */
-html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) { top: calc(.625rem - .5rem - 1px); left: calc(.75rem - .375rem - 1px); bottom: .5rem; height: auto; padding: .5rem .375rem; border: 1px solid var(--color-ui-border); border-radius: 1rem; background-color: rgb(from var(--color-base-100) r g b / .92); box-shadow: 0 8px 28px rgb(0 0 0 / .14); backdrop-filter: blur(12px) saturate(115%); -webkit-backdrop-filter: blur(12px) saturate(115%); }
-#dock .dock-pin-on { display: none; }
-html[data-dock-mode="dot"] #dock .dock-pin-on { display: inline; }
-html[data-dock-mode="dot"] #dock .dock-pin-off { display: none; }
-html[data-dock-mode="dot"] #dock [data-dock-id="menu"] button { width: 1.75rem; height: 1.75rem; border-radius: 9999px; }
-html[data-dock-mode="dot"] #dock [data-dock-id="menu"] button:hover { background: var(--color-base-200); }
-html[data-dock-mode="dot"] body:not(:has([data-canvas-open])) #dock [data-dock-id="menu"] button { border: 1px solid var(--color-ui-border); background: var(--color-base-100); width: 1.75rem; height: 1.75rem; }
 .glass-panel {
   box-shadow: inherit;
 }
@@ -482,14 +464,12 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
    Dock unfolded from its circle) keep their own rounded look. */
 @media (min-width: 701px) {
   html[data-chrome="flat"] #frame { background: var(--color-base-100); }
-  html[data-chrome="flat"] #dock,
   html[data-chrome="flat"] .dock-panel,
   html[data-chrome="flat"] [data-page="agent"] > .canvas-panel,
   html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel {
     margin: 0 !important; height: 100% !important; border-radius: 0 !important; box-shadow: none !important;
     border: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
   }
-  html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock { border-right: 1px solid var(--color-ui-border) !important; background: var(--color-base-200) !important; background-image: none !important; }
   html[data-chrome="flat"][data-dock-mode="menu"] .dock-panel { border-right: 1px solid var(--color-ui-border) !important; background: var(--color-base-200) !important; }
   html[data-chrome="flat"] [data-page="agent"] { background: var(--color-base-100) !important; }
   html[data-chrome="flat"] [data-page="agent"][data-canvas-open] > .canvas-panel { background: var(--color-base-100) !important; }
@@ -504,16 +484,15 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
      medium for the pane's own name, regular for tabs —, 12px muted secondary text, and every icon button the
      same 28px square with a 15px icon in the same grey. */
   html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) { height: 2rem !important; min-height: 2rem; background: var(--color-base-200) !important; font-size: 13px !important; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
-  html[data-chrome="flat"] #dock > [data-dock-id="menu"] { background: var(--color-base-200) !important; }
   html[data-chrome="flat"] #dock-panel > div > div:first-child > span { font-size: 13px; font-weight: 500; color: var(--color-base-content); letter-spacing: 0; }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] { font-weight: 500 !important; color: var(--color-base-content) !important; }
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
   html[data-chrome="flat"] .canvas-tab { font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
   html[data-chrome="flat"] .canvas-tab[aria-current] { color: var(--color-base-content); font-weight: 500; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 14px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
-  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header, #dock > [data-dock-id="menu"]) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) { width: 1.75rem; height: 1.75rem; min-width: 1.75rem; border-radius: .375rem; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
+  html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
   html[data-chrome="flat"] #chat-panel > header.chat-header .chat-icon { transform: none; }
   html[data-chrome="flat"] #dock-panel > div > div:first-child { padding-left: .75rem !important; padding-right: .375rem !important; }
@@ -554,9 +533,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] #chat-panel > header.chat-header [data-chat-part="name"] > span { font-size: 12px !important; }
   html[data-chrome="flat"] :is(#dock-panel > div > div:first-child, .canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 14px !important; }
   html[data-chrome="flat"] .canvas-tab i { font-size: 13px !important; }
-  /* The menu circle in the bar's header cell: the same 28px button as every header button, centred in the cell. */
-  html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button { transform: none !important; width: 1.75rem !important; height: 1.75rem !important; }
-  html[data-chrome="flat"]:not([data-dock-mode="dot"]) #dock > [data-dock-id="menu"] > button > i { font-size: 15px !important; line-height: 1; }
   /* Fewer things in the composer: the context ring and the quiet prompt-inject icon live in the ⋯ panel (Context
      card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still
      shows as its chip above the text. */
@@ -577,8 +553,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] #chat-panel > header.chat-header.chat-header,
   html[data-chrome="flat"] .canvas-tab:not([aria-current]) { background: var(--color-base-200) !important; background-image: none !important; }
   html[data-chrome="flat"] .canvas-tab:not([aria-current]):hover { background: color-mix(in oklab, var(--color-base-content) 5%, var(--color-base-200)) !important; }
-  /* In dot mode the circle sits in the first header cell; with the strip gone there is no gap to leave. */
-  html[data-chrome="flat"][data-dock-mode="dot"] #dock { top: .125rem; left: .375rem; }
 }
 </style>
 

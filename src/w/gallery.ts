@@ -95,7 +95,7 @@ export default async function (
                 ["fileRef", () => w.list({ body: w.fileRef({ path: "/Users/hyper-design/hyper-code2/src/ui/layout.ts" }) + w.fileRef({ path: "docs/canvas-views.md" }) })],
                 ["jobRow", () => w.list({ body: w.jobRow({ title: "bun test src/canvas", status: "running", startedAt: now - 30000 }) + w.jobRow({ title: "deploy", status: "failed" }) })],
                 ["personChip", async () => (await w.personChip({ userId: "niquola" })) + " " + (await w.personChip({ userId: "roman.pogorov" }))],
-                ["railItem", () => [w.railItem({ label: "Hyper", icon: "squares-four" }), w.railItem({ label: "Panel", icon: "sidebar-simple", current: true }), w.railItem({ label: "Mentions", icon: "at", badge: 2 }), w.railItem({ label: "Оливия", icon: "sparkle", dot: "unread" })].join(" ")],
+                ["railItem", () => [w.railItem({ label: "Hyper", icon: "squares-four" }), w.railItem({ label: "Panel", icon: "sidebar-simple", current: true }), w.railItem({ label: "Projects and chats", icon: "sidebar-simple", pressed: true }), w.railItem({ label: "Mentions", icon: "at", badge: 2 }), w.railItem({ label: "Оливия", icon: "sparkle", dot: "unread" })].join(" ")],
             ]],
             ["Organisms", "sections of the interface", [
                 ["paneHeader", () => w.paneHeader({ lead: w.iconButton({ icon: "squares-four", label: "Chat panel" }), title: "UI layouts: canvas, chat, voice", meta: "(da)", actions: w.iconButton({ icon: "folder-open", label: "Files" }) + w.iconButton({ icon: "dots-three", label: "More" }) })],

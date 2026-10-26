@@ -15,7 +15,6 @@ export default async function (
         pages?: string[];
     },
 ): Promise<types.dock.Registered[]> {
-    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const viewer = await ctx.fns.auth.viewerId({}).catch(() => null);
     const ids = [...await ctx.fns.auth.pinnedIds({}).catch(() => new Set<string>())];
     const rows = ids.length ? await ctx.fns.procs.db.select({
@@ -31,7 +30,7 @@ export default async function (
         const label = `${a.title} (${id})`;
         return {
             id: `agent:${id}`, module: "dock", rel: "user_agent_state", zone: "top", order: 1000 + index, label, pinned: "agent",
-            render: () => `<a href="/agent/${encodeURIComponent(id)}" class="relative flex size-7 items-center justify-center rounded-md hover:bg-base-300" title="${esc(label)}" aria-label="${esc(label)}">${ctx.fns.chat.icon({ icon: a.icon, model: a.model, active: a.runState !== "idle" })}${a.unread === true || a.unread === "t" ? '<span class="pointer-events-none absolute -right-0.5 -top-0.5 size-2 rounded-full bg-success" aria-label="New activity"></span>' : ""}</a>`,
+            render: () => ctx.fns.w.railItem({ label, face: ctx.fns.chat.icon({ icon: a.icon, model: a.model, active: a.runState !== "idle" }), dot: a.unread === true || a.unread === "t" ? "unread" : undefined, action: { href: `/agent/${encodeURIComponent(id)}` } }),
         };
     });
     const apps = Object.values(((ctx.state as any).nav?.apps ?? {}) as Record<string, { href: string; label: string; icon: string }>);

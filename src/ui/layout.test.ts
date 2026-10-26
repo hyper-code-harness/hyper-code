@@ -30,7 +30,7 @@ describe("ui.layout", () => {
         // quick access is only a thin strip of pinned page icons.
         expect(html).toContain('id="dock"');
         expect(html).not.toContain('data-action="open-tab"');
-        const dock=/<nav id="dock"[\s\S]*?<\/nav>/.exec(html)?.[0]??'';
+        const dock=/<nav [^>]*id="dock"[\s\S]*?<\/nav>/.exec(html)?.[0]??'';
         expect(dock).toContain('data-dock-id="menu"');
         expect(dock).toContain('id="theme-toggle"');
     });

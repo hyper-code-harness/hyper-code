@@ -210,3 +210,14 @@ test("menu widgets: palette starts hidden, rows keep hooks and put the pin outsi
     expect(w.listSection({ title: "Pinned", tone: "warning", rows: "" })).toContain('data-tone="warning"');
     expect(w.tabs({ variant: "underline", items: [{ id: "a", label: "A", attrs: { "data-nav-tab": "a" } }], end: "E" })).toContain('<span class="w-tabs-end">E</span>');
 });
+
+test("rail: hooks on the bar and its areas, railItem toggles carry aria-pressed and refuse visual attributes", async () => {
+    const ctx: any = await mkTestCtx();
+    const w = ctx.fns.w;
+    const item = w.railItem({ label: "Panel", icon: "sidebar-simple", pressed: false, action: { action: "toggle-dock-panel" }, attrs: { "data-dock-id": "panel", "data-dock-fixed": true } });
+    expect(item).toContain('aria-pressed="false"'); expect(item).toContain('data-action="toggle-dock-panel"'); expect(item).toContain("data-dock-fixed");
+    expect(w.railItem({ label: "x" })).not.toContain("aria-pressed");
+    expect(() => w.railItem({ label: "x", attrs: { class: "y" } })).toThrow();
+    const rail = w.rail({ label: "Dock", attrs: { id: "dock" }, itemsAttrs: { "data-zone": "top" }, footAttrs: { "data-zone": "bottom" }, items: item });
+    expect(rail).toContain('<nav class="w-rail" aria-label="Dock" id="dock">'); expect(rail).toContain('class="w-rail-items" data-zone="top"'); expect(rail).toContain('class="w-rail-foot" data-zone="bottom"');
+});

@@ -78,7 +78,7 @@
         const bar = e.target.closest?.('#dock');
         if (!bar) return;
         // The fixed buttons (menu circle, pin, panel) have no context menu: everything they offer is a click.
-        if (e.target.closest('.dock-fixed')) return;
+        if (e.target.closest('[data-dock-fixed]')) return;
         e.preventDefault();
         const item = e.target.closest('.dock-item[data-dock-id]');
         const names = labels();
@@ -157,13 +157,17 @@
     // ── mode: bar (icons) → menu (with labels) → dot (only the menu circle), per device; ⌘B / Ctrl+B cycles ──
     const MODES = ['bar', 'menu', 'dot'];
     const mode = () => document.documentElement.dataset.dockMode || 'bar';
+    function paintMode() {
+        const next = mode();
+        document.querySelectorAll('[data-action="toggle-dock-panel"]').forEach(b => b.setAttribute('aria-pressed', String(next === 'menu')));
+        document.querySelectorAll('[data-action="toggle-dock-pin"]').forEach(b => { b.title = next === 'dot' ? 'Pin the bar' : 'Collapse the bar into the circle'; b.setAttribute('aria-label', b.title); });
+    }
     function setMode(next) {
         if (!MODES.includes(next)) next = 'bar';
         if (next === 'bar') delete document.documentElement.dataset.dockMode; else document.documentElement.dataset.dockMode = next;
         try { localStorage.setItem('hyper-dock-mode', next); } catch (_) {}
         document.body.dispatchEvent(new CustomEvent('dock-mode', { detail: { mode: next } }));
-        document.querySelectorAll('[data-dock-panel-toggle]').forEach(b => b.setAttribute('aria-pressed', String(next === 'menu')));
-        document.querySelectorAll('[data-dock-pin-toggle]').forEach(b => { b.title = next === 'dot' ? 'Pin the bar' : 'Collapse the bar into the circle'; });
+        paintMode();
         if (next === 'menu') loadPanel();
     }
     // The side panel (projects, recent chats) is fetched the first time it is shown, then lives on the agents topic.
@@ -184,7 +188,7 @@
     document.addEventListener('htmx:afterSwap', markCurrent);
     window.addEventListener('popstate', markCurrent);
     document.addEventListener('click', e => {
-        const b = e.target.closest?.('[data-dock-pin-toggle]');
+        const b = e.target.closest?.('[data-action="toggle-dock-pin"]');
         if (!b) return;
         e.preventDefault();
         setMode(mode() === 'dot' ? 'bar' : 'dot');
@@ -194,7 +198,8 @@
     document.addEventListener('hyper-live', e => {
         if (e.target?.id === 'dock-panel' && e.target.querySelector('[data-dock-panel-edit="true"]')) e.stopImmediatePropagation();
     }, true);
-    document.addEventListener('click', e => { if (e.target.closest?.('[data-dock-panel-toggle]')) { e.preventDefault(); setMode(mode() === 'menu' ? 'bar' : 'menu'); } });
+    document.addEventListener('click', e => { if (e.target.closest?.('[data-action="toggle-dock-panel"]')) { e.preventDefault(); setMode(mode() === 'menu' ? 'bar' : 'menu'); } });
+    document.addEventListener('click', e => { if (e.target.closest?.('#dock [data-action="open-global-menu"]')) { e.preventDefault(); window.__navOpen?.(); } });
     document.addEventListener('click', e => { const b = e.target.closest?.('[data-dock-mode-set]'); if (b) { e.preventDefault(); setMode(b.dataset.dockModeSet); } });
     window.hyperDockMode = { get: mode, set: setMode };
     document.addEventListener('keydown', e => {
@@ -215,7 +220,7 @@
     document.addEventListener('htmx:after:swap', paintUpdate);
     document.addEventListener('htmx:afterSwap', paintUpdate);
 
-    const setup = () => { arm(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
+    const setup = () => { arm(); paintMode(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
     document.addEventListener('htmx:after:swap', arm);
 })();

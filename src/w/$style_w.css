@@ -182,6 +182,7 @@ div.w-divider > span { display: inline-flex; align-items: center; gap: var(--w-s
 .w-rail-items { display: flex; flex-direction: column; align-items: center; gap: var(--w-s1); padding: var(--w-s2) 0; flex: 1; min-height: 0; width: 100%; overflow-y: auto; overflow-x: hidden; } .w-rail-foot { display: flex; flex-direction: column; align-items: center; gap: var(--w-s1); padding: var(--w-s2) 0; }
 .w-rail-item { position: relative; display: inline-grid; place-items: center; width: var(--w-control); height: var(--w-control); border-radius: var(--w-radius-item); color: var(--w-ink-muted); background: none; border: 0; cursor: pointer; }
 .w-rail-item:hover { background: var(--w-hover); color: var(--w-ink); } .w-rail-item[aria-current] { background: var(--w-selected); color: var(--w-link); }
+.w-rail-item[aria-pressed="true"] { background: var(--w-hover); color: var(--w-ink); }
 .w-rail-item > .w-dot { position: absolute; top: 1px; right: 1px; width: var(--w-dot-small); height: var(--w-dot-small); }
 .w-tab { position: relative; display: flex; align-items: center; min-width: 0; }
 .w-tab-main { display: flex; align-items: center; justify-content: center; gap: var(--w-s2); min-width: 0; flex: 1; height: 100%; padding: 0 var(--w-s6); background: none; border: 0; color: inherit; font-family: inherit; font-size: inherit; cursor: pointer; text-decoration: none; }

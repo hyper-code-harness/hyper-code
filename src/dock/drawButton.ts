@@ -15,21 +15,13 @@ export default async function (
         button: types.dock.Button;
     },
 ): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
+    const w = ctx.fns.w;
     const b = opts.button;
-    const icon = /^ph-[a-z0-9-]+$/.test(String(b.icon ?? "")) ? b.icon : "ph-circle";
-    const badge = b.badge === null || b.badge === undefined || b.badge === 0 || b.badge === "" ? "" :
-        `<span class="pointer-events-none absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[0.55rem] font-semibold leading-none tabular-nums text-primary-content">${esc(b.badge)}</span>`;
-    const face = `<i class="ph ${esc(icon)} text-base" aria-hidden="true"></i>${badge}`;
-    const cls = "relative flex size-7 items-center justify-center rounded-md text-subtle hover:bg-base-300 hover:text-base-content";
+    const icon = /^ph-[a-z0-9-]+$/.test(String(b.icon ?? "")) ? String(b.icon).slice(3) : "circle";
+    const badge = b.badge === null || b.badge === undefined ? undefined : b.badge;
     if (b.popup) {
-        return await ctx.fns.ui.inplacePopup({
-            id: `dock-${opts.id}-popup`,
-            triggerHtml: face,
-            triggerAttrs: `class="${cls}" title="${esc(b.label)}" aria-label="${esc(b.label)}"`,
-            panelAttrs: `aria-label="${esc(b.label)}" data-placement="side"`,
-            contentHtml: b.popup,
-        });
+        const id = `dock-${opts.id}-popup`.replace(/[^a-zA-Z0-9_-]/g, "-");
+        return w.popover({ id, label: b.label, placement: "side", body: b.popup, trigger: w.railItem({ label: b.label, icon, badge, action: { popover: id } }) });
     }
-    return `<a href="${esc(b.href ?? "#")}" class="${cls}" title="${esc(b.label)}" aria-label="${esc(b.label)}">${face}</a>`;
+    return w.railItem({ label: b.label, icon, badge, action: { href: b.href ?? "#" } });
 }

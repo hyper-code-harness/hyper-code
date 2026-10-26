@@ -4,7 +4,7 @@
 (() => {
     const $ = (id) => document.getElementById(id);
     const canvas = $("lv-screen"), g = canvas.getContext("2d");
-    const tabs = $("lv-tabs"), address = document.querySelector("#lv-nav input[name=url]"), status = $("lv-status");
+    const address = document.querySelector("#lv-nav input[name=url]"), status = $("lv-status");
     const params = new URLSearchParams(location.search);
     let target = params.get("target") || "";
     let ws = null, meta = null, decoding = false, latest = null, retry = 1000, lastError = "", opened = false;
@@ -118,17 +118,25 @@
     }
 
     // Tabs menu: "New tab" (drawn by the server) first; then Chrome's open tabs as w.listRow rows, the shown one current.
-    const tabMenu = $("lv-tabmenu"), tabList$ = $("lv-tablist"), tabsLabel = tabs.querySelector("span");
+    const tabMenu = $("lv-tabmenu"), tabList$ = $("lv-tablist");
     let tabList = [], tabCurrent = "";
     const closePops = () => { for (const p of document.querySelectorAll("[popover]")) { try { p.hidePopover(); } catch {} } };
+    // Focus or typing in the address opens the tab list under it; typing filters it (title or address).
+    const filterTabs = () => {
+        const q = address.value.trim().toLowerCase();
+        for (const row of tabList$.children) row.hidden = !!q && !row.dataset.search.includes(q);
+    };
+    const openTabs = () => { filterTabs(); if (!tabMenu.matches(":popover-open")) { try { tabMenu.showPopover(); } catch {} } };
+    address.addEventListener("focus", () => { address.select(); openTabs(); });
+    address.addEventListener("input", openTabs);
+    address.addEventListener("keydown", (e) => { if (e.key === "Escape") { tabMenu.hidePopover(); address.blur(); } });
     function renderTabs(list, current) {
         tabList = list; tabCurrent = current;
         const cur = list.find((t) => t.id === current);
-        tabsLabel.textContent = cur ? (cur.title || cur.url || "Tab") : "Tabs";
-        tabs.title = `${list.length} Chrome tab${list.length === 1 ? "" : "s"}`;
         tabList$.replaceChildren(...list.map((t) => {
             const b = document.createElement("button");
             b.type = "button"; b.className = "w-row"; b.title = t.url || "";
+            b.dataset.search = `${t.title || ""} ${t.url || ""}`.toLowerCase();
             if (t.id === current) b.setAttribute("aria-current", "page");
             const lead = document.createElement("span"); lead.className = "w-row-lead";
             const icon = document.createElement("i"); icon.className = "w-icon ph ph-browser"; icon.dataset.size = "16"; icon.setAttribute("aria-hidden", "true");
@@ -141,6 +149,7 @@
             b.onclick = () => { closePops(); if (t.id !== tabCurrent) send({ t: "switch", id: t.id }); canvas.focus(); };
             return b;
         }));
+        filterTabs();
     }
     tabMenu.querySelector("[data-live-new]").onclick = () => { closePops(); send({ t: "new" }); address.value = ""; address.focus(); };
 
@@ -235,7 +244,7 @@
     $("lv-forward").onclick = () => send({ t: "forward" });
     $("lv-reload").onclick = () => send({ t: "reload" });
     // The address is a w.addressBar form: Enter submits it.
-    $("lv-nav").addEventListener("submit", (e) => { e.preventDefault(); send({ t: "navigate", url: address.value }); canvas.focus(); });
+    $("lv-nav").addEventListener("submit", (e) => { e.preventDefault(); send({ t: "navigate", url: address.value }); closePops(); canvas.focus(); });
     const pasteBox = $("lv-paste"), pasteText = $("lv-paste-text");
     pasteBox.addEventListener("toggle", (e) => { if (e.newState === "open") pasteText.focus(); });
     $("lv-paste-send").onclick = () => {

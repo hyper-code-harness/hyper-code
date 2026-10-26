@@ -4,9 +4,10 @@
 body.lv { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--w-surface-chrome); color: var(--w-ink); font-family: system-ui, sans-serif; font-size: var(--w-text-ui); }
 body.lv > .w-address { flex: none; }
 body.lv > .w-address .w-address-input { min-width: var(--w-width-name); }
-/* The tabs opener carries the current tab's title: a few words, then an ellipsis. */
-#lv-tabs { max-width: var(--w-width-name); }
-#lv-tabs > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The Chrome tabs drop down from the address field, as wide as it. */
+#lv-nav .w-address-input { anchor-name: --lv-tabmenu; }
+#lv-tabmenu { left: anchor(left); width: anchor-size(width) !important; }
+#lv-tablist .w-row[hidden] { display: none; }
 #lv-quality { height: var(--w-control-sm); border-color: transparent; background: none; }
 #lv-status { white-space: nowrap; }
 #lv-info-list .w-kv dt { width: var(--w-width-label); }
@@ -16,8 +17,8 @@ body.lv > main { position: relative; flex: 1; min-height: 0; display: flex; alig
 /* The picture is Chrome's page: white paper whatever the theme; greyed out while it is stale. */
 #lv-screen { background: #fff; outline: none; cursor: default; border-radius: var(--w-radius-item); box-shadow: var(--w-shadow-raised); transition: filter var(--w-motion-fast); }
 body.lv > main[data-stale="1"] #lv-screen { filter: grayscale(.6) opacity(.6); }
-/* Narrow pane: the address keeps its room; the tab title and the status word fold to their icons. */
+/* Narrow pane: the address keeps its room; the status word folds to its dot. */
 @media (max-width: 560px) {
-    #lv-tabs > span, #lv-status .w-dot-label > span:last-child { display: none; }
+    #lv-status .w-dot-label > span:last-child { display: none; }
     #lv-quality { display: none; }
 }

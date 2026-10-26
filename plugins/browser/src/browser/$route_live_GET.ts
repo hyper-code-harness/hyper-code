@@ -1,5 +1,5 @@
-// /browser/live — the live view page: one toolbar (w.addressBar: Chrome tabs, back, forward, reload, address,
-// type text, quality, status) over a canvas that shows one Chrome tab. Everything in the toolbar is a w widget;
+// /browser/live — the live view page: one toolbar (w.addressBar: back, forward, reload, address — focus it for
+// the Chrome tabs —, type text, quality, status) over a canvas that shows one Chrome tab. Everything in the toolbar is a w widget;
 // the tab list, text box and connection details are native popovers (w.popover), so one opens at a time and
 // Escape or a click outside closes it. The page's own sheet ($style_live.css) only lays out the stage.
 // `?target=<targetId>` picks the tab, `?cdp=<endpoint>` an allowed other Chrome.
@@ -14,10 +14,10 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const styles = ((ctx.state.procs as any).styles ?? []) as Array<{ href: string }>;
     const sheets = styles.filter(s => s.href === "/w/w.css" || s.href === "/browser/live.css").map(s => `<link rel="stylesheet" href="${s.href}">`).join("");
 
-    // Chrome tabs: the opener shows the current tab's title; live.js fills the list (w.listRow markup).
-    const tabsPicker = w.popover({
-        id: "lv-tabmenu", label: "Chrome tabs", width: 340,
-        trigger: w.button({ label: "Tabs", icon: "browsers", tone: "ghost", size: "sm", title: "Chrome tabs", action: { popover: "lv-tabmenu" }, attrs: { id: "lv-tabs" } }),
+    // Chrome tabs open under the address when it takes focus (like a browser's suggestions): no separate opener.
+    // live.js shows the popover on focus and typing, filters the rows by the typed text; Enter still navigates.
+    const tabsList = w.popover({
+        id: "lv-tabmenu", label: "Chrome tabs",
         body: w.list({ label: "Chrome tabs", body: w.listRow({ label: "New tab", icon: "plus", tone: "primary", action: { action: "live-new-tab" }, attrs: { "data-live-new": true } }) + `<div id="lv-tablist"></div>` }),
     });
     const paste = w.popover({
@@ -36,11 +36,10 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     });
     const bar = w.addressBar({
         url: "", placeholder: "Address or search", newTab: false, outlined: true,
-        start: tabsPicker,
         back: { action: "live-back" }, backAttrs: { id: "lv-back" },
         forward: { action: "live-forward" }, forwardAttrs: { id: "lv-forward" },
         reload: { action: "live-reload" }, reloadAttrs: { id: "lv-reload" },
-        end: paste + quality + status,
+        end: paste + quality + status + tabsList,
         attrs: { id: "lv-nav" },
     });
     const html = `<!doctype html>

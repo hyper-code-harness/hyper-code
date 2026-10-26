@@ -15,9 +15,10 @@
 [data-canvas-body] > .w-pane > .w-pane-body:has([data-frames-notice]) { overflow: auto; }
 /* A site that forbids framing: the frame only with the canvas-frames extension, the notice otherwise. */
 iframe[data-needs-frames] { display: none !important; } html[data-hyper-frames] iframe[data-needs-frames] { display: block !important; } html[data-hyper-frames] [data-frames-notice] { display: none; }
-[data-frames-notice] .w-card { max-width: 28rem; }
+[data-frames-notice] .w-card { width: 100%; max-width: 28rem; } /* centred in the stack, it still fits a narrow pane */
 [data-canvas-files] { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 /* A tab body that frames something (a site, a live browser, an html page) fills the body edge to edge. */
+/* White, not a theme surface: a site without its own background is drawn for paper, also in the dark theme. */
 [data-canvas-body] iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 /* Canvas loading state. A tab action (select, link, back/forward, address bar) marks the body busy until the
    panel answer is in. The old content goes away at once, together with the tab highlight — the body never shows

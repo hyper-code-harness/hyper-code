@@ -303,11 +303,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* One header system for every pane (side panel, canvas tabs, chat): 32px, the same grey, 13px titles —
      medium for the pane's own name, regular for tabs —, 12px muted secondary text, and every icon button the
      same 28px square with a 15px icon in the same grey. */
-  /* The canvas address row: one quiet 32px row in the UI font, not a second header in monospace. */
-  html[data-chrome="flat"] [data-canvas-navigate] { height: 2rem !important; border-bottom: 1px solid var(--color-ui-border); background: var(--color-base-100); padding: 0 .375rem !important; gap: .125rem !important; }
-  html[data-chrome="flat"] [data-canvas-navigate] input[name="url"] { font-family: inherit !important; font-size: 12px !important; height: 1.5rem; background: transparent !important; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-  html[data-chrome="flat"] [data-canvas-navigate] input[name="url"]:focus { background: var(--color-base-200) !important; color: var(--color-base-content); }
-  html[data-chrome="flat"] [data-canvas-navigate] :is(button, a) { width: 1.5rem; height: 1.5rem; color: color-mix(in oklab, var(--color-base-content) 50%, transparent); }
   /* The side panel's first row under its header lines up with the address row. */
   /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring stays still. */
   html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }

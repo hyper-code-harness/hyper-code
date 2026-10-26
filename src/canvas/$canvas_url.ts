@@ -59,9 +59,9 @@ export default {
             // The site forbids framing. With the Hyper canvas frames extension (it marks <html data-hyper-frames>)
             // the frame shows anyway; without it, a notice says why and how to get the extension.
             const steps = w.list({ body: [
-                w.listRow({ label: "Download the extension and unzip it", icon: "download-simple", action: { href: "/canvas/framesExtension.zip" } }),
-                w.listRow({ label: "Open chrome://extensions and turn on Developer mode", icon: "toggle-right" }),
-                w.listRow({ label: "Load unpacked → the hyper-canvas-frames folder, then reload this page", icon: "folder-open" }),
+                w.listRow({ label: "Download and unzip the extension", icon: "download-simple", action: { href: "/canvas/framesExtension.zip" } }),
+                w.listRow({ label: "Turn on Developer mode", detail: "in chrome://extensions", icon: "toggle-right" }),
+                w.listRow({ label: "Load unpacked, reload", detail: "the hyper-canvas-frames folder", icon: "folder-open" }),
             ].join("") });
             const help = w.card({ title: "Show such sites right here", icon: "puzzle-piece", body: w.box({ body: w.box({ body: "Install the Hyper canvas frames extension for Chrome. Inside Hyper tabs only, it lets pages that forbid embedding open in the canvas.", mix: { ink: "muted" } }) + steps, mix: { layout: "stack", gap: "s2" } }) });
             const notice = w.box({ mix: { layout: "stack", gap: "s4", align: "center", pad: "s6" }, body:

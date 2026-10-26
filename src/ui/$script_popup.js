@@ -11,17 +11,20 @@
         const shell = dialog?.firstElementChild;
         const body = document.getElementById('app-popup-body');
         const file = kind === 'file-preview';
+        // background jobs: wide and tall, so a job's log reads like a terminal
+        const jobs = kind === 'jobs';
         if (dialog) {
-            dialog.style.width = file ? 'min(90rem, calc(100vw - 2rem))' : '';
-            dialog.style.height = file ? '97vh' : '';
-            dialog.style.maxHeight = file ? '97vh' : '';
+            dialog.style.width = file ? 'min(90rem, calc(100vw - 2rem))' : jobs ? 'min(64rem, calc(100vw - 2rem))' : '';
+            dialog.style.height = file ? '97vh' : jobs ? '85vh' : '';
+            dialog.style.maxHeight = file ? '97vh' : jobs ? '85vh' : '';
         }
         if (shell) {
-            shell.style.height = file ? '100%' : '';
-            shell.style.maxHeight = file ? '100%' : '';
+            shell.style.height = file || jobs ? '100%' : '';
+            shell.style.maxHeight = file || jobs ? '100%' : '';
         }
         if (body) body.className = file
             ? 'app-popup-body min-h-0 flex-1 overflow-hidden bg-base-200 p-0'
+            : jobs ? 'app-popup-body flex min-h-0 flex-1 flex-col overflow-auto bg-base-200/60 p-4 text-xs text-muted [&>section]:flex [&>section]:min-h-0 [&>section]:flex-1 [&>section]:flex-col'
             : 'app-popup-body min-h-0 flex-1 overflow-auto bg-base-200/60 p-5 text-xs text-muted';
     };
 

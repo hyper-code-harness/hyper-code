@@ -2,8 +2,11 @@
 description: >-
   Read a file, optionally a line range. With hashline the lines come back prefixed with stable
   anchors — read that way when you intend to edit the file afterwards. An image path (.png, .jpg,
-  .jpeg, .gif, .webp) returns the picture itself, so you can look at screenshots.
+  .jpeg, .gif, .webp) returns the picture itself, so you can look at screenshots. Output is cut
+  to the first 2000 lines or 50 KB; for a large file read the part you need with startLine/endLine.
 marker: read
+outputLimits:
+  retain: head
 promptSnippet: "read files, whole or by line range"
 promptGuidelines:
   - "Read a file in hashline mode before editing it — an edit addresses anchors, not line numbers."

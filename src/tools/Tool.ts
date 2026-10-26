@@ -67,6 +67,17 @@ export type Tool = {
      *  tool is active. Use for cross-tool habits ("read hashline before edit"). */
     promptGuidelines?: string[];
 
+    /** How much of this tool's output the model sees inline, and which end of it.
+     *  Over either limit the full text is stored and the model gets the kept end
+     *  plus a note saying which lines it is looking at. `retain: "head"` suits files
+     *  and listings, `"tail"` suits command output whose verdict is at the end.
+     *  Omitted fields fall back to 2000 lines / 50 KB / head. */
+    outputLimits?: {
+        maxLines?: number;
+        maxBytes?: number;
+        retain?: "head" | "tail";
+    };
+
     /** The tool's own wire-format block for markers mode — the markdown body of
      *  the `.md` declaration. It lives with the tool rather than in the prompt
      *  file so a tool that is not loaded costs zero prompt tokens, and a tool

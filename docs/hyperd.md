@@ -105,7 +105,10 @@ Good to know:
 - When a process exits, whatever it left in its process group is killed.
 - Finished transient units (background jobs) are removed with their logs a day after they ended (`HYPERD_GC_MS`).
 - A ready check that never passes leaves the unit in `starting` and emits `unhealthy`; it is not restarted.
-- Not yet: rotation of `events.ndjson`; Linux/systemd has unit tests but no live run so far.
+- Disk is bounded: a run's `out.log` rotates to `out.log.1` past 10 MB (`HYPERD_LOG_MAX_BYTES`), `events.ndjson`
+  to `events.ndjson.1` past 5 MB (`HYPERD_EVENTS_MAX_BYTES`; `/events` reads across both), and each unit keeps
+  its last 5 `run-<n>` directories (`HYPERD_KEEP_RUNS`). Logs by offset read the current `out.log` only.
+- Not yet: Linux/systemd has unit tests but no live run so far.
 
 ## CLI
 

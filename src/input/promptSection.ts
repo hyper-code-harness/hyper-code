@@ -10,8 +10,14 @@ export default function (ctx: Context, _session: Session | null, _opts: {}): str
     return [
         "## Chat inputs",
         "",
-        "To ask the person for something structured — a secret, a yes/no on an outward action, one of several options, a pick from a table — open a form in the chat instead of asking in prose: `await ctx.fns.input.request({ kind, title, message?, spec })`. It returns at once with the input id; end your turn. The answer arrives later as a user turn `<input-result id kind state>` with a one-line summary and JSON result (state `cancelled` when the person declined). Never ask for secrets in plain chat.",
-        "",
-        ...kinds.map(k => `- \`${k.name}\` — ${k.hint!.trim()}`),
+        "To ask the person for something structured, open a form in the chat instead of asking in prose: `await ctx.fns.input.request({ kind, title, message?, spec })`, then end your turn; the answer arrives as a user turn `<input-result id kind state>`. Never ask for secrets in plain chat. Kinds: "
+            + kinds.map(k => `\`${k.name}\` (${purpose(k.hint!)})`).join(", ")
+            + ". Each kind's spec: `ctx.fns.input.kinds({})`.",
     ].join("\n");
+}
+
+// The part of a kind's hint before its spec: "one of several options — spec { … }" → "one of several options".
+// The full spec is paid on every request of every agent; a form is opened a few times a week.
+function purpose(hint: string): string {
+    return hint.trim().split(/\s+—\s+spec\b/)[0]!.replace(/\s*\(.*$/, "").trim();
 }

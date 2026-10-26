@@ -108,6 +108,20 @@ describe("ui.layout", () => {
         }
     });
 
+    test("the projects panel can be resized and remembers its width per device", async () => {
+        const ctx: any = await mkTestCtx();
+        const html = await ctx.fns.ui.layout({ main: "", title: "t" });
+        // The strip is next to the panel, so dragging it never lands inside the live-swapped aside.
+        expect(html).toMatch(/class="dock-panel"[^>]*>\s*<\/aside>\s*<div class="dock-panel-resizer" data-dock-panel-resizer/);
+        expect(html).toContain('role="separator" aria-orientation="vertical"');
+        // The width is a custom property applied before paint, so a saved panel never flashes at 16.5rem.
+        expect(html).toContain("localStorage.getItem('hyper-dock-panel-w')");
+        expect(html).toContain("--dock-panel-w");
+        expect(html).toContain('width: var(--dock-panel-w, 16.5rem)');
+        // No room for it on a phone or inside the browser sidebar, like the panel itself.
+        expect(html).toContain('body[data-presentation="sidebar"] .dock-panel-resizer { display: none !important; }');
+    });
+
     test("host layout closes its popup when an embedded Files frame sends Escape", async () => {
         const ctx: any = await mkTestCtx();
         const html = await ctx.fns.ui.layout({ main: "", title: "t" });

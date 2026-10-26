@@ -151,10 +151,12 @@
         if (!panel.firstElementChild) panel.dispatchEvent(new Event('dock-panel-load'));
         markCurrent();
     }
+    // The open chat's row in the side panel is marked current (w.listRow styles aria-current). Rows are nav rows
+    // (nav.rows → w.listRow) keyed data-nav-id="agent:<id>".
     function markCurrent() {
         const here = /^\/agent\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1];
-        document.querySelectorAll('#dock-panel [data-dock-panel-chat]').forEach(a => {
-            if (a.dataset.dockPanelChat === here) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+        document.querySelectorAll('#dock-panel [data-nav-row][data-nav-id^="agent:"]').forEach(a => {
+            if (a.dataset.navId === 'agent:' + here) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
     }
     document.addEventListener('htmx:after:swap', markCurrent);
@@ -189,6 +191,57 @@
     document.addEventListener('htmx:after:swap', paintUpdate);
     document.addEventListener('htmx:afterSwap', paintUpdate);
 
+    // ── panel width ─────────────────────────────────────────────────────────
+    // Dragging the strip right of the panel. The width is per device (localStorage, applied by the inline
+    // script in the head so the panel never flashes at its default), double click resets it. Pointer moves
+    // are listened for on the window, not the strip: a re-render can replace the strip and an iframe under
+    // the cursor swallows events, either way pointerup would be lost and the edge would stick to the cursor.
+    const MIN_PANEL = 180, MAX_PANEL = 640, PANEL_KEY = 'hyper-dock-panel-w';
+    const setPanelWidth = w => {
+        if (w == null) { document.documentElement.style.removeProperty('--dock-panel-w'); try { localStorage.removeItem(PANEL_KEY); } catch (_) {} return; }
+        const width = Math.round(Math.max(MIN_PANEL, Math.min(w, MAX_PANEL, window.innerWidth - 220)));
+        document.documentElement.style.setProperty('--dock-panel-w', width + 'px');
+        try { localStorage.setItem(PANEL_KEY, String(width)); } catch (_) {}
+        return width;
+    };
+    document.addEventListener('pointerdown', e => {
+        const handle = e.target.closest?.('[data-dock-panel-resizer]');
+        const panel = document.querySelector('.dock-panel');
+        if (!handle || !panel || mode() !== 'menu') return;
+        e.preventDefault();
+        const left = panel.getBoundingClientRect().left;
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        document.documentElement.classList.add('dock-panel-resizing');
+        const move = ev => { if (!(ev.buttons & 1)) return up(); setPanelWidth(ev.clientX - left); };
+        const up = () => {
+            window.removeEventListener('pointermove', move, true);
+            window.removeEventListener('pointerup', up, true);
+            window.removeEventListener('pointercancel', up, true);
+            window.removeEventListener('blur', up);
+            handle.removeEventListener('lostpointercapture', up);
+            document.documentElement.classList.remove('dock-panel-resizing');
+        };
+        window.addEventListener('pointermove', move, true);
+        window.addEventListener('pointerup', up, true);
+        window.addEventListener('pointercancel', up, true);
+        window.addEventListener('blur', up);
+        handle.addEventListener('lostpointercapture', up);
+    });
+    document.addEventListener('dblclick', e => { if (e.target.closest?.('[data-dock-panel-resizer]')) { e.preventDefault(); setPanelWidth(null); } });
+    document.addEventListener('keydown', e => {
+        const handle = e.target.closest?.('[data-dock-panel-resizer]');
+        if (!handle) return;
+        const panel = document.querySelector('.dock-panel');
+        if (!panel) return;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            setPanelWidth(panel.getBoundingClientRect().width + (e.key === 'ArrowRight' ? 24 : -24));
+        } else if (e.key === 'Home') { e.preventDefault(); setPanelWidth(null); }
+    });
+    // Another tab changed the width: follow it.
+    window.addEventListener('storage', e => { if (e.key === PANEL_KEY) setPanelWidth(Number(e.newValue) || null); });
+
     const setup = () => { paintMode(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
 })();

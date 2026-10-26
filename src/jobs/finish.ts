@@ -46,10 +46,15 @@ export default async function (
     const spec = typeof row.spec === "string" ? JSON.parse(row.spec) : row.spec ?? {};
     const ms = now - Number(row.started_at ?? row.created_at);
     const result = { exitCode: opts.exitCode ?? null, ms, tail: (opts.tail ?? "").slice(-4000), bytes: opts.bytes ?? 0 };
-    const finalize = async () => (await ctx.fns.procs.db.run({
-        sql: "UPDATE jobs SET status = ?, outcome_reason = ?, result = ?::jsonb, finished_at = ?, next_at = NULL, lease_token = NULL, updated_at = ? WHERE id = ? AND status = 'running'",
-        params: [opts.status, opts.reason, JSON.stringify(result), now, now, opts.id],
-    })).changes > 0;
+    const finalize = async () => {
+        const done = (await ctx.fns.procs.db.run({
+            sql: "UPDATE jobs SET status = ?, outcome_reason = ?, result = ?::jsonb, finished_at = ?, next_at = NULL, lease_token = NULL, updated_at = ? WHERE id = ? AND status = 'running'",
+            params: [opts.status, opts.reason, JSON.stringify(result), now, now, opts.id],
+        })).changes > 0;
+        // the chat header's "N jobs" badge is a live region on the agent's topic
+        if (done) ctx.fns.procs.events.refresh({ topic: `agent:${row.agent_id}`, reason: "job-end" });
+        return done;
+    };
 
     if (opts.notify === false) {
         const finished = await finalize();
@@ -66,7 +71,7 @@ export default async function (
         if (result.bytes > result.tail.length) lines.push(`Full output: await ctx.fns.jobs.logs({ id: "${opts.id}" })`);
     }
     if (row.prompt) lines.push(`Your instruction for this moment: ${row.prompt}`);
-    const running = Number(((await ctx.fns.procs.db.select({ sql: "SELECT count(*)::int AS n FROM jobs WHERE agent_id = ? AND status = 'running' AND NOT (id = ANY(string_to_array(?, ',')))", params: [row.agent_id, [opts.id, ...(opts.alsoFinishing ?? [])].join(",")] })) as any[])[0]?.n ?? 0);
+    const running = Number(((await ctx.fns.procs.db.select({ sql: "SELECT count(*)::int AS n FROM jobs WHERE agent_id = ? AND kind = 'exec' AND status = 'running' AND NOT (id = ANY(string_to_array(?, ',')))", params: [row.agent_id, [opts.id, ...(opts.alsoFinishing ?? [])].join(",")] })) as any[])[0]?.n ?? 0);
     if (running) lines.push(`${running} other job(s) still running — they will report when done.`);
 
     const delivered = await ctx.fns.agent.deliver({

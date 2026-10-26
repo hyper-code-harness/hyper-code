@@ -16,7 +16,7 @@ describe('tools registry', () => {
         const ctx = await setup();
         const byName = Object.fromEntries(ctx.fns.tools.list({}).map((t: any) => [t.wireName, t]));
 
-        expect(Object.keys(byName).sort()).toEqual(['bash', 'edit', 'eval', 'find', 'grep', 'read', 'respondHtml', 'write']);
+        expect(Object.keys(byName).sort()).toEqual(['bash', 'edit', 'eval', 'read', 'respondHtml', 'write']);
         expect(byName.read.fn).toBe('tools.read');
         expect(byName.read.marker).toBe('read');
         expect(byName.read.parameters.required).toEqual(['path']);
@@ -50,8 +50,8 @@ describe('tools registry', () => {
         expect(typo.output).toContain('unknown option "maxLine"');
         expect(typo.output).toContain('did you mean "maxLines"');
 
-        const missing = await ctx.fns.tools.call({ name: 'grep', args: {} });
-        expect(missing.output).toContain('missing required option "pattern"');
+        const missing = await ctx.fns.tools.call({ name: 'read', args: {} });
+        expect(missing.output).toContain('missing required option "path"');
         expect(touched).toBe(false);
     });
 
@@ -103,11 +103,11 @@ describe('prompt assembly', () => {
 
         const full = await ctx.fns.agent.fullSystemPrompt({ agent });
         expect(full).toContain('## Available tools');
-        expect(full).toContain('- `grep` —');
+        expect(full).toContain('- `bash` —');
 
         const narrow = await ctx.fns.agent.fullSystemPrompt({ agent: { ...agent, tools: ['read'] } });
         expect(narrow).toContain('- `read` —');
-        expect(narrow).not.toContain('- `grep` —');
+        expect(narrow).not.toContain('- `bash` —');
         expect(narrow.length).toBeLessThan(full.length);
     });
 });

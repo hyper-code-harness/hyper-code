@@ -4,10 +4,11 @@
 // State lives in files only (hyperd may be what starts the database).
 //
 //   bun hyperd/main.ts            HYPERD_HOME (default ~/.hyper/run/hyperd), HYPERD_UNITS (default ~/.hyper/units, ':'-separated)
-import { appendFileSync, chmodSync, closeSync, existsSync, openSync, readSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, openSync, readSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { checkUnit, loadUnitFile, UNIT_FILE, type Unit } from "./Unit.ts";
+import { journal, KEEP_RUNS } from "./rotate.ts";
 
 const HOME = resolve(process.env.HYPERD_HOME ?? join(homedir(), ".hyper/run/hyperd"));
 const UNIT_DIRS = (process.env.HYPERD_UNITS ?? join(homedir(), ".hyper/units")).split(":").filter(Boolean);
@@ -41,30 +42,19 @@ type Sup = {
 const units = new Map<string, Sup>();
 
 // ---- events -------------------------------------------------------------------------------------
-const EVENTS = join(HOME, "events.ndjson");
-let seq = 0;
-if (existsSync(EVENTS)) {
-    const lines = readFileSync(EVENTS, "utf8").trimEnd().split("\n");
-    for (let i = lines.length - 1; i >= 0 && !seq; i--) { try { seq = JSON.parse(lines[i]).seq ?? 0; } catch {} }
-}
+// events.ndjson is size-bounded (HYPERD_EVENTS_MAX_BYTES): it rotates to events.ndjson.1, and reads span both
+const EVENTS = journal(join(HOME, "events.ndjson"));
+let seq = EVENTS.lastSeq();
 const waiters = new Set<() => void>();
 function emit(unit: string, type: string, data: Record<string, unknown> = {}) {
     const s = units.get(unit);
     const ev = { seq: ++seq, at: Date.now(), unit, run: s?.run ?? 0, type, owner: s?.unit.owner, ...data };
-    appendFileSync(EVENTS, JSON.stringify(ev) + "\n");
+    EVENTS.append(ev);
     for (const w of waiters) w();
     waiters.clear();
     return ev;
 }
-function readEvents(after: number, limit: number) {
-    if (!existsSync(EVENTS)) return [];
-    const out: any[] = [];
-    for (const line of readFileSync(EVENTS, "utf8").split("\n")) {
-        if (!line) continue;
-        try { const e = JSON.parse(line); if (e.seq > after) { out.push(e); if (out.length >= limit) break; } } catch {}
-    }
-    return out;
-}
+const readEvents = (after: number, limit: number) => EVENTS.read(after, limit);
 
 // ---- files ------------------------------------------------------------------------------------------
 const unitDir = (name: string) => join(HOME, "units", name);
@@ -106,11 +96,22 @@ function register(unit: Unit, source: "file" | "transient", file?: string, env?:
     return s;
 }
 
+// Keep the last KEEP_RUNS run directories of a unit: a service in a crash loop makes a new one every restart.
+function pruneRuns(name: string, current: number) {
+    let entries: string[] = [];
+    try { entries = readdirSync(unitDir(name)); } catch { return; }
+    for (const e of entries) {
+        const n = Number(/^run-(\d+)$/.exec(e)?.[1] ?? 0);
+        if (n && n <= current - KEEP_RUNS) rmSync(join(unitDir(name), e), { recursive: true, force: true });
+    }
+}
+
 function launch(s: Sup) {
     const u = s.unit;
     s.run += 1;
     const dir = runDir(u.name, s.run);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    pruneRuns(u.name, s.run);
     const pty = u.pty === undefined ? kindOf(u) === "session" : u.pty;
     writeFileSync(join(dir, "launch.json"), JSON.stringify({
         cmd: argv(u), cwd: u.cwd ? expand(u.cwd) : undefined,
@@ -186,6 +187,8 @@ function readNewOutput(s: Sup): string {
     const log = join(runDir(s.unit.name, s.run), "out.log");
     let size = 0;
     try { size = statSync(log).size; } catch { return ""; }
+    // the holder rotated out.log (out.log.1 + a fresh file): read on from the start of the new one
+    if (size < s.logOff) s.logOff = 0;
     if (size <= s.logOff) return "";
     const len = Math.min(size - s.logOff, 1 << 20);
     const fd = openSync(log, "r");

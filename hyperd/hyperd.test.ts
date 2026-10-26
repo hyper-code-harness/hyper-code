@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 setDefaultTimeout(15_000);
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { call } from "./client.ts";
 import { checkUnit, loadUnitFile } from "./Unit.ts";
+import { journal, rotatingAppender } from "./rotate.ts";
 import { serviceFile } from "./service.ts";
 
 const root = mkdtempSync(join(tmpdir(), "hyperd-test-"));
@@ -27,7 +28,7 @@ const unit = (name: string) => api(`/units/${name}`);
 const events = async (u: string, type?: string) => (await api("/events?after=0&limit=1000")).events.filter((e: any) => e.unit === u && (!type || e.type === type));
 
 async function startDaemon() {
-    daemon = Bun.spawn(["bun", join(import.meta.dir, "main.ts")], { env: { ...process.env, HYPERD_HOME: home, HYPERD_UNITS: unitsDir, HYPERD_TICK_MS: "50" }, stdout: "ignore", stderr: "inherit" });
+    daemon = Bun.spawn(["bun", join(import.meta.dir, "main.ts")], { env: { ...process.env, HYPERD_HOME: home, HYPERD_UNITS: unitsDir, HYPERD_TICK_MS: "50", HYPERD_KEEP_RUNS: "2" }, stdout: "ignore", stderr: "inherit" });
     await until(() => api("/health"));
 }
 async function stopDaemon() {
@@ -55,6 +56,28 @@ afterAll(async () => {
     // nothing may outlive the test: every holder of this root is gone
     for (const pid of Bun.spawnSync(["pgrep", "-f", root]).stdout.toString().split("\n").filter(Boolean)) { try { process.kill(Number(pid), "SIGKILL"); } catch {} leaked.push(pid); }
     rmSync(root, { recursive: true, force: true });
+});
+
+describe("rotate", () => {
+    test("a log past its limit moves to .1 and starts fresh, so at most twice the limit is on disk", () => {
+        const file = join(root, "rot.log");
+        const append = rotatingAppender(file, 10);
+        append("aaaaaa"); append("bbbbbb"); append("cccccc");
+        expect(readFileSync(file, "utf8")).toBe("cccccc");
+        expect(readFileSync(file + ".1", "utf8")).toBe("bbbbbb");
+    });
+
+    test("the journal keeps seq across a rotation and reads span both files", () => {
+        const file = join(root, "ev.ndjson");
+        const j = journal(file, 60);
+        for (let seq = 1; seq <= 6; seq++) j.append({ seq, type: "x" });
+        expect(readFileSync(file, "utf8").split("\n").filter(Boolean).length).toBeLessThan(6);
+        expect(journal(file, 60).lastSeq()).toBe(6);
+        const behind = j.read(0, 100).map((e: any) => e.seq);
+        expect(behind.at(-1)).toBe(6);
+        expect(behind).toEqual([...behind].sort((a, b) => a - b));
+        expect(j.read(5, 100).map((e: any) => e.seq)).toEqual([6]);
+    });
 });
 
 describe("Unit", () => {
@@ -121,6 +144,9 @@ describe("hyperd", () => {
         expect(u.run).toBe(3);
         expect((await events("crashy", "gave_up")).length).toBe(1);
         expect((await events("crashy", "restarting")).map((e: any) => e.inMs)).toEqual([50, 100]);
+        // a crash loop must not pile up run directories: only the last HYPERD_KEEP_RUNS (2 here) stay
+        const runs = readdirSync(join(home, "units", "crashy")).filter(e => e.startsWith("run-")).sort();
+        expect(runs).toEqual(["run-2", "run-3"]);
     });
 
     test("stop signals the whole process group and records the reason", async () => {

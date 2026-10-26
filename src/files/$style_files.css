@@ -11,7 +11,7 @@
 /* A narrow pane keeps the file name and the modes; the size line goes first. */
 @container (max-width: 30rem) { [data-file-meta] { display: none; } }
 [data-file-card] > .w-pane-header .w-switch { min-height: 0; font-size: var(--w-text-small); }
-[data-file-prose] { flex: 1; overflow: auto; padding: var(--w-s6); }
+[data-file-prose] { flex: 1; overflow: auto; padding: var(--w-s6); } [data-file-prose] > .w-markdown { margin: 0 auto; }
 [data-file-code] { flex: 1; overflow: auto; } [data-file-code] > .w-code { border: 0; border-radius: 0; }
 [data-file-editor] { flex: 1; overflow: hidden; }
 [data-file-frame] { flex: 1; width: 100%; border: 0; background: var(--w-surface-chrome); }

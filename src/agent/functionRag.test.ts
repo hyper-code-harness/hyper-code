@@ -78,7 +78,7 @@ test("function RAG indicator renders at the end of a user bubble", async () => {
         agentId: "a", event: { type: "user", text: "hello", messageIdx: 1, functionRag: { functions: ["telegram.send", "agent.wakeAt"] } },
     });
     expect(html).toContain("Function RAG: retrieved");
-    expect(html).toContain("role=\"tooltip\"");
+    expect(html).toContain("class=\"w-tooltip\"");
     expect(html).toContain("telegram.send");
     expect(html).toContain("agent.wakeAt");
     expect(html.indexOf("hello")).toBeLessThan(html.indexOf("Function RAG: retrieved"));

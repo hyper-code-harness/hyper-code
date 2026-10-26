@@ -1,3 +1,4 @@
+import { renderCtx } from "../ui/testRender.entry";
 import { expect, test } from 'bun:test';
 import gate from './functionRagGate';
 import rag from './functionRag';
@@ -44,7 +45,7 @@ test('rerank errors preserve raw retrieval with error status',async()=>{
     const {ctx}=fixture();ctx.fns.jev.selectFunctions=async()=>{throw new Error('failed');};const result=await rag(ctx,null,{agent:{functionRagEnabled:true,jevRerankEnabled:true} as any,messages});expect(result?.rerankStatus).toBe('error');expect(result?.functions).toHaveLength(1);
 });
 for(const status of ['closed','open','off','error'])test(`tooltip shows ${status}, counts and separate scores including empty results`,async()=>{
-    const ctx:any={fns:{}};
+    const ctx:any=await renderCtx();
     const html=await render(ctx,null,{event:{type:'user',text:'test',functionRag:{gate:status,needsTool:.8,retrieved:2,rerankStatus:'ok',functions:[{...hit,jev:.91}]}}});
     expect(html).toContain(`gate ${status}`);expect(html).toContain('heuristic score 0.80');expect(html).toContain('retrieved 2 · kept 1');expect(html).toContain('RRF 0.03');expect(html).toContain('rerank 0.91');
     const empty=await render(ctx,null,{event:{type:'user',text:'test',functionRag:{gate:status,retrieved:0,functions:[],rerankStatus:'skipped'}}});expect(empty).toContain('retrieved 0 · kept 0');expect(empty).toContain('rerank skipped');

@@ -244,7 +244,7 @@
         scrollBottom() { this.messages.scrollTop = this.messages.scrollHeight; }
 
         latestAssistant() {
-            const items = this.messages.querySelectorAll('.assistant');
+            const items = this.messages.querySelectorAll('.w-msg[data-role="agent"]');
             return items[items.length - 1] || null;
         }
 

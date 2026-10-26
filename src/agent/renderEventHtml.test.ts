@@ -9,7 +9,9 @@ import toolCallCell from "./toolCallCell";
 import runningToolCall from "./runningToolCall";
 import { renderCtx } from "../ui/testRender.entry";
 
-const kit = await renderCtx();
+const escHtml = (t: string) => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]!));
+// w.code highlights through markdown.highlight; the stub escapes like shiki does.
+const kit = await renderCtx({ "markdown.highlight": async (_c: any, _s: any, { code }: any) => `<pre>${escHtml(String(code))}</pre>` });
 
 // The renderer asks the registry how a tool presents itself, so the stub ctx
 // carries the real fn rather than a fake one — the icon/label/subject table is
@@ -89,9 +91,8 @@ describe("agent.renderEventHtml", () => {
 
   test("renders assistant as left bubble with htmx delete buttons when agentId given", async () => {
     const html = await renderEventHtml(ctx, { type: "assistant", html: "<p>ok</p>", usage: { prompt_tokens: 1234, total_tokens: 1300 }, messageIdx: 7 }, { agentId: 'a1' });
-    expect(html).toContain("justify-start");
-    expect(html).toContain("assistant chat-glass");
-    expect(html).toContain("prose prose-sm max-w-none");
+    expect(html).toContain('<div id="m-7" class="w-msg" data-role="agent">');
+    expect(html).toContain("w-msg-text w-markdown");
     expect(html).toContain(`hx-post="/agent/a1/messages/delete"`);
     expect(html).toContain(`&quot;idx&quot;:&quot;7&quot;`);
     expect(html).toContain(`hx-confirm="delete this message?"`);
@@ -100,12 +101,10 @@ describe("agent.renderEventHtml", () => {
   test("puts time in the final text line instead of a separate row", async () => {
     const ts = new Date(2025, 0, 1, 12, 34).getTime();
     const user = await renderEventHtml(ctx, { type: "user", text: "one line", ts, messageIdx: 1 });
-    expect(user).toContain('one line<span data-no-copy class="inline-block ml-2');
-    expect(user).not.toContain('class="mt-1 text-[10px]');
+    expect(user).toMatch(/<div class="w-msg-text" data-copy-text>one line<span class="w-msg-meta" data-no-copy><time[^>]*>[^<]+<\/time><\/span><\/div>/);
 
     const assistant = await renderEventHtml(ctx, { type: "assistant", html: "<p>one line</p>", text: "one line", ts, messageIdx: 2 });
-    expect(assistant).toMatch(/one line<span data-no-copy class="inline-block ml-2[^>]*>[^<]+<\/span><\/p>/);
-    expect(assistant).not.toContain('class="mt-1 text-[10px]');
+    expect(assistant).toMatch(/<p>one line<span class="w-msg-meta" data-no-copy><time[^>]*>[^<]+<\/time><\/span><\/p>/);
   });
 
 
@@ -113,7 +112,7 @@ describe("agent.renderEventHtml", () => {
     const balanced = '<p>line 1</p><p>line 2</p>';
     const out = await renderEventHtml(ctx, { type: "assistant", html: balanced, text: 'line 1\nline 2', messageIdx: 1 });
     expect(out).toContain(balanced);
-    expect(out).not.toContain('<pre class="text-xs whitespace-pre-wrap');
+    expect(out).not.toContain('class="w-code"');
   });
 
   // Balance of the whole rendered bubble: every <div> opened must be closed,
@@ -141,7 +140,7 @@ describe("agent.renderEventHtml", () => {
     const html = '<p>ok</p>\n<strong Почему это лучше: blah</p>\n<p>after</p>';
     const text = 'ok\n<strong Почему это лучше: blah';
     const out = await renderEventHtml(ctx, { type: "assistant", html, text, messageIdx: 2 });
-    expect(out).toContain('<pre class="text-xs whitespace-pre-wrap');
+    expect(out).toContain('class="w-code"');
     expect(out).toContain('&lt;strong Почему это лучше');
     expect(out).not.toContain('<strong Почему');
     expect(divBalance(out)).toBe(0);
@@ -149,14 +148,14 @@ describe("agent.renderEventHtml", () => {
 
   test("assistant: an unterminated comment falls back to <pre>", async () => {
     const out = await renderEventHtml(ctx, { type: "assistant", html: '<p>a</p><!-- open', text: 'a', messageIdx: 3 });
-    expect(out).toContain('<pre class="text-xs whitespace-pre-wrap');
+    expect(out).toContain('class="w-code"');
   });
 
   test("assistant: ordinary markdown output passes through unchanged", async () => {
     const html = '<h2>T</h2><p><strong class="a">b</strong> <a href="/y">l</a> <code>a&lt;b</code><br></p><pre><code class="language-ts">const x = a &lt; b;</code></pre><table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table><details><summary>s</summary>x</details>';
     const out = await renderEventHtml(ctx, { type: "assistant", html, text: 'x', messageIdx: 4 });
     expect(out).toContain(html);
-    expect(out).not.toContain('<pre class="text-xs whitespace-pre-wrap');
+    expect(out).not.toContain('class="w-code"');
   });
 
   test("assistant: missing html falls back to escaped <p> (existing behaviour)", async () => {
@@ -166,18 +165,14 @@ describe("agent.renderEventHtml", () => {
 
   test("renders user with compact icon delete controls", async () => {
     const html = await renderEventHtml(ctx, { type: "user", text: "hi", messageIdx: 3 }, { agentId: 'a1' });
-    expect(html).toContain("justify-end");
-    expect(html).toContain("chat-glass-primary rounded-xl");
-    expect(html).not.toContain("bg-gray-900");
+    expect(html).toContain('<div id="m-3" class="w-msg" data-role="user">');
     expect(html).toContain(`&quot;mode&quot;:&quot;one&quot;`);
     expect(html).toContain(`&quot;mode&quot;:&quot;from&quot;`);
     expect(html).toContain(`hx-confirm="delete this and everything after?"`);
-    expect(html).toContain('title="Delete message"');
-    expect(html).toContain('title="Delete from here"');
+    expect(html).toContain('data-context-of="#m-3"');
+    expect(html).toContain('>Delete message<');
+    expect(html).toContain('>Delete from here<');
     expect(html).toContain('ph-trash');
-    expect(html).toContain('ph-arrow-line-down');
-    expect(html).not.toContain('>delete</button>');
-    expect(html).not.toContain('>from here</button>');
   });
 
   test("omits delete controls when agentId not provided (e.g. test stubs)", async () => {

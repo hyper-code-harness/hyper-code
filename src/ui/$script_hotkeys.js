@@ -71,42 +71,51 @@
     });
 })();
 
-// Right-click on a message opens its own actions (delete this / from here — drawn by the server next to it);
-// a click elsewhere, Escape or a second right-click closes them. Ordinary text selection menus stay the
-// browser's: only a right-click on the message bubble itself, without a text selection, is taken.
+// Right-click menus (w.menu with contextOf): a right-click inside the element the menu names opens that menu at
+// the pointer, kept inside the window. With a text selection the browser's own menu stays. A menu item
+// { action: "copy-text" } copies the text of the element ([data-copy-text] inside it, without [data-no-copy]).
 (() => {
-    if (window.__hyperMessageMenuInstalled) return;
-    window.__hyperMessageMenuInstalled = true;
-    const close = () => document.querySelectorAll('[data-message-menu-open]').forEach(el => el.removeAttribute('data-message-menu-open'));
+    if (window.__hyperContextMenusInstalled) return;
+    window.__hyperContextMenusInstalled = true;
+    const owner = new WeakMap();
     document.addEventListener('contextmenu', e => {
-        const row = e.target.closest?.('#messages [id^="m-"]');
-        if (!row || !row.querySelector('[data-message-menu]') || String(window.getSelection?.() ?? '').trim()) return;
+        if (String(window.getSelection?.() ?? '').trim()) return;
+        let found = null;
+        for (const menu of document.querySelectorAll('.w-menu[data-context-of]')) {
+            let host = null;
+            try { host = e.target.closest?.(menu.dataset.contextOf); } catch { continue; }
+            // The nearest owner wins (a message inside a message keeps its own menu).
+            if (host && (!found || found.host.contains(host))) found = { menu, host };
+        }
+        if (!found || found.menu.contains(e.target)) return;
         e.preventDefault();
-        close();
-        row.setAttribute('data-message-menu-open', '');
-        // At the pointer, kept inside the window.
-        const menu = row.querySelector('[data-message-menu]');
+        document.querySelectorAll('.w-menu[data-context-of]:popover-open').forEach(m => m.hidePopover());
+        const { menu, host } = found;
+        owner.set(menu, host);
+        menu.style.margin = '0';
+        menu.style.left = '0px'; menu.style.top = '0px';
+        menu.showPopover();
         const w = menu.offsetWidth || 180, h = menu.offsetHeight || 110;
-        row.style.setProperty('--menu-x', Math.min(e.clientX, innerWidth - w - 8) + 'px');
-        row.style.setProperty('--menu-y', Math.min(e.clientY, innerHeight - h - 8) + 'px');
-        menu.querySelector('.message-menu-item')?.focus({ preventScroll: true });
+        menu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - w - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - h - 8)) + 'px';
     });
     document.addEventListener('click', e => {
-        const copy = e.target.closest?.('[data-message-copy]');
-        if (copy) {
-            const bubble = copy.closest('[id^="m-"]')?.querySelector('.chat-glass-primary, .assistant, .w-msg-text');
-            const text = bubble?.cloneNode(true);
-            text?.querySelectorAll('[data-author], [data-message-menu], button, .sr-only').forEach(n => n.remove());
-            navigator.clipboard?.writeText((text?.innerText ?? '').replace(/\s*\d{1,2}:\d{2}\s*$/, '').trim()).catch(() => {});
-            close();
-            return;
+        const item = e.target.closest?.('.w-menu[data-context-of] .w-menu-item');
+        if (!item) return;
+        const menu = item.closest('.w-menu');
+        if (item.dataset.action === 'copy-text') {
+            const host = owner.get(menu);
+            const text = (host?.querySelector('[data-copy-text]') ?? host)?.cloneNode(true);
+            text?.querySelectorAll('[data-no-copy], .w-menu, button').forEach(n => n.remove());
+            navigator.clipboard?.writeText((text?.innerText ?? '').trim()).catch(() => {});
         }
-        if (!e.target.closest?.('[data-message-menu]')) close();
-        // A chosen delete closes the menu too (its confirm dialog then takes over).
-        else if (e.target.closest?.('.message-menu-item')) setTimeout(close, 0);
+        // A delete then shows its confirm dialog; the menu closes either way.
+        setTimeout(() => menu.matches(':popover-open') && menu.hidePopover(), 0);
     });
-    document.addEventListener('scroll', close, true);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    document.addEventListener('scroll', e => {
+        if (e.target instanceof Element && e.target.closest('.w-menu')) return;
+        document.querySelectorAll('.w-menu[data-context-of]:popover-open').forEach(m => m.hidePopover());
+    }, true);
 })();
 
 // The folded chat strip can be dragged by its top edge (the little grip) anywhere over the canvas — e.g. to the

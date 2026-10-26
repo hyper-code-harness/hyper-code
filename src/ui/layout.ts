@@ -69,13 +69,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
    Tailwind's font-sans stack), UI chrome — menu rows, tabs, chat header — at 13px regular, reading text at 14px. */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 /* Message context menu (right-click on a message, ui/hotkeys.js puts it at the pointer). */
-#messages .message-menu { display: none; }
-#messages [data-message-menu-open] .message-menu { position: fixed; z-index: 70; left: var(--menu-x, 0); top: var(--menu-y, 0); display: flex; flex-direction: column; min-width: 11rem; padding: .25rem; border: 1px solid var(--color-ui-border); border-radius: .5rem; background: var(--color-base-100); box-shadow: 0 8px 24px rgb(0 0 0 / .14); color: var(--color-base-content); font-size: 13px; white-space: nowrap; }
-#messages .message-menu-item { display: flex; width: 100%; align-items: center; gap: .5rem; height: 1.875rem; padding: 0 .5rem; border-radius: .3rem; text-align: left; color: inherit; background: none; border: 0; }
-#messages .message-menu-item > i { font-size: 15px; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-#messages .message-menu-item:hover, #messages .message-menu-item:focus-visible { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); outline: none; }
-#messages .message-menu-item--danger:hover, #messages .message-menu-item--danger:hover > i { color: var(--color-error); background: color-mix(in oklab, var(--color-error) 9%, transparent); }
-#messages .message-menu-sep { height: 1px; margin: .25rem .25rem; background: var(--color-ui-border); }
 /* Global menu (⌘/), by the interaction principle: hover is grey; the row chosen with ↑ ↓ is selected (palest blue
    backing, blue icon); the search field in focus turns only its edge line blue (as the chat composer does with its top line), so the
    rounded corners of the box are never cut by a ring. */
@@ -116,8 +109,8 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 /* Beside an open canvas the chat reads as a side conversation, not a second document: a slightly deeper grey,
    a shade of depth along the canvas edge, and a smaller type (13px) than the canvas page. */
 [data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > #chat-panel { --chat-bg: color-mix(in oklab, var(--color-base-200) 50%, var(--color-base-100)); }
-[data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > #chat-panel #messages :is(.prose, .prose p, .prose li, .chat-glass-primary) { font-size: 13px; line-height: 1.55; }
-[data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > #chat-panel #messages .prose :is(h1, h2, h3) { font-size: 14px; }
+[data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > #chat-panel #messages :is(.w-msg, .w-msg .w-markdown) { font-size: 13px; line-height: 1.55; }
+[data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > #chat-panel #messages .w-markdown :is(h1, h2, h3) { font-size: 14px; }
 /* The chat column is a card like the Dock panel and the canvas: rounded border, and on top the same grey 32px
    header row with a hairline under it (instead of the floating pill). Wide screens only; the folded strip and
    the browser-sidebar presentation keep their own looks. */
@@ -127,19 +120,10 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) .chat-dot-grid { padding-top: 1rem !important; padding-bottom: 1rem !important; background-image: none; background-color: var(--chat-bg); }
   /* The composer is the card's footer, a mirror of its header: full width, a hairline above, the text field and
      its toolbar flat inside it; focus shows as a thin accent line on top instead of a floating ring. */
-  /* Answers sit right on the page, ChatGPT-style: no bubble, border or shadow; the person's message stays a soft pill on the right. */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .assistant.chat-glass { background: none; border: 0; box-shadow: none; padding: .25rem .25rem; border-radius: 0; }
-  /* The person's message is the one inverted shape: the page's text colour as its fill (dark in light theme, light in dark). */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary { background-color: var(--color-base-content); color: var(--color-base-100); border: 0; box-shadow: none; border-radius: .75rem; padding: .5rem .85rem; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [class*="text-white"] { color: color-mix(in oklab, var(--color-base-100) 60%, transparent); }
-  /* Author line: a quiet small name, not a coloured headline; the avatar beside the bubble is smaller. */
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .chat-glass-primary [data-author] { color: color-mix(in oklab, var(--color-base-100) 65%, transparent) !important; font-weight: 500; font-size: 11px; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"] #messages [id^="m-"] > img.size-8, body:not([data-presentation="sidebar"]) [data-page="agent"] #messages [id^="m-"] > span.size-8 { width: 1.5rem; height: 1.5rem; font-size: 10px; }
   /* Comfortable reading width in a wide column, centred like ChatGPT. */
   /* One reading column, centred, whatever the window: every row — answers, tool pills, the person's messages,
      dividers — is exactly the same width and starts at the same left edge; the composer's text lines up with it. */
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > * { width: 100%; max-width: 46rem; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > [id^="m-"] .assistant { padding-left: 0 !important; padding-right: 0 !important; }
   /* The chat header follows the same column: the icon and name start where the messages start, ⋯ ends where they end. */
   html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > section#chat-panel > header.w-pane-header { padding-left: max(.75rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; padding-right: max(.375rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; }
 }
@@ -193,15 +177,15 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 [data-page="agent"][data-chat-collapsed] #messages { overflow: hidden !important; display: flex; flex-direction: column; justify-content: flex-end; }
 [data-page="agent"][data-chat-collapsed] #messages > * { display: none !important; }
 /* The latest message, whoever wrote it: right after sending you see your own message, and the answer replaces it. */
-[data-page="agent"][data-chat-collapsed] #messages > [id^="m-"]:has(:is(.assistant, .chat-glass-primary)):not(:has(~ [id^="m-"] :is(.assistant, .chat-glass-primary))) { display: flex !important; flex: none; }
-[data-page="agent"][data-chat-collapsed] #messages > [id^="m-"] > img, [data-page="agent"][data-chat-collapsed] #messages > [id^="m-"] > span.size-8 { display: none; }
-[data-page="agent"][data-chat-collapsed] #messages .chat-glass-primary { max-height: 5.5rem; overflow: hidden; }
-[data-page="agent"][data-chat-collapsed] #messages > [id^="m-"] > .assistant { padding: 0 !important; max-height: 5.5rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
-[data-page="agent"][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) #messages > [id^="m-"] > .assistant { max-height: min(18rem, 45vh); overflow-y: auto; -webkit-mask-image: none; mask-image: none; }
-[data-page="agent"][data-chat-collapsed] #messages .message-menu, [data-page="agent"][data-chat-collapsed] #messages .chat-tools { display: none !important; }
+[data-page="agent"][data-chat-collapsed] #messages > .w-msg:not(:has(~ .w-msg)) { display: flex !important; flex: none; }
+[data-page="agent"][data-chat-collapsed] #messages > .w-msg > .w-avatar { display: none; }
+[data-page="agent"][data-chat-collapsed] #messages .w-msg[data-role="user"] .w-msg-body { max-height: 5.5rem; overflow: hidden; }
+[data-page="agent"][data-chat-collapsed] #messages > .w-msg[data-role="agent"] .w-msg-body { max-height: 5.5rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+[data-page="agent"][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) #messages > .w-msg[data-role="agent"] .w-msg-body { max-height: min(18rem, 45vh); overflow-y: auto; -webkit-mask-image: none; mask-image: none; }
+[data-page="agent"][data-chat-collapsed] #messages .chat-tools { display: none !important; }
 /* Resized from its top-left corner (ui/hotkeys.js): --strip-w/--strip-h; the answer then fills the strip. */
 [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel[data-strip-sized] { width: var(--strip-w) !important; height: var(--strip-h) !important; max-height: none !important; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel[data-strip-sized] #messages > [id^="m-"] :is(.assistant, .chat-glass-primary) { max-height: none !important; overflow: hidden; -webkit-mask-image: none; mask-image: none; }
+[data-page="agent"][data-chat-collapsed] > #chat-panel[data-strip-sized] #messages > .w-msg .w-msg-body { max-height: none !important; overflow: hidden; -webkit-mask-image: none; mask-image: none; }
 [data-page="agent"][data-chat-collapsed] > #chat-panel::after { content: ""; position: absolute; z-index: 3; top: 3px; left: 3px; width: 9px; height: 9px; border-top: 2px solid var(--color-ui-border); border-left: 2px solid var(--color-ui-border); border-top-left-radius: 4px; cursor: nwse-resize; }
 [data-page="agent"][data-chat-collapsed] > #chat-panel:hover::after { border-color: color-mix(in oklab, var(--color-base-content) 35%, transparent); }
 /* Moved by dragging its top edge (ui/hotkeys.js); --strip-x/--strip-y are kept per device. */
@@ -256,21 +240,6 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
 }
 
 
-.chat-glass,
-.chat-glass-primary {
-  background-size: 16px 16px;
-  background-position: 9px 9px;
-  background-attachment: local;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-.chat-glass {
-  background-color: rgb(from var(--color-base-100) r g b / .86);
-}
-.chat-glass-primary {
-  background-color: rgb(20 20 22 / .94);
-}
-
 /* Highlighted code inside tool detail dialogs. */
 .app-popup-body pre { margin: 0; padding: .75rem 1rem; border-radius: .65rem; background: rgba(0,0,0,.04) !important; white-space: pre-wrap; word-break: break-word; }
 .app-popup-body pre + pre { margin-top: .75rem; }
@@ -304,9 +273,8 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   #chat-panel > header select { min-height: 2.25rem; }
 
   #chat-panel > header [data-chat-buttons], #chat-panel > header [data-chat-badges] > :not([data-chat-id="agent.status"]) { display: none !important; }
-  #messages, #messages > *, #messages .assistant, #messages .user { min-width: 0; max-width: 100%; }
+  #messages, #messages > *, #messages .w-msg-body { min-width: 0; max-width: 100%; }
   #messages { overflow-x: hidden !important; }
-  #messages button[data-action="delete-one"], #messages button[data-action="delete-from"] { min-width: 2.25rem; min-height: 2.25rem; }
   #messages [data-load-older] { min-height: 2.75rem; padding-inline: 1rem; }
 
   #messages .sr-only { width: 1px !important; max-width: 1px !important; overflow: hidden !important; white-space: nowrap !important; }
@@ -411,7 +379,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
 <style>
   body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
   .shiki { background: transparent !important; }
-  .assistant pre.shiki { padding: .6em .8em; border-radius: 6px; overflow-x: auto; margin: .4em 0; font-size: 12.5px; line-height: 1.45; }
   .tool pre.shiki { padding: 0; margin: 0; overflow-x: auto; }
   .ui-toggle-track { position: relative; display: block; flex: none; width: 40px; height: 20px; box-sizing: border-box; border-radius: 9999px; background: rgb(229 231 235); transition: background-color .15s ease, box-shadow .15s ease; }
   .ui-toggle-thumb { position: absolute; top: 2px; display: block; width: 16px; height: 16px; border-radius: 9999px; background: white; box-shadow: 0 1px 2px rgb(0 0 0 / .18); transition: left .15s ease; }

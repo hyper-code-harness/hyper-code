@@ -66,7 +66,7 @@ test("chat shows the author badge on user messages once there are two users", as
     expect(payload.html).toContain('data-author="anna"');
     expect(payload.html).toContain("Anna K");
     expect(payload.html).toContain(">AK<");
-    expect(payload.html).toContain("rounded-br-md");
+    expect(payload.html).toContain('class="w-avatar"');
 });
 
 test("buildLlmRequest sends the prefix and the one-line explanation to the model", async () => {

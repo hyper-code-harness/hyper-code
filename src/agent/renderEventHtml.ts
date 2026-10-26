@@ -30,23 +30,15 @@ function safeAssistantHtml(html: string): string | null {
     return fatal ? null : serialize(fragment);
 }
 
-function deleteControls(ctx: Context, idx: any, agentId: string, allowOne = true, allowFrom = true, placement: 'overlay' | 'side' = 'overlay'): string {
-    if (!agentId) return '';
+// The right-click menu of a chat message (w.menu items): copy its text, delete it, delete from it on.
+function messageActions(idx: any, agentId: string): Array<"-" | { label: string; icon?: string; action?: types.w.Action; danger?: boolean }> {
+    const items: Array<"-" | { label: string; icon?: string; action?: types.w.Action; danger?: boolean }> = [{ label: 'Copy text', icon: 'copy', action: { action: 'copy-text' } }];
+    if (!agentId) return items;
     const url = '/agent/' + encodeURIComponent(agentId) + '/messages/delete';
-    // Beside a message bubble the actions are a context menu (opened by right-click, ui/hotkeys.js): rows with
-    // an icon and a label. Copy is done in the browser; the deletes are ordinary htmx posts.
-    if (placement === 'side') {
-        const item = (mode: 'one' | 'from', label: string, confirm: string, icon: string) => ctx.fns.w.pressable({ html: `<i class="ph ${icon}" aria-hidden="true"></i><span>${label}</span>`, label: label, action: { post: url, swap: 'none', vals: { idx: String(idx), mode }, confirm: confirm }, marks: { action: `delete-${mode}` }, attrs: { role: 'menuitem' }, class: 'message-menu-item message-menu-item--danger' });
-        return '<button type="button" class="message-menu-item" data-message-copy role="menuitem"><i class="ph ph-copy" aria-hidden="true"></i><span>Copy text</span></button>'
-            + '<div class="message-menu-sep" role="separator"></div>'
-            + (allowOne ? item('one', 'Delete message', 'delete this message?', 'ph-trash') : '')
-            + (allowFrom ? item('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '');
-    }
-    const actionControl = (mode: 'one' | 'from', title: string, confirm: string, icon: string) => ctx.fns.w.pressable({ html: `<i class="ph ${icon} text-sm" aria-hidden="true"></i><span class="sr-only">${title}</span>`, label: title, action: { post: url, swap: 'none', vals: { idx: String(idx), mode }, confirm: confirm }, marks: { action: `delete-${mode}` }, class: 'flex size-7 items-center justify-center rounded-full border border-ui-border bg-base-100/95 text-faint shadow-sm backdrop-blur transition hover:border-error/30 hover:bg-error/10 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/30' });
-    return '<div class="' + 'absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100' + '">'
-        + (allowOne ? actionControl('one', 'Delete message', 'delete this message?', 'ph-trash') : '')
-        + (allowFrom ? actionControl('from', 'Delete from here', 'delete this and everything after?', 'ph-arrow-line-down') : '')
-        + '</div>';
+    const del = (mode: 'one' | 'from', confirm: string) => ({ post: url, swap: 'none' as const, vals: { idx: String(idx), mode }, confirm });
+    return [...items, '-',
+        { label: 'Delete message', icon: 'trash', danger: true, action: del('one', 'delete this message?') },
+        { label: 'Delete from here', icon: 'arrow-line-down', danger: true, action: del('from', 'delete this and everything after?') }];
 }
 
 /** Render event html for the runtime.  * @param opts.event Agent event to render.
@@ -58,65 +50,40 @@ event: any;
         /** Agent id used by the operation. */
 agentId?: string }): Promise<string> {
 
-function messageTime(ts: any): string {
-    const value = Number(ts);
-    if (!Number.isFinite(value)) return '';
-    return new Intl.DateTimeFormat('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(value));
-}
-
 // @mentions of known people become chips; a renderer without the mentions module keeps the plain text.
 async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'): Promise<string> {
     const highlight = (ctx.fns as any).mentions?.highlight;
     return highlight ? await highlight({ html, tone }).catch(() => html) : html;
 }
-
-function timeHtml(ts: any, tone: 'dark' | 'light', suffix = ''): string {
-    const time = messageTime(ts);
-    if (!time) return '';
-    // Telegram-style: an inline stamp consumes only the tail of the final line.
-    // It stays beside a one-liner and naturally lands at the lower-right when
-    // text wraps.
-    // data-no-copy: a copied piece of chat is the words, not their timestamps.
-    return '<span data-no-copy class="inline-block ml-2 whitespace-nowrap text-3xs leading-none '
-        + (tone === 'dark' ? 'text-white/70' : 'text-muted')
-        + '">' + esc(time) + suffix + '</span>';
-}
-
-function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''): string {
-    const stamp = timeHtml(ts, tone, suffix);
-    if (!stamp) return html;
-    // Markdown's common one-line shape is <p>…</p>. Keeping the float inside
-    // that final paragraph lets it share the line instead of creating a row.
-    if (/<\/p>\s*$/.test(html)) return html.replace(/<\/p>\s*$/, stamp + '</p>');
-    return html + stamp;
-}
     const ev = opts.event;
     const agentId = String(opts.agentId ?? ev?.agentId ?? '');
     if (!ev || typeof ev !== "object") return "";
+    const ts = Number(ev.ts) || undefined;
     // Lifecycle events (plan, goal, wake, delegation, compaction…) are quiet lines in the conversation
     // (w.eventNote), not cards: a tone on the icon, a short badge, the body under the line, details folded.
     type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
     const wTone = (tone?: Tone): types.w.Tone => tone === 'error' ? 'danger' : (tone ?? 'neutral');
     const eventCard = (card: { title: string; icon?: string; tone?: Tone; badge?: string; body?: string; details?: string; href?: string }) =>
-        ctx.fns.w.eventNote({ text: card.title, icon: card.icon, tone: wTone(card.tone), badge: card.badge, body: card.body, details: card.details, href: card.href, ts: Number(ev.ts) || undefined });
+        ctx.fns.w.eventNote({ text: card.title, icon: card.icon, tone: wTone(card.tone), badge: card.badge, body: card.body, details: card.details, href: card.href, ts });
     // The badge is its label; the note draws it in the note's tone.
     const badge = (label: string, _tone?: Tone) => label;
+    // Atoms for the parts inside a note: a literal line, a paragraph, a JSON dump.
+    const literal = (text: string) => ctx.fns.w.box({ body: esc(text), mix: { mono: true, text: 'small' } });
+    const para = (html: string, mix: types.w.Mixin = {}) => ctx.fns.w.box({ body: html, mix: [{ padY: 's1' }, mix] });
+    const dump = (text: string) => ctx.fns.w.code({ code: text, lang: 'json' });
 
     if (ev.excludedFromLlm) {
-        // Collapsed out of the LLM's view after a successful correction — the
-        // audit stays visible, dimmed, with an out-of-context chip. Recurse
-        // through the registry for the normal rendering of the same event.
+        // Collapsed out of the LLM's view after a successful correction — the audit stays visible, dimmed.
         const inner: string = await (ctx as any).fns.agent.renderEventHtml({ event: { ...ev, excludedFromLlm: false }, agentId });
-        return '<div class="relative opacity-50"><span class="absolute -top-2 right-2 z-10 text-3xs px-1.5 py-0.5 rounded-full border border-ui-border bg-base-200 text-subtle">outside context</span>' + inner + '</div>';
+        return ctx.fns.w.dim({ body: inner, label: 'outside context' });
     }
 
     if (ev.type === "user") {
         const idx = ev.messageIdx ?? ev.idx ?? 0;
-        // Another agent speaking in this chat under its own name (agent.message): an incoming,
-        // left-aligned bubble with the sender's name/link, hop counter and the owner it acts for.
+        const id = 'm-' + idx;
+        const actions = messageActions(idx, agentId);
+        // Another agent speaking in this chat under its own name (agent.message): an incoming message
+        // with the sender's face and name/link, hop counter and the owner it acts for.
         if (ev.agentMessage || String(ev.actor ?? '').startsWith('agent:')) {
             const am = ev.agentMessage ?? {};
             const fromId = String(am.from ?? String(ev.actor ?? '').slice(6));
@@ -125,99 +92,49 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             const body = String(am.body ?? ev.text ?? '');
             const ownerName = am.onBehalfOf ? await (ctx as any).fns.auth?.getUser?.({ id: String(am.onBehalfOf) }).then((u: any) => u?.name ?? null).catch(() => null) : null;
             const meta = ['agent', am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
-            const senderRow = ((await ctx.fns.procs.db.select({ sql: 'SELECT icon, model FROM agents WHERE id = ?', params: [fromId] }).catch(() => [])) as any[])[0];
             const href = '/agent/' + encodeURIComponent(fromId);
-            // The sender's own chat icon (its avatar, else its model logo) — the same face it has in the menu.
-            const avatar = '<a href="' + esc(href) + '" title="' + esc(name) + '" data-author="agent:' + esc(fromId) + '">'
-                + ctx.fns.w.chatIcon({ icon: senderRow?.icon ?? '', model: String(senderRow?.model ?? ''), size: 'md' }) + '</a>';
-            return '<div id="m-' + idx + '" data-agent-message="' + esc(fromId) + '">'
-                + ctx.fns.w.message({ role: 'peer', author: name, authorHref: href, meta, avatar, html: esc(body), ts: Number(ev.ts) || undefined })
-                + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
-                + '</div>';
+            const avatar = '<a href="' + esc(href) + '" title="' + esc(name) + '" data-author="agent:' + esc(fromId) + '">' + await ctx.fns.w.avatar({ agentId: fromId, name, size: 32 }) + '</a>';
+            return ctx.fns.w.message({ role: 'peer', id, author: name, authorHref: href, meta, avatar, html: esc(body), ts, actions, marks: { 'agent-message': fromId } });
         }
-        const ragFunctions = Array.isArray(ev.functionRag?.functions) ? ev.functionRag.functions : [];
-        const ragNames = ragFunctions.map((item: any) => String(typeof item === "string" ? item : item?.name ?? "")).filter(Boolean);
-        const injected = String(ev.functionRag?.injected ?? ragNames.join("\n"));
-        // Separate heuristic gate and retrieval outcomes, including empty results.
-        const ragGate = String(ev.functionRag?.gate ?? "off");
-        const ragReranked = ev.functionRag?.reranked === true;
-        const needsTool = ev.functionRag?.needsTool;
-        const retrieved = Number(ev.functionRag?.retrieved ?? 0);
-        const badge = (html: string, label: string, tip: string) =>
-            '<span class="group/rag relative ml-2 inline-flex items-center gap-1 align-middle" aria-label="' + esc(label) + '" tabindex="0">' + html
-            + '<span role="tooltip" class="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[32rem] whitespace-pre-wrap rounded-lg border border-ui-border bg-base-100 px-3 py-2 font-mono text-3xs leading-4 text-muted opacity-0 shadow-xl transition group-hover/rag:visible group-hover/rag:opacity-100 group-focus/rag:visible group-focus/rag:opacity-100">' + esc(tip) + '</span></span>';
-        const gateBadge = !ev.functionRag ? '' : badge(
-            ragGate === "closed"
-                ? '<span class="h-1.5 w-1.5 rounded-full border border-white/50" aria-hidden="true"></span>'
-                : ragGate === 'error' ? '<span class="text-error text-3xs" aria-hidden="true">!</span>'
-                : ragGate === 'off' ? '<span class="text-white/40 text-3xs" aria-hidden="true">−</span>'
-                : '<span class="h-1.5 w-1.5 rounded-full" style="background:rgb(251 191 36)" aria-hidden="true"></span>',
-            `Gate: ${ragGate}`,
-            `gate ${ragGate}` + (needsTool == null ? '' : ` · heuristic score ${Number(needsTool).toFixed(2)}`)
-                + (ragGate === 'error' ? '\nclassification failed; retrieval allowed' : '')
-                + (ragGate === 'closed' ? '\nno retrieval, nothing injected' : `\nretrieved ${retrieved}`),
-        );
-        const dotColor = ragReranked ? 'background:rgb(52 211 153)' : 'background:rgb(165 180 252)';
-        const dots = ragNames.map(() => '<span class="h-1.5 w-1.5 rounded-full" style="' + dotColor + '" aria-hidden="true"></span>').join('');
-        const scores = ragFunctions.filter((fn: any) => typeof fn !== 'string').map((fn: any) => `${fn.name}: RRF ${fn.score ?? 'n/a'} · BM25 ${fn.bm25 ?? 'n/a'} · cosine ${fn.similarity ?? 'n/a'} · rerank ${fn.jev ?? 'n/a'}`).join('\n');
-        const ragIcon = gateBadge + (ev.functionRag
-            ? badge(dots || '<span aria-hidden="true">0</span>', `Function RAG: retrieved ${retrieved}, kept ${ragNames.length}`,
-                `retrieved ${retrieved} · kept ${ragNames.length} · rerank ${ev.functionRag.rerankStatus ?? (ragReranked ? 'ok' : 'off')}\n${scores}\n${injected}`)
-            : '');
-        const attachmentHtml = Array.isArray(ev.attachments) && ev.attachments.length
-            ? '<div class="mb-1.5 flex flex-wrap gap-2" data-attachments-row>' + ev.attachments.map((item: any) => {
-                const url = '/attachments/' + encodeURIComponent(agentId) + '/' + encodeURIComponent(String(item.id));
-                if (String(item.mimeType).startsWith('image/')) return '<a href="' + url + '" target="_blank" rel="noopener" class="block"><img src="' + url + '" alt="' + esc(item.fileName) + '" class="block max-h-48 max-w-full rounded-lg object-contain"></a>';
-                return '<a href="' + url + '" target="_blank" rel="noopener" class="inline-flex max-w-56 items-center gap-2 rounded-lg border border-white/25 bg-black/10 px-3 py-2 text-left text-xs"><i class="ph ph-file"></i><span class="truncate">' + esc(item.fileName) + '</span></a>';
-            }).join('') + '</div>'
-            : '';
-        // Messenger-style author: name inside the bubble, round photo (or colored initials) beside it.
+        // Function RAG for this turn: the gate's state and one dot per injected function, the details on hover.
+        const rag = ev.functionRag;
+        let trail = '';
+        if (rag) {
+            const fns = Array.isArray(rag.functions) ? rag.functions : [];
+            const names = fns.map((item: any) => String(typeof item === "string" ? item : item?.name ?? "")).filter(Boolean);
+            const gate = String(rag.gate ?? "off");
+            const retrieved = Number(rag.retrieved ?? 0);
+            const scores = fns.filter((fn: any) => typeof fn !== 'string').map((fn: any) => `${fn.name}: RRF ${fn.score ?? 'n/a'} · BM25 ${fn.bm25 ?? 'n/a'} · cosine ${fn.similarity ?? 'n/a'} · rerank ${fn.jev ?? 'n/a'}`).join(' · ');
+            const gateTip = `gate ${gate}` + (rag.needsTool == null ? '' : ` · heuristic score ${Number(rag.needsTool).toFixed(2)}`)
+                + (gate === 'error' ? ' · classification failed; retrieval allowed' : gate === 'closed' ? ' · no retrieval, nothing injected' : ` · retrieved ${retrieved}`);
+            const gateState = gate === 'closed' ? 'idle' : gate === 'error' ? 'error' : gate === 'off' ? 'idle' : 'warning';
+            const injected = String(rag.injected ?? names.join(', '));
+            const ragTip = `Function RAG: retrieved ${retrieved} · kept ${names.length} · rerank ${rag.rerankStatus ?? (rag.reranked === true ? 'ok' : 'off')}${scores ? ' · ' + scores : ''}${injected ? ' · ' + injected : ''}`;
+            trail = ctx.fns.w.tooltip({ label: gateTip, html: ctx.fns.w.dot({ state: gateState }) })
+                + ctx.fns.w.tooltip({ label: ragTip, html: names.length ? names.map(() => ctx.fns.w.dot({ state: rag.reranked === true ? 'done' : 'unread' })).join('') : ctx.fns.w.badge({ text: 0 }) });
+        }
+        const attachments = (Array.isArray(ev.attachments) ? ev.attachments : []).map((item: any) => ({
+            url: '/attachments/' + encodeURIComponent(agentId) + '/' + encodeURIComponent(String(item.id)),
+            name: String(item.fileName ?? 'file'),
+            image: String(item.mimeType).startsWith('image/'),
+        }));
+        // Messenger-style author (only when several people share the chat): name inside the bubble, face beside it.
         const author = (ctx as any).fns.auth?.author ? await (ctx as any).fns.auth.author({ userId: ev.actor ?? null }).catch(() => null) : null;
-        const authorName = author
-            ? '<div class="mb-0.5 text-xs font-semibold leading-tight whitespace-normal" data-author="' + esc(author.id) + '" style="color:hsl(' + author.hue + ' 75% 72%)">' + esc(author.name) + '</div>'
-            : '';
-        const avatar = author
-            ? (author.picture
-                ? '<img src="' + esc(author.picture) + '" alt="' + esc(author.name) + '" title="' + esc(author.name) + '" class="size-8 shrink-0 rounded-full object-cover" referrerpolicy="no-referrer" loading="lazy">'
-                : '<span class="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style="background:hsl(' + author.hue + ' 55% 45%)" title="' + esc(author.name) + '" aria-hidden="true">' + esc(author.initials) + '</span>')
-            : '';
-        return '<div id="m-' + idx + '" class="group relative flex items-end justify-end gap-2 pb-0">'
-            + '<div class="relative ml-auto max-w-[80%]">'
-            + '<div class="chat-glass-primary ' + (author ? 'rounded-2xl rounded-br-md px-3.5 py-2' : 'rounded-xl px-4 py-3') + ' text-white whitespace-pre-wrap break-words shadow-sm border border-black/20">'
-            + authorName
-            + attachmentHtml
-            + appendTime((ev.text ? await mentionChips(ctx, esc(ev.text), 'dark') : '') + ragIcon, ev.ts, 'dark')
-            + '</div>'
-            + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
-            + '</div>' + avatar + '</div>';
+        const avatar = author ? '<span data-author="' + esc(author.id) + '">' + await ctx.fns.w.avatar({ name: author.name, src: author.picture || undefined, size: 24 }) + '</span>' : undefined;
+        return ctx.fns.w.message({ role: 'user', id, author: author?.name, avatar, html: ev.text ? await mentionChips(ctx, esc(ev.text), 'dark') : '', ts, trail, attachments, actions });
     }
 
     if (ev.type === "assistant") {
         const idx = ev.messageIdx ?? ev.idx ?? 0;
-        const usage = '';
-        // Defensive: if the pre-rendered html is unbalanced (markdown.render
-        const indicators = ev.instructionIndicators ?? {};
-        const statusDot = indicators.statusLine
-            ? '<span title="Status line: ' + esc(indicators.statusLine) + '" aria-label="status line applied" class="ml-1.5 inline-block size-1.5 rounded-full bg-base-300 align-middle"></span>'
-            : '';
-        const instructionMarks = statusDot;
-        // sometimes chokes on heredoc / shell `>` / mixed-code prose) fall
-        // back to a plain escaped <pre>. One bad bubble must not break the
-        // whole page layout below it.
+        // A quiet mark that the person's status line was applied to this answer.
+        const statusLine = ev.instructionIndicators?.statusLine;
+        const trail = statusLine ? ctx.fns.w.tooltip({ label: 'Status line: ' + String(statusLine), html: `<span aria-label="status line applied">${ctx.fns.w.dot({ state: 'idle' })}</span>` }) : '';
+        // Defensive: if the pre-rendered html is unbalanced (markdown.render sometimes chokes on heredoc / shell
+        // `>` / mixed-code prose) fall back to the plain text as code. One bad answer must not break the page.
         const rawHtml = ev.html || ('<p>' + esc(ev.text || '') + '</p>');
-        const safeHtml = await mentionChips(ctx, safeAssistantHtml(rawHtml)
-            ?? '<pre class="text-xs whitespace-pre-wrap break-words">' + esc(ev.text || '') + '</pre>', 'light');
-        return '<div id="m-' + idx + '" class="group relative flex justify-start">'
-            + '<div class="assistant chat-glass w-full rounded-2xl px-4 py-3 text-base-content shadow-sm border border-ui-border">'
-            + '<div class="prose prose-sm max-w-none text-base-content prose-headings:text-base-content prose-p:text-base-content prose-li:text-base-content prose-strong:text-base-content prose-code:text-base-content prose-a:text-muted prose-p:my-1 prose-headings:my-2 prose-pre:my-2">'
-            + appendTime(safeHtml, ev.ts, 'light', instructionMarks)
-            + '</div>'
-            + usage
-            + '</div>'
-            + '<div data-message-menu role="menu" aria-label="Message actions" class="message-menu">' + deleteControls(ctx, idx, agentId, true, true, 'side') + '</div>'
-            + '</div>';
+        const safe = safeAssistantHtml(rawHtml) ?? await ctx.fns.w.code({ code: String(ev.text || '') });
+        return ctx.fns.w.message({ role: 'agent', id: 'm-' + idx, html: await mentionChips(ctx, safe, 'light'), ts, trail, actions: messageActions(idx, agentId) });
     }
-
     if (ev.type === "thinking") {
         return ctx.fns.w.thinking({ text: String(ev.text ?? ''), seconds: Number(ev.seconds ?? ev.durationSec) || undefined });
     }
@@ -236,14 +153,14 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const been = mins >= 1 ? `${mins} min` : `${secs} s`;
         const limit = Number(ev.timeoutMs) > 0 ? ` of a ${Math.round(Number(ev.timeoutMs) / 60000)} min limit` : '';
         const stop = ev.runId && agentId
-            ? `<div class="mt-2">${ctx.fns.w.button({ label: `Stop ${String(ev.name ?? 'tool')}`, size: "sm", action: { post: `/agent/${encodeURIComponent(agentId)}/tool/${encodeURIComponent(String(ev.runId))}/abort`, swap: 'none' }, marks: { action: 'abort-tool-call' }, title: 'Stop only this call — the agent will continue and read your message' })}</div>`
+            ? para(ctx.fns.w.button({ label: `Stop ${String(ev.name ?? 'tool')}`, size: "sm", action: { post: `/agent/${encodeURIComponent(agentId)}/tool/${encodeURIComponent(String(ev.runId))}/abort`, swap: 'none' }, marks: { action: 'abort-tool-call' }, title: 'Stop only this call — the agent will continue and read your message' }))
             : '';
         return eventCard({
             title: `Message received: ${String(ev.name ?? 'tool')} had been running for ${been}${limit}`,
             icon: 'hourglass-high',
             tone: 'warning',
-            body: `<div class="font-mono text-3xs text-muted">${esc(String(ev.subject ?? ''))}</div>`
-                + `<div class="mt-1">Message received and queued — the agent will read it when the call finishes.</div>${stop}`,
+            body: literal(String(ev.subject ?? ''))
+                + para('Message received and queued — the agent will read it when the call finishes.') + stop,
         });
     }
 
@@ -253,7 +170,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             icon: 'hand-palm',
             tone: 'warning',
             badge: badge(`${Number(ev.elapsedSec ?? 0)}s`, 'warning'),
-            body: `<div class="font-mono text-3xs text-muted">${esc(String(ev.subject ?? ''))}</div>`,
+            body: literal(String(ev.subject ?? '')),
         });
     }
 
@@ -266,11 +183,11 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     if (ev.type === "canvas_ping") {
         // A canvas tab's page called hyper.ping: it woke the agent with this.
         const data = ev.data === undefined ? "" : JSON.stringify(ev.data, null, 2);
-        return eventCard({ title: `Canvas: ${String(ev.title ?? "tab")}`, icon: 'square-half', tone: 'info', body: esc(String(ev.text ?? "")), details: data ? `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(data)}</pre>` : undefined });
+        return eventCard({ title: `Canvas: ${String(ev.title ?? "tab")}`, icon: 'square-half', tone: 'info', body: esc(String(ev.text ?? "")), details: data ? await dump(data) : undefined });
     }
 
     if (ev.type === "plan_activation") {
-        return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: `<div class="font-medium text-muted">${esc(ev.title ?? ev.taskId ?? "Task")}</div>${ev.instructions ? `<div class="mt-1 whitespace-pre-wrap">${esc(ev.instructions)}</div>` : ""}` });
+        return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: ctx.fns.w.box({ body: esc(ev.title ?? ev.taskId ?? "Task"), mix: { weight: 'strong' } }) + (ev.instructions ? para(esc(ev.instructions)) : "") });
     }
 
 
@@ -282,8 +199,8 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const sender = String(payload.senderName ?? payload.senderId ?? "");
         const text = String(payload.text ?? payload.summary ?? "");
         const title = isTelegram ? `${chat} · new message` : `${source} · ${String(ev.eventType ?? "new event")}`;
-        const body = `${sender ? `<div class="mb-1 text-3xs font-medium text-muted">${esc(sender)}</div>` : ""}<div class="whitespace-pre-wrap break-words">${esc(text)}</div>`;
-        const details = `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(JSON.stringify(payload, null, 2))}</pre>`;
+        const body = (sender ? ctx.fns.w.box({ body: esc(sender), mix: { text: 'small', weight: 'strong' } }) : "") + para(esc(text));
+        const details = await dump(JSON.stringify(payload, null, 2));
         return eventCard({ title, icon: isTelegram ? "telegram-logo" : "broadcast", tone: "info", badge: badge(source, "info"), body, details });
     }
 
@@ -294,7 +211,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const title = watched ? (ready ? "Condition met" : "Condition timed out") : "Scheduled wake-up";
         const icon = watched ? (ready ? "ph-check-circle" : "ph-timer") : "ph-alarm";
         const result = ev.result == null ? "" : JSON.stringify(ev.result, null, 2);
-        return eventCard({ title, icon: icon.replace(/^ph-/, ''), tone: ready || !watched ? 'info' : 'warning', badge: watched ? badge('watch', ready ? 'success' : 'warning') : undefined, body: esc(ev.reason ?? ev.summary ?? ""), details: result ? `<pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ui-border bg-base-100 p-2 font-mono text-3xs leading-4 text-muted">${esc(result)}</pre>` : undefined });
+        return eventCard({ title, icon: icon.replace(/^ph-/, ''), tone: ready || !watched ? 'info' : 'warning', badge: watched ? badge('watch', ready ? 'success' : 'warning') : undefined, body: esc(ev.reason ?? ev.summary ?? ""), details: result ? await dump(result) : undefined });
     }
 
 
@@ -309,7 +226,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             icon: "pause-circle",
             tone: "warning",
             badge: badge(`${ev.provider ?? "provider"}${account}`, "warning"),
-            body: `${esc(ev.message ?? "Quota exhausted.")}<div class="mt-1 text-subtle">I will wake automatically at ${esc(when)} and continue. To resume sooner, switch models or accounts.</div>`,
+            body: `${esc(ev.message ?? "Quota exhausted.")}${para(`I will wake automatically at ${esc(when)} and continue. To resume sooner, switch models or accounts.`, { ink: 'faint' })}`,
         });
     }
 
@@ -328,7 +245,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             title: "Model changed",
             icon: "swap",
             tone: "info",
-            body: `<span class="font-mono text-2xs">${esc(ev.from ?? "?")}</span> → <span class="font-mono text-2xs">${esc(ev.to ?? "?")}</span>`,
+            body: literal(`${ev.from ?? "?"} → ${ev.to ?? "?"}`),
         });
     }
 
@@ -344,14 +261,14 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
         const tone = achieved ? 'success' : limited ? 'error' : status === 'continue' ? 'info' : 'warning';
         const icon = achieved ? "ph-check-circle" : limited ? "ph-stop-circle" : status === "continue" ? "ph-target" : "ph-warning-circle";
         const count = ev.maxIterations ? ` · ${Number(ev.iteration ?? 0)}/${Number(ev.maxIterations)}` : "";
-        return eventCard({ title: `Goal check: ${status}${count}`, icon: icon.replace(/^ph-/, ''), tone, badge: badge(status, tone), body: `${esc(ev.reason ?? '')}${ev.nextStep ? `<div class="mt-1"><span class="font-medium text-muted">Next:</span> ${esc(ev.nextStep)}</div>` : ''}` });
+        return eventCard({ title: `Goal check: ${status}${count}`, icon: icon.replace(/^ph-/, ''), tone, badge: badge(status, tone), body: esc(ev.reason ?? '') + (ev.nextStep ? para('Next: ' + esc(ev.nextStep)) : '') });
     }
 
 
     if (ev.type === "attempt") {
         // A protocol-invalid candidate that was repaired before commit — never
         // part of the LLM transcript; kept for the audit trail.
-        return '<div class="relative opacity-60">' + eventCard({ title: 'Invalid attempt · repaired before commit', icon: 'wrench', tone: 'warning', badge: badge('audit', 'warning'), body: esc(String(ev.error ?? '').slice(0, 160)), details: `<pre class="whitespace-pre-wrap break-words font-mono text-3xs text-muted">${esc(ev.text)}</pre>` }) + '</div>';
+        return ctx.fns.w.dim({ body: eventCard({ title: 'Invalid attempt · repaired before commit', icon: 'wrench', tone: 'warning', badge: badge('audit', 'warning'), body: esc(String(ev.error ?? '').slice(0, 160)), details: await ctx.fns.w.code({ code: String(ev.text ?? '') }) }) });
     }
 
     if (ev.type === "team_update") {
@@ -362,12 +279,12 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
 
     if (ev.type === "compaction_start") {
         // A quiet divider in the conversation, not a card: the work itself is shown when it completes.
-        return `<div class="chat-divider flex items-center gap-3 py-1 text-3xs text-faint" role="separator"><span class="h-px flex-1 bg-base-300"></span><span class="inline-flex items-center gap-1.5"><i class="ph ph-arrows-in-line-vertical" aria-hidden="true"></i>Compacting context · v${Number(ev.revision ?? 0)}<span class="loading loading-dots loading-xs"></span></span><span class="h-px flex-1 bg-base-300"></span></div>`;
+        return ctx.fns.w.divider({ label: `Compacting context · v${Number(ev.revision ?? 0)}…`, icon: 'arrows-in-line-vertical' });
     }
     if (ev.type === "compaction_completed") {
         const before = Math.round(Number(ev.tokensBefore ?? 0) / 1000);
         const after = Math.round(Number(ev.tokensAfter ?? 0) / 1000);
-        return eventCard({ title: `Context compacted · ${before}k → ${after}k`, icon: 'arrows-in-line-vertical', tone: 'success', badge: badge(`${Number(ev.keptMessages ?? 0)} kept`, 'success'), details: `<pre class="whitespace-pre-wrap text-xs text-muted">${esc(ev.summary ?? '')}</pre>` });
+        return eventCard({ title: `Context compacted · ${before}k → ${after}k`, icon: 'arrows-in-line-vertical', tone: 'success', badge: badge(`${Number(ev.keptMessages ?? 0)} kept`, 'success'), details: para(esc(ev.summary ?? '')) });
     }
     if (ev.type === "compaction_failed") {
         return eventCard({ title: 'Context compaction failed', icon: 'warning-circle', tone: 'error', body: `Context unchanged · ${esc(ev.error ?? '')}` });
@@ -383,7 +300,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
     }
 
     if (ev.type === "stopped") {
-        return '<div class="chat-stopped py-0.5 text-xs text-faint" role="status">stopped by user</div>';
+        return ctx.fns.w.eventNote({ text: 'stopped by user', icon: 'stop-circle', ts });
     }
 
     if (ev.type === "job") {

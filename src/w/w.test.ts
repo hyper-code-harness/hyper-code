@@ -90,7 +90,7 @@ test("stylesheet keeps the principles: grid spacing, two weights, named radii an
     const bad: string[] = [];
     for (const { sel, body } of rules) {
         for (const m of body.matchAll(/font-weight:\s*(\d+)/g)) if (!["400", "500"].includes(m[1]!)) bad.push(`${sel}: weight ${m[1]}`);
-        for (const m of body.matchAll(/border-radius:\s*([^;]+)/g)) if (!/^var\(--w-radius-(frame|item|window|round)\)$|^0$/.test(m[1]!.trim())) bad.push(`${sel}: radius ${m[1]}`);
+        for (const m of body.matchAll(/border-radius:\s*([^;]+)/g)) if (!/^var\(--w-radius-(frame|item|window|bubble|round)\)$|^0$/.test(m[1]!.trim())) bad.push(`${sel}: radius ${m[1]}`);
         for (const m of body.matchAll(/(?<![-\w])box-shadow:\s*([^;]+)/g)) if (/^0 \d+px \d+px/.test(m[1]!.trim())) bad.push(`${sel}: raw shadow`);
         for (const m of body.matchAll(/(?<![-\w])(?:padding|margin|gap)[\w-]*:\s*([^;]+)/g))
             for (const t of m[1]!.match(/-?[\d.]+(?:px|rem)\b/g) ?? []) {
@@ -288,4 +288,19 @@ test("eventNote: tone, badge, body and a safe link; message: peer author links a
     const peer = ctx.fns.w.message({ role: "peer", author: "Оливия", authorHref: "/agent/at", meta: "hop 1", html: "hi" });
     expect(peer).toContain('<a href="/agent/at">Оливия</a>');
     expect(peer).toContain('class="w-msg-author-meta">hop 1<');
+});
+
+test("message: id, trail after the time, its own right-click menu; dim: badge on a dimmed block", async () => {
+    const ctx: any = await mkTestCtx();
+    const html = ctx.fns.w.message({ role: "agent", id: "m-7", html: "<p>ok</p>", ts: Date.now(), trail: ctx.fns.w.dot({ state: "idle" }), actions: [{ label: "Copy text", icon: "copy", action: { action: "copy-text" } }, "-", { label: "Delete", danger: true, action: { post: "/x", vals: { idx: "7" } } }], marks: { "agent-message": "at" } });
+    expect(html).toContain('<div id="m-7" class="w-msg" data-role="agent" data-agent-message="at">');
+    expect(html).toContain('class="w-msg-text w-markdown"');
+    expect(html).toContain('id="m-7-menu" popover class="w-menu"');
+    expect(html).toContain('data-context-of="#m-7"');
+    expect(html).toContain('data-action="copy-text"');
+    expect(html).toMatch(/<p>ok<span class="w-msg-meta" data-no-copy><span class="w-dot"[^>]*><\/span><time[^>]*>[^<]+<\/time><\/span><\/p>/);
+    expect(ctx.fns.w.message({ role: "user", html: "hi", actions: [{ label: "x" }] })).not.toContain("w-menu");
+    const dim = ctx.fns.w.dim({ body: "<p>x</p>", label: "outside context" });
+    expect(dim).toContain('class="w-dim"');
+    expect(dim).toContain(">outside context<");
 });

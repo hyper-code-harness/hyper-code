@@ -22,7 +22,11 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const go = (params: Record<string, unknown>, html: string, attrs = "") =>
         `<button type="button" hx-popup="jobs.panel" hx-popup-params='${esc(JSON.stringify({ agentId, ...params }))}' ${attrs}>${html}</button>`;
     const now = Date.now();
-    const duration = (j: types.jobs.Job) => ctx.fns.jobs.elapsed({ ms: j.status === "running" ? now - Number(j.startedAt ?? now) : Number(j.result?.ms ?? 0) });
+    // a running job's time ticks in the browser (ui/tool-timer.js counts .tool-row-clock from data-tool-started-at)
+    const duration = (j: types.jobs.Job) => {
+        const text = esc(ctx.fns.jobs.elapsed({ ms: j.status === "running" ? now - Number(j.startedAt ?? now) : Number(j.result?.ms ?? 0) }));
+        return j.status === "running" ? `<span class="tool-timer tool-row-clock" data-tool-started-at="${Number(j.startedAt ?? now)}">${text}</span>` : text;
+    };
     const badge = (j: types.jobs.Job) => {
         const [text, cls] = j.status === "running" ? ["running", "bg-primary/15 text-primary"]
             : j.status === "succeeded" ? ["exit 0", "bg-success/15 text-success"]
@@ -53,7 +57,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         return reply(`Job ${job.id}`, `<div class="flex h-full min-h-0 flex-col gap-2">
   <div class="flex items-center gap-1">${actions}</div>
   ${notice}
-  <div class="flex items-center gap-2 text-xs">${badge(job)}<span class="text-faint">${esc(duration(job))}${job.host ? ` · on ${esc(job.host)}` : ""} · started ${esc(new Date(Number(job.startedAt ?? job.createdAt)).toLocaleString("en-GB"))}</span></div>
+  <div class="flex items-center gap-2 text-xs">${badge(job)}<span class="text-faint">${duration(job)}${job.host ? ` · on ${esc(job.host)}` : ""} · started ${esc(new Date(Number(job.startedAt ?? job.createdAt)).toLocaleString("en-GB"))}</span></div>
   <pre class="whitespace-pre-wrap break-all font-mono text-xs text-base-content">${esc(job.title)}</pre>
   ${cut}
   <pre class="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-3xs leading-snug text-base-content">${text.trim() ? esc(text) : '<span class="text-faint">No output yet.</span>'}</pre>
@@ -69,7 +73,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const jobs = rows.map(r => ctx.fns.jobs.fromRow({ row: r }));
     const running = jobs.filter(j => j.status === "running").length;
     const list = jobs.map(j => go({ id: j.id }, `
-  <span class="flex w-full items-center gap-2">${badge(j)}<span class="min-w-0 flex-1 truncate font-mono text-xs text-base-content">${esc(j.title)}</span><span class="shrink-0 text-3xs text-faint">${esc(duration(j))}</span><i class="ph ph-caret-right text-faint" aria-hidden="true"></i></span>`,
+  <span class="flex w-full items-center gap-2">${badge(j)}<span class="min-w-0 flex-1 truncate font-mono text-xs text-base-content">${esc(j.title)}</span><span class="shrink-0 text-3xs text-faint">${duration(j)}</span><i class="ph ph-caret-right text-faint" aria-hidden="true"></i></span>`,
         `class="w-full rounded-lg border border-ui-border bg-base-100 px-3 py-2 text-left hover:border-primary/50" title="${esc(j.title)}"`)).join("");
     return reply(`Background jobs${running ? ` · ${running} running` : ""}`,
         jobs.length ? `<div class="flex flex-col gap-1.5">${list}</div>` : `<p class="text-sm text-muted">This chat has no background jobs.</p>`);

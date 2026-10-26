@@ -60,14 +60,10 @@ export default async function (ctx: Context, session: Session | null, opts: {
 .chat-head-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .chat-head-id { flex: none; color: color-mix(in oklab, var(--color-base-content) 42%, transparent); }
 .chat-head-caret { flex: none; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 42%, transparent); transition: transform .15s; }
-#chat-panel > header .chat-head-trigger .chat-icon { transform: none !important; }
+#chat-panel > header .chat-head-trigger .w-chat-icon { transform: none !important; }
 .inplace-popup-panel[id^="chat-panel-"] { right: auto; left: anchor(left); width: min(30rem, calc(100vw - 1.5rem)); max-height: min(36rem, calc(100vh - 5rem)); overflow-y: auto; padding: .6rem; }
-.chat-icon-ring { position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 55%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px)); animation: chat-icon-spin 1.1s linear infinite; }
-/* The header icon follows the live status region: ring on while it says running. */
-.chat-icon-ring--live { display: none; }
-.chat-header:has([data-agent-running]) .chat-icon-ring--live { display: block; }
+.chat-header:has([data-agent-running]) .w-chat-icon-ring[data-live] { display: block; }
 @keyframes chat-icon-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .chat-icon-ring { animation: none; background: var(--color-primary); opacity: .45; } }
 .chat-run-ring--live .chat-run-dots { transform-origin: 14px 14px; animation: chat-icon-spin 8s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .chat-run-ring--live .chat-run-dots { animation: none; } }
 .inplace-popup-panel[id^="chat-panel-"] .chat-row { justify-content: flex-start; min-height: 1.85rem; }
@@ -180,7 +176,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-canvas-open]) > #chat-panel { margin-left: .25rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header { position: relative; inset: auto; margin: 0 !important; width: 100% !important; max-width: none; height: 2rem; border: 0; border-bottom: 1px solid var(--color-ui-border); border-radius: 0; padding-left: .5rem; padding-right: .375rem; background: var(--color-base-200) !important; background-image: none !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; font-family: inherit; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header [data-chat-part="name"] { font-family: inherit; font-size: 13px; font-weight: 500; color: var(--color-base-content); }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header .chat-icon { transform: scale(.85); }
+  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header .w-chat-icon { transform: scale(.85); }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header button,
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel > header.chat-header a { max-height: 1.5rem; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) .chat-dot-grid { padding-top: 1rem !important; padding-bottom: 1rem !important; background-image: none; background-color: var(--chat-bg); }
@@ -492,7 +488,7 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger) > i.ph { font-size: 15px; }
   html[data-chrome="flat"] :is(.canvas-panel > header, #chat-panel > header.chat-header) :is(button, a, summary):not(.canvas-tab *):not([data-chat-part="name"]):not([popover] *):not(.chat-head-trigger):hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
   html[data-chrome="flat"] #chat-panel > header.chat-header { padding-left: .75rem !important; padding-right: .375rem !important; gap: .5rem !important; }
-  html[data-chrome="flat"] #chat-panel > header.chat-header .chat-icon { transform: none; }
+  html[data-chrome="flat"] #chat-panel > header.chat-header .w-chat-icon { transform: none; }
   /* The canvas address row: one quiet 32px row in the UI font, not a second header in monospace. */
   html[data-chrome="flat"] [data-canvas-navigate] { height: 2rem !important; border-bottom: 1px solid var(--color-ui-border); background: var(--color-base-100); padding: 0 .375rem !important; gap: .125rem !important; }
   html[data-chrome="flat"] [data-canvas-navigate] input[name="url"] { font-family: inherit !important; font-size: 12px !important; height: 1.5rem; background: transparent !important; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
@@ -501,7 +497,7 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
   /* The side panel's first row under its header lines up with the address row. */
   /* One place says "running": a turning arc around the stop button in the composer. The header's icon ring and
      the dotted run ring stay still (the run ring keeps its time label). */
-  html[data-chrome="flat"] #chat-panel > header .chat-icon-ring { display: none !important; }
+  html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }
   html[data-chrome="flat"] #chat-panel > header .chat-run-ring--live .chat-run-dots { animation: none; }
   html[data-chrome="flat"] #chat-stop-control { position: relative; }
   html[data-chrome="flat"] #chat-stop-control:has([aria-label="Stop generation"])::after { content: ""; position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 60%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); animation: chat-icon-spin 1.1s linear infinite; }

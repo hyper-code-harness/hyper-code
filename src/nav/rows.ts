@@ -45,7 +45,7 @@ export default async function (
             : local(pagePin)
                 ? pinButton(`${isPinned ? "Remove" : "Add"} ${item.label} ${isPinned ? "from" : "to"} Dock`, "/dock/pin", { kind: "page", target: pagePin, pinned: isPinned ? "0" : "1" })
                 : undefined;
-        const lead = item.model ? ctx.fns.chat.icon({ icon: item.avatar, model: item.model, active: !!item.active }) : undefined;
+        const lead = item.model ? ctx.fns.w.chatIcon({ icon: item.avatar, model: item.model, active: !!item.active }) : undefined;
         const hint = [item.owner, item.hint].filter(Boolean).join(" · ") || undefined;
         return w.listRow({
             label: item.label,

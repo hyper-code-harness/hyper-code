@@ -230,3 +230,18 @@ test("rail: hooks on the bar and its areas, railItem toggles carry aria-pressed 
     const rail = w.rail({ label: "Dock", attrs: { id: "dock" }, itemsAttrs: { "data-zone": "top" }, footAttrs: { "data-zone": "bottom" }, items: item });
     expect(rail).toContain('<nav class="w-rail" aria-label="Dock" id="dock">'); expect(rail).toContain('class="w-rail-items" data-zone="top"'); expect(rail).toContain('class="w-rail-foot" data-zone="bottom"');
 });
+
+test("chatIcon: the model logo or the chat's own icon, a turning ring while it runs, live ring hidden until the header runs", async () => {
+    const ctx: any = await mkTestCtx();
+    const idle = ctx.fns.w.chatIcon({ model: "anthropic:claude-opus-4-5" });
+    expect(idle).toContain('class="w-chat-icon" data-size="sm"');
+    expect(idle).not.toContain("w-chat-icon-ring");
+    expect(ctx.fns.w.chatIcon({ model: "x", active: true })).toContain('aria-label="running"');
+    expect(ctx.fns.w.chatIcon({ model: "x", live: true, size: "md" })).toContain('class="w-chat-icon-ring" data-live');
+    const line = ctx.fns.w.chatIcon({ icon: '<svg viewBox="0 0 8 8" stroke="currentColor"><path d="M0 0"/></svg>' });
+    expect(line).toContain('data-kind="line"');
+    expect(line).toContain("<svg aria-hidden");
+    const pic = ctx.fns.w.chatIcon({ icon: '<svg viewBox="0 0 8 8"><rect width="8" height="8" fill="red"/></svg>', size: "lg" });
+    expect(pic).toContain('<img src="data:image/svg+xml,');
+    expect(pic).not.toContain("size-");
+});

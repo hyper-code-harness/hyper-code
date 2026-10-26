@@ -74,6 +74,7 @@ export default async function (
                 ["dot", () => ["idle", "running", "unread", "waiting", "done", "warning", "error"].map(s => w.dot({ state: s, label: s })).join(" &nbsp; ")],
                 ["kbd", () => [w.kbd({ keys: "⌘B" }), w.kbd({ keys: "⌘⇧P" }), w.kbd({ keys: "Ctrl+\\" })].join(" ")],
                 ["time", () => [w.time({ ts: now - 60000 }), w.time({ ts: now - 3600e3, format: "ago" }), w.time({ ts: now - 5 * 86400e3, format: "date" })].join(" · ")],
+                ["chatIcon", () => [w.chatIcon({ model: "anthropic:claude-opus-4-5" }), w.chatIcon({ model: "anthropic:claude-opus-4-5", active: true }), w.chatIcon({ model: "openai:gpt-5", size: "md" }), w.chatIcon({ icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>', size: "md", active: true }), w.chatIcon({ model: "anthropic:claude-opus-4-5", size: "lg" })].join(" ")],
                 ["avatar", async () => [await w.avatar({ name: "Nikolai Ryzhikov", size: 32 }), await w.avatar({ name: "Roman Pogorov", size: 24 }), await w.avatar({ name: "Mike Ryzhikov", size: 24, online: true }), me ? await w.avatar({ agentId: me, size: 32 }) : "", await w.avatar({ name: "?", size: 20 })].join(" ")],
                 ["divider", () => w.divider({}) + w.divider({ label: "stopped by user" })],
                 ["spinner", () => [w.spinner({ kind: "arc" }), w.spinner({ kind: "arc", size: 20 }), w.spinner({ kind: "glow", html: w.icon({ name: "terminal", size: 16 }) })].join(" ") + w.spinner({ kind: "skeleton", lines: 2 })],

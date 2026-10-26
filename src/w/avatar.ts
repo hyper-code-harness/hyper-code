@@ -24,7 +24,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const name = String(opts.name ?? "");
     if (opts.agentId) {
         const row: any = ((await ctx.fns.procs.db.select({ sql: "SELECT icon, model, title FROM agents WHERE id = ?", params: [opts.agentId] }).catch(() => [])) as any[])[0];
-        const face = row ? ctx.fns.chat.icon({ icon: row.icon ?? "", model: String(row.model ?? ""), size: size >= 32 ? "md" : "sm" }) : ctx.fns.w.icon({ name: "robot" });
+        const face = row ? ctx.fns.w.chatIcon({ icon: row.icon ?? "", model: String(row.model ?? ""), size: size >= 32 ? "md" : "sm" }) : ctx.fns.w.icon({ name: "robot" });
         return `<span class="w-avatar" data-size="${size}"${on} data-kind="agent" title="${esc(name || row?.title || opts.agentId)}">${face}</span>`;
     }
     const src = opts.src ? ctx.fns.w.safeUrl({ url: opts.src, image: true }) : null;

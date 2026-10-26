@@ -33,6 +33,6 @@ export default async function (
 </section>`;
     }));
     const a = view.agent;
-    const head = `<div class="mb-2 flex items-center gap-2 px-1">${ctx.fns.chat.icon({ icon: a.icon, model: a.model, size: "md" })}<div class="min-w-0"><div class="truncate text-sm font-medium text-base-content">${esc(a.title || a.id)}</div><div class="truncate font-mono text-3xs text-faint">${esc(a.id)} · ${esc(a.model)}</div></div></div>`;
+    const head = `<div class="mb-2 flex items-center gap-2 px-1">${ctx.fns.w.chatIcon({ icon: a.icon, model: a.model, size: "md" })}<div class="min-w-0"><div class="truncate text-sm font-medium text-base-content">${esc(a.title || a.id)}</div><div class="truncate font-mono text-3xs text-faint">${esc(a.id)} · ${esc(a.model)}</div></div></div>`;
     return `${head}<div class="grid grid-cols-2 gap-2">${drawn.filter(Boolean).join("")}</div>`;
 }

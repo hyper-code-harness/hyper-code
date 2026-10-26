@@ -30,7 +30,7 @@ export default async function (
         const label = `${a.title} (${id})`;
         return {
             id: `agent:${id}`, module: "dock", rel: "user_agent_state", zone: "top", order: 1000 + index, label, pinned: "agent",
-            render: () => ctx.fns.w.railItem({ label, face: ctx.fns.chat.icon({ icon: a.icon, model: a.model, active: a.runState !== "idle" }), dot: a.unread === true || a.unread === "t" ? "unread" : undefined, action: { href: `/agent/${encodeURIComponent(id)}` } }),
+            render: () => ctx.fns.w.railItem({ label, face: ctx.fns.w.chatIcon({ icon: a.icon, model: a.model, active: a.runState !== "idle" }), dot: a.unread === true || a.unread === "t" ? "unread" : undefined, action: { href: `/agent/${encodeURIComponent(id)}` } }),
         };
     });
     const apps = Object.values(((ctx.state as any).nav?.apps ?? {}) as Record<string, { href: string; label: string; icon: string }>);

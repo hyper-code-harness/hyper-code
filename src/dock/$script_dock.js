@@ -167,10 +167,6 @@
         setMode(mode() === 'dot' ? 'bar' : 'dot');
         b.blur();
     });
-    // A live refresh must not throw the panel out of its edit mode.
-    document.addEventListener('hyper-live', e => {
-        if (e.target?.id === 'dock-panel' && e.target.querySelector('[data-dock-panel-edit="true"]')) e.stopImmediatePropagation();
-    }, true);
     document.addEventListener('click', e => { if (e.target.closest?.('[data-action="toggle-dock-panel"]')) { e.preventDefault(); setMode(mode() === 'menu' ? 'bar' : 'menu'); } });
     document.addEventListener('click', e => { if (e.target.closest?.('#dock [data-action="open-global-menu"]')) { e.preventDefault(); window.__navOpen?.(); } });
     document.addEventListener('click', e => { const b = e.target.closest?.('[data-dock-mode-set]'); if (b) { e.preventDefault(); setMode(b.dataset.dockModeSet); } });

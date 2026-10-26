@@ -1,7 +1,7 @@
 /**
  * Draws the chat header: icon (opens the chat panel) · name · badges … buttons.
  *
- * The icon (chat.icon; click opens the model picker) and the name (click renames) belong to the core.
+ * The icon (w.chatIcon; click opens the model picker) and the name (click renames) belong to the core.
  * Badges come from `$chatbadge_` files, buttons from `$chatbutton_` files, the panel behind the icon from `$chatcard_`
  * files, ordered and hidden by the chat.layout setting. The panel content loads when it opens
  * (GET /chat/:id/panel), so its cards are always fresh and never slow down the chat.
@@ -28,7 +28,7 @@ export default async function (
     // The model is chosen in the composer.
     const panel = await ctx.fns.ui.inplacePopup({
         id: `chat-panel-${id}`,
-        triggerHtml: `${ctx.fns.chat.icon({ icon: agent.icon, model: agent.model, size: "sm", live: true })}<span class="chat-head-title" data-chat-part="name">${esc(title)}</span><span class="chat-head-id">(${esc(id)})</span><i class="ph ph-caret-down chat-head-caret" aria-hidden="true"></i>`,
+        triggerHtml: `${ctx.fns.w.chatIcon({ icon: agent.icon, model: agent.model, size: "sm", live: true })}<span class="chat-head-title" data-chat-part="name">${esc(title)}</span><span class="chat-head-id">(${esc(id)})</span><i class="ph ph-caret-down chat-head-caret" aria-hidden="true"></i>`,
         triggerAttrs: `class="chat-head-trigger" title="Chat panel" aria-label="Chat panel: ${esc(title)}" data-chat-part="icon"`,
         panelAttrs: `aria-label="Chat panel" data-chat-panel="/chat/${encodeURIComponent(id)}/panel"`,
         contentHtml: '<div data-chat-panel-body class="p-3 text-xs text-faint">Loading…</div>',

@@ -113,11 +113,11 @@ describe("chat header parts", () => {
 
     test("icon: running ring around the logo, live ring follows the header status", async () => {
         const ctx: any = await mkTestCtx();
-        const running = ctx.fns.chat.icon({ model: "anthropic:claude-opus-4-5", active: true });
-        expect(running).toContain("chat-icon-ring");
+        const running = ctx.fns.w.chatIcon({ model: "anthropic:claude-opus-4-5", active: true });
+        expect(running).toContain("w-chat-icon-ring");
         expect(running).not.toContain("animate-spin");
-        expect(ctx.fns.chat.icon({ model: "anthropic:claude-opus-4-5", live: true, size: "md" })).toContain("chat-icon-ring--live");
-        expect(ctx.fns.chat.icon({ model: "anthropic:claude-opus-4-5" })).not.toContain("chat-icon-ring");
+        expect(ctx.fns.w.chatIcon({ model: "anthropic:claude-opus-4-5", live: true, size: "md" })).toContain("data-live");
+        expect(ctx.fns.w.chatIcon({ model: "anthropic:claude-opus-4-5" })).not.toContain("w-chat-icon-ring");
     });
 
     test("GET /chat/:id/panel serves the panel", async () => {
@@ -156,15 +156,15 @@ describe("chat icon", () => {
         expect(emoji.icon).toContain("🦊");
         expect(ctx.state.agent.a1.icon).toBe(emoji.icon);
         expect((await ctx.fns.session.load({ id: "a1" })).icon).toBe(emoji.icon);
-        const drawn = ctx.fns.chat.icon({ icon: emoji.icon, model: "anthropic:claude-opus-4-5", size: "md" });
+        const drawn = ctx.fns.w.chatIcon({ icon: emoji.icon, model: "anthropic:claude-opus-4-5", size: "md" });
         expect(drawn).toContain('<img src="data:image/svg+xml,');
-        expect(drawn).toContain("chat-icon");
+        expect(drawn).toContain("w-chat-icon");
         await expect(ctx.fns.chat.setIcon({ id: "a1", emoji: "x", background: "red;}" })).rejects.toThrow("CSS colour");
         await expect(ctx.fns.chat.setIcon({ id: "a1" })).rejects.toThrow("exactly one");
         const svg = await ctx.fns.chat.setIcon({ id: "a1", svg: '<svg viewBox="0 0 8 8"><rect width="8" height="8" onclick="x"/></svg>' });
         expect(svg.icon).not.toContain("onclick");
         expect((await ctx.fns.chat.setIcon({ id: "a1", reset: true })).icon).toBeNull();
-        expect(ctx.fns.chat.icon({ icon: null, model: "anthropic:claude-opus-4-5" })).not.toContain("<img");
+        expect(ctx.fns.w.chatIcon({ icon: null, model: "anthropic:claude-opus-4-5" })).not.toContain("<img");
     });
 
     test("saveAvatar reports a bad SVG inside the editor instead of failing", async () => {

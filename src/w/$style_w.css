@@ -67,6 +67,7 @@
   --w-s1: 4px; --w-s2: 8px; --w-s3: 12px; --w-s4: 16px; --w-s6: 24px;
   --w-gap-inside: var(--w-s2); --w-gap-edge: var(--w-s3);   /* named places: inside a row, at a pane edge */
   --w-icon-col: 20px;
+  --w-face-large: 48px;   /* the one big chat face (chat icon editor) */
 }
 [data-w-theme] { background: var(--w-surface-document); color: var(--w-ink); color-scheme: light; }
 
@@ -160,6 +161,13 @@ div.w-divider > span { display: inline-flex; align-items: center; gap: var(--w-s
 .w-avatar[data-size="20"] { width: var(--w-control-xs); height: var(--w-control-xs); font-size: var(--w-text-small) } .w-avatar[data-size="32"] { width: var(--w-control-lg); height: var(--w-control-lg); font-size: var(--w-text-small) } .w-avatar[data-size="40"] { width: var(--w-rail); height: var(--w-rail); font-size: var(--w-text-read) }
 .w-avatar[data-kind="agent"] { background: var(--w-surface-chrome); color: var(--w-ink); } .w-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .w-avatar[data-online] { outline: calc(var(--w-focus-width) * .75) solid var(--w-success); outline-offset: calc(var(--w-focus-width) / 2); }
+/* w.chatIcon: a chat's face (own icon or model logo); a ring turns around it while the chat runs */
+.w-chat-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--w-control-xs); height: var(--w-control-xs); color: var(--w-ink); }
+.w-chat-icon[data-size="md"] { width: var(--w-control-lg); height: var(--w-control-lg); } .w-chat-icon[data-size="lg"] { width: var(--w-face-large); height: var(--w-face-large); }
+.w-chat-icon > svg, .w-chat-icon > img { width: 100%; height: 100%; } .w-chat-icon > img { border-radius: var(--w-radius-round); object-fit: contain; }
+.w-chat-icon-ring { position: absolute; inset: calc(var(--w-focus-width) * -1.5); border-radius: var(--w-radius-round); pointer-events: none; background: conic-gradient(from 0deg, transparent 0 55%, var(--w-ink) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--w-focus-width)), #000 calc(100% - var(--w-focus-width))); mask: radial-gradient(farthest-side, transparent calc(100% - var(--w-focus-width)), #000 calc(100% - var(--w-focus-width))); animation: w-spin var(--w-motion-spin) linear infinite; }
+.w-chat-icon-ring[data-live] { display: none; }
+@media (prefers-reduced-motion: reduce) { .w-chat-icon-ring { animation: none; background: var(--w-ink); opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { [data-w-theme] *, [data-w-theme] *::before, [data-w-theme] *::after { animation: none !important; transition: none !important; } }
 .w-color { display: inline-flex; align-items: center; gap: var(--w-s2); font-size: var(--w-text-ui); }
 .w-color input { width: var(--w-control); height: var(--w-control); padding: 0; border: var(--w-rule); border-radius: var(--w-radius-item); background: none; cursor: pointer; }

@@ -126,7 +126,7 @@ function appendTime(html: string, ts: any, tone: 'dark' | 'light', suffix = ''):
             const meta = [am.hop ? 'hop ' + am.hop : '', ownerName ? 'for ' + ownerName : ''].filter(Boolean).join(' · ');
             const senderRow = ((await ctx.fns.procs.db.select({ sql: 'SELECT icon, model FROM agents WHERE id = ?', params: [fromId] }).catch(() => [])) as any[])[0];
             const senderIcon = senderRow
-                ? (ctx as any).fns.chat.icon({ icon: senderRow.icon ?? '', model: String(senderRow.model ?? ''), size: 'md' })
+                ? ctx.fns.w.chatIcon({ icon: senderRow.icon ?? '', model: String(senderRow.model ?? ''), size: 'md' })
                 : '<i class="ph ph-robot text-base text-faint" aria-hidden="true"></i>';
             return '<div id="m-' + idx + '" class="group relative flex items-end justify-start gap-2 pb-0" data-agent-message="' + esc(fromId) + '">'
                 // The sender's own chat icon (its avatar, else its model logo) — the same face it has in the menu.

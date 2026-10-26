@@ -42,5 +42,5 @@ html[data-dock-mode="dot"] #dock:is(:hover, :focus-within, :has(:popover-open)) 
 #dock [data-dock-settings-dot] { position: absolute; top: 1px; right: 1px; width: var(--w-dot-small); height: var(--w-dot-small); }
 #dock [data-dock-settings-dot][hidden] { display: none; }
 /* The side panel (dock.panel): its w.pane fills #dock-panel. */
-#dock-panel > [data-dock-panel-edit] { height: 100%; min-height: 0; }
+#dock-panel > .dock-panel-body { height: 100%; min-height: 0; }
 #dock-panel .w-pane-body { padding: var(--w-s1) var(--w-s1) var(--w-s3); }

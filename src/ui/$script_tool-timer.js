@@ -17,41 +17,25 @@
     return (h ? h + ':' : '') + mm + ':' + String(s).padStart(2, '0');
   };
 
-  // The turning arc around a running call's icon: its length is the progress
-  // toward the call's own deadline. Same source of truth as the text timer, so
-  // the two can never disagree.
-  const C = 97.4; // circumference of the r=15.5 ring in viewBox units
-  const MIN_ARC = 9; // keep it visible in the first seconds — must match toolSpinner
-  const arc = () => {
-    document.querySelectorAll('.tool-progress[data-tool-deadline]').forEach((el) => {
-      const started = Number(el.dataset.toolStartedAt);
-      const deadline = Number(el.dataset.toolDeadline);
-      if (!Number.isFinite(started) || !Number.isFinite(deadline) || deadline <= started) return;
-      const done = Math.min(1, Math.max(0, (Date.now() - started) / (deadline - started)));
-      el.setAttribute('stroke-dasharray', Math.max(MIN_ARC, C * done).toFixed(1) + ' ' + C);
-    });
-  };
-
   const tick = () => {
-    arc();
-    document.querySelectorAll('.tool-timer[data-tool-started-at]').forEach((el) => {
-      const started = Number(el.dataset.toolStartedAt);
+    document.querySelectorAll('.w-timer[data-since]').forEach((el) => {
+      const started = Number(el.dataset.since);
       if (!Number.isFinite(started)) return;
       const elapsed = Date.now() - started;
       // The short clock at the end of the tool row: just how long, "12s" / "3m 05s".
-      if (el.classList.contains('tool-row-clock')) {
+      if (el.dataset.format !== 'clock') {
         const t = Math.max(0, Math.round(elapsed / 1000));
         el.textContent = t < 60 ? t + 's' : Math.floor(t / 60) + 'm ' + String(t % 60).padStart(2, '0') + 's';
         return;
       }
-      const deadline = Number(el.dataset.toolDeadline);
+      const deadline = Number(el.dataset.deadline);
       // "running 27:10 of 30:00" answers "should I keep waiting?".
       // Without a declared timeout only the elapsed time is honest.
       if (Number.isFinite(deadline) && deadline > started) {
         el.textContent = 'running ' + clock(elapsed) + ' of ' + clock(deadline - started);
         // Past its own deadline the tool is in the kill path; say so rather
         // than showing a number larger than the limit with no explanation.
-        el.classList.toggle('text-warning', Date.now() > deadline);
+        el.toggleAttribute('data-late', Date.now() > deadline);
       } else {
         el.textContent = 'running ' + clock(elapsed);
       }

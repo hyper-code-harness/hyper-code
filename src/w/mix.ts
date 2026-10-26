@@ -30,6 +30,8 @@ export default function (_ctx: Context, _session: Session | null, opts: {
     if (m.mono) out.push("wx-mono");
     if (m.caption) out.push("wx-caption");
     if (m.truncate) out.push("wx-truncate");
+    if (m.pre) out.push("wx-pre");
+    if (m.end) out.push("wx-end");
     if (m.radius) out.push(`wx-radius-${m.radius}`);
     if (m.line) out.push(`wx-line-${m.line}`);
     if (m.raised) out.push("wx-raised");

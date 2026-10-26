@@ -11,15 +11,24 @@ idx: number }): Promise<Response> {
     if (!id || !Number.isInteger(idx)) return new Response('bad tool event', { status: 400 });
     const events = await ctx.fns.session.getEvents({ id, fromIdx: idx, limit: 1 });
     const event = events[0];
-    if (!event || Number(event.idx) !== idx || event.type !== 'tool_call') return new Response('<div class="text-faint">(no body)</div>', { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } });
+    if (!event || Number(event.idx) !== idx || event.type !== 'tool_call') return new Response(ctx.fns.w.empty({ title: 'No details for this call' }), { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } });
     const result = String(event.result ?? '');
     const argsLang = ctx.fns.agent.toolLang({ name: event.name, args: event.args, part: 'args' });
     const argsCode = argsLang === 'json' ? JSON.stringify(event.args ?? {}, null, 2) : String(event.args?.code ?? event.args?.command ?? event.args?.content ?? '');
+    const w = ctx.fns.w;
+    const resultLang = ctx.fns.agent.toolLang({ name: event.name, args: event.args, part: 'result' });
     const argsHtml = event.name === 'edit'
         ? await ctx.fns.agent.renderEditArgs({ path: event.args?.path, edits: event.args?.edits })
-        : await ctx.fns.markdown.highlight({ code: argsCode, lang: argsLang });
-    const resultHtml = await ctx.fns.agent.highlightResult({ output: result, lang: ctx.fns.agent.toolLang({ name: event.name, args: event.args, part: 'result' }) });
-    const html = `<section><div class="mb-1 flex items-center gap-2 text-3xs font-semibold uppercase tracking-wide text-faint"><i class="ph ph-arrow-right"></i> Input</div><div class="rounded-lg border border-ui-border bg-base-200/60 px-3 py-2 tool-code">${argsHtml}</div></section>`
-        + (result ? `<section class="mt-3"><div class="mb-1 flex items-center gap-2 text-3xs font-semibold uppercase tracking-wide text-faint"><i class="ph ph-arrow-left"></i> Output</div><div class="rounded-lg border border-ui-border bg-base-100 px-3 py-2 text-muted tool-result">${resultHtml}</div></section>` : '');
+        : await w.code({ code: argsCode, lang: argsLang });
+    // JSON output reads better pretty-printed; anything else is shown as it came.
+    const trimmed = result.trim();
+    let pretty: string | null = null;
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) { try { pretty = JSON.stringify(JSON.parse(trimmed), null, 2); } catch { pretty = null; } }
+    const resultHtml = await w.code({ code: pretty ?? result, lang: pretty ? 'json' : resultLang || 'text' });
+    const part = (icon: string, title: string, inner: string) => w.box({
+        body: w.box({ body: w.icon({ name: icon, size: 12 }) + w.escape({ text: title }), mix: { layout: 'row', gap: 's2', caption: true } }) + inner,
+        mix: { layout: 'stack', gap: 's1' }, tag: 'section',
+    });
+    const html = w.box({ body: part('arrow-right', 'Input', argsHtml) + (result ? part('arrow-left', 'Output', resultHtml) : ''), mix: { layout: 'stack', gap: 's3' } });
     return new Response(ctx.fns.ui.popupContent({ title: String(event.name ?? 'Tool'), kind: 'tool', html }), { headers: { 'content-type': 'text/html; charset=utf-8' } });
 }

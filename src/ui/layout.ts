@@ -240,13 +240,6 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
 }
 
 
-/* Highlighted code inside tool detail dialogs. */
-.app-popup-body pre { margin: 0; padding: .75rem 1rem; border-radius: .65rem; background: rgba(0,0,0,.04) !important; white-space: pre-wrap; word-break: break-word; }
-.app-popup-body pre + pre { margin-top: .75rem; }
-.app-popup-body code { font-size: 12px; line-height: 1.5; }
-.app-popup-body .edit-preview pre { border-radius: 0; background: transparent !important; }
-.app-popup-body .edit-remove pre { background: transparent !important; }
-.app-popup-body .edit-add pre { background: transparent !important; }
 
 @media (max-width: 700px) {
   html, body, #frame { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
@@ -403,7 +396,7 @@ ${opts.headExtra ?? ""}
 <script src="/screen/client.js" defer></script>
 <script src="/ui/wake-timer.js" defer></script>
 <script src="/ui/spin-sync.js" defer></script>
-<script src="/ui/tool-timer.js?v=2" defer></script>
+<script src="/ui/tool-timer.js?v=3" defer></script>
 </head>
 <body class="bg-base-200 text-base-content text-sm h-screen${embedded ? " overflow-hidden" : ""}"${currentId ? ` data-agent-id="${esc(currentId)}"` : ""}${sidebar ? ' data-presentation="sidebar"' : ""}>
 <div id="frame" class="relative flex h-screen">

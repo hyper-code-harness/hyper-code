@@ -1,16 +1,9 @@
 import { expect, test } from "bun:test";
-import render from "./renderEditArgs";
-
-const ctx = {
-    fns: {
-        procs: { ui: { escape: ({ text }: any) => String(text).replaceAll("<", "&lt;") } }, w: { escape: ({ text }: any) => String(text).replaceAll("<", "&lt;") },
-        agent: { toolLang: () => "typescript" },
-        markdown: { highlight: async ({ code }: any) => `<pre><code>${String(code).replaceAll("<", "&lt;")}</code></pre>` },
-    },
-} as unknown as Context;
+import { mkTestCtx } from "../_testCtx.entry";
 
 test("renders edit operations as readable red/green diff cards", async () => {
-    const html = await render(ctx, null, {
+    const ctx: any = await mkTestCtx();
+    const html = await ctx.fns.agent.renderEditArgs({
         path: "src/demo.ts",
         edits: [
             { oldText: "const old = 1;", newText: "const next = 2;" },
@@ -21,8 +14,8 @@ test("renders edit operations as readable red/green diff cards", async () => {
 
     expect(html).toContain("src/demo.ts");
     expect(html).toContain("3 changes");
-    expect(html).toContain("edit-remove");
-    expect(html).toContain("edit-add");
+    expect(html).toContain('data-diff="remove"');
+    expect(html).toContain('data-diff="add"');
     expect(html).toContain("const old = 1;");
     expect(html).toContain("const next = 2;");
     expect(html).toContain("Insert after");

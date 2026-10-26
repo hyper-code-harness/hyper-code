@@ -26,32 +26,28 @@ export default function (
         bodyOnly?: boolean;
     },
 ): Response {
-    const esc = (value: any) => ctx.fns.w.escape({ text: value });
+    const w = ctx.fns.w;
     const id = String(opts.agentId ?? "");
     const run = ctx.fns.tools.runs({ agentId: id })[0];
+    const caption = (icon: string, text: string) => w.box({ body: w.icon({ name: icon, size: 12 }) + w.escape({ text }), mix: { layout: "row", gap: "s2", caption: true } });
 
     const body = run ? renderRunning() : renderFinished();
 
     function renderFinished(): string {
         // Not an error: the call ended while the popup was open. Say so plainly
         // instead of leaving the last tail on screen looking still-alive.
-        return `<div class="flex items-center gap-2 text-xs text-muted">`
-            + `<i class="ph ph-check-circle text-success" aria-hidden="true"></i>`
-            + `<span>The call has finished — its result is in the chat.</span></div>`;
+        return w.eventNote({ text: "The call has finished — its result is in the chat.", icon: "check-circle", tone: "success" });
     }
 
     function renderRunning(): string {
         const r = run!;
-        const deadline = r.timeoutMs ? r.startedAt + r.timeoutMs : null;
+        const deadline = r.timeoutMs ? r.startedAt + r.timeoutMs : undefined;
         // Seconds are counted client-side (ui/tool-timer.js): a label rendered
         // server-side would cost one request per second per open tab to say
         // something the browser already knows.
-        const timer = `<span class="tool-timer font-mono text-xs text-info"`
-            + ` data-tool-started-at="${r.startedAt}"`
-            + (deadline ? ` data-tool-deadline="${deadline}"` : "")
-            + `>…</span>`;
+        const timer = w.timer({ since: r.startedAt, deadline, format: "clock" });
 
-        const stop = ctx.fns.w.button({
+        const stop = w.button({
             label: r.aborted ? "Stopping…" : `Stop this ${r.name} call`,
             tone: r.aborted ? "neutral" : "danger",
             size: "sm",
@@ -62,7 +58,7 @@ export default function (
         });
 
         const toBackground = r.detachable && !r.aborted
-            ? ctx.fns.w.button({ label: "To background", size: "sm", action: { post: `/agent/${encodeURIComponent(id)}/tool/${encodeURIComponent(r.id)}/detach`, swap: "none" }, marks: { action: "detach-tool-call" }, title: "Stop waiting: the command keeps running as a background job and the agent is told when it ends" })
+            ? w.button({ label: "To background", size: "sm", action: { post: `/agent/${encodeURIComponent(id)}/tool/${encodeURIComponent(r.id)}/detach`, swap: "none" }, marks: { action: "detach-tool-call" }, title: "Stop waiting: the command keeps running as a background job and the agent is told when it ends" })
             : "";
 
         const tail = r.tail.trimEnd();
@@ -70,20 +66,25 @@ export default function (
         // output arrives as the tool result.
         const lines = tail ? tail.split("\n").slice(-14) : [];
         const tailHtml = lines.length
-            ? `<pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-ui-border bg-base-100 px-3 py-2 font-mono text-2xs leading-5 text-muted">${esc(lines.join("\n"))}</pre>`
+            ? w.box({ body: w.escape({ text: lines.join("\n") }), mix: { mono: true, text: "small", ink: "muted", pad: "s3", radius: "item", line: "around", pre: true } })
             // A changing last line is the only proof of progress a stuck
             // process cannot fake; its absence is worth stating, not hiding.
-            : `<div class="rounded-lg border border-ui-border bg-base-100 px-3 py-2 text-2xs text-faint">No output yet.</div>`;
+            : w.box({ body: "No output yet.", mix: { text: "small", ink: "faint", pad: "s3", radius: "item", line: "around" } });
 
-        return `<div class="flex flex-wrap items-center gap-2">`
-            + `<span class="relative flex size-6 shrink-0 items-center justify-center rounded-full bg-info/10 text-info">`
-            + ctx.fns.agent.toolSpinner({ icon: r.icon, startedAt: r.startedAt, timeoutMs: r.timeoutMs ?? undefined, iconClass: "text-xs" })
-            + `</span>`
-            + `<span class="text-xs font-semibold">${esc(r.name)}</span>${timer}`
-            + `<span class="ml-auto flex gap-2">${toBackground}${stop}</span></div>`
-            + (r.subject ? `<div class="mt-2 break-words font-mono text-2xs text-muted">${esc(r.subject)}</div>` : "")
-            + `<section class="mt-3"><div class="mb-1 flex items-center gap-2 text-3xs font-semibold uppercase tracking-wide text-faint">`
-            + `<i class="ph ph-arrow-left" aria-hidden="true"></i> Output so far</div>${tailHtml}</section>`;
+        const icon = String(r.icon ?? "terminal").replace(/^ph-/, "");
+        const head = w.box({
+            body: w.spinner({ kind: "glow", html: w.icon({ name: icon, size: 16, tone: "info" }) })
+                + w.box({ body: w.escape({ text: r.name }), mix: { weight: "strong" }, tag: "span" })
+                + timer
+                + w.box({ body: toBackground + stop, mix: { layout: "row", gap: "s2", end: true }, tag: "span" }),
+            mix: { layout: "row", gap: "s2", wrap: true },
+        });
+        return w.box({
+            body: head
+                + (r.subject ? w.box({ body: w.escape({ text: r.subject }), mix: { mono: true, text: "small", ink: "muted", pre: true } }) : "")
+                + w.box({ body: caption("arrow-left", "Output so far") + tailHtml, mix: { layout: "stack", gap: "s1" }, tag: "section" }),
+            mix: { layout: "stack", gap: "s3" },
+        });
     }
 
     const headers = { "content-type": "text/html; charset=utf-8" };

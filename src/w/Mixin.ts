@@ -32,6 +32,10 @@ export type Mixin = {
     mono?: boolean;
     /** The section caption role (EXPLORER-style): 11px, 500, quiet grey, spaced capitals. The only caps there is. */
     caption?: boolean;
+    /** Literal text: keep its line breaks and wrap long words instead of widening the page. */
+    pre?: boolean;
+    /** Push to the end of its row (the controls after a title). */
+    end?: boolean;
     /** One line with an ellipsis. */
     truncate?: boolean;
     /** Corner by level (principle 12): frame 0, item 6, window 12, round. */

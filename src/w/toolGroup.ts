@@ -29,6 +29,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const body = calls.length > fold
         ? `<details class="w-tool-fold"><summary class="w-tool-count" aria-label="${calls.length} tool calls${failed ? `, ${failed} failed` : ""}">${ctx.fns.w.icon({ name: "caret-right", size: 12 })}${calls.length} tool calls${failed ? ` · <span class="w-tool-failed">${failed} failed</span>` : ""}</summary><span class="w-tool-cells">${hidden.map(cell).join("")}</span></details>${shown.map(cell).join("")}`
         : calls.map(cell).join("");
-    const clock = opts.runningSince ? `<span class="w-tool-clock tool-timer tool-row-clock" data-tool-started-at="${Number(opts.runningSince)}"></span>` : "";
+    const clock = opts.runningSince ? ctx.fns.w.timer({ since: Number(opts.runningSince) }) : "";
     return `<div class="w-tool-row"><div class="w-tool-group">${body}</div>${clock}</div>`;
 }

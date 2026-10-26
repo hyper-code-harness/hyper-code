@@ -304,3 +304,13 @@ test("message: id, trail after the time, its own right-click menu; dim: badge on
     expect(dim).toContain('class="w-dim"');
     expect(dim).toContain(">outside context<");
 });
+
+test("timer counts in the browser from data hooks; code tints a diff side", async () => {
+    const ctx: any = await mkTestCtx();
+    const t = ctx.fns.w.timer({ since: 1000, deadline: 61000, format: "clock" });
+    expect(t).toBe('<span class="w-timer" data-since="1000" data-deadline="61000" data-format="clock">…</span>');
+    expect(ctx.fns.w.timer({ since: 1000 })).not.toContain("data-deadline");
+    expect(ctx.fns.w.toolGroup({ calls: [{ icon: "terminal", title: "x", running: true }], runningSince: 5 })).toContain('class="w-timer" data-since="5"');
+    expect(await ctx.fns.w.code({ code: "a", diff: "add" })).toContain('data-diff="add"');
+    expect(ctx.fns.w.mix({ mixes: [{ pre: true, end: true }] })).toBe("wx-pre wx-end");
+});

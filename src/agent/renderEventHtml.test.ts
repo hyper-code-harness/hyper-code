@@ -2,7 +2,6 @@ import { describe, test, expect } from "bun:test";
 import renderEventHtmlFn from "./renderEventHtml";
 import toolMeta from "./toolMeta";
 import toolLang from "./toolLang";
-import highlightResult from "./highlightResult";
 import renderEditArgs from "./renderEditArgs";
 import renderToolRun from "./renderToolRun";
 import toolCallCell from "./toolCallCell";
@@ -20,7 +19,6 @@ const ctx = { fns: {
   agent: {
     toolMeta: (opts: any) => toolMeta(ctx, null, opts),
     toolLang: (opts: any) => toolLang(ctx, null, opts),
-    highlightResult: (opts: any) => highlightResult(ctx, null, opts),
     renderEditArgs: (opts: any) => renderEditArgs(ctx, null, opts),
     renderToolRun: (opts: any) => renderToolRun(ctx, null, opts),
     toolCallCell: (opts: any) => toolCallCell(ctx, null, opts),

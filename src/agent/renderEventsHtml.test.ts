@@ -59,7 +59,7 @@ describe("agent.renderEventsHtml", () => {
         ctx.state.registry.tools.runs = () => [{ name: "bash", subject: "sleep 9", icon: "ph-terminal-window", startedAt: 1000, agentId: "a1" }];
         const row = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "tool_call", name: "read", args: { path: "a" }, idx: 1 }], live: true });
         expect(row).toContain("data-running");
-        expect(row).toContain('data-tool-started-at="1000"');
+        expect(row).toContain('class="w-timer" data-since="1000"');
         expect(row).toContain('hx-popup="agent.activeToolDetails"');
         const alone = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "assistant", idx: 1 }], live: true });
         expect(alone).toContain('id="tools-live"');

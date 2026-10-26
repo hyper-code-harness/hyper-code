@@ -9,7 +9,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     /** Agent whose model is shown. */
     agentId: string;
 }): Promise<string> {
-    const esc = (v: unknown) => ctx.fns.w.escape({ text: v });
     const id = String(opts.agentId ?? "");
     const agent = (ctx.state as any).agent?.[id] ?? await ctx.fns.session.load({ id });
     if (!agent) return "";
@@ -20,17 +19,19 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const r = await ctx.fns.llm.resolveReasoningEffort({ model, effort: requested as any }).catch(() => null);
     const applied = String(r?.applied ?? "");
     const names: Record<string, string> = { auto: "Auto", off: "Off", minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Max" };
-    const effortChip = caps && caps.supported.filter((e: string) => e !== "off" && e !== "auto").length > 0 ? ctx.fns.ui.popup({
-        method: "agent.effortPicker",
-        params: { agentId: id },
-        html: `<i class="ph ph-brain text-sm" aria-hidden="true"></i><span>${esc(names[requested] ?? requested)}</span><i class="ph ph-caret-down text-3xs text-faint" aria-hidden="true"></i>`,
-        attrs: `class="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs text-muted hover:bg-base-200 hover:text-base-content" title="Reasoning effort · ${esc(requested === "auto" ? `auto → ${applied}` : requested)}" aria-label="Change reasoning effort: ${esc(requested)}" data-chat-part="effort"`,
+    const w = ctx.fns.w;
+    const effortChip = caps && caps.supported.filter((e: string) => e !== "off" && e !== "auto").length > 0 ? w.disclosure({
+        label: names[requested] ?? requested,
+        popup: { method: "agent.effortPicker", params: { agentId: id } },
+        lead: w.icon({ name: "brain", size: 14 }),
+        title: `Reasoning effort · ${requested === "auto" ? `auto → ${applied}` : requested}`,
+        attrs: { "aria-label": `Change reasoning effort: ${requested}`, "data-chat-part": "effort", "data-action": "open-popup" },
     }) : "";
-    const label = esc(name);
-    return ctx.fns.ui.popup({
-        method: "agent.modelPicker",
-        params: { agentId: id },
-        html: `${ctx.fns.ui.modelLogo({ model, bare: true, compact: true })}<span class="max-w-44 truncate">${label}</span><i class="ph ph-caret-down text-3xs text-faint" aria-hidden="true"></i>`,
-        attrs: `class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted hover:bg-base-200 hover:text-base-content" title="Provider, account and model · ${esc(model)}" aria-label="Change model: ${esc(model)}" data-chat-part="model"`,
+    return w.disclosure({
+        label: name,
+        popup: { method: "agent.modelPicker", params: { agentId: id } },
+        lead: ctx.fns.ui.modelLogo({ model, bare: true, compact: true }),
+        title: `Provider, account and model · ${model}`,
+        attrs: { "aria-label": `Change model: ${model}`, "data-chat-part": "model", "data-action": "open-popup" },
     }) + effortChip;
 }

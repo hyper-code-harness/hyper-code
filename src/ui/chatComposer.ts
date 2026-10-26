@@ -27,27 +27,18 @@ export default async function (
         aboveHtml?: string;
     },
 ): Promise<string> {
-    return `<form id="form"
-          ${ctx.fns.w.marks({ form: "chat" })}
-          class="chat-composer mx-auto w-[calc(100%-2rem)] max-w-3xl pb-2 pt-3"
-          hx-post="${Bun.escapeHTML(opts.action)}"
-          hx-trigger="submit"
-          hx-encoding="multipart/form-data"
-          hx-swap="none"
-          hx-on::after:request="if (event.detail.ctx?.sourceElement === this && (event.detail.ctx?.response?.status < 400)) { this.elements.input.value=''; this.elements.files.value=''; this.querySelector('[data-attachments]')?.replaceChildren(); this.elements.input.focus(); }">
-      <input type="hidden" name="requestId" value="">
-      <div data-attachments class="mb-2 hidden flex-wrap gap-2 rounded-xl border border-ui-border bg-base-100/70 p-2"></div>
-      <div class="chat-box glass-input rounded-[22px] px-1.5 pb-1.5 pt-1">
-        ${opts.aboveHtml ? `<div data-chat-above class="flex min-w-0 flex-wrap items-center gap-1 px-2 pt-1">${opts.aboveHtml}</div>` : ""}
-        <input id="files" name="files" type="file" multiple class="hidden" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,.md,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.yml,.yaml,.csv,.log">
-        <textarea id="input" name="text" rows="1" placeholder="Ask the agent…" title="Enter to send · Shift+Enter new line · ⌘J/K scroll · Ctrl J next unread"
-          class="block max-h-[40vh] min-h-10 w-full resize-none overflow-y-auto bg-transparent [field-sizing:content] border-0 px-2.5 py-2 font-sans text-sm leading-[22px] text-base-content placeholder:text-faint focus:outline-none"></textarea>
-        <div class="flex min-w-0 items-center gap-1">
-          <button type="button" data-attach-button class="flex size-8 shrink-0 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-primary" title="Attach files" aria-label="Attach files"><i class="ph ph-plus"></i></button>
-          <div data-chat-tools class="flex min-w-0 items-center gap-0.5">${opts.toolsHtml ?? ""}</div>
-          <div data-chat-meters class="ml-auto flex shrink-0 items-center gap-0.5">${opts.metersHtml ?? ""}${opts.statusHtml ?? ""}</div>
-          <div class="flex shrink-0 items-center">${opts.controlsHtml ?? '<button type="submit" class="flex size-8 items-center justify-center rounded-full bg-base-content text-base-100" aria-label="Send message"><i class="ph ph-arrow-up text-base"></i></button>'}</div>
-        </div>
-      </div>
-    </form>`;
+    // The chat's text field, attachments and toolbar are w.composer; chat.js finds them by id (#form, #input,
+    // #files) and [data-attach-button]/[data-attachments], the draft and hotkeys scripts by data-form="chat".
+    return ctx.fns.w.composer({
+        post: opts.action,
+        id: "form",
+        attrs: { "data-form": "chat" },
+        hidden: { requestId: "" },
+        files: "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,.md,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.yml,.yaml,.csv,.log",
+        hint: "Enter to send · Shift+Enter new line · ⌘J/K scroll · Ctrl J next unread",
+        above: opts.aboveHtml,
+        tools: opts.toolsHtml,
+        meters: `${opts.metersHtml ?? ""}${opts.statusHtml ?? ""}`,
+        send: opts.controlsHtml,
+    });
 }

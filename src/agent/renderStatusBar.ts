@@ -88,9 +88,7 @@ initialUsage?: any;
     // Stop is rendered by this live fragment so it appears and disappears with
     // the run, but CSS anchors it inside the composer instead of the top bar.
     const busy = row?.run_state === 'running' || !!row?.next_run_at;
-    const stopBtn = busy
-        ? ctx.fns.w.pressable({ html: '<span class="block size-2.5 rounded-[2px] bg-base-100" aria-hidden="true"></span>', label: 'Stop generation', title: 'stop this run', action: { post: `/agent/${encodeURIComponent(agentId)}/stop`, swap: 'none' }, marks: { action: 'stop', entity: 'agent', id: agentId }, class: 'flex size-8 items-center justify-center rounded-full bg-base-content text-base-100 shadow-md' })
-        : `<button type="submit" class="flex size-8 items-center justify-center rounded-full bg-base-content text-base-100 shadow-sm transition hover:opacity-85" title="Send · Enter" aria-label="Send message"><i class="ph ph-arrow-up text-base" aria-hidden="true"></i></button>`;
+    const stopBtn = ctx.fns.w.sendButton({ running: busy, stop: { post: `/agent/${encodeURIComponent(agentId)}/stop`, swap: 'none' }, marks: { action: 'stop', entity: 'agent', id: agentId } });
     if (part === 'stop') return stopBtn;
     // The SSE stream is the real trigger (it dispatches hyper-tick on every
     // agent event); the timer is only a safety net. A busy agent still refreshes

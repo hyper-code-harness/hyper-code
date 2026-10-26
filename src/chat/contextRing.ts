@@ -23,15 +23,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const window = Number(ctx.fns.compaction.contextWindow({ model: String(agent.model) }) ?? 0);
     const k = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
     const share = window > 0 ? Math.min(1, used / window) : 0;
-    const colour = share >= 0.9 ? "var(--color-error)" : share >= 0.7 ? "var(--color-warning)" : "var(--color-subtle)";
     const title = window > 0 ? `Context ${k(used)} of ${k(window)} · ${Math.round(share * 100)}% — click to compact` : `Context ${k(used)} tokens — click to compact`;
-    const face = window > 0
-        ? `<span class="chat-ring" style="--p:${(share * 100).toFixed(1)}%;--c:${colour}" aria-hidden="true"></span>`
-        : `<span class="font-mono text-3xs">${k(used)}</span>`;
-    return ctx.fns.ui.popup({
-        method: "chat.compactPopup",
-        params: { agentId: id },
-        html: face,
-        attrs: `class="flex h-8 min-w-8 items-center justify-center rounded-full px-1 text-faint hover:bg-base-200" title="${ctx.fns.w.escape({ text: title })}" aria-label="${ctx.fns.w.escape({ text: title })}"`,
-    });
+    const action = { popup: { method: "chat.compactPopup", params: { agentId: id } } };
+    // Without a known window there is no share to draw: the token count is the ring's label.
+    return window > 0
+        ? ctx.fns.w.ring({ value: share * 100, size: 16, action, title })
+        : ctx.fns.w.ring({ value: 0, size: 16, label: k(used), action, title });
 }

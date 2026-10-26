@@ -72,9 +72,9 @@
                 if (text) this.insertText(text);
                 this.addFiles(files);
             }, { signal });
-            this.form.addEventListener('dragover', event => { event.preventDefault(); this.form.classList.add('ring-2', 'ring-primary/40'); }, { signal });
-            this.form.addEventListener('dragleave', event => { if (!this.form.contains(event.relatedTarget)) this.form.classList.remove('ring-2', 'ring-primary/40'); }, { signal });
-            this.form.addEventListener('drop', event => { event.preventDefault(); this.form.classList.remove('ring-2', 'ring-primary/40'); this.addFiles([...(event.dataTransfer?.files || [])]); }, { signal });
+            this.form.addEventListener('dragover', event => { event.preventDefault(); this.form.setAttribute('data-drop', ''); }, { signal });
+            this.form.addEventListener('dragleave', event => { if (!this.form.contains(event.relatedTarget)) this.form.removeAttribute('data-drop'); }, { signal });
+            this.form.addEventListener('drop', event => { event.preventDefault(); this.form.removeAttribute('data-drop'); this.addFiles([...(event.dataTransfer?.files || [])]); }, { signal });
             this.form.addEventListener('submit', event => {
                 if (!this.input.value.trim() && !this.fileInput?.files?.length) return event.preventDefault();
                 if (this.submitting) return event.preventDefault();
@@ -90,6 +90,10 @@
                 if (!(ctx?.response?.status < 400)) return;
                 const requestId = this.form.elements.requestId;
                 if (requestId) requestId.value = '';
+                // Sent: empty the field and the picked files (w.composer has no inline handler for it).
+                this.input.value = '';
+                if (this.fileInput) this.fileInput.value = '';
+                this.input.focus();
                 this.shouldStick = true;
                 this.scrollBottom();
                 this.renderAttachments();
@@ -225,16 +229,14 @@
             if (!this.attachmentTray || !this.fileInput) return;
             const files = [...(this.fileInput.files || [])];
             this.attachmentTray.replaceChildren();
-            this.attachmentTray.classList.toggle('hidden', files.length === 0);
-            this.attachmentTray.classList.toggle('flex', files.length > 0);
             files.forEach((file, index) => {
                 const chip = document.createElement('div');
-                chip.className = 'flex max-w-56 items-center gap-2 rounded-lg border border-ui-border bg-base-100 px-2 py-1.5 text-xs';
+                chip.className = 'w-composer-file';
                 if (file.type.startsWith('image/')) {
-                    const img = document.createElement('img'); img.className = 'size-9 rounded object-cover'; img.src = URL.createObjectURL(file); img.onload = () => URL.revokeObjectURL(img.src); chip.append(img);
-                } else { const icon = document.createElement('i'); icon.className = 'ph ph-file text-faint'; chip.append(icon); }
-                const name = document.createElement('span'); name.className = 'min-w-0 flex-1 truncate'; name.textContent = file.name; chip.append(name);
-                const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-faint hover:text-error'; remove.innerHTML = '<i class="ph ph-x"></i>'; remove.addEventListener('click', () => this.removeFile(index), { signal: this.abort.signal }); chip.append(remove);
+                    const img = document.createElement('img'); img.src = URL.createObjectURL(file); img.onload = () => URL.revokeObjectURL(img.src); chip.append(img);
+                } else { const icon = document.createElement('i'); icon.className = 'w-icon ph ph-file'; icon.dataset.size = '16'; chip.append(icon); }
+                const name = document.createElement('span'); name.textContent = file.name; chip.append(name);
+                const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'w-icon-button'; remove.dataset.size = '24'; remove.setAttribute('aria-label', 'Remove ' + file.name); remove.innerHTML = '<i class="w-icon ph ph-x" data-size="14" aria-hidden="true"></i>'; remove.addEventListener('click', () => this.removeFile(index), { signal: this.abort.signal }); chip.append(remove);
                 this.attachmentTray.append(chip);
             });
         }

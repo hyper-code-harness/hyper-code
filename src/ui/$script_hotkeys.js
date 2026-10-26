@@ -208,17 +208,17 @@
     };
     let timer = 0;
     document.addEventListener('input', e => {
-        if (e.target?.id !== 'input' || !e.target.closest('.chat-composer')) return;
+        if (e.target?.id !== 'input' || !e.target.closest('[data-form="chat"]')) return;
         clearTimeout(timer);
         const input = e.target;
         timer = setTimeout(() => save(input), 250);
     });
     // Leaving the page (or the chat via htmx) writes the latest text at once.
-    window.addEventListener('pagehide', () => { const i = document.querySelector('.chat-composer #input'); if (i) save(i); });
-    document.addEventListener('htmx:before:swap', () => { const i = document.querySelector('.chat-composer #input'); if (i) save(i); }, true);
+    window.addEventListener('pagehide', () => { const i = document.querySelector('[data-form="chat"] #input'); if (i) save(i); });
+    document.addEventListener('htmx:before:swap', () => { const i = document.querySelector('[data-form="chat"] #input'); if (i) save(i); }, true);
     // Sent: the form clears the field; forget the draft.
     document.addEventListener('htmx:after:request', e => {
-        const form = e.target?.closest?.('.chat-composer');
+        const form = e.target?.closest?.('[data-form="chat"]');
         const status = e.detail?.ctx?.response?.status ?? e.detail?.xhr?.status ?? 0;
         if (!form || !(status > 0 && status < 400)) return;
         const input = form.querySelector('#input');
@@ -226,7 +226,7 @@
         if (id) try { localStorage.removeItem(key(id)); } catch (_) {}
     });
     const restore = () => {
-        const input = document.querySelector('.chat-composer #input');
+        const input = document.querySelector('[data-form="chat"] #input');
         if (!input || input.value) return;
         const id = agentOf(input);
         let text = null;

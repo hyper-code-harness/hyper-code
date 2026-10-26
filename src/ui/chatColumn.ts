@@ -46,21 +46,11 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         // The agent topic signals start/stop; the interval is only a watchdog.
         every: 30,
         swap: 'innerHTML',
-        attrs: 'class="flex items-center"',
+        attrs: 'class="w-composer-send"',
         html: stopControlHtml,
     });
 
-    const statusMode = agent.statusLineMode ?? "global";
-    const statusLabel = statusMode === "global" ? "global prompt inject" : statusMode === "off" ? "prompt inject off" : (agent.statusLine ? esc(agent.statusLine) : "custom prompt inject…");
-    const statusLinePopup = await ctx.fns.ui.inplacePopup({
-        id: `status-line-popover-${id}`,
-        triggerHtml: `<span id="status-line-label-${esc(id)}" class="min-w-0 truncate"><i class="ph ph-note-pencil mr-1"></i><span class="status-line-text">${statusLabel}${statusMode === "custom" && agent.statusLine && Number(agent.statusLineEvery ?? 1) > 1 ? ` · every ${Number(agent.statusLineEvery)} turns` : ''}</span></span>`,
-        triggerAttrs: statusMode === "global"
-            ? 'class="flex size-8 items-center justify-center rounded-full text-faint hover:bg-base-200 hover:text-muted [&_.status-line-text]:hidden" title="Prompt inject · global" aria-label="Edit prompt inject"'
-            : 'class="min-w-0 max-w-full truncate rounded-full bg-base-200/70 px-2 py-0.5 text-3xs text-faint hover:text-muted" title="Edit prompt inject" aria-label="Edit prompt inject"',
-        panelAttrs: 'aria-label="Edit prompt inject"',
-        contentHtml: `<div class="min-w-0 space-y-3"><label class="block text-xs font-medium text-muted">Mode<select form="status-line-form-${esc(id)}" name="mode" class="mt-1 block w-full rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs"><option value="global"${statusMode === "global" ? " selected" : ""}>Global</option><option value="custom"${statusMode === "custom" ? " selected" : ""}>Custom</option><option value="off"${statusMode === "off" ? " selected" : ""}>Off</option></select></label><label class="block min-w-0 text-xs font-medium text-muted">Custom text<textarea form="status-line-form-${esc(id)}" name="text" maxlength="500" rows="4" placeholder="Overrides the global Status Line…" class="mt-1 block w-full min-w-0 max-w-full box-border resize-y rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content">${esc(agent.statusLine ?? '')}</textarea></label><label class="block min-w-0 text-xs font-medium text-muted">Custom cadence: every <input form="status-line-form-${esc(id)}" name="every" type="number" min="1" max="100" value="${Math.max(1, Number(agent.statusLineEvery ?? 1))}" class="mt-1 block w-full min-w-0 max-w-full box-border rounded-lg border border-ui-input bg-base-100 px-3 py-2 text-xs text-base-content"></label>${ctx.fns.w.button({ label: 'Save', tone: "primary", size: "md", submit: true, marks: { action: 'save-status-line' }, attrs: { form: `status-line-form-${id}` }, wide: true })}</div>`,
-    });
+    const inject = await ctx.fns.chat.promptInject({ agentId: id });
 
     // The header — avatar, name, $chatbadge_ / $chatbutton_ parts and the ⋯ panel of $chatcard_ — is chat.header.
     const view = await ctx.fns.chat.buildRenderContext({ agentId: id });
@@ -98,13 +88,13 @@ ${await ctx.fns.ui.chatComposer({
   controlsHtml: stopControlRegion,
   // The prompt inject takes a line above the text only when it differs from the instance default;
   // otherwise it is a quiet icon among the meters.
-  aboveHtml: statusMode === "global" ? "" : statusLinePopup,
-  statusHtml: statusMode === "global" ? statusLinePopup : "",
+  aboveHtml: inject.mode === "global" ? "" : inject.trigger,
+  statusHtml: inject.mode === "global" ? inject.trigger : "",
   toolsHtml: await ctx.fns.chat.modelChip({ agentId: id }),
-  metersHtml: ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="flex items-center"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
+  metersHtml: ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="w-composer-meters"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
 })}
 
-<form id="status-line-form-${esc(id)}" hx-post="/agent/${encodeURIComponent(id)}/status-line" hx-target="#status-line-label-${esc(id)}" hx-swap="innerHTML" hx-on::after:request="if(event.detail.ctx?.response?.status < 400) document.getElementById('status-line-popover-${esc(id)}')?.hidePopover()"></form>
+${inject.panel}
 
 `;
 }

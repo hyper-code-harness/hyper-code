@@ -19,4 +19,10 @@
         const row = event.target.closest?.('[data-chat-panel] [hx-popup]');
         if (row) row.closest('[data-chat-panel]')?.hidePopover?.();
     }, true);
+    // Saved prompt inject: the answer replaced its opener; close the panel the form sits in.
+    document.addEventListener('htmx:after:request', (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || form.dataset.form !== 'status-line') return;
+        if ((event.detail?.ctx?.response?.status ?? 0) < 400) form.closest('[popover]')?.hidePopover?.();
+    });
 })();

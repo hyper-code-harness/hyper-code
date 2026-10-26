@@ -102,7 +102,6 @@ export default async function (ctx: Context, session: Session | null, opts: {
 /* One type scale for the whole shell: the same family and smoothing everywhere (the composer's textarea used
    Tailwind's font-sans stack), UI chrome — menu rows, tabs, chat header — at 13px regular, reading text at 14px. */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-#input, .chat-composer textarea, .chat-composer button { font-family: inherit; }
 /* Message context menu (right-click on a message, ui/hotkeys.js puts it at the pointer). */
 #messages .message-menu { display: none; }
 #messages [data-message-menu-open] .message-menu { position: fixed; z-index: 70; left: var(--menu-x, 0); top: var(--menu-y, 0); display: flex; flex-direction: column; min-width: 11rem; padding: .25rem; border: 1px solid var(--color-ui-border); border-radius: .5rem; background: var(--color-base-100); box-shadow: 0 8px 24px rgb(0 0 0 / .14); color: var(--color-base-content); font-size: 13px; white-space: nowrap; }
@@ -148,7 +147,6 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 /* The conversation sits on a soft grey (a touch lighter than the headers), so white things on it — the
    composer, tool pills, menus — read as surfaces. */
 :root { --chat-bg: color-mix(in oklab, var(--color-base-200) 30%, var(--color-base-100)); }
-#chat-panel .chat-composer, #chat-panel .chat-composer .chat-box { background: var(--color-base-100) !important; }
 /* Beside an open canvas the chat reads as a side conversation, not a second document: a slightly deeper grey,
    a shade of depth along the canvas edge, and a smaller type (13px) than the canvas page. */
 [data-page="agent"][data-canvas-open]:not([data-chat-collapsed]) > #chat-panel { --chat-bg: color-mix(in oklab, var(--color-base-200) 50%, var(--color-base-100)); }
@@ -163,9 +161,6 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) .chat-dot-grid { padding-top: 1rem !important; padding-bottom: 1rem !important; background-image: none; background-color: var(--chat-bg); }
   /* The composer is the card's footer, a mirror of its header: full width, a hairline above, the text field and
      its toolbar flat inside it; focus shows as a thin accent line on top instead of a floating ring. */
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer { margin: 0; width: 100%; max-width: none; padding: 0; border-top: 1px solid var(--color-ui-border); background: var(--color-base-100); pointer-events: auto; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer [data-attachments] { margin: .5rem .5rem 0; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-box.glass-input { border-radius: 0; padding: .25rem .375rem .375rem; background: transparent !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
   /* Answers sit right on the page, ChatGPT-style: no bubble, border or shadow; the person's message stays a soft pill on the right. */
   body:not([data-presentation="sidebar"]) [data-page="agent"] #messages .assistant.chat-glass { background: none; border: 0; box-shadow: none; padding: .25rem .25rem; border-radius: 0; }
   /* The person's message is the one inverted shape: the page's text colour as its fill (dark in light theme, light in dark). */
@@ -191,10 +186,8 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > * { width: 100%; max-width: 46rem; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > .tool-tray { display: flex !important; width: fit-content; max-width: 46rem; margin-left: max(0px, calc((100% - 46rem) / 2)) !important; margin-right: auto !important; }
   body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) #messages > [id^="m-"] .assistant { padding-left: 0 !important; padding-right: 0 !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer .chat-box { max-width: calc(46rem + 1rem); margin: 0 auto; }
   /* The chat header follows the same column: the icon and name start where the messages start, ⋯ ends where they end. */
   html[data-chrome="flat"] body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > section#chat-panel > header.w-pane-header { padding-left: max(.75rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; padding-right: max(.375rem, calc((100% - 46rem - var(--chat-scrollbar, 0px)) / 2)) !important; }
-  body:not([data-presentation="sidebar"]) [data-page="agent"]:not([data-chat-collapsed]) > #chat-panel .chat-composer:focus-within { border-top-color: #3b82f6; box-shadow: inset 0 1px 0 #3b82f6; }
 }
 /* Canvas (src/canvas): hidden until the agent page carries data-canvas-open. Then the canvas takes the
  * free space on the left and the chat becomes a --chat-w column on the right. */
@@ -263,26 +256,12 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 /* Folded strip input: just the text and send/stop on one line — no attach, model, effort or meters. */
 /* One line: [+] text [send/stop]. The toolbar row's box is dissolved (display: contents) so its + goes before
    the text and send after it; model, effort and meters are hidden. */
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box { display: flex; align-items: center; gap: .125rem; padding: .25rem .375rem !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > textarea { order: 1; flex: 1 1 auto; min-width: 0; min-height: 2rem !important; padding: .35rem .25rem !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child { display: contents; }
-[data-page="agent"][data-chat-collapsed] .chat-composer [data-attach-button] { order: 0; width: 1.75rem !important; height: 1.75rem !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child > div:last-child { order: 2; }
-[data-page="agent"][data-chat-collapsed] .chat-composer :is([data-chat-tools], [data-chat-meters], [data-chat-above]) { display: none !important; }
 /* The folded strip is one tight card: the messages above, then the composer flush with its edges (no box in a
    box) behind a hairline; the toolbar row is compact. */
 [data-page="agent"][data-chat-collapsed] #messages { background: none !important; padding: .5rem 3rem .25rem .875rem !important; flex: 1 1 auto; min-height: 0; }
-[data-page="agent"][data-chat-collapsed] .chat-composer { margin: 0 !important; width: 100% !important; max-width: none !important; padding: 0 !important; border-top: 1px solid var(--color-ui-border); background: transparent; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box.glass-input { border-radius: 0 !important; padding: 0 .375rem .25rem !important; background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer textarea { min-height: 2rem !important; padding: .4rem .5rem .1rem !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer button { min-width: 0; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child { min-height: 1.75rem; gap: .125rem; }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child :is(button, [popovertarget]) { height: 1.75rem !important; min-height: 0 !important; }
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header.w-pane-header { height: auto !important; min-height: 0 !important; background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; position: absolute; top: .375rem !important; right: .375rem !important; left: auto; z-index: 2; }
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle] { width: 1.75rem !important; height: 1.75rem !important; border-radius: 9999px !important; background: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle]:hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
-[data-page="agent"][data-chat-collapsed] .chat-composer .chat-box > div:last-child button[type="submit"], [data-page="agent"][data-chat-collapsed] #chat-stop-control button { width: 1.75rem !important; height: 1.75rem !important; }
-[data-page="agent"][data-chat-collapsed] .chat-composer:focus-within { border-top-color: #3b82f6; }
 [data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
 [data-page="agent"].canvas-resizing iframe { pointer-events: none; }
 /* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */
@@ -314,39 +293,13 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   background-attachment: local;
 }
 
-.chat-dot-grid { padding-top: 1rem !important; padding-bottom: 6.5rem !important; }
+.chat-dot-grid { padding-top: 1rem !important; padding-bottom: 1rem !important; }
 .chat-dot-grid > * {
   width: 100%;
   max-width: 48rem;
   margin-left: auto !important;
   margin-right: auto !important;
 }
-.chat-composer {
-  position: relative;
-  z-index: 20;
-  flex: none;
-  margin: -4.5rem auto .5rem;
-  background: transparent;
-  pointer-events: none;
-}
-.chat-composer > * { pointer-events: auto; }
-.glass-input {
-  min-height: 44px;
-  max-height: 208px;
-  background-color: rgb(from var(--color-base-100) r g b / .80) !important;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / .04), 0 2px 8px rgb(0 0 0 / .04), 0 4px 80px 8px rgb(0 0 0 / .024);
-  backdrop-filter: blur(16px) saturate(115%);
-  -webkit-backdrop-filter: blur(16px) saturate(115%);
-}
-.chat-box.glass-input { max-height: none; min-height: 0; }
-.chat-box:focus-within { box-shadow: 0 0 0 2px rgb(59 130 246 / .55), 0 2px 10px rgb(0 0 0 / .055), 0 4px 80px 8px rgb(0 0 0 / .03); }
-.chat-ring { display: block; width: 18px; height: 18px; border-radius: 9999px; background: conic-gradient(var(--c) var(--p), color-mix(in oklab, var(--color-base-content) 14%, transparent) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px)); }
-.glass-input:hover { box-shadow: 0 0 0 1px rgb(0 0 0 / .05), 0 2px 9px rgb(0 0 0 / .05), 0 4px 80px 8px rgb(0 0 0 / .028); }
-.glass-input:focus {
-  box-shadow: 0 0 0 3px rgb(59 130 246 / .72), 0 2px 10px rgb(0 0 0 / .055), 0 4px 80px 8px rgb(0 0 0 / .03);
-}
-.chat-composer [data-attachments]:empty { display: none !important; }
-.chat-composer kbd { font: inherit; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
 
 
 .chat-glass,
@@ -395,7 +348,6 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   button, a, select, input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
   #chat-panel > header button:not(.hidden), #chat-panel > header a:not(.hidden) { min-width: 2.25rem; min-height: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
   #chat-panel > header select { min-height: 2.25rem; }
-  .chat-composer button { min-width: 2.75rem; min-height: 2.75rem; }
 
   #chat-panel > header [data-chat-buttons], #chat-panel > header [data-chat-badges] > :not([data-chat-id="agent.status"]) { display: none !important; }
   #messages, #messages > *, #messages .assistant, #messages .user, #messages .tool { min-width: 0; max-width: 100%; }
@@ -413,12 +365,9 @@ html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canva
   #messages pre, #messages .shiki { max-width: 100%; overflow-x: auto !important; overflow-wrap: normal; word-break: normal; }
   #messages img, #messages video, #messages svg, #messages table { max-width: 100%; }
   #messages table { display: block; overflow-x: auto; }
-  .chat-composer > * { max-width: 100%; min-width: 0; }
 
-  .chat-dot-grid { padding: 1rem .5rem 6.25rem !important; }
+  .chat-dot-grid { padding: 1rem .5rem !important; }
   .chat-dot-grid > * { max-width: 100% !important; }
-  .chat-composer { width: calc(100% - .75rem) !important; max-width: none !important; margin-bottom: max(.25rem, env(safe-area-inset-bottom)) !important; padding-top: .5rem !important; }
-  .chat-composer .glass-input { font-size: 16px !important; }
   #app-popup { width: calc(100vw - 1rem) !important; max-height: calc(100dvh - 1rem) !important; }
   /* On a phone the composer owns the bottom; toasts drop from the top, under the header. */
   #toasts { top: calc(env(safe-area-inset-top) + 3.5rem) !important; bottom: auto !important; right: .5rem !important; left: .5rem; align-items: stretch !important; flex-direction: column !important; }
@@ -475,9 +424,6 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
      the dotted run ring stay still (the run ring keeps its time label). */
   html[data-chrome="flat"] #chat-panel > header .w-chat-icon-ring { display: none !important; }
   html[data-chrome="flat"] #chat-panel > header .chat-run-ring--live .chat-run-dots { animation: none; }
-  html[data-chrome="flat"] #chat-stop-control { position: relative; }
-  html[data-chrome="flat"] #chat-stop-control:has([aria-label="Stop generation"])::after { content: ""; position: absolute; inset: -3px; border-radius: 9999px; pointer-events: none; background: conic-gradient(from 0deg, transparent 0 60%, var(--color-primary) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); animation: chat-icon-spin 1.1s linear infinite; }
-  @media (prefers-reduced-motion: reduce) { html[data-chrome="flat"] #chat-stop-control::after { animation: none; opacity: .5; } }
   /* No dotted run-time ring in the header: how long the agent has been at it is the clock at the end of the
      tool row (renderActiveToolCall), and "running" is the arc around the stop button. */
   html[data-chrome="flat"] #chat-panel > header .chat-run-ring { display: none !important; }
@@ -502,7 +448,7 @@ body[data-presentation="sidebar"] #chat-panel > header { padding-left: .55rem !i
      card: compact, prompt inject; the inspector row opens the inspector tab). A non-default prompt inject still
      shows as its chip above the text. */
   html[data-chrome="flat"] #chat-context-ring { display: none !important; }
-  html[data-chrome="flat"] .chat-composer [data-chat-meters] [popovertarget^="status-line-popover-"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  html[data-chrome="flat"] #form .w-composer-meters > [data-chat-part="prompt-inject"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   html[data-chrome="flat"] #chat-panel > header [data-chat-id="agent.inspector"] { display: none !important; }
   /* Canvas buttons live with the canvas (its bar or its header); the chat header keeps the name and ⋯ only.
      The folded strip keeps its own unfold button. */

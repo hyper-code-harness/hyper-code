@@ -5,8 +5,7 @@
 //   { main, title?, ... } → HTML via layoutOf(ctx)!(ctx, session, opts)   (status honored)
 //   other                 → JSON
 //
-// An htmx request gets the page fragment instead of the whole document, plus
-// whatever chrome the host keeps in step with it — see `chrome` below.
+// An htmx request gets the page fragment instead of the whole document.
 /**
  * Perform to response for the http subsystem.
  * @param opts.value The value to apply.
@@ -41,7 +40,7 @@ async function page(ctx: Context, session: Session | null, opts: any, status = 2
         && session?.req?.headers.get("hx-history-restore-request") !== "true"
         && !wantsFrame;
     const dressed = { ...opts, main: await pane(ctx, session, opts) };
-    const body = partial ? dressed.main + chrome(ctx, session) : await layoutOf(ctx)!(ctx, session, dressed);
+    const body = partial ? dressed.main : await layoutOf(ctx)!(ctx, session, dressed);
     return new Response(body, { status, headers: html() });
 }
 
@@ -66,27 +65,6 @@ async function pane(ctx: Context, session: Session | null, opts: any): Promise<s
     if (typeof own !== "function") return opts.main;
     try { return (await own(ctx, session, { ...opts, path: session?.url?.pathname ?? "/" })) ?? opts.main; }
     catch (error: any) { console.warn(`[pane] ${ns}: ${String(error?.message ?? error)}`); return opts.main; }
-}
-
-// The seam a host uses to keep the parts of a page that live *outside* the
-// swapped fragment in step with it — a tab strip, a patient band, a breadcrumb.
-// htmx replaces one element, so everything else that must change rides along
-// with `hx-swap-oob`, and the framework should not know what those things are.
-//
-// Read straight off the hook map rather than through `hooks.run`, because this
-// is on the hot path of every response and drawing a fragment is pure: a handler
-// that needed to await something would mean promoting `toResponse`, not this. A
-// host with no chrome registers nothing and pays nothing.
-function chrome(ctx: Context, session: Session | null): string {
-    const handlers = ctx.state.procs?.hooks?.handlers?.["procs.ui.chrome"];
-    if (!handlers) return "";
-    const path = session?.url?.pathname ?? "/";
-    let out = "";
-    for (const handler of handlers.values()) {
-        try { out += handler(ctx, session, { path, oob: true }) ?? ""; }
-        catch (error: any) { console.warn(`[chrome] ${String(error?.message ?? error)}`); }
-    }
-    return out;
 }
 
 function html() {

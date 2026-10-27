@@ -1,5 +1,5 @@
 // `<module>/$point_<name>.ts` — a module declaring an extension point it will
-// run: `ui/$point_chrome.ts` declares `ui.chrome`. The file's default export is
+// run: `ui/$point_markdown.ts` declares `ui.markdown`. The file's default export is
 // documentation for the point (what it is called with, what an answer means) —
 // the framework only records that the point exists, which is what lets `dev.lint`
 // tell a typo'd `$hook_` from a real one.

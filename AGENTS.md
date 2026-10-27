@@ -204,8 +204,7 @@ Vendored `src/procs/` is upstream code: keep local patches minimal and marked wi
   (action: open-menu), chat form (form: chat), agent picker (role), search page/form/hits,
   agent passport (page: agent + fork/archive/delete actions). New UI should
   carry markers from birth.
-- `ctx.fns.tour.play({steps})` — scripted walk (Back/Next/Show me); `tour.review`
-  checks steps against pages with no browser; `screen.step` — live tour, one
+- `screen.step` — live tour, one
   step per turn; the person's press comes back through the `screen.press` hook
   → `agent/$hook_screen.press.ts` drops "[tour] the user pressed …" into the
   CURRENT agent's queue.

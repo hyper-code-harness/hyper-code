@@ -81,7 +81,7 @@ agent: types.agent.Agent }): Promise<string> {
         // The full jobs/wake/cron/watch reference moved to docs/agent-handbook.md.
         // What must stay here is the one invariant an agent cannot discover after
         // the fact: a background job reports back by itself, so do not poll.
-        "- long or repeated work: bash({ command, background: true }) / eval({ code, background: true }), or background: { afterMs, wake } to wait a bit first; agent.wake (once), agent.cron (repeatedly), agent.watch (when a condition turns true). Each reports back as a message \u2014 end your turn, never sleep or poll. jobs.list/logs/cancel({ id }) manage them; details in docs/agent-handbook.md.",
+        "- long or repeated work: bash({ command, background: true }) / eval({ code, background: true }), or background: { afterMs, wake } to wait a bit first; agent.wake (once), agent.cron (repeatedly), agent.watch (when a condition turns true). Each reports back as a message \u2014 end your turn, never sleep or poll. jobs.list({}) / jobs.logs({ id }) / jobs.cancel({ id }) manage them; details in docs/agent-handbook.md.",
         "- services to keep running (databases, dev servers): ~/.hyper/units/<name>.yaml + ctx.fns.hyperd.reload({}); read docs/hyperd.md first.",
         "- for reusable project-local procedures, prefer .hyper/<module>/<fn>.ts runtime functions.",
     ].join("\n");

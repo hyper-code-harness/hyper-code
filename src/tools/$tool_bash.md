@@ -12,7 +12,7 @@ promptSnippet: "run shell commands (ls, git, tests)"
 promptGuidelines:
   - "To work on another machine pass host (an alias from ~/.ssh/config) to bash, read, write or edit; the connection is kept open between calls."
   - "Give bash a generous timeout when a command could hang (a server, a watcher, a prompt)."
-  - "Anything over a minute or two (builds, full test suites, deploys) → background: true, or background: { afterMs: 30000 } when it may finish quickly. You get ONE message when the job ends — end your turn, do not poll. jobs.logs / jobs.cancel / jobs.list({ id })."
+  - "Anything over a minute or two (builds, full test suites, deploys) → background: true, or background: { afterMs: 30000 } when it may finish quickly. You get ONE message when the job ends — end your turn, do not poll. jobs.logs({ id }) / jobs.cancel({ id }) / jobs.list({})."
   - "Search with `rg -n pattern` (contents) and `rg --files -g glob` (names); never `find ~`."
 parameters:
   type: object

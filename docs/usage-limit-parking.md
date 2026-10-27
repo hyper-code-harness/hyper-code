@@ -101,20 +101,20 @@ UPDATE agents
 
 ### 3.3 Пробуждение
 
-Используем существующий механизм, ничего нового:
+Используем существующий механизм фоновых задач (`jobs`), ничего нового:
 
 ```ts
-await ctx.fns.agent.wakeAt({
-  id,
-  at: resetsAt + jitter,          // jitter: 60_000 + hash(id) % 240_000
-  reason: `codex usage limit resets (${planType} plan)`,
+await ctx.fns.jobs.schedule({
+  agentId: id,
+  runner: "at",
+  nextAt: resetsAt + jitter,      // jitter: 60_000 + hash(id) % 240_000
+  prompt: `${provider} usage limit resets — continue the interrupted work`,
+  spec: { park: true },
 })
 ```
 
-`agent.deliverWakes` (крутится в `workerLoop` каждый цикл) в нужный момент:
-чистит `wake_at`, ставит `next_run_at`, кладёт `role:'user'` сообщение
-`«Wake-up: codex usage limit resets…»` c `excluded_from_cursor=true` и событие
-`wake_up`. Агент продолжает разговор сам.
+Планировщик задач (`jobs.tickSchedule`) в нужный момент кладёт `prompt`
+агенту сообщением и ставит его в очередь. Агент продолжает разговор сам.
 
 **Джиттер обязателен.** Без него 14 агентов проснутся в одну и ту же секунду и
 синхронно ударят в API. Разброс: `resetsAt + 60s + (hash(agentId) mod 4 мин)`.
@@ -124,10 +124,9 @@ await ctx.fns.agent.wakeAt({
 на новый `resets_at`. Цикл самоисправляющийся и стоит ровно **один** запрос на
 агента — но только при условии пункта 3.4.
 
-**Ограничение**: `agent.wakeAt` хранит **один** таймер на агента. Парковка
-затирает пользовательский wake, если он был. Поэтому старое значение
-сохраняется в `scratchpad.parked.previousWake` и восстанавливается при
-распарковке.
+Парковочный wake — отдельная задача; пользовательские `agent.wake` / `agent.cron`
+не затираются. Id задачи хранится в `scratchpad.parked.wakeJobId`: повторный 429
+отменяет прежнюю парковочную задачу вместо того, чтобы добавить вторую.
 
 ### 3.4 Никаких ретраев на лимит
 
@@ -179,7 +178,7 @@ ctx.fns.llm.classifyError({ provider, status, body, headers })
 ### 4.2 `src/agent/parkOnUsageLimit.ts` — новая функция
 
 ```ts
-ctx.fns.agent.parkOnUsageLimit({ agent, info /* результат classifyError */ })
+ctx.fns.agent.parkOnUsageLimit({ info /* результат classifyError */, originAgentId?, fallbackMs?, now? })
 ```
 
 Делает ровно четыре вещи:
@@ -192,16 +191,18 @@ ctx.fns.agent.parkOnUsageLimit({ agent, info /* результат classifyError
    parked = {
      reason: 'usage_limit',
      provider: 'codex',
+     account: 'default',
      model: 'codex:gpt-5.6-sol',
      planType: 'prolite',
      resetsAt: 1787219899000,
+     wakeAt: 1787219999000,       // resetsAt + джиттер
+     wakeJobId: 'job_…',          // задача jobs.schedule({ runner: "at" })
      parkedAt: Date.now(),
-     previousWake: { at, reason } | null,
      message: 'Лимит подписки codex (prolite) исчерпан',
    }
    ```
 
-3. ставит `wake_at` с джиттером и гасит `next_run_at`, `last_error`;
+3. планирует wake-задачу (`jobs.schedule`, `runner: "at"`) с джиттером и гасит `next_run_at`, `last_error`;
 4. эмитит **один** тост (`ui.notify`) и по одному событию `parked` в транскрипт
    каждого агента (через `session.appendEvent`, рендерится карточкой
    `ui.chatEventCard`).
@@ -211,12 +212,12 @@ ctx.fns.agent.parkOnUsageLimit({ agent, info /* результат classifyError
 ### 4.3 `src/agent/unpark.ts` — новая функция
 
 ```ts
-ctx.fns.agent.unpark({ id, reason: 'model-switch' | 'manual' | 'wake' })
+ctx.fns.agent.unpark({ id, reason?: 'model-switch' | 'manual' | 'wake', resume?, now? })
 ```
 
-Снимает `scratchpad.parked`, восстанавливает `previousWake`, ставит
+Снимает `scratchpad.parked`, отменяет ещё не сработавшую wake-задачу, ставит
 `next_run_at = now`, если у агента есть непрочитанные сообщения. Вызывается из
-`setModel`, из кнопки «Wake now» и (для чистки метки) из `deliverWakes`.
+`setModel`, из кнопки «Wake now» и (для чистки метки) из `jobs.tickSchedule`, когда срабатывает wake-задача.
 
 ### 4.4 `src/agent/setModel.ts` + `src/agent/$route_$id_model_POST.ts` — новое
 
@@ -247,7 +248,7 @@ ctx.fns.agent.setModel({ id, model: 'kimi-coding:k3' })
 | `src/agent/workerLoop.ts` | вместо регекспа «transient» — `classifyError`; `usage_limit` → `parkOnUsageLimit`, без авто-ретрая |
 | `src/agent/renderStatusBar.ts` | новая ветка перед `last_error`: если `scratchpad.parked` — жёлтый бейдж `parked · codex limit · resets Thu 10:58` |
 | `src/ui/agentMetaPanel.ts` | секция Wake-up получает блок парковки с тремя действиями |
-| `src/agent/deliverWakes.ts` | при доставке снимает `scratchpad.parked` |
+| `src/jobs/tickSchedule.ts` | при срабатывании парковочной wake-задачи снимает `scratchpad.parked` (`agent.unpark`) |
 
 ## 5. UI
 
@@ -402,7 +403,7 @@ kimi-coding:k3».
 }
 ```
 
-Пишется одной функцией `llm.recordUsage({ provider, accountId, headers, streamEvent })`,
+Пишется одной функцией `llm.recordUsage({ provider, account?, headers?, rateLimits?, spent?, resetsAt?, planType?, now? })`,
 вызываемой из `streamAnthropic` / `streamCodex` после успешного ответа —
 и, дополнительно, из `classifyError`, когда прилетел 429 (тогда
 `usedPercent = 100`, `resetsAt` из тела ошибки).

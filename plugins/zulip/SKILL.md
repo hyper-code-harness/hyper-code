@@ -1,21 +1,17 @@
 ---
 name: zulip
-description: "Live Zulip REST API client for configured instances — list channels, topics and users; read and search messages and DMs; optionally send, edit and mark messages read. Use for Zulip streams, channels, topics, direct messages, full-text search, chat.fhir.org and Health Samurai chat. Credentials stay in 1Password."
+description: "Live Zulip REST API client for configured instances — list channels, topics and users; read and search messages and DMs; optionally send, edit and mark messages read. Use for Zulip streams, channels, topics, direct messages, full-text search, chat.fhir.org and Health Samurai chat. Credentials stay in encrypted local secret storage."
 ---
 
 # zulip
 
-Live client over the Zulip REST API. It does not mirror messages into Postgres. Credentials are read lazily from 1Password Secure Notes in vault `hyper`; the expected item title is `zulip <instance>.json` and its concealed `value` field contains:
+Live client over the Zulip REST API. It does not mirror messages into Postgres. Credentials live in Hyper's encrypted local secret storage (namespace `zulip`): one record per instance (`instance:<name>`, holding url, email and API key) plus the list of instance names (`instances`). To connect an account, open the form — `ctx.fns.input.request({ kind: "zulip-account", title: "Connect Zulip" })` — never ask for the key in chat. 1Password (vault `hyper`, items `zulip <instance>.json`) is only a one-time bootstrap when the local list is empty, or on `zulip.creds({ refresh: true })`.
 
-```json
-{ "name": "fhir", "url": "https://chat.fhir.org", "email": "…", "apiKey": "…" }
-```
-
-The credentials never appear in function results. The configured instances are currently `connect`, `fhir`, and `hs`; pass `instance` explicitly unless `ZULIP_INSTANCE` is set.
+The credentials never appear in function results. List the configured instances with `zulip.creds({})`; pass `instance` explicitly unless `ZULIP_INSTANCE` is set.
 
 ## Read functions
 
-- `zulip.creds({ list: true })` — list configured instance names only.
+- `zulip.creds({ refresh? })` — configured instance names only; `refresh: true` re-reads them from 1Password.
 - `zulip.channels({ instance? })` — channels/streams.
 - `zulip.topics({ channel, instance? })` — topics in a channel.
 - `zulip.messages({ channel?, topic?, sender?, mentions?, query?, unread?, limit?, instance? })` — read or full-text-search messages.

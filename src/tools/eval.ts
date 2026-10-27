@@ -32,7 +32,7 @@ export default async function (
     const typecheck = await ctx.fns.settings.get({ module: "repl", scopeType: "global", key: "typecheckEval" });
     if (typecheck !== false) {
         const checked = await ctx.fns.procs.repl.typecheck({ code: opts.code, bindings: { agent: agent ?? {} } });
-        if (!checked.ok) throw new TypeError(`eval: typecheck failed:\n${checked.errors.map((e: string) => `  ${e}`).join("\n")}`);
+        if (!checked.ok) throw new TypeError(ctx.fns.procs.repl.typecheckError({ code: opts.code, errors: checked.errors }));
     }
     const js = ctx.fns.procs.repl.compile({ code: opts.code });
     const port = (ctx.state as any).procs?.http?.server?.port;

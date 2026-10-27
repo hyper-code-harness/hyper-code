@@ -1,20 +1,18 @@
 ---
 name: google
-description: "Google account toolkit for the uniskill runtime — one OAuth broker plus Gmail, Google Calendar, Docs/Drive, Sheets, Tasks and Workspace Admin Directory, with browser-driven Google web + Flights search. Use when the user asks about reading or sending email, their calendar/events/meetings, Google Docs or Drive files, spreadsheets, to-do tasks, company users/groups/org chart, or a Google web/flight search. Keywords: gmail, email, inbox, send mail, drafts, labels, filters, unsubscribe, google calendar, gcal, events, meetings, invites, rsvp, free/busy, google docs, gdoc, google drive, google sheets, gsheets, spreadsheet, google tasks, gtasks, to-do, workspace admin, directory, company users, groups, org chart, oauth, google login, google search, google flights."
+description: "Google account toolkit — one OAuth broker plus Gmail, Google Calendar, Docs/Drive, Sheets, Tasks and Workspace Admin Directory. Use when the user asks about reading or sending email, their calendar/events/meetings, Google Docs or Drive files, spreadsheets, to-do tasks, company users/groups/org chart. Keywords: gmail, email, inbox, send mail, drafts, labels, filters, unsubscribe, google calendar, gcal, events, meetings, invites, rsvp, free/busy, google docs, gdoc, google drive, google sheets, gsheets, spreadsheet, google tasks, gtasks, to-do, workspace admin, directory, company users, groups, org chart, oauth, google login."
 ---
 
 # google
 
-A container of Google APIs mounted into `~/uniskill`, all sharing **one unified OAuth token per account** (`.secrets/google/token-<account>.json`, every scope granted at once). Namespaces: **`google`** (token broker + browser-driven web/flight search), **`gmail`**, **`gcal`** (Calendar), **`gdoc`** (Docs + Drive), **`gsheets`** (Sheets), **`gtasks`** (Tasks), **`gworkspace`** (Admin Directory). Every API namespace authenticates through `google.token`; the OAuth consent flow and the search/flights scrapers drive the user's live Chrome via `ctx.fns.browser.*`. Only route is a self-rendering `GET /google/SKILL.md`. All fns take an optional `account?` (falls back to `GOOGLE_ACCOUNT` env, or the sole authorized account).
+A container of Google APIs sharing **one unified OAuth token per account** (every scope granted at once), stored encrypted in local secrets (`secrets` namespace `google`, name `token:<account>`; the OAuth client and account list are bootstrapped once from 1Password `op://hyper/google/*`). Namespaces: **`google`** (token broker), **`gmail`**, **`gcal`** (Calendar), **`gdoc`** (Docs + Drive), **`gsheets`** (Sheets), **`gtasks`** (Tasks), **`gworkspace`** (Admin Directory). Every API namespace authenticates through `google.token`; the OAuth consent flow drives the user's live Chrome via `ctx.fns.browser.*`. Only route is a self-rendering `GET /google/SKILL.md`. All fns take an optional `account?` (falls back to `GOOGLE_ACCOUNT` env, or the sole authorized account).
 
 ## Functions
 
-**google — auth broker + search**
-- `google.accounts({})` — list authorized Google accounts (token files in `.secrets/google`)
+**google — auth broker**
+- `google.accounts({})` — list authorized Google accounts (from the encrypted local secrets)
 - `google.token({ account? })` — unified access token for all Google APIs; refreshes when expired, caches in state
-- `google.reauth({ account })` — one OAuth flow granting every scope into a single token, auto-driving Chrome consent (WRITE: writes token file)
-- `google.search({ query, count?, site?, hl? })` — Google web search → `[{ title, url, snippet }]`, scraped via the logged-in Chrome
-- `google.flights({ from, to, date, returnDate?, currency?, limit? })` — Google Flights search, parses the embedded data blob → offers sorted by price
+- `google.reauth({ account })` — one OAuth flow granting every scope into a single token, auto-driving Chrome consent (WRITE: saves the token to encrypted local secrets)
 
 **gmail — mail, labels, filters**
 - `gmail.list({ query, max? })` — list messages by Gmail search query (metadata, batched)
@@ -88,7 +86,7 @@ hyper repl 'await ctx.fns.gmail.list({ query: "is:unread", max: 5 })'
 
 Mined from real session history (most-used first). **Known accounts** (pass as `account:`; omit → first): `niquola@health-samurai.io`, `niquola@gmail.com`.
 
-- `gmail.accounts({})` ·63 — list the connected Google accounts (start here if unsure which mailbox).
+- `google.accounts({})` ·63 — list the connected Google accounts (start here if unsure which mailbox).
 - `gmail.list({ query, max, account? })` ·60+ — search a mailbox; `query` is Gmail search syntax. Real queries used: `"is:unread"`, `"from:github.com newer_than:1d"`, `"(from:state.gov OR from:usvisa-info.com)"`.
 - `gmail.get({ id, account })` ·45 — read one message in full (headers + body + parts).
 - `gmail.api({ path, method?, body?, account? })` ·40+ — raw Gmail REST; common `path`: `"/labels"`, `"/profile"`, `"/settings/filters"`, `"/threads/<id>?format=full"`.

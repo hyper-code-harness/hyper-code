@@ -307,5 +307,17 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         return '';
     }
 
+    if (ev.type === "turn") {
+        // The turn's total under its answer: overall time, calls, failures. A quick reply without tools says nothing.
+        const ms = Number(ev.durationMs ?? 0);
+        const tools = Number(ev.tools ?? 0);
+        if (tools === 0 && ms < 5000 && ev.outcome === 'ok') return '';
+        const s = Math.round(ms / 1000);
+        const time = s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s` : `${Math.floor(s / 3600)}h ${Math.floor(s / 60) % 60}m`;
+        const think = Math.round(Number(ev.thinkMs ?? 0) / 1000);
+        const parts = [time, tools ? `${tools} tool call${tools === 1 ? '' : 's'}` : '', Number(ev.errors) ? `${Number(ev.errors)} failed` : '', ev.outcome === 'stopped' ? 'stopped' : ev.outcome === 'error' ? 'error' : ''].filter(Boolean);
+        return `<div class="chat-turn w-time" title="turn ${esc(time)}${think ? ` · model ${think}s` : ''}">${ctx.fns.w.icon({ name: 'timer', size: 12 })} ${esc(parts.join(' · '))}</div>`;
+    }
+
     return '';
 }

@@ -23,6 +23,8 @@ export default async function (
     },
 ): Promise<string> {
     const { events, agentId } = opts;
+    // The turn in progress: its start feeds the live row's overall clock and its thinking cell.
+    const turnSince = opts.live ? Number((ctx.state as any).agent?.[agentId]?.runStartedAt ?? 0) || undefined : undefined;
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
 
     // A run of tool calls is one row drawn on the server: consecutive tool_call events (a job event draws
@@ -59,12 +61,12 @@ export default async function (
     // running call it may still show.
     // With no new events at all it is still the last run, and the running call (started or ended) is redrawn in it.
     const closePrev = continueRun.length && parts[0]?.kind !== "tools"
-        ? ctx.fns.agent.renderToolRun({ agentId, events: continueRun, oob: true, running: !!opts.live && parts.length === 0 })
+        ? ctx.fns.agent.renderToolRun({ agentId, events: continueRun, oob: true, running: !!opts.live && parts.length === 0, turnSince })
         : "";
     // The running call has no row to join when the transcript ends in something else (text, a note): it gets
     // a row of its own, id tools-live, which the next live render replaces.
     const endsInRun = parts.length ? parts[parts.length - 1]!.kind === "tools" : continueRun.length > 0;
-    const liveRow = opts.live && !endsInRun ? ctx.fns.agent.renderToolRun({ agentId, events: [], running: true }) : "";
+    const liveRow = opts.live && !endsInRun ? ctx.fns.agent.renderToolRun({ agentId, events: [], running: true, turnSince }) : "";
     return closePrev + (await Promise.all(parts.map(async (part, i) => {
         if (part.kind === "event") {
             try {
@@ -77,7 +79,7 @@ export default async function (
             const first = i === 0 && continueRun.length > 0;
             const last = i === parts.length - 1;
             const run = [...(first ? continueRun : []), ...part.events, ...(last ? joinRun : [])];
-            const row = ctx.fns.agent.renderToolRun({ agentId, events: run, running: last && !!opts.live, oob: first });
+            const row = ctx.fns.agent.renderToolRun({ agentId, events: run, running: last && !!opts.live, oob: first, turnSince });
             const drop = last && joinRun.length && Number(joinRun[0].idx) !== Number(run[0].idx)
                 ? `<div id="tools-${Number(joinRun[0].idx)}" hx-swap-oob="delete"></div>`
                 : "";

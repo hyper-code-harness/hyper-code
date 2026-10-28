@@ -137,6 +137,7 @@ export default async function (
         const onRunAbort = () => sampling.abort(ac.signal.reason ?? "run_aborted");
         ac.signal.addEventListener("abort", onRunAbort, { once: true });
         let streamed: any;
+        const sampledFrom = Date.now();
         try {
             streamed = await ctx.fns.llm.stream({
                 agent,
@@ -163,6 +164,8 @@ export default async function (
             ac.signal.removeEventListener("abort", onRunAbort);
         }
         const { text, usage, finishReason, toolCalls = [] } = streamed;
+        // How long the model took for this reply: the chat draws it as a "thinking" cell before the reply's first call.
+        const thinkMs = Date.now() - sampledFrom;
         delete agent.scratchpad.mobileStream;
         const prose = String(text ?? '');
         delete agent.scratchpad.activeGoalFeedback;
@@ -325,6 +328,7 @@ export default async function (
                 name: call.name, args: call.args, result: output, result_ref,
                 isError: r.isError,
                 messageIdx: append.idx,
+                ...(call === toolCalls[0] ? { thinkMs } : {}),
             } });
 
             await ctx.fns.session.updateMessageContent({

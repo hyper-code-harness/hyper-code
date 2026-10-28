@@ -20,6 +20,8 @@ export type Agent = {
     subscribers: Set<(ev: any, signal?: AbortSignal) => void>;
     waiters: Array<() => void>;
     isStreaming: boolean;
+    /** When the worker's current run (turn) started, ms since epoch; null/undefined when idle. Drives the chat's turn clock. */
+    runStartedAt?: number | null;
     abortController: AbortController | null;
     /** Cancels only the current provider sampling request when new user input arrives. */
     samplingAbortController?: AbortController | null;

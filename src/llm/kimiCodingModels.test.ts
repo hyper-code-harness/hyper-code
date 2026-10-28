@@ -69,7 +69,8 @@ test("outer SWR retains other provider behaviour and avoids repeated discovery",
     f.ctx.fns.llm.resolveEndpoint = async () => ({ apiKey: "key" });
     f.ctx.fns.llm.kimiCodingModels = async () => { discoveries++; return ["kimi-coding:k3.1-pro"]; };
     f.ctx.fns.settings = { getString: async () => null };
-    f.ctx.fns.llm.accounts = async () => [];
+    // Subscription groups follow llm.listAccounts: one Kimi Coding default login.
+    f.ctx.fns.llm.listAccounts = async () => [{ provider: "kimi-coding", account: "default", source: "file", needsReconnect: false }];
     f.mock(async () => Response.json({ data: [] }));
     const a = await list(f.ctx, null, { skipNodes: true });
     const b = await list(f.ctx, null, { skipNodes: true });

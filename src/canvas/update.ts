@@ -49,6 +49,7 @@ export default async function (
                     if (!own.length) throw new Error(`canvas.update: tab ${active} is not on ${opts.agentId}'s canvas`);
                 }
                 sets.push("active_item_id = ?"); params.push(active);
+                if (active !== null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET shown_at = ? WHERE id = ?", params: [Date.now(), active] });
             }
             // Only the given fields change, so a width save never undoes a tab switch made meanwhile.
             if (sets.length) await ctx.fns.procs.db.run({ sql: `UPDATE canvas_state SET ${sets.join(", ")}, updated_at = ? WHERE agent_id = ?`, params: [...params, Date.now(), opts.agentId] });

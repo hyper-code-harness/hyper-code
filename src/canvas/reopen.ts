@@ -22,6 +22,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const now = Date.now();
             if (row.closed_at != null) await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET closed_at = NULL, updated_at = ?, position = (SELECT COALESCE(MIN(position), 1) - 1 FROM canvas_items WHERE agent_id = ? AND closed_at IS NULL) WHERE id = ?", params: [now, agentId, itemId] });
             await ctx.fns.procs.db.run({ sql: "UPDATE canvas_state SET open = true, active_item_id = ?, updated_at = ? WHERE agent_id = ?", params: [itemId, now, agentId] });
+            await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET shown_at = ? WHERE id = ?", params: [now, itemId] });
             return null;
         },
     });

@@ -2,7 +2,9 @@
 // { op?: "toggleChat", open?: boolean, chatWidth?: number, chatCollapsed?: boolean, activeItemId?: number, closeItemId?: number, reopenItemId?: number,
 // show?: { kind: "file" | "url", args }, navigate?: { itemId, url } | { itemId, file: { path, host?, tab? } } } — show opens a link clicked in the
 // chat as a tab, navigate points a url tab at another address (its address bar) or a file tab at another file. Answers the
-// resulting state with the panel fingerprint (rev).
+// resulting state with the panel fingerprint (rev). pin: { itemId, pinned } pins or unpins a tab (canvas.pin); move:
+// { itemId, before?, pinned? } puts it in front of another tab or at the end (canvas.move, drag and drop in canvas.js);
+// tabOp + itemId is a tab's right-click menu (pin, unpin, close, closeOthers, closeRight).
 /** Changes an agent's canvas state from the browser (canvas.update). */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }): Promise<Response> {
     const agentId = String(opts.params.id ?? "");
@@ -20,6 +22,25 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         if (form?.has("activeItemId")) body.activeItemId = String(form.get("activeItemId"));
         if (form?.has("closeItemId")) body.closeItemId = String(form.get("closeItemId"));
         if (form?.has("reopenItemId")) body.reopenItemId = String(form.get("reopenItemId"));
+        if (form?.has("tabOp")) { body.tabOp = String(form.get("tabOp")); body.itemId = String(form.get("itemId") ?? ""); }
+    }
+    // A tab's right-click menu (panelHtml): { tabOp: pin | unpin | close | closeOthers | closeRight, itemId }.
+    // closeOthers and closeRight leave pinned tabs open, as Chrome does.
+    if (body.tabOp) {
+        const itemId = Number(body.itemId);
+        if (!Number.isInteger(itemId)) return new Response("invalid item id", { status: 400 });
+        try {
+            if (body.tabOp === "pin" || body.tabOp === "unpin") await ctx.fns.canvas.pin({ agentId, itemId, pinned: body.tabOp === "pin" });
+            else if (body.tabOp === "close") await ctx.fns.canvas.close({ agentId, itemId });
+            else if (body.tabOp === "closeOthers" || body.tabOp === "closeRight") {
+                const items = await ctx.fns.canvas.list({ agentId });
+                const at = items.findIndex(i => i.id === itemId);
+                if (at < 0) return new Response(`no open tab ${itemId}`, { status: 404 });
+                if (!items[at]!.active) await ctx.fns.canvas.update({ agentId, activeItemId: itemId });
+                for (const other of items.filter((o, i) => !o.pinned && o.id !== itemId && (body.tabOp === "closeOthers" || i > at))) await ctx.fns.canvas.close({ agentId, itemId: other.id });
+            } else return new Response(`unknown tabOp ${body.tabOp}`, { status: 400 });
+        } catch (error: any) { return new Response(String(error?.message ?? error), { status: 404 }); }
+        if (opts.req.headers.get("hx-request") === "true") return new Response(null, { status: 204 });
     }
     const closeItemId = body.closeItemId == null || body.closeItemId === "" ? undefined : Number(body.closeItemId);
     const activeItemId = body.activeItemId == null || body.activeItemId === "" ? undefined : Number(body.activeItemId);
@@ -27,6 +48,16 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const reopenItemId = body.reopenItemId == null || body.reopenItemId === "" ? undefined : Number(body.reopenItemId);
     if (reopenItemId !== undefined && !Number.isInteger(reopenItemId)) return new Response("invalid item id", { status: 400 });
     if (closeItemId !== undefined) await ctx.fns.canvas.close({ agentId, itemId: closeItemId });
+    if (body.pin && typeof body.pin === "object") {
+        try { await ctx.fns.canvas.pin({ agentId, itemId: Number(body.pin.itemId), pinned: body.pin.pinned !== false }); }
+        catch (error: any) { return new Response(String(error?.message ?? error), { status: 404 }); }
+    }
+    if (body.move && typeof body.move === "object") {
+        const before = body.move.before == null || body.move.before === "" ? null : Number(body.move.before);
+        if (!Number.isInteger(Number(body.move.itemId)) || (before !== null && !Number.isInteger(before))) return new Response("invalid item id", { status: 400 });
+        try { await ctx.fns.canvas.move({ agentId, itemId: Number(body.move.itemId), before, ...(typeof body.move.pinned === "boolean" ? { pinned: body.move.pinned } : {}) }); }
+        catch (error: any) { return new Response(String(error?.message ?? error), { status: 404 }); }
+    }
     if (reopenItemId !== undefined) {
         try { await ctx.fns.canvas.reopen({ agentId, itemId: reopenItemId }); }
         catch (error: any) { return new Response(String(error?.message ?? error), { status: 404 }); }

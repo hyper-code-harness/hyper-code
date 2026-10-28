@@ -75,6 +75,8 @@ to their topics.
 `@view`, `@canvas` and `@live` are function tags declared by `$tag_` files; every view can be found with
 `runtime.docs.search({ tag: "view", query })` — see [function-tags.md](function-tags.md).
 
+Tab order, pinning, drag and drop and the tidying of a long strip: [canvas-tabs.md](canvas-tabs.md).
+
 ## Pieces
 
 | piece | file | what |

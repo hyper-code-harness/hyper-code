@@ -36,13 +36,19 @@ export default async function (
     const rev = await ctx.fns.canvas.revision({ agentId: opts.agentId });
 
     // Tabs: macOS Finder-style equal segments (w.tabs). canvas.js selects and closes them by these hooks.
+    // Pinned tabs come first (canvas.list orders them), drawn as their icon; every tab can be dragged (canvas.js
+    // posts { move } on drop, canvas.move pins or unpins by where it lands).
     const tabs = w.tabs({
         active: active ? String(active.id) : undefined,
+        draggable: items.length > 1,
         items: items.map(item => ({
             id: String(item.id),
             label: item.title,
-            icon: iconOf(item),
-            title: `${item.title} · opened ${stamp(item.createdAt)}`,
+            // A label is enough: the kind's generic icon (the same for every page) only takes room. A pinned tab
+            // shows two letters of its title (w.tabs); a tab with an icon of its own (args.icon) keeps it.
+            icon: typeof item.args.icon === "string" ? item.args.icon : undefined,
+            pinned: item.pinned,
+            title: `${item.title}${item.pinned ? " · pinned" : ""} · opened ${stamp(item.createdAt)}`,
             action: { action: "select-canvas-tab" },
             attrs: { "data-canvas-tab": item.id },
             close: { action: "close-canvas-tab" },
@@ -71,8 +77,28 @@ export default async function (
     const foldChat = w.iconButton({ icon: "arrows-out-simple", label: "Canvas on the whole page — ⌘\\", size: 28, marks: { action: "fold-chat" },
         action: { post: openUrl, vals: { op: "toggleChat" } }, attrs: { "data-canvas-chat-toggle": true, "hx-disabled-elt": "this" } });
     const reload = active ? w.iconButton({ icon: "arrow-clockwise", label: "Reload tab", size: 28, marks: { action: "reload-canvas-tab" }, attrs: { "data-canvas-reload": true } }) : "";
+    // Right-click on a tab, as in Chrome: pin or unpin, close it, close the others, close the ones to its right
+    // (pinned tabs stay with the last two). One w.menu per tab (ui/hotkeys.js opens it at the pointer); each item
+    // is a plain htmx post and every page of the chat follows canvas.changed.
+    const tabMenus = items.map((item, i) => {
+        const op = (tabOp: string) => ({ post: openUrl, vals: { tabOp, itemId: item.id } });
+        const others = items.some(o => o.id !== item.id && !o.pinned);
+        const right = items.slice(i + 1).some(o => !o.pinned);
+        return w.menu({
+            id: `canvas-tab-menu-${item.id}`,
+            label: `${item.title} — tab actions`,
+            contextOf: `[data-canvas-header] .w-tab:has(> [data-canvas-tab="${item.id}"])`,
+            items: [
+                { label: item.pinned ? "Unpin" : "Pin", icon: item.pinned ? "push-pin-slash" : "push-pin", action: op(item.pinned ? "unpin" : "pin") },
+                "-",
+                { label: "Close", icon: "x", action: op("close") },
+                ...(others ? [{ label: "Close other tabs", action: op("closeOthers") }] : []),
+                ...(right ? [{ label: "Close tabs to the right", action: op("closeRight") }] : []),
+            ],
+        });
+    }).join("");
     const close = w.iconButton({ icon: "x", label: "Close canvas", size: 28, marks: { action: "close-canvas" }, attrs: { "data-canvas-toggle": "close" } });
-    const header = w.paneHeader({ center: tabs, actions: history + foldChat + reload + close, attrs: { "data-canvas-header": true } });
+    const header = w.paneHeader({ center: tabs, actions: history + foldChat + reload + close + tabMenus, attrs: { "data-canvas-header": true } });
 
     let body: string;
     if (!active) {

@@ -67,18 +67,22 @@ describe("agent.renderEventsHtml", () => {
         expect(idle).not.toContain("data-running");
     });
 
-    // The turn line: a "thinking" cell for the model's time before a call, a glowing one while nothing runs yet,
-    // and the turn's overall clock at the end of the live row.
-    test("thinking cells and the turn clock", async () => {
+    // Time comes from the turn events: the nearest turn above a row. Open → the live row ticks from its start;
+    // closed → its last row ends in the whole turn's time, in grey.
+    test("thinking cells and the turn clock come from the turn event", async () => {
         const ctx: any = await mkTestCtx();
         ctx.state.registry.agent.renderEventHtml = (_c: any, _s: any, opts: any) => `<p>event ${opts.event.idx}</p>`;
         ctx.state.registry.tools.runs = () => [];
         const db = ctx.state.registry.procs.db.select;
-        let started: number | null = 7000;
-        ctx.state.registry.procs.db.select = async (c: any, s: any, o: any) => /run_started_at FROM agents/.test(o.sql) ? (started ? [{ run_started_at: started }] : []) : db(c, s, o);
+        let running = true;
+        let turn: any = { type: "turn", startedAt: 7000, idx: 1 };
+        ctx.state.registry.procs.db.select = async (c: any, s: any, o: any) =>
+            /type = 'turn'/.test(o.sql) ? (turn.idx < o.params[1] ? [{ idx: turn.idx, payload: JSON.stringify(turn) }] : [])
+            : /run_state = 'running'/.test(o.sql) ? (running ? [{ "?column?": 1 }] : [])
+            : db(c, s, o);
 
         // The turn just started: no call yet — an empty row with one glowing brain and the overall clock.
-        const start = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "user", idx: 1 }], live: true });
+        const start = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "user", idx: 0 }, turn], live: true });
         expect(start).toContain('id="tools-live"');
         expect(start).toMatch(/class="w-tool" data-running title="thinking"/);
         expect(start).toContain('class="w-timer" data-since="7000"');
@@ -90,14 +94,20 @@ describe("agent.renderEventsHtml", () => {
         expect(row.match(/title="thought/g)!.length).toBe(1);
         expect(row).toContain('data-since="7000"');
 
-        // The turn is over: no clock, no glowing cell, and the turn event draws the total.
-        started = null;
-        const done = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2, 3000)], live: true });
+        // The turn is over: no clock, no glowing cell; its last row (lastToolIdx) ends in the whole turn's time.
+        running = false;
+        turn = { ...turn, endedAt: 79_000, tools: 2, lastToolIdx: 3 };
+        const done = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2, 3000), call(3), { type: "assistant", idx: 4 }], live: true });
         expect(done).not.toContain("data-running");
         expect(done).not.toContain("w-timer");
-        // A finished row keeps the turn's time up to its last call.
-        const kept = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ ...call(2, 3000), turnStart: 1000, ts: 73_000 }], live: true });
-        expect(kept).toContain('<span class="w-time">1m 12s</span>');
+        expect(done).toContain('<span class="w-time">1m 12s</span>');
+
+        // A message sent mid-run opens a new turn: the rows after it count from that turn, not the first one.
+        running = true;
+        const next = { type: "turn", startedAt: 50_000, idx: 5 };
+        const steered = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2), call(3), { type: "user", idx: 4 }, next, call(6)], live: true });
+        expect(steered).toContain('data-since="50000"');
+        expect(steered).not.toContain('data-since="7000"');
         delete ctx.state.registry.agent.renderEventHtml;
     });
 });

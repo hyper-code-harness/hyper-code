@@ -115,21 +115,6 @@ async function claimOne(ctx: Context, now: number): Promise<{ id: string; token:
     return claimed.length === 0 ? null : { id: claimed[0]!.id as string, token };
 }
 
-// The turn event: duration, tool calls and failures counted from this run's own tool_call events.
-async function appendTurnEvent(ctx: Context, agentId: string, startedAt: number, endedAt: number, outcome: 'ok' | 'error' | 'stopped'): Promise<void> {
-    const row = ((await ctx.fns.procs.db.select({
-        sql: `SELECT count(*)::int AS tools,
-                     count(*) FILTER (WHERE payload::jsonb->>'isError' = 'true')::int AS errors,
-                     COALESCE(sum((payload::jsonb->>'thinkMs')::bigint), 0)::bigint AS think
-                FROM events WHERE agent_id = ? AND type = 'tool_call' AND ts >= ?`,
-        params: [agentId, startedAt],
-    })) as any[])[0] ?? {};
-    await ctx.fns.session.appendEvent({ id: agentId, event: {
-        type: 'turn', startedAt, durationMs: Math.max(0, endedAt - startedAt),
-        tools: Number(row.tools ?? 0), errors: Number(row.errors ?? 0), thinkMs: Number(row.think ?? 0), outcome,
-    }, ts: endedAt });
-}
-
 // Run one agent end-to-end. Mirrors what the old single-agent loop body did:
 // frontier snapshot → run() → finally: advance cursor / reschedule / mark idle.
 async function runOne(ctx: Context, agentId: string, runToken: string): Promise<void> {
@@ -155,10 +140,6 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
 
     agent.isStreaming = true;
     agent.currentJobId = runToken;
-    // The turn clock: the chat draws a "thinking" cell and the overall time from here until the turn event below.
-    const turnStartedAt = Date.now();
-    agent.runStartedAt = turnStartedAt;
-    ctx.fns.procs.events.refresh({ topic: `agent:${agentId}`, reason: "run-start" });
     let heartbeatBusy = false;
     const heartbeat = async () => {
         if (heartbeatBusy) return;
@@ -305,10 +286,7 @@ async function runOne(ctx: Context, agentId: string, runToken: string): Promise<
             agent.samplingAbortController = null;
             agent.abortController = null;
             agent.isStreaming = false;
-            agent.runStartedAt = null;
         }
-        // One durable line per turn: how long it took and what it did. The chat draws it as the turn's total.
-        try { await appendTurnEvent(ctx, agentId, turnStartedAt, ts, aborted ? 'stopped' : errorText ? 'error' : 'ok'); } catch {}
         try { await ctx.fns.session.syncAgentState({ agent }); } catch {}
 
         // If the agent left finalize with a schedule (pending work or a

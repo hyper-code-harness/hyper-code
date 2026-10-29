@@ -223,14 +223,7 @@ describe("agent.renderEventHtml — errors", () => {
 });
 
 describe("agent.renderEventHtml — turn", () => {
-    test("a turn event draws its total only when the tool row does not: a stop, an error, a long answer without tools", async () => {
-        const html = await renderEventHtml(ctx, { type: "turn", durationMs: 72_000, tools: 14, errors: 1, thinkMs: 30_000, outcome: "stopped", idx: 9 });
-        expect(html).toContain("1m 12s · 14 tool calls · 1 failed · stopped");
-        expect(html).toContain("model 30s");
-        // The tool row already shows the time of an ordinary turn with tools.
-        expect(await renderEventHtml(ctx, { type: "turn", durationMs: 72_000, tools: 14, outcome: "ok", idx: 12 })).toBe("");
-        expect(await renderEventHtml(ctx, { type: "turn", durationMs: 9_000, tools: 0, outcome: "ok", idx: 13 })).toContain("9s");
-        expect(await renderEventHtml(ctx, { type: "turn", durationMs: 2000, tools: 0, outcome: "ok", idx: 10 })).toBe("");
-        expect(await renderEventHtml(ctx, { type: "turn", durationMs: 2000, tools: 0, outcome: "stopped", idx: 11 })).toContain("stopped");
+    test("a turn event draws nothing itself: the tool rows show its time", async () => {
+        expect(await renderEventHtml(ctx, { type: "turn", startedAt: 1, endedAt: 72_001, tools: 14, outcome: "ok", idx: 9 })).toBe("");
     });
 });

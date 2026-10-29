@@ -23,11 +23,6 @@ export default async function (
     },
 ): Promise<string> {
     const { events, agentId } = opts;
-    // The turn in progress: its start feeds the live row's overall clock and its thinking cell.
-    // Read from the agents row (run_started_at, set by the worker's claim) — the durable source, right after a reload too.
-    const turnSince = opts.live
-        ? Number(((await ctx.fns.procs.db.select({ sql: "SELECT run_started_at FROM agents WHERE id = ? AND run_state = 'running'", params: [agentId] })) as any[])[0]?.run_started_at ?? 0) || undefined
-        : undefined;
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
 
     // A run of tool calls is one row drawn on the server: consecutive tool_call events (a job event draws
@@ -44,6 +39,31 @@ export default async function (
     }
     const continueRun = opts.continueRun ?? [];
     const joinRun = opts.joinRun ?? [];
+
+    // Time comes from the `turn` events agent.run writes (one per answer, start then end). Each row takes the
+    // nearest turn above it: an open turn ticks from its start on the live row, a closed one draws its whole time
+    // after its last row (the one holding turn.lastToolIdx).
+    const hasRows = continueRun.length > 0 || parts.some(p => p.kind === "tools") || !!opts.live;
+    const firstIdx = Number(continueRun[0]?.idx ?? events.find(e => e?.idx != null)?.idx ?? Number.MAX_SAFE_INTEGER);
+    const turnRows = hasRows ? ((await ctx.fns.procs.db.select({
+        sql: "SELECT idx, payload FROM events WHERE agent_id = ? AND type = 'turn' AND idx < ? ORDER BY idx DESC LIMIT 2",
+        params: [agentId, opts.live ? 2_147_483_647 : Math.min(firstIdx, 2_147_483_647)],
+    })) as any[]).map(r => ({ ...(typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload), idx: Number(r.idx) })) : [];
+    const before = turnRows.find(t => t.idx < firstIdx);
+    const running = opts.live
+        && (!!(ctx.state as any).agent?.[agentId]?.isStreaming
+            || ((await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM agents WHERE id = ? AND run_state = 'running'", params: [agentId] })) as any[]).length > 0);
+    const since = (turn: any) => running && turn && !turn.endedAt && turn.durationMs == null ? Number(turn.startedAt) || undefined : undefined;
+    const doneMs = (turn: any, run: any[]) => turn?.endedAt && run.some(e => Number(e?.idx) === Number(turn.lastToolIdx))
+        ? Math.max(0, Number(turn.endedAt) - Number(turn.startedAt))
+        : undefined;
+    const rowTurn = new Map<number, any>();
+    let cur = before;
+    parts.forEach((part, i) => {
+        if (part.kind === "event" && part.event?.type === "turn") cur = part.event;
+        else if (part.kind === "tools") rowTurn.set(i, cur);
+    });
+    const latest = turnRows[0];
 
     // Always render, never serve a cached bubble: an event is data, and the
     // markup is a view of it that may change between two page loads (a tool
@@ -64,12 +84,22 @@ export default async function (
     // running call it may still show.
     // With no new events at all it is still the last run, and the running call (started or ended) is redrawn in it.
     const closePrev = continueRun.length && parts[0]?.kind !== "tools"
-        ? ctx.fns.agent.renderToolRun({ agentId, events: continueRun, oob: true, running: !!opts.live && parts.length === 0, turnSince })
+        ? ctx.fns.agent.renderToolRun({ agentId, events: continueRun, oob: true, running: !!opts.live && parts.length === 0, turnSince: since(before), elapsedMs: doneMs(before, continueRun) })
         : "";
     // The running call has no row to join when the transcript ends in something else (text, a note): it gets
     // a row of its own, id tools-live, which the next live render replaces.
     const endsInRun = parts.length ? parts[parts.length - 1]!.kind === "tools" : continueRun.length > 0;
-    const liveRow = opts.live && !endsInRun ? ctx.fns.agent.renderToolRun({ agentId, events: [], running: true, turnSince }) : "";
+    const liveRow = opts.live && !endsInRun ? ctx.fns.agent.renderToolRun({ agentId, events: [], running: true, turnSince: since(latest) }) : "";
+    // A turn that just closed has its last row on screen already, outside this tail: redraw it with its time.
+    const shown = new Set([...continueRun, ...events].map(e => Number(e?.idx)));
+    const closed = turnRows.find(t => t.endedAt);
+    const lastIdx = Number(closed?.lastToolIdx ?? -1);
+    const finishedRow = opts.live && lastIdx >= 0 && !shown.has(lastIdx) && Date.now() - Number(closed.endedAt) < 120_000
+        ? await (async () => {
+            const run = await ctx.fns.agent.toolRunBefore({ agentId, beforeIdx: lastIdx + 1 });
+            return run.length ? ctx.fns.agent.renderToolRun({ agentId, events: run, oob: true, elapsedMs: doneMs(closed, run) }) : "";
+        })().catch(() => "")
+        : "";
     return closePrev + (await Promise.all(parts.map(async (part, i) => {
         if (part.kind === "event") {
             try {
@@ -82,7 +112,8 @@ export default async function (
             const first = i === 0 && continueRun.length > 0;
             const last = i === parts.length - 1;
             const run = [...(first ? continueRun : []), ...part.events, ...(last ? joinRun : [])];
-            const row = ctx.fns.agent.renderToolRun({ agentId, events: run, running: last && !!opts.live, oob: first, turnSince });
+            const turn = first ? before : rowTurn.get(i);
+            const row = ctx.fns.agent.renderToolRun({ agentId, events: run, running: last && !!opts.live, oob: first, turnSince: since(turn), elapsedMs: doneMs(turn, run) });
             const drop = last && joinRun.length && Number(joinRun[0].idx) !== Number(run[0].idx)
                 ? `<div id="tools-${Number(joinRun[0].idx)}" hx-swap-oob="delete"></div>`
                 : "";
@@ -90,5 +121,5 @@ export default async function (
         } catch (error: any) {
             return failed(part.events[0]?.idx, error);
         }
-    }))).join("\n") + liveRow;
+    }))).join("\n") + liveRow + finishedRow;
 }

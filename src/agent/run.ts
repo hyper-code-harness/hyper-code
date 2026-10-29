@@ -94,8 +94,43 @@ export default async function (
         return null;
     });
     let consumedUserIdx = -1;
-    // The turn's start, stamped on every tool_call event: a finished row keeps the turn's time up to its last call.
-    const turnStart = Number(((await ctx.fns.procs.db.select({ sql: "SELECT run_started_at FROM agents WHERE id = ?", params: [agent.id] })) as any[])[0]?.run_started_at ?? 0) || Date.now();
+    // One `turn` event per answer: written at its start, completed with the end and the totals. A message the person
+    // sends mid-run (steering) closes the current turn and opens a new one right after it, so the time under it
+    // counts from that message. The chat's tool rows take their time from the nearest turn above them.
+    type Totals = { tools: number; errors: number; thinkMs: number; lastToolIdx?: number };
+    let turn: Record<string, any> = {};
+    let turnIdx = -1;
+    let totals: Totals = { tools: 0, errors: 0, thinkMs: 0 };
+    // The clock is a view of the turn, not part of it: a failed write costs the time under the row, never the answer.
+    const turnFailed = (error: any) => ctx.fns.procs.log?.warn?.({ event: 'agent.turn-event.failed', msg: String(error?.message ?? error), agentId: agent.id });
+    const openTurn = async () => {
+        turn = { type: 'turn', startedAt: Date.now() };
+        totals = { tools: 0, errors: 0, thinkMs: 0 };
+        turnIdx = -1;
+        try { turnIdx = Number((await ctx.fns.session.appendEvent({ id: agent.id, event: turn, ts: turn.startedAt }))?.idx ?? -1); }
+        catch (error: any) { turnFailed(error); }
+    };
+    const closeTurn = async (outcome: 'ok' | 'error' | 'stopped') => {
+        if (turnIdx < 0) return;
+        try {
+            await ctx.fns.session.replaceEventAt({ id: agent.id, idx: turnIdx, event: { ...turn, endedAt: Date.now(), ...totals, outcome } });
+            ctx.fns.procs.events?.refresh?.({ topic: `agent:${agent.id}`, reason: 'turn-end' });
+        } catch (error: any) {
+            turnFailed(error);
+        }
+    };
+    await openTurn();
+    let outcome: 'ok' | 'error' | 'stopped' = 'ok';
+    try {
+        return await turnLoop();
+    } catch (error) {
+        outcome = ac.signal.aborted ? 'stopped' : 'error';
+        throw error;
+    } finally {
+        await closeTurn(outcome);
+    }
+
+    async function turnLoop() {
     const MAX_TURNS = 300;
     let turns = 0;
 
@@ -125,6 +160,11 @@ export default async function (
             sql: "SELECT COALESCE(MAX(idx), -1) AS i FROM messages WHERE agent_id = ? AND role = 'user' AND excluded_from_cursor = 0",
             params: [agent.id],
         })) as any[])[0];
+        // A message that arrived during the run starts a new turn: the clock under it counts from it.
+        if (turns > 1 && Number(seen?.i ?? -1) > consumedUserIdx) {
+            await closeTurn('ok');
+            await openTurn();
+        }
         consumedUserIdx = Math.max(consumedUserIdx, Number(seen?.i ?? -1));
         await ctx.fns.session.syncAgentState({ agent });
 
@@ -168,6 +208,7 @@ export default async function (
         const { text, usage, finishReason, toolCalls = [] } = streamed;
         // How long the model took for this reply: the chat draws it as a "thinking" cell before the reply's first call.
         const thinkMs = Date.now() - sampledFrom;
+        totals.thinkMs += thinkMs;
         delete agent.scratchpad.mobileStream;
         const prose = String(text ?? '');
         delete agent.scratchpad.activeGoalFeedback;
@@ -321,18 +362,20 @@ export default async function (
         let terminal: { type: 'html'; html: string; text: string } | undefined;
         for (const call of toolCalls) {
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
+            totals.tools++;
+            if (r.isError) totals.errors++;
             const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
 
             // Events store data, never rendered markup. renderEventHtml builds
             // the current view on every read, so renderer improvements apply to
             // old calls too (including edit diff cards).
-            await ctx.fns.session.appendToolCallEvent({ id: agent.id, payload: {
+            const toolEvent = (await ctx.fns.session.appendToolCallEvent({ id: agent.id, payload: {
                 name: call.name, args: call.args, result: output, result_ref,
                 isError: r.isError,
                 messageIdx: append.idx,
-                turnStart,
                 ...(call === toolCalls[0] ? { thinkMs } : {}),
-            } });
+            } })) as { idx?: number } | undefined;
+            if (toolEvent?.idx != null) totals.lastToolIdx = toolEvent.idx;
 
             await ctx.fns.session.updateMessageContent({
                 id: agent.id,
@@ -363,5 +406,6 @@ export default async function (
             observeCompletedTurn(final.idx);
             return { text, html, usage, consumedUserIdx, terminal: true };
         }
+    }
     }
 }

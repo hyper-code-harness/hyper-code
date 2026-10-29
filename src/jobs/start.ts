@@ -105,6 +105,8 @@ export default async function (
         }
     }
     ctx.fns.events.refreshAgentMeta({ agentId, section: "automation", reason: "job-start" });
+    // the chat input's jobs badge is a live region on the agent's topic
+    ctx.fns.procs.events.refresh({ topic: `agent:${agentId}`, reason: "job-start" });
     ctx.fns.agent.wakeWorker({});
     return await ctx.fns.jobs.get({ id });
 }

@@ -50,9 +50,13 @@ export default async function (
         sql: "UPDATE jobs SET status = ?, outcome_reason = ?, result = ?::jsonb, finished_at = ?, next_at = NULL, lease_token = NULL, updated_at = ? WHERE id = ? AND status = 'running'",
         params: [opts.status, opts.reason, JSON.stringify(result), now, now, opts.id],
     })).changes > 0;
+    // The chat input's jobs badge is a live region on the agent's topic. Signal only AFTER the write is committed:
+    // finalize runs inside agent.deliver's transaction, and a browser re-fetching before commit sees the job running.
+    const changed = () => ctx.fns.procs.events.refresh({ topic: `agent:${row.agent_id}`, reason: "job-end" });
 
     if (opts.notify === false) {
         const finished = await finalize();
+        if (finished) changed();
         if (finished) ctx.fns.events.refreshAgentMeta({ agentId: String(row.agent_id), section: "automation", reason: "job-end" });
         return { finished };
     }
@@ -82,5 +86,6 @@ export default async function (
         now,
         before: finalize,
     });
+    if (delivered.delivered) changed();
     return { finished: delivered.delivered };
 }

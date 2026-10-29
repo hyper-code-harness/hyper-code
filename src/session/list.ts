@@ -31,8 +31,9 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     // `unread` is now a compatibility boolean (0/1), backed by the denormalized
     // last_notifiable_at watermark and the current viewer's seen_at.
     const visibility = opts?.visibility?.length ? opts.visibility : ["nav"];
-    // Unread is per viewer (user_agent_state). The shared kv watermark is the fallback only while
-    // there is at most one user, so a single-user Hyper reads exactly as before.
+    // Unread is per viewer (user_agent_state). The shared kv watermarks (seen-at:<agent> and the older
+    // seen:<agent> message index) are the fallback only while there is at most one user, so a single-user
+    // Hyper reads exactly as before and on a shared one nobody's reading counts for another.
     const users = await ctx.fns.auth.listUsers({}).catch(() => [] as types.auth.User[]);
     const viewer = await ctx.fns.auth.viewerId({}).catch(() => null);
     const legacyKv = users.length <= 1;
@@ -57,7 +58,7 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
             (CASE WHEN a.last_notifiable_at IS NOT NULL AND a.last_notifiable_at > COALESCE(
                     (SELECT s.seen_at FROM user_agent_state s WHERE s.user_id = ? AND s.agent_id = a.id),
                     (SELECT k.value::bigint FROM kv k WHERE k.key = 'seen-at:' || a.id AND ? = 1),
-                    (SELECT MAX(m.ts) FROM messages m WHERE m.agent_id = a.id AND m.idx <= COALESCE((SELECT k.value::int FROM kv k WHERE k.key = 'seen:' || a.id), -1)),
+                    (SELECT MAX(m.ts) FROM messages m WHERE m.agent_id = a.id AND ? = 1 AND m.idx <= COALESCE((SELECT k.value::int FROM kv k WHERE k.key = 'seen:' || a.id), -1)),
                     -1
                 ) THEN 1 ELSE 0 END) AS unread,
             (SELECT content FROM messages m WHERE m.agent_id = a.id AND m.role = 'user' ORDER BY idx LIMIT 1) AS "firstUser"
@@ -66,7 +67,7 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
           ${opts?.includeArchived ? "" : "AND a.archived_at IS NULL"}
           ${opts?.owner ? "AND (a.created_by = ? OR (a.created_by IS NULL AND ? = ?))" : ""}
         ORDER BY a.updated_at DESC`,
-        params: [viewer ?? "", legacyKv ? 1 : 0, ...visibility, ...(opts?.owner ? [opts.owner, opts.owner, firstOwner ?? ""] : [])],
+        params: [viewer ?? "", legacyKv ? 1 : 0, legacyKv ? 1 : 0, ...visibility, ...(opts?.owner ? [opts.owner, opts.owner, firstOwner ?? ""] : [])],
     })) as any[];
     return rows.map((r: any) => ({
         id: r.id,

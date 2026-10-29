@@ -72,12 +72,12 @@ export default async function (
         }
         if (!m) {
             log(rctx, logFile, req.method, url.pathname + url.search, 404, performance.now() - t0);
-            // A miss is a page too — the host's layout, the rail, a way
+            // A miss is a page too (the app's ui.notFound, else the framework's) — the host's layout, the rail, a way
             // back — for anything that reads HTML. A fetch still gets
             // four bytes and the status.
             const wantsHtml = (req.headers.get("accept") ?? "").includes("text/html");
             return stamp(wantsHtml
-                ? await rctx.fns.procs.http.toResponse({ value: rctx.fns.procs.ui.notFound({ url: url.pathname }) })
+                ? await rctx.fns.procs.http.toResponse({ value: await ((rctx.state.registry as any)?.ui?.notFound ? (rctx.fns as any).ui.notFound({ url: url.pathname }) : rctx.fns.procs.ui.notFound({ url: url.pathname })) })
                 : new Response("Not Found", { status: 404 }));
         }
         const raw = await (m.handler as Function)(rctx, rctx.session, { req, params: m.params });

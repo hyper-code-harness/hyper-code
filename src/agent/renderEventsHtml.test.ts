@@ -66,4 +66,34 @@ describe("agent.renderEventsHtml", () => {
         const idle = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "assistant", idx: 1 }] });
         expect(idle).not.toContain("data-running");
     });
+
+    // The turn line: a "thinking" cell for the model's time before a call, a glowing one while nothing runs yet,
+    // and the turn's overall clock at the end of the live row.
+    test("thinking cells and the turn clock", async () => {
+        const ctx: any = await mkTestCtx();
+        ctx.state.registry.agent.renderEventHtml = (_c: any, _s: any, opts: any) => `<p>event ${opts.event.idx}</p>`;
+        ctx.state.registry.tools.runs = () => [];
+        ctx.state.agent ??= {};
+        ctx.state.agent.a1 = { id: "a1", runStartedAt: 7000 };
+
+        // The turn just started: no call yet — an empty row with one glowing brain and the overall clock.
+        const start = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "user", idx: 1 }], live: true });
+        expect(start).toContain('id="tools-live"');
+        expect(start).toMatch(/class="w-tool" data-running title="thinking"/);
+        expect(start).toContain('class="w-timer" data-since="7000"');
+
+        // A call that took the model 3s to decide gets a thinking cell before it; under 1s none.
+        const call = (idx: number, thinkMs?: number) => ({ type: "tool_call", name: "bash", args: { command: "ls" }, idx, thinkMs });
+        const row = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2, 3000), call(3, 200)], live: true });
+        expect(row).toContain('title="thought 3s"');
+        expect(row.match(/title="thought/g)!.length).toBe(1);
+        expect(row).toContain('data-since="7000"');
+
+        // The turn is over: no clock, no glowing cell, and the turn event draws the total.
+        ctx.state.agent.a1.runStartedAt = null;
+        const done = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2, 3000)], live: true });
+        expect(done).not.toContain("data-running");
+        expect(done).not.toContain("w-timer");
+        delete ctx.state.registry.agent.renderEventHtml;
+    });
 });

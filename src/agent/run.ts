@@ -175,6 +175,7 @@ async function runTurn(
         // controller live and the request would go out in full.
         if (ac.signal.aborted) onRunAbort(); else ac.signal.addEventListener("abort", onRunAbort, { once: true });
         let streamed: any;
+        const sampledFrom = Date.now();
         try {
             streamed = await ctx.fns.llm.stream({
                 agent,
@@ -201,6 +202,8 @@ async function runTurn(
             ac.signal.removeEventListener("abort", onRunAbort);
         }
         const { text, usage, finishReason, toolCalls = [] } = streamed;
+        // How long the model took for this reply: the chat draws it as a "thinking" cell before the reply's first call.
+        const thinkMs = Date.now() - sampledFrom;
         delete agent.scratchpad.mobileStream;
         const prose = String(text ?? '');
         delete agent.scratchpad.activeGoalFeedback;
@@ -365,6 +368,7 @@ async function runTurn(
                 name: call.name, args: call.args, result: output, result_ref,
                 isError: r.isError,
                 messageIdx: append.idx,
+                ...(call === toolCalls[0] ? { thinkMs } : {}),
             } });
 
             await ctx.fns.session.updateMessageContent({

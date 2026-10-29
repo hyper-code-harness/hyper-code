@@ -30,6 +30,8 @@ import { workerDatabaseUrl, resetTestDatabases } from "./_testDb.entry";
 // test file makes its first ctx — so a test sees an empty database, and a file's shared ctx (top level, beforeAll)
 // keeps its data across that file's tests. opts.env.DATABASE_URL pins a database of the caller's instead, migrated
 // in place.
+const INSTANCE_AUTH_ENV = ["HYPER_OIDC_ONLY", "HYPER_OIDC_AUTO_CREATE", "HYPER_PORTAL_TRUST", "HYPER_PORTAL_AUDIENCE", "HYPER_LOCAL_INGRESS"];
+
 export async function testCtx(opts?: { root?: string; workdir?: string; env?: Record<string, string> }): Promise<Context> {
     await beginFileIfNew();
     const ctx = makeCtx();
@@ -54,6 +56,11 @@ export async function testCtx(opts?: { root?: string; workdir?: string; env?: Re
     // docker-compose.yml) — TEST_DATABASE_URL, or DATABASE_URL with that port. A suite on the live server used
     // to fill its lock table and fail every query of the running agents (15.10). opts.env may still pin a URL.
     if (ctx.env.DATABASE_URL || ctx.env.TEST_DATABASE_URL) ctx.env.DATABASE_URL = testDatabaseUrl(ctx.env);
+    // Bun reads the instance's .env into every test process, and an instance behind a portal runs with
+    // OIDC-only sign-in, portal trust or a local ingress. A test gets the open single-user defaults instead —
+    // otherwise every request of a suite answers 401 on such a machine and passes elsewhere. A test of these
+    // modes sets them through opts.env.
+    for (const key of INSTANCE_AUTH_ENV) delete ctx.env[key];
     Object.assign(ctx.env, opts?.env ?? {});
     ctx.env.NODE_ENV = "test";
     // "The browser" in a test is the suite's headless Chrome, never the developer's :9222.

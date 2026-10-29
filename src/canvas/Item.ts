@@ -18,6 +18,8 @@ export type Item = {
     createdAt: number;
     /** When the tab last changed (opened again, retitled, state saved), ms since epoch. */
     updatedAt: number;
+    /** Pinned: kept at the left of the strip as an icon, without a close button. */
+    pinned: boolean;
     /** When the tab was closed, ms since epoch; null while it is open. */
     closedAt: number | null;
 };

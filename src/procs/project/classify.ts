@@ -143,7 +143,7 @@ export default function (_ctx: Context, _session: Session | null, opts: { rel: s
     if (stem === '$config') return { kind: 'config', rel, moduleDir, fileName };
 
     // $point_<name>.ts → DECLARES an extension point, named by its module:
-    // `ui/$point_chrome.ts` is the point `ui.chrome`. Answering an undeclared
+    // `ui/$point_markdown.ts` is the point `ui.markdown`. Answering an undeclared
     // point is a typo, and `dev.lint` says so by name.
     if (stem.startsWith('$point_')) {
         const pointName = stem.slice('$point_'.length);

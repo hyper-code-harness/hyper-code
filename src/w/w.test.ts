@@ -161,6 +161,8 @@ test("page-level widgets: page, field, form, record carry the automation markers
     expect(w.page({ page: "modules", title: "Plugins", body: "B" })).toContain('data-page="modules"');
     const input = w.input({ name: "q", value: "", invalid: true, describedBy: "q-err" });
     expect(input).toContain('data-field="q"'); expect(input).toContain('value=""'); expect(input).toContain('aria-invalid="true"');
+    const code = w.input({ name: "value", mono: true, inputmode: "numeric", autocomplete: "one-time-code" });
+    expect(code).toContain("data-mono"); expect(code).toContain('inputmode="numeric"'); expect(code).toContain('autocomplete="one-time-code"');
     const field = w.field({ name: "q", label: "Query", control: input, error: "Too short" });
     expect(field).toContain('data-invalid="true"'); expect(field).toContain('data-role="error"');
     expect(() => w.form({ form: "f", body: "" })).toThrow();

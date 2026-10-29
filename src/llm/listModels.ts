@@ -1,29 +1,48 @@
 // Return models grouped by provider-prefix.
-// LM Studio is queried live; remote providers return a small curated static list.
-// Missing/unreachable providers are omitted silently.
+// LM Studio is queried live; API-key providers return a small curated static list; subscription providers get
+// one set of routes per account llm.listAccounts reports. Missing/unreachable providers are omitted silently.
 /**
- * List models per provider, including hyper/<node> groups from configured nodes.
+ * List models per provider: local LM Studio, API-key providers with a configured key, every connected
+ * subscription account (from llm.listAccounts, routed "<provider>/<account>:<model>", the default account as
+ * "<provider>:<model>") and hyper/<node> groups from configured nodes.
  * @param opts.skipNodes Omit hyper/<node> groups and do not refresh node catalogues (host-side catalogue building). @default false
  */
 export default async function (ctx: Context, _session: Session | null, opts?: { /** Omit node groups. @default false */ skipNodes?: boolean }): Promise<Record<string, string[]>> {
     // The catalogue asks LM Studio, Groq, every Hyper node and each provider's credentials — seconds of
     // work that the model popup and the new-chat form used to wait for on every open. The last answer is
     // returned at once and refreshed in the background once it is a minute old; only the very first call
-    // (or a test with a fresh ctx) waits.
+    // (or a test with a fresh ctx) waits. The cache is keyed by the set of subscription accounts
+    // (llm.listAccounts, milliseconds): a login, logout or reconnect — through Hyper or a CLI writing its own
+    // auth file — rebuilds the catalogue on the next call, nobody has to reset it.
+    const accounts = await subscriptionAccounts(ctx);
+    const fingerprint = accounts.map(a => `${a.provider}/${a.account}${a.needsReconnect ? "!" : ""}`).sort().join(",");
     const key = opts?.skipNodes ? "skipNodes" : "all";
-    if (!(ctx as any).state) return build(ctx, opts);
-    const cache: Record<string, { at: number; value?: Record<string, string[]>; pending?: Promise<Record<string, string[]>> }> =
+    if (!(ctx as any).state) return build(ctx, accounts, opts);
+    const cache: Record<string, { at: number; fingerprint?: string; value?: Record<string, string[]>; pending?: Promise<Record<string, string[]>> }> =
         ((ctx.state as any).llmModelCatalog ??= {});
     const entry = (cache[key] ??= { at: 0 });
-    const refresh = () => entry.pending ??= build(ctx, opts)
-        .then(value => { entry.value = value; entry.at = Date.now(); return value; })
+    const refresh = () => entry.pending ??= build(ctx, accounts, opts)
+        .then(value => { entry.value = value; entry.at = Date.now(); entry.fingerprint = fingerprint; return value; })
         .finally(() => { entry.pending = undefined; });
-    if (!entry.value) return refresh();
+    if (!entry.value || entry.fingerprint !== fingerprint) return refresh();
     if (Date.now() - entry.at > 60_000) refresh().catch(() => undefined);
     return entry.value;
 }
 
-async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Record<string, string[]>> {
+type Account = { provider: string; account: string; needsReconnect: boolean };
+
+/** Subscription accounts as llm.listAccounts knows them — the only source of which accounts exist. */
+async function subscriptionAccounts(ctx: Context): Promise<Account[]> {
+    try {
+        const listed = await ctx.fns.llm.listAccounts({});
+        return listed.filter(a => a.source !== "node").map(a => ({ provider: a.provider, account: String(a.account || "default"), needsReconnect: !!a.needsReconnect }));
+    } catch { return []; /* fresh db without the account tables — no subscription groups */ }
+}
+
+/** "codex" for the default account, "codex/adam" for a named one — the route prefix llm.resolveEndpoint parses. */
+const route = (provider: string, account: string) => account === "default" ? provider : `${provider}/${account}`;
+
+async function build(ctx: Context, accounts: Account[], opts?: { skipNodes?: boolean }): Promise<Record<string, string[]>> {
     const out: Record<string, string[]> = {};
 
     // Local: LM Studio /v1/models
@@ -49,16 +68,6 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
         "kimi:kimi-k2-thinking-turbo",
         "kimi:kimi-k2-thinking",
     ];
-    // The subscription catalogue is discovered independently of Moonshot API models.
-    // Every logged-in Kimi Coding account, not just the default slot (same bug as Codex had).
-    try {
-        const kimiAccounts = ((await ctx.fns.llm.listAccounts({ provider: "kimi-coding" })) as any[])
-            .filter(entry => !entry.needsReconnect)
-            .map(entry => String(entry.account || "default"));
-        const codingModels = (await Promise.all(kimiAccounts.map(account =>
-            ctx.fns.llm.kimiCodingModels({ account }).catch(() => [] as string[])))).flat();
-        if (codingModels.length) out["kimi-coding"] = codingModels;
-    } catch { /* no Kimi login — omit */ }
     if (await configured("openai:gpt-5-codex")) out.openai = [
         "openai:gpt-5-codex",
         "openai:gpt-5.1-mini",
@@ -90,23 +99,6 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
         "openrouter:google/gemini-2.5-pro",
     ];
 
-    // xAI subscription catalogue. Emit account-qualified routes for named
-    // credential slots so new agents do not silently fall back to "default".
-    try {
-        const status = await ctx.fns.llm.xaiOAuthStatus?.({});
-        if (status?.connected) {
-            const models = ["grok-4.6", "grok-4.5", "grok-4.3"];
-            const accounts = Array.isArray(status.accounts)
-                ? status.accounts.filter((entry: any) => !entry.needsReconnect)
-                : [{ account: "default" }];
-            out.xai = accounts.flatMap((entry: any) => {
-                const account = String(entry.account ?? "default");
-                const prefix = account === "default" ? "xai" : `xai/${account}`;
-                return models.map(id => `${prefix}:${id}`);
-            });
-        }
-    } catch { /* OAuth migration unavailable / not connected — omit */ }
-
     // Cursor subscription catalogue, asked live: the key's plan decides what it
     // may run, so there is nothing sensible to hard-code. Omitted when no key
     // is configured or the call fails.
@@ -121,82 +113,17 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
     } catch { /* no key / unreachable — omit */ }
 
 
-    // Codex (ChatGPT subscription) — every logged-in account, not just "default".
-    // A login made from Settings lands in a named slot (~/.hyper/accounts/codex/<name>),
-    // so checking only ~/.codex/auth.json hid every OpenAI model from a person who
-    // had in fact logged in. Named accounts get `codex/<name>:` routes, exactly the
-    // form resolveEndpoint accepts. Models pulled live from /codex/models
-    // (subscription-gated whitelist), per account because plans differ.
-    try {
-        const accounts = ((await ctx.fns.llm.listAccounts({ provider: "codex" })) as any[])
-            .filter(entry => !entry.needsReconnect)
-            .map(entry => String(entry.account || "default"));
-        const version = accounts.length ? await ctx.fns.llm.codexCliVersion({}) : "";
-        const url = `https://chatgpt.com/backend-api/codex/models?client_version=${encodeURIComponent(version)}`;
-        const ids = (await Promise.all(accounts.map(async account => {
-            try {
-                const tok = await ctx.fns.llm.refreshCodex({ account });
-                if (!tok) return [];
-                const r = await fetch(url, {
-                    headers: { "authorization": `Bearer ${tok}`, "originator": "codex_cli_rs" },
-                    signal: AbortSignal.timeout(3000),
-                });
-                if (!r.ok) return [];
-                const j: any = await r.json();
-                const prefix = account === "default" ? "codex" : `codex/${account}`;
-                return (j.models ?? [])
-                    .filter((m: any) => m.visibility !== "hidden" && m.visibility !== "hide" && m.supported_in_api !== false)
-                    .map((m: any) => `${prefix}:${m.slug}`);
-            } catch { return []; /* this account is unreachable — the others still count */ }
-        }))).flat();
-        if (ids.length) out.codex = ids;
-    } catch { /* not logged in or unreachable — omit */ }
-
-    // Claude subscription models. We cannot query an account-specific model
-    // catalogue from the Messages API, so expose the current Anthropic aliases
-    // for every connected subscription source. Availability still depends on
-    // the user's plan and Anthropic policy; an unsupported choice fails clearly.
-    const claudeModels = [
-        "claude-haiku-4-5",
-        "claude-sonnet-4-5",
-        "claude-sonnet-4-6",
-        "claude-sonnet-5",
-        "claude-opus-4-5",
-        "claude-opus-4-6",
-        "claude-opus-4-8",
-        // Current Claude Platform aliases verified against Anthropic's live
-        // Models overview. Availability remains account/plan-specific.
-        "claude-opus-5",
-        "claude-opus-5-5",
-        "claude-fable-5",
-        "claude-fable-5-1",
-    ];
-    // Every Claude Code login: the default keychain entry and each named slot under
-    // ~/.hyper/accounts/claude-code/<name>, as `claude-code/<name>:` routes.
-    try {
-        const claudeAccounts = ((await ctx.fns.llm.listAccounts({ provider: "claude-code" })) as any[])
-            .filter(entry => entry.provider === "claude-code" && !entry.needsReconnect)
-            .map(entry => String(entry.account || "default"));
-        const live = await Promise.all(claudeAccounts.map(async account =>
-            (await ctx.fns.llm.refreshClaudeCode({ account }).catch(() => null)) ? account : null));
-        const ids = live.filter((a): a is string => !!a).flatMap(account => {
-            const prefix = account === "default" ? "claude-code" : `claude-code/${account}`;
-            return claudeModels.map(id => `${prefix}:${id}`);
-        });
-        if (ids.length) out["claude-code"] = ids;
-    } catch { /* no keychain access — omit */ }
-
-    try {
-        const managed = await ctx.fns.llm.anthropicOAuthStatus?.({});
-        if (managed?.connected) {
-            const accounts = managed.accounts ?? [];
-            out["anthropic-oauth"] = accounts.flatMap((entry: any) => {
-                const account = String(entry.account ?? "default");
-                const prefix = account === "default" ? "anthropic-oauth" : `anthropic-oauth/${account}`;
-                return claudeModels.map(id => `${prefix}:${id}`);
-            });
-        }
-    } catch { /* migration unavailable / not connected — omit */ }
+    // Subscription catalogues: one group per provider, one set of routes per account llm.listAccounts reports.
+    // An account is never guessed here (no "is there a default login?" probe), so a named login without a
+    // default one shows like any other. SUBSCRIPTIONS says how each provider's models are found; a provider
+    // listAccounts can report but SUBSCRIPTIONS lacks fails listModels.test.ts.
+    const groups = await Promise.all(accounts.map(async a => {
+        const models = SUBSCRIPTIONS[a.provider];
+        if (!models) return null;
+        try { return { provider: a.provider, ids: (await models(ctx, a)).map(id => `${route(a.provider, a.account)}:${id}`) }; }
+        catch { return null; /* this account cannot list now — the others still count */ }
+    }));
+    for (const g of groups) if (g?.ids.length) (out[g.provider] ??= []).push(...g.ids);
 
     // Other Hypers we relay through (docs/hyper-node.md): one group per node,
     // from the cached catalogue (refreshed at most every 5 minutes).
@@ -213,3 +140,51 @@ async function build(ctx: Context, opts?: { skipNodes?: boolean }): Promise<Reco
     } catch { /* node tables absent (fresh db) — omit */ }
     return out;
 }
+
+// Claude subscription models. We cannot query an account-specific model catalogue from the Messages API, so
+// every connected Claude source gets the current Anthropic aliases. Availability still depends on the plan and
+// Anthropic policy; an unsupported choice fails clearly.
+const CLAUDE_MODELS = [
+    "claude-haiku-4-5",
+    "claude-sonnet-4-5",
+    "claude-sonnet-4-6",
+    "claude-sonnet-5",
+    "claude-opus-4-5",
+    "claude-opus-4-6",
+    "claude-opus-4-8",
+    // Current Claude Platform aliases verified against Anthropic's live Models overview.
+    "claude-opus-5",
+    "claude-opus-5-5",
+    "claude-fable-5",
+    "claude-fable-5-1",
+];
+
+/**
+ * How each subscription provider's models are found for one account: model ids without the route prefix.
+ * Live catalogues ask the provider with that account's own credential (the whitelist is plan-gated, so two
+ * accounts may differ) and skip accounts needing a reconnect; static ones list the known aliases and keep such
+ * accounts visible so they can be picked and reconnected.
+ */
+const SUBSCRIPTIONS: Record<string, (ctx: Context, a: Account) => Promise<string[]>> = {
+    codex: async (ctx, a) => {
+        if (a.needsReconnect) return [];
+        const tok = await ctx.fns.llm.refreshCodex({ account: a.account });
+        if (!tok) return [];
+        const version = await ctx.fns.llm.codexCliVersion({});
+        const r = await fetch(`https://chatgpt.com/backend-api/codex/models?client_version=${encodeURIComponent(version)}`, {
+            headers: { "authorization": `Bearer ${tok}`, "originator": "codex_cli_rs" },
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!r.ok) return [];
+        const j: any = await r.json();
+        return (j.models ?? [])
+            .filter((m: any) => m.visibility !== "hidden" && m.visibility !== "hide" && m.supported_in_api !== false)
+            .map((m: any) => String(m.slug));
+    },
+    // kimiCodingModels returns full routes (its own per-account cache); strip them back to ids.
+    "kimi-coding": async (ctx, a) => a.needsReconnect ? [] : (await ctx.fns.llm.kimiCodingModels({ account: a.account })).map(id => id.slice(id.indexOf(":") + 1)),
+    "claude-code": async () => CLAUDE_MODELS,
+    "anthropic-oauth": async () => CLAUDE_MODELS,
+    // SuperGrok / X Premium via xAI device OAuth: the current Grok Responses models.
+    xai: async () => ["grok-4.6", "grok-4.5", "grok-4.3"],
+};

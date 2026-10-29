@@ -372,7 +372,7 @@ ${opts.headExtra ?? ""}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
   ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
   ${hideNavigation ? "" : '<div class="dock-panel-resizer" data-dock-panel-resizer tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize the projects and chats panel" title="Drag to resize · double click to reset"></div>'}
-    <script src="/canvas/canvas.js?v=3" defer></script>
+    <script src="/canvas/canvas.js?v=4" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

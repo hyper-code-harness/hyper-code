@@ -264,10 +264,9 @@ an alias such as `const ui = ctx.fns.procs.ui` included (the call graph cannot s
 
 **What stays in the framework.** `src/procs/` is the vendored procs framework (CLAUDE.md: patch it minimally,
 fix upstream). It keeps its own `procs.ui` for the pages it draws before any app exists: `procs.http.dispatch`
-and `procs.http.handle` answer a miss with `procs.ui.notFound`, `procs.http.toResponse` wraps a bare string in
-`procs.ui.layout` only when the app registers no `ui.layout`, and the `procs.ui.chrome` hook point lets a host add
-out-of-band chrome. Hyper overrides the layout (`src/ui/layout.ts`), so in practice only the not-found page is
-still drawn by `procs.ui`. These framework helpers (`notFound`, `layout`, `page`, `respond`, `escape`, `attr`, `field`, `form`) are not
+and `procs.http.handle` answer a miss with `procs.ui.notFound` when the app registers no `ui.notFound`, `procs.http.toResponse` wraps a bare string in
+`procs.ui.layout` only when the app registers no `ui.layout`. Hyper overrides both (`src/ui/layout.ts`,
+`src/ui/notFound.ts`), so `procs.ui` draws nothing in Hyper. These framework helpers (`notFound`, `layout`, `page`, `respond`, `escape`, `attr`, `field`, `form`) are not
 marked `@deprecated`, so the `deprecated` rule stays at 0; they should not be rewritten onto `w` in the vendored
 copy.
 

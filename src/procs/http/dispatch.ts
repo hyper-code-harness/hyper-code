@@ -50,11 +50,11 @@ export default async function (
             const short = await mw.handler(rctx, rctx.session, { req, params: m?.params ?? {} });
             if (short instanceof Response) return withSessionCookie(short);
         }
-        // A miss is a page for anything that reads HTML — same contract as the
+        // A miss is a page for anything that reads HTML — the app's ui.notFound if it ships one, else the framework's — same contract as the
         // server (http/$start.ts), so a test sees what a browser sees.
         if (!m) {
             return headers.get("accept")?.includes("text/html")
-                ? rctx.fns.procs.http.toResponse({ value: rctx.fns.procs.ui.notFound({ url: u.pathname }) })
+                ? rctx.fns.procs.http.toResponse({ value: await ((rctx.state.registry as any)?.ui?.notFound ? (rctx.fns as any).ui.notFound({ url: u.pathname }) : rctx.fns.procs.ui.notFound({ url: u.pathname })) })
                 : new Response("Not Found", { status: 404 });
         }
         const raw = await m.handler(rctx, rctx.session, { req, params: m.params });

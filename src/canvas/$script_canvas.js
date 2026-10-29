@@ -251,6 +251,60 @@
         }).catch(() => {}).finally(() => { if (!--acting) busy(root, false); });
     };
 
+    // Drag a tab to another place in the strip (w.tabs draggable). The drop posts { move: { itemId, before } }:
+    // canvas.move puts it there and pins it when it lands among the pinned tabs, unpins it when it leaves them.
+    // A line on the tab under the pointer shows where it will land (left half: in front of it, right half: after).
+    let dragged = null;
+    const tabOf = el => el?.closest?.('[data-canvas-header] .w-tab');
+    const idOf = tab => Number(tab?.querySelector('[data-canvas-tab]')?.getAttribute('data-canvas-tab'));
+    const clearDrop = root => root.querySelectorAll('.w-tab[data-drop]').forEach(t => t.removeAttribute('data-drop'));
+    document.addEventListener('dragstart', event => {
+        const root = page(); const tab = tabOf(event.target);
+        if (!root || !tab || !root.contains(tab) || !tab.closest('.w-tabs[data-draggable]')) return;
+        dragged = tab;
+        tab.setAttribute('data-dragging', '');
+        event.dataTransfer.effectAllowed = 'move';
+        // A plain-text payload makes the drag start in every browser; the address is what a drop elsewhere gets.
+        event.dataTransfer.setData('text/plain', tab.querySelector('[data-canvas-tab]')?.getAttribute('title') || '');
+    });
+    document.addEventListener('dragover', event => {
+        if (!dragged) return;
+        const tab = tabOf(event.target);
+        const root = page();
+        if (!root) return;
+        clearDrop(root);
+        if (!tab || tab === dragged || tab.parentElement !== dragged.parentElement) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        const box = tab.getBoundingClientRect();
+        tab.setAttribute('data-drop', event.clientX < box.left + box.width / 2 ? 'before' : 'after');
+    });
+    document.addEventListener('drop', event => {
+        if (!dragged) return;
+        const root = page(); const tab = tabOf(event.target);
+        if (!root || !tab || tab === dragged) return;
+        event.preventDefault();
+        const side = tab.getAttribute('data-drop');
+        clearDrop(root);
+        const itemId = idOf(dragged);
+        // After the tab under the pointer = in front of its next neighbour, or the end of the strip.
+        let before = side === 'after' ? tab.nextElementSibling : tab;
+        if (before === dragged) before = dragged.nextElementSibling;
+        const beforeId = before?.classList?.contains('w-tab') ? idOf(before) : null;
+        // Dropped right after the last pinned tab: the side it was dragged from decides (stays as it was).
+        const move = { itemId, before: beforeId };
+        if (side === 'after' && tab.hasAttribute('data-pinned') && !before?.hasAttribute?.('data-pinned')) move.pinned = true;
+        // Show the new order at once; the panel in the answer confirms it.
+        tab.parentElement.insertBefore(dragged, side === 'after' ? tab.nextSibling : tab);
+        tabAction(root, { move });
+    });
+    document.addEventListener('dragend', () => {
+        if (!dragged) return;
+        dragged.removeAttribute('data-dragging');
+        const root = page(); if (root) clearDrop(root);
+        dragged = null;
+    });
+
     document.addEventListener('click', event => {
         const root = page();
         if (!root) return;

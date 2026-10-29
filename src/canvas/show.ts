@@ -104,6 +104,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 itemId = Number(row.id);
             }
             await ctx.fns.procs.db.run({ sql: "UPDATE canvas_state SET open = true, active_item_id = ?, updated_at = ? WHERE agent_id = ?", params: [itemId, now, agentId] });
+            await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET shown_at = ? WHERE id = ?", params: [now, itemId] });
+            // A long strip puts away the tabs nobody looked at for longest (pinned ones never).
+            await ctx.fns.canvas.tidy({ agentId, keep: itemId });
             return { id: itemId, reused };
         },
     })) as { id: number; reused: boolean };

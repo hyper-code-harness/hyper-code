@@ -7,7 +7,9 @@
 // runDir/launch.json  { cmd: string[], cwd, pty: false | { cols, rows } }   (kept)
 // runDir/env.json     { ...env }                                          (deleted right after reading: secrets)
 // runDir/holder.pid, child.pid, out.log, pty.sock, exit.json { code, signal, at }
-import { appendFileSync, existsSync, rmSync, unlinkSync, writeFileSync, renameSync } from "node:fs";
+// out.log is daily: on the first write of a new day the holder moves it to out.<day>.log (logfiles.ts).
+import { dailyAppender } from "./logfiles.ts";
+import { existsSync, rmSync, unlinkSync, writeFileSync, renameSync } from "node:fs";
 
 const dir = process.argv[2];
 if (!dir) { console.error("usage: holder.ts <runDir>"); process.exit(2); }
@@ -19,8 +21,9 @@ const log = `${dir}/out.log`;
 const sockPath = `${dir}/pty.sock`;
 writeFileSync(`${dir}/holder.pid`, String(process.pid));
 const clients = new Set<any>();
+const appendLog = dailyAppender(log);
 const out = (d: Uint8Array | string) => {
-    appendFileSync(log, d);
+    appendLog(d);
     for (const c of clients) { try { c.write(d); } catch { clients.delete(c); } }
 };
 const fullEnv = { ...process.env, ...env, ...(launch.pty ? { TERM: env.TERM ?? "xterm-256color" } : {}) } as Record<string, string>;

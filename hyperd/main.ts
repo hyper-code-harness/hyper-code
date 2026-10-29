@@ -8,6 +8,7 @@ import { appendFileSync, chmodSync, closeSync, existsSync, openSync, readSync, m
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { checkUnit, loadUnitFile, UNIT_FILE, type Unit } from "./Unit.ts";
+import { dayFiles, journal, readDayFile, rollIfNewDay, tidy } from "./logfiles.ts";
 
 const HOME = resolve(process.env.HYPERD_HOME ?? join(homedir(), ".hyper/run/hyperd"));
 const UNIT_DIRS = (process.env.HYPERD_UNITS ?? join(homedir(), ".hyper/units")).split(":").filter(Boolean);
@@ -33,6 +34,7 @@ type Sup = {
     stopDeadline?: number;
     lastExit?: Exit;
     logOff: number;
+    logIno?: number;         // inode of the out.log logOff counts in; a new one means the holder rolled the day
     carry: string;
     probing?: boolean;
     error?: string;
@@ -41,30 +43,19 @@ type Sup = {
 const units = new Map<string, Sup>();
 
 // ---- events -------------------------------------------------------------------------------------
-const EVENTS = join(HOME, "events.ndjson");
-let seq = 0;
-if (existsSync(EVENTS)) {
-    const lines = readFileSync(EVENTS, "utf8").trimEnd().split("\n");
-    for (let i = lines.length - 1; i >= 0 && !seq; i--) { try { seq = JSON.parse(lines[i]).seq ?? 0; } catch {} }
-}
+// events.ndjson is daily like out.log: rolled to events.<day>.ndjson on the first event of a new day
+const EVENTS = journal(join(HOME, "events.ndjson"));
+let seq = EVENTS.lastSeq();
 const waiters = new Set<() => void>();
 function emit(unit: string, type: string, data: Record<string, unknown> = {}) {
     const s = units.get(unit);
     const ev = { seq: ++seq, at: Date.now(), unit, run: s?.run ?? 0, type, owner: s?.unit.owner, ...data };
-    appendFileSync(EVENTS, JSON.stringify(ev) + "\n");
+    EVENTS.append(ev);
     for (const w of waiters) w();
     waiters.clear();
     return ev;
 }
-function readEvents(after: number, limit: number) {
-    if (!existsSync(EVENTS)) return [];
-    const out: any[] = [];
-    for (const line of readFileSync(EVENTS, "utf8").split("\n")) {
-        if (!line) continue;
-        try { const e = JSON.parse(line); if (e.seq > after) { out.push(e); if (out.length >= limit) break; } } catch {}
-    }
-    return out;
-}
+const readEvents = (after: number, limit: number) => EVENTS.read(after, limit);
 
 // ---- files ------------------------------------------------------------------------------------------
 const unitDir = (name: string) => join(HOME, "units", name);
@@ -78,7 +69,7 @@ const isOurs = (pid: number | null | undefined, ...marks: string[]) => alive(pid
 const writeAtomic = (p: string, data: string, mode?: number) => { writeFileSync(p + ".tmp", data, mode ? { mode } : undefined); renameSync(p + ".tmp", p); };
 const pidOf = (name: string, run: number, file: string) => Number(readFileSync(join(runDir(name, run), file), "utf8")) || null;
 function persist(s: Sup) {
-    writeAtomic(join(unitDir(s.unit.name), "state.json"), JSON.stringify({ run: s.run, want: s.want, restarts: s.restarts, state: s.state, startedAt: s.startedAt, readyAt: s.readyAt, lastExit: s.lastExit, logOff: s.logOff, source: s.source, file: s.file }));
+    writeAtomic(join(unitDir(s.unit.name), "state.json"), JSON.stringify({ run: s.run, want: s.want, restarts: s.restarts, state: s.state, startedAt: s.startedAt, readyAt: s.readyAt, lastExit: s.lastExit, logOff: s.logOff, logIno: s.logIno, source: s.source, file: s.file }));
 }
 function setState(s: Sup, state: State, data: Record<string, unknown> = {}, event?: string) {
     s.state = state;
@@ -123,7 +114,7 @@ function launch(s: Sup) {
     const h = Bun.spawn(["bun", HOLDER, dir], { cwd: dir, detached: true, stdio: ["ignore", "ignore", "ignore"] } as any);
     h.unref();
     writeFileSync(join(dir, "holder.pid"), String(h.pid)); // known at once, no window where the run has no holder pid
-    s.startedAt = Date.now(); s.readyAt = undefined; s.logOff = 0; s.carry = ""; s.stopReason = undefined; s.stopDeadline = undefined; s.error = undefined;
+    s.startedAt = Date.now(); s.readyAt = undefined; s.logOff = 0; s.logIno = undefined; s.carry = ""; s.stopReason = undefined; s.stopDeadline = undefined; s.error = undefined;
     s.nextAt = Date.now() + (u.ready?.intervalMs ?? 500);
     setState(s, u.ready ? "starting" : "running", { holderPid: h.pid, runDir: dir }, "started");
     if (!u.ready) markReady(s);
@@ -182,10 +173,31 @@ function onExit(s: Sup, exit: Exit) {
 const toRe = (p: string) => { const m = /^\/(.*)\/([a-z]*)$/.exec(p); return m ? new RegExp(m[1], m[2]) : null; };
 const matches = (p: string, text: string) => { const re = toRe(p); return re ? re.test(text) : text.includes(p); };
 
-function readNewOutput(s: Sup): string {
-    const log = join(runDir(s.unit.name, s.run), "out.log");
+function readFrom(path: string, off: number, max: number): Buffer {
     let size = 0;
-    try { size = statSync(log).size; } catch { return ""; }
+    try { size = statSync(path).size; } catch { return Buffer.alloc(0); }
+    if (size <= off) return Buffer.alloc(0);
+    const len = Math.min(size - off, max);
+    const fd = openSync(path, "r");
+    const buf = Buffer.alloc(len);
+    readSync(fd, buf, 0, len, off);
+    closeSync(fd);
+    return buf;
+}
+
+function readNewOutput(s: Sup): string {
+    const dir = runDir(s.unit.name, s.run);
+    const log = join(dir, "out.log");
+    let size = 0, ino = 0;
+    try { const st = statSync(log); size = st.size; ino = st.ino; } catch { /* rolled, the new file not written yet */ }
+    if (s.logIno && ino !== s.logIno) {
+        // the holder rolled out.log to its day file: finish that file's tail first, so no ready/logMatch line is lost
+        const rolled = dayFiles(dir, "out.log").filter((f) => !f.gz).at(-1);
+        const tail = rolled ? readFrom(join(dir, rolled.name), s.logOff, 1 << 20) : Buffer.alloc(0);
+        s.logOff = 0; s.logIno = ino || undefined;
+        return tail.toString("utf8") + (ino ? readNewOutput(s) : "");
+    }
+    if (ino) s.logIno = ino;
     if (size <= s.logOff) return "";
     const len = Math.min(size - s.logOff, 1 << 20);
     const fd = openSync(log, "r");
@@ -218,9 +230,34 @@ async function probe(s: Sup, text: string): Promise<boolean> {
 }
 
 const GC_MS = Number(process.env.HYPERD_GC_MS ?? 24 * 3600_000);
+// gzip day files that have settled and drop old ones, at most every TIDY_MS (lazy, from tick)
+const TIDY_MS = Number(process.env.HYPERD_TIDY_MS ?? 3600_000);
+let tidiedAt = 0, tidying = false;
+function tidyLogs(now: number) {
+    if (tidying || now - tidiedAt < TIDY_MS) return;
+    tidying = true; tidiedAt = now;
+    (async () => {
+        await tidy(HOME, { now });
+        for (const name of readdirSync(join(HOME, "units"))) {
+            let runs: string[] = [];
+            try { runs = readdirSync(unitDir(name)).filter((e) => /^run-\d+$/.test(e)); } catch { continue; }
+            const s = units.get(name);
+            for (const r of runs) {
+                const dir = join(unitDir(name), r);
+                const live = !!s && Number(r.slice(4)) === s.run && ["starting", "running", "ready", "stopping"].includes(s.state);
+                // nobody writes the out.log of a finished run, so nobody would roll it: roll it here
+                if (!live) rollIfNewDay(join(dir, "out.log"), now);
+                await tidy(dir, { now });
+                // a finished run whose logs have all expired goes away with its directory
+                if (!live && Number(r.slice(4)) !== s?.run && !existsSync(join(dir, "out.log")) && !dayFiles(dir, "out.log").length) rmSync(dir, { recursive: true, force: true });
+            }
+        }
+    })().catch((error) => console.error("hyperd tidy", error)).finally(() => { tidying = false; });
+}
 
 async function tick() {
     const now = Date.now();
+    tidyLogs(now);
     for (const s of units.values()) {
         const name = s.unit.name;
         try {
@@ -300,7 +337,7 @@ function recover() {
         let unit: Unit;
         try { unit = checkUnit(spec.unit, name); } catch { continue; }
         const s: Sup = { unit, source: spec.source, file: spec.file, state: st?.state ?? "stopped", run: st?.run ?? 0, want: !!st?.want, restarts: st?.restarts ?? 0,
-            startedAt: st?.startedAt, readyAt: st?.readyAt, lastExit: st?.lastExit, logOff: st?.logOff ?? 0, carry: "" };
+            startedAt: st?.startedAt, readyAt: st?.readyAt, lastExit: st?.lastExit, logOff: st?.logOff ?? 0, logIno: st?.logIno, carry: "" };
         units.set(name, s);
         // env.pending.json is from versions that kept one-shot env next to the spec; it may hold secrets
         rmSync(join(unitDir(name), "env.pending.json"), { force: true });
@@ -416,14 +453,38 @@ async function handle(req: Request): Promise<Response> {
     }
     if (action === "logs") {
         const run = Number(url.searchParams.get("run") ?? s.run);
-        const log = join(runDir(s.unit.name, run), "out.log");
-        if (!run || !existsSync(log)) return json({ run, bytes: 0, offset: 0, text: "" });
-        const size = statSync(log).size;
+        const dir = runDir(s.unit.name, run);
+        const log = join(dir, "out.log");
         const limit = Math.max(1, Math.min(1 << 20, Number(url.searchParams.get("limit") ?? 20_000)));
-        let off = Number(url.searchParams.get("offset") ?? -limit);
+        const files = run ? dayFiles(dir, "out.log") : [];
+        const days = [...new Set(files.map((f) => f.day))];
+        const day = url.searchParams.get("day");
+        // an earlier day: its file(s) (gzipped or not) read as one text; out.log holds the current day
+        const slice = (buf: Buffer, from: string | null) => {
+            let off = Number(url.searchParams.get("offset") ?? -limit);
+            if (off < 0) off = Math.max(0, buf.length + off);
+            return json({ run, day: from, days, bytes: buf.length, offset: off, next: Math.min(buf.length, off + limit), text: buf.subarray(off, Math.min(buf.length, off + limit)).toString("utf8") });
+        };
+        if (day) return slice(Buffer.concat(files.filter((f) => f.day === day).map((f) => readDayFile(join(dir, f.name)))), day);
+        if (!run || !existsSync(log)) {
+            // the run is over and its out.log was rolled: show its last day
+            const last = days.at(-1);
+            return last ? slice(Buffer.concat(files.filter((f) => f.day === last).map((f) => readDayFile(join(dir, f.name)))), last) : json({ run, day: null, days, bytes: 0, offset: 0, next: 0, text: "" });
+        }
+        const size = statSync(log).size;
+        const asked = url.searchParams.get("offset");
+        // a follower whose offset is past the end: the file was rolled under it — finish the rolled file, then next: 0
+        const rolled = files.filter((f) => !f.gz).at(-1);
+        if (asked !== null && Number(asked) > size && rolled) {
+            const buf = readFileSync(join(dir, rolled.name));
+            const off = Math.min(Number(asked), buf.length);
+            const end = Math.min(buf.length, off + limit);
+            return json({ run, day: rolled.day, days, bytes: buf.length, offset: off, next: end >= buf.length ? 0 : end, text: buf.subarray(off, end).toString("utf8") });
+        }
+        let off = Number(asked ?? -limit);
         if (off < 0) off = Math.max(0, size + off);
         const text = await Bun.file(log).slice(off, Math.min(size, off + limit)).text();
-        return json({ run, bytes: size, offset: off, next: Math.min(size, off + limit), text });
+        return json({ run, day: null, days, bytes: size, offset: off, next: Math.min(size, off + limit), text });
     }
     if (action === "input" && req.method === "POST") {
         const sock = join(runDir(s.unit.name, s.run), "pty.sock");

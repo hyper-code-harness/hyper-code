@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 setDefaultTimeout(15_000);
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { call } from "./client.ts";
@@ -169,6 +169,33 @@ describe("hyperd", () => {
         const r = await p;
         expect(r.events[0].unit).toBe("ping");
         expect(Date.now() - t0).toBeLessThan(3000);
+    });
+});
+
+describe("daily logs", () => {
+    test("logs of a finished run whose out.log was rolled: the last day by default, any day by ?day=, gzipped too", async () => {
+        await api("/run", { body: { unit: { name: "daily", cmd: "echo today-line" } } });
+        const u = await until(async () => { const x = await unit("daily"); return x.state === "exited" && x; });
+        const dir = u.runDir as string;
+        await until(async () => (await api("/units/daily/logs")).text.includes("today-line"));
+        // what the holder and tidy leave behind after two midnights: an older gzipped day and the last day
+        writeFileSync(join(dir, "out.2026-10-27.log.gz"), Bun.gzipSync(Buffer.from("older-day\n")));
+        renameSync(join(dir, "out.log"), join(dir, "out.2026-10-28.log"));
+        const last = await api("/units/daily/logs");
+        expect(last).toMatchObject({ day: "2026-10-28", days: ["2026-10-27", "2026-10-28"] });
+        expect(last.text).toContain("today-line");
+        expect((await api("/units/daily/logs?day=2026-10-27&offset=0")).text).toBe("older-day\n");
+    });
+    test("a follower past the end of a just-rolled out.log finishes the rolled file, then restarts at 0", async () => {
+        await api("/run", { body: { unit: { name: "follow", kind: "service", cmd: "echo before-roll; while true; do sleep 1; done" } } });
+        const u = await until(async () => { const x = await unit("follow"); return x.state === "ready" && x; });
+        const first = await until(async () => { const r = await api("/units/follow/logs?offset=0"); return r.text.includes("before-roll") && r; });
+        const dir = u.runDir as string;
+        renameSync(join(dir, "out.log"), join(dir, "out.2026-10-28.log"));
+        writeFileSync(join(dir, "out.log"), "x");
+        const r = await api(`/units/follow/logs?offset=${first.next + 5}`);
+        expect(r).toMatchObject({ day: "2026-10-28", next: 0 });
+        await api("/units/follow/stop", { body: {} });
     });
 });
 

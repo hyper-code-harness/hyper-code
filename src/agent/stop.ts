@@ -13,6 +13,14 @@ clearQueue?: boolean }) {
     // Abort the in-flight LLM call if any.
     try { agent.samplingAbortController?.abort('stopped_by_user'); } catch {}
     try { agent.abortController?.abort('stopped_by_user'); } catch {}
+    // …and the tool calls it has in flight. Each call has its own controller (tools.beginRun), so aborting the run
+    // alone left a bash or a fetch started before the press running to its own end, its spinner still turning.
+    // Each reports "stopped by the user", as the per-call abort button does. Background jobs are not calls (a
+    // background bash returns its job id at once; afterMs only waits for one; "to background" hands the process to
+    // jobs.adopt and ends the call), so they keep running — jobs.cancel stops those.
+    for (const run of ctx.fns.tools?.runs?.({ agentId: agent.id }) ?? []) {
+        try { ctx.fns.tools.abortRun({ id: run.id }); } catch (error: any) { console.warn(`agent.stop: abort ${run.id} failed:`, error?.message ?? error); }
+    }
 
     // Reset run state on the agent row. clearQueue also drops the pending debounce window.
     // An explicit user stop pauses plan continuation. It is resumed only by a

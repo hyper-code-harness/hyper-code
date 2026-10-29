@@ -4,6 +4,7 @@
  * @param opts.calls The calls in order; each opens its details on click.
  * @param opts.runningSince Start of the running call (ms) — adds the live seconds; omit when idle.
  * @param opts.fold Fold to a count above this many calls. @default 6
+ * @param opts.elapsed A finished row's time, e.g. "1m 12s", in grey after the pill; ignored while runningSince ticks.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The calls in order; each opens its details on click. */
@@ -12,6 +13,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
     runningSince?: number;
     /** Fold to a count above this many calls. @default 6 */
     fold?: number;
+    /** A finished row's time, e.g. "1m 12s", in grey after the pill; ignored while runningSince ticks. */
+    elapsed?: string;
 }): string {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
     const fold = opts.fold ?? 6;
@@ -29,6 +32,6 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const body = calls.length > fold
         ? `<details class="w-tool-fold"><summary class="w-tool-count" aria-label="${calls.length} tool calls${failed ? `, ${failed} failed` : ""}">${ctx.fns.w.icon({ name: "caret-right", size: 12 })}${calls.length} tool calls${failed ? ` · <span class="w-tool-failed">${failed} failed</span>` : ""}</summary><span class="w-tool-cells">${hidden.map(cell).join("")}</span></details>${shown.map(cell).join("")}`
         : calls.map(cell).join("");
-    const clock = opts.runningSince ? ctx.fns.w.timer({ since: Number(opts.runningSince) }) : "";
+    const clock = opts.runningSince ? ctx.fns.w.timer({ since: Number(opts.runningSince) }) : opts.elapsed ? `<span class="w-time">${esc(opts.elapsed)}</span>` : "";
     return `<div class="w-tool-row"><div class="w-tool-group">${body}</div>${clock}</div>`;
 }

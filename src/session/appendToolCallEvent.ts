@@ -12,7 +12,7 @@ export default async function (
         id: string;
 
         /** Payload used by the operation. */
-        payload: { name: string; args: any; result: string; isError: boolean; messageIdx?: number; result_ref?: types.agent.ResultRef | null; thinkMs?: number };
+        payload: { name: string; args: any; result: string; isError: boolean; messageIdx?: number; result_ref?: types.agent.ResultRef | null; thinkMs?: number; turnStart?: number };
 
         /** Ts used by the operation. */
         ts?: number;

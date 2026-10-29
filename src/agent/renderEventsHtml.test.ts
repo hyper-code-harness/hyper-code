@@ -95,6 +95,9 @@ describe("agent.renderEventsHtml", () => {
         const done = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2, 3000)], live: true });
         expect(done).not.toContain("data-running");
         expect(done).not.toContain("w-timer");
+        // A finished row keeps the turn's time up to its last call.
+        const kept = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ ...call(2, 3000), turnStart: 1000, ts: 73_000 }], live: true });
+        expect(kept).toContain('<span class="w-time">1m 12s</span>');
         delete ctx.state.registry.agent.renderEventHtml;
     });
 });

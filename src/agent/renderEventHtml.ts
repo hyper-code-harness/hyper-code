@@ -311,7 +311,8 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         // The turn's total under its answer: overall time, calls, failures. A quick reply without tools says nothing.
         const ms = Number(ev.durationMs ?? 0);
         const tools = Number(ev.tools ?? 0);
-        if (tools === 0 && ms < 5000 && ev.outcome === 'ok') return '';
+        // The tool row already ends in the turn's time; a separate line only for a long turn without tools, or a stop/error.
+        if (ev.outcome === 'ok' && (tools > 0 || ms < 5000)) return '';
         const s = Math.round(ms / 1000);
         const time = s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s` : `${Math.floor(s / 3600)}h ${Math.floor(s / 60) % 60}m`;
         const think = Math.round(Number(ev.thinkMs ?? 0) / 1000);

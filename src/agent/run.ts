@@ -94,6 +94,8 @@ export default async function (
         return null;
     });
     let consumedUserIdx = -1;
+    // The turn's start, stamped on every tool_call event: a finished row keeps the turn's time up to its last call.
+    const turnStart = Number(((await ctx.fns.procs.db.select({ sql: "SELECT run_started_at FROM agents WHERE id = ?", params: [agent.id] })) as any[])[0]?.run_started_at ?? 0) || Date.now();
     const MAX_TURNS = 300;
     let turns = 0;
 
@@ -328,6 +330,7 @@ export default async function (
                 name: call.name, args: call.args, result: output, result_ref,
                 isError: r.isError,
                 messageIdx: append.idx,
+                turnStart,
                 ...(call === toolCalls[0] ? { thinkMs } : {}),
             } });
 

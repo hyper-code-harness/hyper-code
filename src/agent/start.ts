@@ -3,6 +3,8 @@
  * @param opts.workspaceDir Workspace directory assigned to the agent; a path on workspaceHost when that is set.
  * @param opts.workspaceHost SSH host alias the workspace lives on; empty or omitted means local.
  * @param opts.systemPrompt Additional system instructions.
+ * @param opts.systemPromptName Name of the base system prompt (agent.systemPrompts); empty means the default.
+ * @param opts.systemPromptCore A one-off base system prompt text used instead of a named one.
  * @param opts.parentId Optional parent agent identifier.
  * @param opts.forkOffset Optional inherited parent transcript offset.
  * @param opts.visibility Listing policy: nav, team, or hidden. @default nav
@@ -22,6 +24,10 @@ export default async function (
     workspaceHost?: string;
         /** Additional system instructions. */
     systemPrompt?: string;
+        /** Name of the base system prompt (agent.systemPrompts); empty means the default. */
+    systemPromptName?: string;
+        /** A one-off base system prompt text used instead of a named one. */
+    systemPromptCore?: string;
             /** Narrow the agent to these tool wire names; unset means every declared tool. */
     tools?: string[];
     /** Parent id used by the operation. */
@@ -54,6 +60,8 @@ export default async function (
         workspaceDir,
         workspaceHost,
         systemPrompt: opts.systemPrompt ?? "",
+        systemPromptName: String(opts.systemPromptName ?? "").trim(),
+        systemPromptCore: String(opts.systemPromptCore ?? ""),
         tools: opts.tools,
         messages: [],
         events: [],

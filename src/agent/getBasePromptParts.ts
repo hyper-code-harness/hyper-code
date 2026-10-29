@@ -1,14 +1,13 @@
-import { resolve } from "node:path";
-
-const CORE_PATH = resolve(import.meta.dir, "SYSTEM_PROMPT_CORE.txt");
-const WIRE_PATH = resolve(import.meta.dir, "SYSTEM_PROMPT.txt");
-
-/** Get base prompt parts for the runtime. */
-export default async function (_ctx: Context, _session: Session | null, _opts?: {}) {
-    const core = await Bun.file(CORE_PATH).text();
-    // The wire prompt described the markers protocol; native tool calls made
-    // it obsolete and the file is gone. Empty is the honest value — callers
-    // show the section only when there is something to show.
-    const wire = await Bun.file(WIRE_PATH).text().catch(() => "");
-    return { core, wire };
+/**
+ * Returns the base system prompt text shown in the New agent form, by name.
+ * @param opts.name Name of the system prompt (agent.systemPrompts). @default "full"
+ */
+export default async function (ctx: Context, _session: Session | null, opts: {
+    /** Name of the system prompt (agent.systemPrompts). @default "full" */
+    name?: string;
+} = {}) {
+    const name = String(opts?.name ?? "").trim() || "full";
+    const found = (await ctx.fns.agent.systemPrompts({ name }))[0] ?? (await ctx.fns.agent.systemPrompts({ name: "full" }))[0];
+    // The wire prompt described the markers protocol; native tool calls made it obsolete. Empty is the honest value.
+    return { core: found?.text ?? "", wire: "" };
 }

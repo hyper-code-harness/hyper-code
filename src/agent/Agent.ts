@@ -10,6 +10,10 @@ export type Agent = {
     /** SSH host alias the workspace lives on (see remote.servers); empty/undefined = local. When set, workspaceDir is a path on that host. */
     workspaceHost?: string;
     systemPrompt: string;
+    /** Name of the base system prompt (agent.systemPrompts); empty means full. */
+    systemPromptName?: string;
+    /** A one-off base prompt given at creation; when set it is used instead of systemPromptName. */
+    systemPromptCore?: string;
     /** Narrow this agent to a subset of the declared tools (wire names). Unset
      *  = every loaded tool. What is excluded here never reaches the prompt or
      *  the provider's tool list, so it costs no prefix tokens either. */

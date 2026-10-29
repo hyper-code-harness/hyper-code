@@ -16,6 +16,8 @@ id: string }): Promise<types.agent.Agent | null> {
         workspaceDir: row.workspace_dir || process.cwd(),
         workspaceHost: row.workspace_host || "",
         systemPrompt: row.system_prompt,
+        systemPromptName: row.system_prompt_name ?? "",
+        systemPromptCore: row.system_prompt_core ?? "",
         tools: row.tools == null ? undefined : (typeof row.tools === 'string' ? JSON.parse(row.tools) : row.tools),
         scratchpad: JSON.parse(row.scratchpad),
         messages: [],

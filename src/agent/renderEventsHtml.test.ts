@@ -73,8 +73,9 @@ describe("agent.renderEventsHtml", () => {
         const ctx: any = await mkTestCtx();
         ctx.state.registry.agent.renderEventHtml = (_c: any, _s: any, opts: any) => `<p>event ${opts.event.idx}</p>`;
         ctx.state.registry.tools.runs = () => [];
-        ctx.state.agent ??= {};
-        ctx.state.agent.a1 = { id: "a1", runStartedAt: 7000 };
+        const db = ctx.state.registry.procs.db.select;
+        let started: number | null = 7000;
+        ctx.state.registry.procs.db.select = async (c: any, s: any, o: any) => /run_started_at FROM agents/.test(o.sql) ? (started ? [{ run_started_at: started }] : []) : db(c, s, o);
 
         // The turn just started: no call yet — an empty row with one glowing brain and the overall clock.
         const start = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "user", idx: 1 }], live: true });
@@ -90,7 +91,7 @@ describe("agent.renderEventsHtml", () => {
         expect(row).toContain('data-since="7000"');
 
         // The turn is over: no clock, no glowing cell, and the turn event draws the total.
-        ctx.state.agent.a1.runStartedAt = null;
+        started = null;
         const done = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [call(2, 3000)], live: true });
         expect(done).not.toContain("data-running");
         expect(done).not.toContain("w-timer");

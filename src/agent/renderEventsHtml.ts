@@ -24,7 +24,10 @@ export default async function (
 ): Promise<string> {
     const { events, agentId } = opts;
     // The turn in progress: its start feeds the live row's overall clock and its thinking cell.
-    const turnSince = opts.live ? Number((ctx.state as any).agent?.[agentId]?.runStartedAt ?? 0) || undefined : undefined;
+    // Read from the agents row (run_started_at, set by the worker's claim) — the durable source, right after a reload too.
+    const turnSince = opts.live
+        ? Number(((await ctx.fns.procs.db.select({ sql: "SELECT run_started_at FROM agents WHERE id = ? AND run_state = 'running'", params: [agentId] })) as any[])[0]?.run_started_at ?? 0) || undefined
+        : undefined;
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
 
     // A run of tool calls is one row drawn on the server: consecutive tool_call events (a job event draws

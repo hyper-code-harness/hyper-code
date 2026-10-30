@@ -43,4 +43,27 @@ describe('session.repairToolPairs', () => {
         expect(messages[1].tool_call_id).toBe('a');
         expect(messages[2].tool_call_id).toBe('b');
     });
+
+    test('a result with no call before it is dropped, the rest kept in order', () => {
+        const { messages, dropped, repaired } = run([
+            { role: 'tool', content: 'orphan from a cut', tool_call_id: 'gone' },
+            { role: 'user', content: 'hi' },
+            { role: 'assistant', content: '', tool_calls: [{ id: 'c1', name: 'read', args: {} }] },
+            { role: 'tool', content: 'ok', tool_call_id: 'c1' },
+            { role: 'tool', content: 'duplicate', tool_call_id: 'c1' },
+        ]);
+        expect(messages.map((m: any) => m.content)).toEqual(['hi', '', 'ok']);
+        expect(dropped).toEqual([{ id: 'gone', at: 0 }, { id: 'c1', at: 4 }]);
+        expect(repaired).toHaveLength(0);
+    });
+
+    test('a result that precedes its call is dropped and the call is closed', () => {
+        const { messages, dropped, repaired } = run([
+            { role: 'tool', content: 'early', tool_call_id: 'c1' },
+            { role: 'assistant', content: '', tool_calls: [{ id: 'c1', name: 'bash', args: {} }] },
+        ]);
+        expect(dropped).toEqual([{ id: 'c1', at: 0 }]);
+        expect(repaired.map(r => r.id)).toEqual(['c1']);
+        expect(messages.map((m: any) => m.role)).toEqual(['assistant', 'tool']);
+    });
 });

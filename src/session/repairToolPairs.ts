@@ -11,26 +11,45 @@
 // So a dangling call gets a synthetic answer saying what actually happened. The
 // history stays honest (the call really was made, its outcome really is
 // unknown) and the conversation continues.
-/** Repair tool pairs for the runtime. */
+//
+// The opposite break is just as fatal: a tool result whose call is not before
+// it. Anthropic answers 400 "unexpected tool_use_id … no corresponding tool_use
+// block", OpenAI "No tool call found for function call output". It appears when
+// history is cut between a call and its result (a compaction boundary, a fork
+// offset). Such a result says nothing the model can use without its call, so it
+// is dropped from the request — never from the stored transcript.
+/** Close tool calls that never got an answer and drop tool results that have no preceding call, so any provider accepts the transcript. Returns new arrays; stored messages are not mutated. */
 export default function (
     _ctx: Context,
     _session: Session | null,
     opts: {
-        /** Messages to persist or process. */
+        /** Transcript about to be sent to a provider, oldest first. */
     messages: any[] },
-): { messages: any[]; repaired: { id: string; name: string; afterIdx: number }[] } {
+): { messages: any[]; repaired: { id: string; name: string; afterIdx: number }[]; dropped: { id: string; at: number }[] } {
     const messages = opts.messages ?? [];
-    const answered = new Set(
-        messages.filter((m: any) => m?.role === "tool" && m.tool_call_id != null).map((m: any) => m.tool_call_id),
-    );
+    // A call counts as answered only by a result that comes AFTER it.
+    const answered = new Set<any>();
+    const seen = new Set<string>();
+    for (const m of messages) {
+        for (const call of m?.tool_calls ?? []) seen.add(String(call.id));
+        if (m?.role === "tool" && m.tool_call_id != null && seen.has(String(m.tool_call_id))) answered.add(m.tool_call_id);
+    }
 
     const repaired: { id: string; name: string; afterIdx: number }[] = [];
+    const dropped: { id: string; at: number }[] = [];
+    // Calls issued so far and not yet answered: a result is valid only after its call, once.
+    const open = new Set<string>();
     const out: any[] = [];
-    for (const m of messages) {
+    messages.forEach((m: any, at: number) => {
+        if (m?.role === "tool" && m.tool_call_id != null) {
+            if (!open.delete(String(m.tool_call_id))) { dropped.push({ id: String(m.tool_call_id), at }); return; }
+        }
         out.push(m);
         for (const call of m?.tool_calls ?? []) {
+            open.add(String(call.id));
             if (answered.has(call.id)) continue;
             answered.add(call.id);
+            open.delete(String(call.id));
             repaired.push({ id: call.id, name: call.name, afterIdx: out.length - 1 });
             out.push({
                 role: "tool",
@@ -39,7 +58,7 @@ export default function (
                 excluded_from_cursor: true,
             });
         }
-    }
+    });
 
-    return { messages: out, repaired };
+    return { messages: out, repaired, dropped };
 }

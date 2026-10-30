@@ -32,13 +32,21 @@ export default async function (
         ctx.fns.agent.renderEventHtml({ event }),
     ))).join("\n");
 
-    const tailStart = Math.max(0, Number(generation.tailStart ?? generation.sourceOffset ?? 0));
+    // tailStart counts the agent's context history (inherited prefix + own rows,
+    // excluded rows skipped), events carry the persisted own-row idx: map the
+    // position to the idx of the row it points at.
+    const h = await ctx.fns.agent.contextHistory({ id: opts.agentId });
+    const { start } = ctx.fns.agent.compactTail({ generation, agentId: opts.agentId, inherited: h.inherited, length: h.messages.length });
+    const tailStart = start ?? 0;
+    const tailIdx = tailStart < h.inherited ? 0
+        : tailStart >= h.messages.length ? Number(h.messages.at(-1)?.idx ?? -1) + 1
+        : Number(h.messages[tailStart]?.idx ?? 0);
     const tailEvents = opts.events.filter((event: any) => {
         const idx = Number(event?.messageIdx);
-        return Number.isInteger(idx) && idx >= tailStart;
+        return Number.isInteger(idx) && idx >= tailIdx;
     });
     const tailHtml = await ctx.fns.agent.renderEventsHtml({ events: tailEvents, agentId: opts.agentId });
-    const sourceOffset = Math.max(0, Number(generation.sourceOffset ?? 0));
+    const sourceOffset = h.messages.length;
     const hidden = Math.max(0, tailStart);
 
     const w = ctx.fns.w;

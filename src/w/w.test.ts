@@ -55,6 +55,11 @@ test("toolGroup: a folded run draws each call once", async () => {
     const html = ctx.fns.w.toolGroup({ calls });
     expect(html.match(/class="w-tool"/g)!.length).toBe(8);
     expect(html.match(/call 3/g)!.length).toBe(2); // title + aria-label of the one cell
+    // Thinking cells are drawn but not counted as calls: 4 calls + 4 asides do not fold, 8 calls + asides say 8.
+    const think = (i: number) => ({ icon: "brain", title: `thought ${i}s`, aside: true });
+    const few = ctx.fns.w.toolGroup({ calls: Array.from({ length: 4 }, (_, i) => [think(i), { icon: "terminal", title: `c${i}` }]).flat() });
+    expect(few).not.toContain("w-tool-fold");
+    expect(ctx.fns.w.toolGroup({ calls: [...calls, think(1)] })).toContain(">8 tool calls");
 });
 
 test("tabs are navigation: aria-current on the open one, no fake tablist", async () => {

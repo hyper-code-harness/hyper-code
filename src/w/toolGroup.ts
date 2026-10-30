@@ -1,14 +1,15 @@
 /**
  * Draws a run of tool calls as one pill of icon cells (failed ones red), folded to "N tool calls ›" when long,
  * with the running call glowing and its seconds in grey after the pill.
- * @param opts.calls The calls in order; each opens its details on click.
+ * @param opts.calls The calls in order; each opens its details on click. An `aside` cell (the model thinking) is drawn
+ * among them but not counted as a call.
  * @param opts.runningSince Start of the running call (ms) — adds the live seconds; omit when idle.
  * @param opts.fold Fold to a count above this many calls. @default 6
  * @param opts.elapsed A finished row's time, e.g. "1m 12s", in grey after the pill; ignored while runningSince ticks.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The calls in order; each opens its details on click. */
-    calls: Array<{ icon: string; title: string; error?: boolean; running?: boolean; action?: types.w.Action }>;
+    calls: Array<{ icon: string; title: string; error?: boolean; running?: boolean; aside?: boolean; action?: types.w.Action }>;
     /** Start of the running call (ms) — adds the live seconds; omit when idle. */
     runningSince?: number;
     /** Fold to a count above this many calls. @default 6 */
@@ -25,12 +26,13 @@ export default function (ctx: Context, _session: Session | null, opts: {
     };
     const calls = opts.calls ?? [];
     const failed = calls.filter(c => c.error).length;
+    const count = calls.filter(c => !c.aside).length;
     // Folded: the failed and the running calls stay visible after the count; the rest opens in place. Each call is
     // drawn once — the visible ones are not repeated inside the fold.
     const shown = calls.filter(c => c.error || c.running);
     const hidden = calls.filter(c => !(c.error || c.running));
-    const body = calls.length > fold
-        ? `<details class="w-tool-fold"><summary class="w-tool-count" aria-label="${calls.length} tool calls${failed ? `, ${failed} failed` : ""}">${ctx.fns.w.icon({ name: "caret-right", size: 12 })}${calls.length} tool calls${failed ? ` · <span class="w-tool-failed">${failed} failed</span>` : ""}</summary><span class="w-tool-cells">${hidden.map(cell).join("")}</span></details>${shown.map(cell).join("")}`
+    const body = count > fold
+        ? `<details class="w-tool-fold"><summary class="w-tool-count" aria-label="${count} tool calls${failed ? `, ${failed} failed` : ""}">${ctx.fns.w.icon({ name: "caret-right", size: 12 })}${count} tool calls${failed ? ` · <span class="w-tool-failed">${failed} failed</span>` : ""}</summary><span class="w-tool-cells">${hidden.map(cell).join("")}</span></details>${shown.map(cell).join("")}`
         : calls.map(cell).join("");
     const clock = opts.runningSince ? ctx.fns.w.timer({ since: Number(opts.runningSince) }) : opts.elapsed ? `<span class="w-time">${esc(opts.elapsed)}</span>` : "";
     return `<div class="w-tool-row"><div class="w-tool-group">${body}</div>${clock}</div>`;

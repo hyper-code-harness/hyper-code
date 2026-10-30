@@ -28,7 +28,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** A finished row's time in ms (the last row of a turn: the turn's time), drawn in grey after it. @minimum 0 */
     elapsedMs?: number;
 }): string {
-    type Cell = { icon: string; title: string; error?: boolean; running?: boolean; action?: types.w.Action };
+    type Cell = { icon: string; title: string; error?: boolean; running?: boolean; aside?: boolean; action?: types.w.Action };
     const calls: Cell[] = [];
     for (const event of opts.events) {
         const ms = Number(event?.thinkMs ?? 0);
@@ -37,7 +37,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     }
     const live = opts.running ? ctx.fns.agent.runningToolCall({ agentId: opts.agentId }) : null;
     if (live) calls.push({ icon: live.icon, title: live.title, running: true, action: live.action });
-    else if (opts.running && opts.turnSince) calls.push({ icon: "brain", title: "thinking", running: true });
+    else if (opts.running && opts.turnSince) calls.push({ icon: "brain", title: "thinking", running: true, aside: true });
     if (!calls.length) return "";
     const runningSince = opts.running ? (opts.turnSince ?? live?.startedAt) : undefined;
     const first = opts.events[0]?.idx;
@@ -53,6 +53,6 @@ function clock(ms: number): string {
 }
 
 // A "thinking" cell: the model's time for one reply.
-function thinking(ms: number): { icon: string; title: string } {
-    return { icon: "brain", title: `thought ${clock(ms)}` };
+function thinking(ms: number): { icon: string; title: string; aside: true } {
+    return { icon: "brain", title: `thought ${clock(ms)}`, aside: true };
 }

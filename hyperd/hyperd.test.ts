@@ -230,6 +230,13 @@ describe("install", () => {
         // the daemon must not load the repo .env into the env it hands to units
         expect(f.content).toContain("<string>--no-env-file</string>");
     });
+
+    test("the service PATH starts with bun's own directory when it is not a standard one", () => {
+        const at = (bun: string) => /<key>PATH<\/key><string>([^<]*)<\/string>/.exec(serviceFile("launchd-user", { ...o, bun }).content)![1]!;
+        expect(at("/home/ann/.bun/bin/bun")).toBe("/home/ann/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+        expect(at("/usr/local/bin/bun")).toBe("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+        expect(serviceFile("systemd-user", { ...o, bun: "/home/ann/.bun/bin/bun" }).content).toContain("PATH=/home/ann/.bun/bin:/opt/homebrew/bin");
+    });
     test("systemd unit keeps holders alive when the daemon stops", () => {
         const f = serviceFile("systemd-user", o);
         expect(f.path).toBe("/home/ann/.config/systemd/user/hyperd.service");

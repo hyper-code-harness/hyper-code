@@ -130,6 +130,11 @@ export default async function (
         await closeTurn(outcome);
     }
 
+    function stoppedError() {
+        delete agent.scratchpad.activeStatusLine;
+        return Object.assign(new Error(`run aborted: ${String(ac.signal.reason ?? 'stopped_by_user')}`), { aborted: true });
+    }
+
     async function turnLoop() {
     const MAX_TURNS = 300;
     let turns = 0;
@@ -140,6 +145,9 @@ export default async function (
     const planAttempts: Record<string, number> = {};
     let totalPlanInjections = 0;
     while (true) {
+        // Stop landed while a tool ran: the call ended "stopped by the user" and returned normally, so nothing
+        // threw. Without this check the loop would ask the model once more and post its reply after the press.
+        if (ac.signal.aborted) throw stoppedError();
         if (++turns > MAX_TURNS) {
             await ctx.fns.session.appendErrorEvent({ id: agent.id, error: `run hit the ${MAX_TURNS}-turn cap — closing; send a message to continue` });
             await ctx.fns.session.appendMessage({ id: agent.id, message: {
@@ -177,7 +185,8 @@ export default async function (
         const sampling = new AbortController();
         agent.samplingAbortController = sampling;
         const onRunAbort = () => sampling.abort(ac.signal.reason ?? "run_aborted");
-        ac.signal.addEventListener("abort", onRunAbort, { once: true });
+        // A listener added to an already aborted signal never fires.
+        if (ac.signal.aborted) onRunAbort(); else ac.signal.addEventListener("abort", onRunAbort, { once: true });
         let streamed: any;
         const sampledFrom = Date.now();
         try {
@@ -361,6 +370,11 @@ export default async function (
         // filled, preserving the provider's native tool-call transcript.
         let terminal: { type: 'html'; html: string; text: string } | undefined;
         for (const call of toolCalls) {
+            // After Stop the rest of the reply's calls do not start; each row says why.
+            if (ac.signal.aborted) {
+                await ctx.fns.session.updateMessageContent({ id: agent.id, idx: pending[call.id]!, content: `(${call.name} not run — stopped by the user)` });
+                continue;
+            }
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
             totals.tools++;
             if (r.isError) totals.errors++;

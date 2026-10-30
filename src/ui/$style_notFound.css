@@ -1,0 +1,11 @@
+/* The 404 page (ui.notFound): a quiet hero — a large faint "404", the title, the address asked for, the ways
+   out — then two short link lists. Monochrome, on the w tokens only. */
+.nf { display: flex; flex-direction: column; align-items: center; gap: var(--w-s6); padding-block: var(--w-s6); }
+.nf-hero { display: flex; flex-direction: column; align-items: center; gap: var(--w-s2); text-align: center; max-width: var(--w-measure); }
+.nf-hero > .w-icon { color: var(--w-ink-faint); }
+.nf-code { font-size: 96px; line-height: 1; font-weight: 600; letter-spacing: -.04em; color: var(--w-ink-faint); opacity: .35; font-variant-numeric: tabular-nums; user-select: none; }
+.nf-title { margin: 0; font-size: var(--w-text-title); line-height: var(--w-line-title); font-weight: 500; color: var(--w-ink); }
+.nf-url { max-width: 100%; padding: var(--w-s1) var(--w-s2); border: var(--w-rule); border-radius: var(--w-radius-item); background: var(--w-surface-chrome); font-family: var(--w-mono); font-size: var(--w-text-small); color: var(--w-ink-muted); overflow-wrap: anywhere; }
+.nf-lead { margin: 0; font-size: var(--w-text-read); color: var(--w-ink-muted); }
+.nf-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--w-s2); margin-top: var(--w-s2); }
+.nf-lists { width: 100%; max-width: 44rem; padding-top: var(--w-s4); border-top: var(--w-rule); }

@@ -63,7 +63,8 @@ export default {
             reload: { action: "reload-canvas-tab" }, reloadAttrs: { "data-canvas-reload": true },
             attrs: { "data-canvas-navigate": opts.item.id, "data-canvas-navigate-kind": "view" },
         });
-        const r = await ctx.fns.rpc.render({ url });
+        // the tab knows whose it is; the panel request drawing it may carry no person and no agent (open instance)
+        const r = await ctx.fns.rpc.render({ url, agentId: opts.agentId });
         const frag = `<div data-canvas-view="${opts.item.id}" data-rpc-status="${r.status}">${r.html}</div>`;
         return w.pane({ header: bar, body: frag });
     },

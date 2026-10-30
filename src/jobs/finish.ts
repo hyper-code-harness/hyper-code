@@ -70,7 +70,8 @@ export default async function (
         if (result.bytes > result.tail.length) lines.push(`Full output: await ctx.fns.jobs.logs({ id: "${opts.id}" })`);
     }
     if (row.prompt) lines.push(`Your instruction for this moment: ${row.prompt}`);
-    const running = Number(((await ctx.fns.procs.db.select({ sql: "SELECT count(*)::int AS n FROM jobs WHERE agent_id = ? AND status = 'running' AND NOT (id = ANY(string_to_array(?, ',')))", params: [row.agent_id, [opts.id, ...(opts.alsoFinishing ?? [])].join(",")] })) as any[])[0]?.n ?? 0);
+    const running = Number(((await ctx.fns.procs.db.select({ sql: "SELECT count(*)::int AS n FROM jobs WHERE agent_id = ? AND kind = 'exec' AND status = 'running' AND NOT (id = ANY(string_to_array(?, ',')))", params: [row.agent_id, [opts.id, ...(opts.alsoFinishing ?? [])].join(",")] })) as any[])[0]?.n ?? 0);
+    // only commands: a pending agent.wake / cron / watch is also a running row, but nothing is executing
     if (running) lines.push(`${running} other job(s) still running — they will report when done.`);
 
     const delivered = await ctx.fns.agent.deliver({

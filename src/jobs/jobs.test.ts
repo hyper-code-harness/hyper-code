@@ -85,6 +85,8 @@ describe("jobs", () => {
         const t1 = await ctx.fns.jobs.start({ agentId: a.id, command: "true" });
         const t2 = await ctx.fns.jobs.start({ agentId: a.id, command: "true" });
         const long = await ctx.fns.jobs.start({ agentId: a.id, command: "sleep 600" });
+        // a pending wake is a running row too, but not a running job: it must not be counted
+        const wake = await ctx.fns.agent.wake({ id: a.id, inMs: 3_600_000, prompt: "later" });
         await Bun.sleep(500);
         const now = Date.now() + 1000;
         expect((await ctx.fns.jobs.poll({ now })).finished.sort()).toEqual([t1.id, t2.id].sort());
@@ -92,6 +94,7 @@ describe("jobs", () => {
         const row = (await ctx.fns.procs.db.select({ sql: "SELECT next_run_at FROM agents WHERE id = ?", params: [a.id] }))[0];
         expect(Number(row.next_run_at)).toBe(now + 2000);
         await ctx.fns.jobs.cancel({ id: long.id });
+        await ctx.fns.jobs.cancel({ id: wake.id });
     });
 
     test("bash tool background:true starts a job and returns at once", async () => {

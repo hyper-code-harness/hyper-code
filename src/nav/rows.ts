@@ -5,6 +5,7 @@
  * the page to the Dock). Use from a widget that draws its own html around rows, so they keep the menu keys.
  * @param opts.items Rows to draw.
  * @param opts.pinned Pin ids (`agent:<id>`, `page:<href>`) currently pinned; read from the viewer when omitted.
+ * @param opts.current Id of the row that is the page open now (`agent:<id>`); that row is drawn current (blue).
  */
 export default async function (
     ctx: Context,
@@ -14,6 +15,8 @@ export default async function (
         items: types.nav.Item[];
         /** Pin ids (`agent:<id>`, `page:<href>`) currently pinned; read from the viewer when omitted. */
         pinned?: Set<string>;
+        /** Id of the row that is the page open now (`agent:<id>`); that row is drawn current (blue). */
+        current?: string;
     },
 ): Promise<string> {
     const esc = (v: unknown) => ctx.fns.w.escape({ text: String(v ?? "") });
@@ -56,6 +59,7 @@ export default async function (
             hint,
             dot: item.unread ? "unread" : undefined,
             action: { href: safeHref },
+            current: !!opts.current && item.id === opts.current,
             attrs: { ...attrs, "data-nav-pinned": isPinned || undefined, "data-nav-new-tab": item.newTab || undefined },
             end,
         });

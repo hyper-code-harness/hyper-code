@@ -141,25 +141,18 @@
         try { localStorage.setItem('hyper-dock-mode', next); } catch (_) {}
         document.body.dispatchEvent(new CustomEvent('dock-mode', { detail: { mode: next } }));
         paintMode();
-        if (next === 'menu') loadPanel();
+        if (next === 'menu') loadPanel(true);
     }
     // The side panel (projects, recent chats) is fetched the first time it is shown, then lives on the agents topic.
-    function loadPanel() {
+    function loadPanel(fresh = false) {
         const panel = document.getElementById('dock-panel');
         if (!panel) return;
         // Empty: fetch it (htmx's own load trigger covers a page that opens in menu mode; this covers a switch).
-        if (!panel.firstElementChild) panel.dispatchEvent(new Event('dock-panel-load'));
-        markCurrent();
+        // The open chat's row is marked by the server (GET /dock/panel reads the page address htmx sends), and the
+        // panel re-asks after every swap of #main (its hx-trigger), so nothing here tracks the address.
+        // A panel opened again re-asks too: while it was hidden the person may have moved to another chat.
+        if (fresh || !panel.firstElementChild) panel.dispatchEvent(new Event('dock-panel-load'));
     }
-    function markCurrent() {
-        const here = /^\/agent\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1];
-        document.querySelectorAll('#dock-panel [data-dock-panel-chat]').forEach(a => {
-            if (a.dataset.dockPanelChat === here) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
-        });
-    }
-    document.addEventListener('htmx:after:swap', markCurrent);
-    document.addEventListener('htmx:afterSwap', markCurrent);
-    window.addEventListener('popstate', markCurrent);
     document.addEventListener('click', e => {
         const b = e.target.closest?.('[data-action="toggle-dock-pin"]');
         if (!b) return;

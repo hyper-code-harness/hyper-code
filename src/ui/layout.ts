@@ -76,7 +76,6 @@ body[data-presentation="sidebar"] .dock-panel { display: none !important; }
 html[data-dock-mode="menu"] .dock-panel { display: flex; flex-direction: column; width: 16.5rem; flex: none; min-height: 0; height: calc(100% - 1rem); margin: .5rem .25rem .5rem 0; border: 1px solid var(--color-ui-border); border-left: 0; border-radius: 0 1rem 1rem 0; overflow: hidden; background: rgb(from var(--color-base-100) r g b / .68); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
 /* Bar and panel are one card: the bar gives up its right corners and gap, its right border is the divider. */
 /* The grey header cell of the bar (in bar and menu mode alike, so opening the panel moves nothing); with the panel it runs across both: the menu circle sits in the bar's part of it, under it the same hairline. */
-.dock-panel-row[aria-current="page"] { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
 .dock-panel-project[open] > summary { color: var(--color-base-content); }
 /* Dot: the strip goes away and the menu circle moves into the top row of the page — the canvas tab row
    (h-8, inside a panel with my-2 ml-2) or the chat header — which makes room for it on the left. */
@@ -358,7 +357,7 @@ ${opts.headExtra ?? ""}
 <div id="frame" class="relative flex h-screen">
   ${hideNavigation ? "" : ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', label: "Open agents and pages", title: "Agents and pages", marks: { action: "open-global-menu-mobile" }, attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" }, class: "hidden" })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
-  ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
+  ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load, htmx:after:swap[document.documentElement.dataset.dockMode==='menu'&&detail.ctx.target&&detail.ctx.target.id==='main'] from:document", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
     <script src="/canvas/canvas.js?v=4" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->

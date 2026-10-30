@@ -8,6 +8,7 @@
  * @param opts.fresh Skip the ttl cache and render now (the widget preview canvas uses it). @default false
  * @param opts.peek Only look in the ttl cache: return the cached tile, or `pending: true` with empty html without
  * rendering (nav.home uses it for `lazy` widgets, whose body then arrives through GET /nav/widget). @default false
+ * @param opts.current Id of the row that is the page open now (`agent:<id>`); nav.rows draws it current.
  */
 export default async function (
     ctx: Context,
@@ -21,6 +22,8 @@ export default async function (
         fresh?: boolean;
         /** Only look in the ttl cache: the cached tile, or `pending: true` without rendering. @default false */
         peek?: boolean;
+        /** Id of the row that is the page open now (`agent:<id>`); nav.rows draws it current. */
+        current?: string;
     },
 ): Promise<{ ok: boolean; html: string; cached: boolean; pending?: boolean; error?: string; ms?: number }> {
     const state = ((ctx.state as any).nav ??= {});
@@ -33,7 +36,7 @@ export default async function (
     Object.assign(config, opts.placement.config ?? {});
     const ttl = Math.max(0, Number(def.ttl ?? 0)) * 1000;
     const viewer = ttl ? await ctx.fns.auth.viewerId({}).catch(() => null) : null;
-    const key = `${viewer ?? ""}|${def.id}|${size}|${JSON.stringify(config)}`;
+    const key = `${viewer ?? ""}|${def.id}|${size}|${JSON.stringify(config)}|${opts.current ?? ""}`;
     const cache: Map<string, { at: number; html: string }> = (state.widgetCache ??= new Map());
     const hit = ttl && !opts.fresh ? cache.get(key) : undefined;
     if (hit && Date.now() - hit.at < ttl) return { ok: true, html: hit.html, cached: true };
@@ -65,10 +68,10 @@ export default async function (
     })();
     const parts: string[] = [];
     if (output.html) parts.push(output.html);
-    if (output.items?.length) parts.push(await ctx.fns.nav.rows({ items: output.items, pinned }));
+    if (output.items?.length) parts.push(await ctx.fns.nav.rows({ items: output.items, pinned, current: opts.current }));
     const sectionParts: string[] = [];
     for (const section of output.sections ?? []) {
-        const body = (section.html ?? "") + (section.items?.length ? await ctx.fns.nav.rows({ items: section.items, pinned }) : "");
+        const body = (section.html ?? "") + (section.items?.length ? await ctx.fns.nav.rows({ items: section.items, pinned, current: opts.current }) : "");
         if (!body) continue;
         sectionParts.push(ctx.fns.w.listSection({
             title: section.title || undefined,

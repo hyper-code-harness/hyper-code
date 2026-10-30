@@ -391,8 +391,12 @@ async function workerPass(ctx: Context, inflight: Set<Promise<unknown>>): Promis
             const claim = await claimOne(ctx, Date.now());
             if (!claim) break;
             drained++;
+            // The side panel draws a running chat (spinning logo) and an unread one (dot) from the agents rows;
+            // claimOne just set run_state and runOne's finalize resets it, so both ends tell the agents topic.
+            try { ctx.fns.events.emitAgentsChanged({ agentId: claim.id, reason: 'run-start' }); } catch {}
             const p = runOne(ctx, claim.id, claim.token).finally(() => {
                 inflight.delete(p);
+                try { ctx.fns.events.emitAgentsChanged({ agentId: claim.id, reason: 'run-end' }); } catch {}
                 // A completion changes claimability (the agent becomes idle and
                 // may leave pending work). Wake the parked loop immediately;
                 // otherwise another agent can sit scheduled for MAX_IDLE_MS.

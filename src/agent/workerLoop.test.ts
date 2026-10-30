@@ -91,6 +91,23 @@ describe('agent.workerLoop', () => {
         expect(ran).toEqual(['r1']);
     }, 8_000);
 
+    test('the agents topic hears the start and the end of every run (side panel logo and unread dot)', async () => {
+        const ctx: any = await mkTestCtx();
+        ctx.fns.agent.workerLoop = workerLoop;
+        ctx.fns.agent.wakeWorker = wakeWorker;
+        await seedReadyAgent(ctx, 'e1', Date.now() - 100);
+        const log: string[] = [];
+        ctx.fns.events.emitAgentsChanged = (_c: any, _s: any, o: any) => { if (o?.agentId === 'e1') log.push(String(o.reason)); };
+        ctx.fns.agent.run = async () => { log.push('run'); };
+        const loopPromise = workerLoop(ctx, null);
+        const deadline = Date.now() + 2_000;
+        while (!log.includes('run-end') && Date.now() < deadline) await Bun.sleep(10);
+        (ctx.state as any).workerLoopRunning = false;
+        wakeWorker(ctx, null);
+        await loopPromise;
+        expect(log).toEqual(['run-start', 'run', 'run-end']);
+    });
+
     test('atomic claim prevents two concurrent claims of the same agent', async () => {
         const ctx: any = await mkTestCtx();
         ctx.fns.agent.workerLoop = workerLoop;

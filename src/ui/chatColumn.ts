@@ -49,6 +49,28 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         attrs: 'class="w-composer-send"',
         html: stopControlHtml,
     });
+    // Background jobs of this chat: a badge before the context ring while any runs (also after the turn ended); a click opens
+    // the list with logs and Stop (jobs.popup). jobs.start / jobs.finish refresh the agent topic.
+    const jobsRegion = ctx.fns.ui.live({
+        id: 'chat-jobs-badge',
+        url: `/jobs/${encodeURIComponent(id)}/badge`,
+        topic: `agent:${id}`,
+        every: 30,
+        swap: 'innerHTML',
+        attrs: 'class="w-composer-jobs"',
+        html: await ctx.fns.jobs.badge({ agentId: id }),
+    });
+    // Subagents of this chat (agent.delegate children still working): a robot badge beside the jobs one; a click
+    // opens agent.teamPopup. events.refreshAgentMeta({ section: "team" }) refreshes the agent topic.
+    const teamRegion = ctx.fns.ui.live({
+        id: 'chat-team-badge',
+        url: `/agent/${encodeURIComponent(id)}/team-badge`,
+        topic: `agent:${id}`,
+        every: 30,
+        swap: 'innerHTML',
+        attrs: 'class="w-composer-jobs"',
+        html: await ctx.fns.agent.teamBadge({ agentId: id }),
+    });
 
     const inject = await ctx.fns.chat.promptInject({ agentId: id });
 
@@ -73,7 +95,7 @@ ${await ctx.fns.ui.chatComposer({
   aboveHtml: inject.mode === "global" ? "" : inject.trigger,
   statusHtml: inject.mode === "global" ? inject.trigger : "",
   toolsHtml: await ctx.fns.chat.modelChip({ agentId: id }),
-  metersHtml: ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="w-composer-meters"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
+  metersHtml: teamRegion + jobsRegion + ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="w-composer-meters"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
 })}
 
 ${inject.panel}

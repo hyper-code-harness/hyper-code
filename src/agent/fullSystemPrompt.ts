@@ -4,7 +4,8 @@
 // referenced from CORE and read on demand via the read tool.
 //
 // Layers:
-//   1. SYSTEM_PROMPT_CORE.txt — invariants + map of ctx.fns + doc pointers
+//   1. the base prompt        — chosen by name (agent.systemPromptBase): full =
+//                               SYSTEM_PROMPT_CORE.txt, lean, or a saved one
 //   2. the tool section       — ASSEMBLED from the $tool_ declarations that are
 //                               actually loaded (index + guidelines), so an
 //                               unmounted or narrowed-away tool costs no tokens
@@ -16,17 +17,13 @@
 // There is no wire-format section any more: tools travel as native function
 // schemas in the request's `tools` array, so describing a call syntax in prose
 // would be duplicating what the provider already enforces.
-import { resolve } from "node:path";
-
-const CORE_PATH = resolve(import.meta.dir, "SYSTEM_PROMPT_CORE.txt");
-
 /** Full system prompt for the runtime.  * @param opts.agent Agent whose state is read or updated.
 */
 export default async function (ctx: Context, _session: Session | null, opts: {
         /** Live agent instance to operate on. */
 agent: types.agent.Agent }): Promise<string> {
     const { agent } = opts;
-    const core = await Bun.file(CORE_PATH).text();
+    const core = (await ctx.fns.agent.systemPromptBase({ agent })).text;
     const tools = ctx.fns.tools.promptSection({ protocol: "json", only: agent.tools });
     // Fences are an output channel, not a tool: the model writes one into its
     // own reply and the renderer turns it into a chart or a diagram. Nothing

@@ -1,11 +1,10 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 setDefaultTimeout(15_000);
-import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { call } from "./client.ts";
 import { checkUnit, loadUnitFile } from "./Unit.ts";
-import { journal, rotatingAppender } from "./rotate.ts";
 import { serviceFile } from "./service.ts";
 
 const root = mkdtempSync(join(tmpdir(), "hyperd-test-"));
@@ -28,7 +27,7 @@ const unit = (name: string) => api(`/units/${name}`);
 const events = async (u: string, type?: string) => (await api("/events?after=0&limit=1000")).events.filter((e: any) => e.unit === u && (!type || e.type === type));
 
 async function startDaemon() {
-    daemon = Bun.spawn(["bun", join(import.meta.dir, "main.ts")], { env: { ...process.env, HYPERD_HOME: home, HYPERD_UNITS: unitsDir, HYPERD_TICK_MS: "50", HYPERD_KEEP_RUNS: "2" }, stdout: "ignore", stderr: "inherit" });
+    daemon = Bun.spawn(["bun", join(import.meta.dir, "main.ts")], { env: { ...process.env, HYPERD_HOME: home, HYPERD_UNITS: unitsDir, HYPERD_TICK_MS: "50" }, stdout: "ignore", stderr: "inherit" });
     await until(() => api("/health"));
 }
 async function stopDaemon() {
@@ -56,28 +55,6 @@ afterAll(async () => {
     // nothing may outlive the test: every holder of this root is gone
     for (const pid of Bun.spawnSync(["pgrep", "-f", root]).stdout.toString().split("\n").filter(Boolean)) { try { process.kill(Number(pid), "SIGKILL"); } catch {} leaked.push(pid); }
     rmSync(root, { recursive: true, force: true });
-});
-
-describe("rotate", () => {
-    test("a log past its limit moves to .1 and starts fresh, so at most twice the limit is on disk", () => {
-        const file = join(root, "rot.log");
-        const append = rotatingAppender(file, 10);
-        append("aaaaaa"); append("bbbbbb"); append("cccccc");
-        expect(readFileSync(file, "utf8")).toBe("cccccc");
-        expect(readFileSync(file + ".1", "utf8")).toBe("bbbbbb");
-    });
-
-    test("the journal keeps seq across a rotation and reads span both files", () => {
-        const file = join(root, "ev.ndjson");
-        const j = journal(file, 60);
-        for (let seq = 1; seq <= 6; seq++) j.append({ seq, type: "x" });
-        expect(readFileSync(file, "utf8").split("\n").filter(Boolean).length).toBeLessThan(6);
-        expect(journal(file, 60).lastSeq()).toBe(6);
-        const behind = j.read(0, 100).map((e: any) => e.seq);
-        expect(behind.at(-1)).toBe(6);
-        expect(behind).toEqual([...behind].sort((a, b) => a - b));
-        expect(j.read(5, 100).map((e: any) => e.seq)).toEqual([6]);
-    });
 });
 
 describe("Unit", () => {
@@ -144,9 +121,6 @@ describe("hyperd", () => {
         expect(u.run).toBe(3);
         expect((await events("crashy", "gave_up")).length).toBe(1);
         expect((await events("crashy", "restarting")).map((e: any) => e.inMs)).toEqual([50, 100]);
-        // a crash loop must not pile up run directories: only the last HYPERD_KEEP_RUNS (2 here) stay
-        const runs = readdirSync(join(home, "units", "crashy")).filter(e => e.startsWith("run-")).sort();
-        expect(runs).toEqual(["run-2", "run-3"]);
     });
 
     test("stop signals the whole process group and records the reason", async () => {
@@ -198,6 +172,33 @@ describe("hyperd", () => {
     });
 });
 
+describe("daily logs", () => {
+    test("logs of a finished run whose out.log was rolled: the last day by default, any day by ?day=, gzipped too", async () => {
+        await api("/run", { body: { unit: { name: "daily", cmd: "echo today-line" } } });
+        const u = await until(async () => { const x = await unit("daily"); return x.state === "exited" && x; });
+        const dir = u.runDir as string;
+        await until(async () => (await api("/units/daily/logs")).text.includes("today-line"));
+        // what the holder and tidy leave behind after two midnights: an older gzipped day and the last day
+        writeFileSync(join(dir, "out.2026-10-27.log.gz"), Bun.gzipSync(Buffer.from("older-day\n")));
+        renameSync(join(dir, "out.log"), join(dir, "out.2026-10-28.log"));
+        const last = await api("/units/daily/logs");
+        expect(last).toMatchObject({ day: "2026-10-28", days: ["2026-10-27", "2026-10-28"] });
+        expect(last.text).toContain("today-line");
+        expect((await api("/units/daily/logs?day=2026-10-27&offset=0")).text).toBe("older-day\n");
+    });
+    test("a follower past the end of a just-rolled out.log finishes the rolled file, then restarts at 0", async () => {
+        await api("/run", { body: { unit: { name: "follow", kind: "service", cmd: "echo before-roll; while true; do sleep 1; done" } } });
+        const u = await until(async () => { const x = await unit("follow"); return x.state === "ready" && x; });
+        const first = await until(async () => { const r = await api("/units/follow/logs?offset=0"); return r.text.includes("before-roll") && r; });
+        const dir = u.runDir as string;
+        renameSync(join(dir, "out.log"), join(dir, "out.2026-10-28.log"));
+        writeFileSync(join(dir, "out.log"), "x");
+        const r = await api(`/units/follow/logs?offset=${first.next + 5}`);
+        expect(r).toMatchObject({ day: "2026-10-28", next: 0 });
+        await api("/units/follow/stop", { body: {} });
+    });
+});
+
 describe("cleanup", () => {
     test("pty session stops on SIGHUP by default", async () => {
         await api("/units/sh/stop", { body: {} });
@@ -228,6 +229,13 @@ describe("install", () => {
         expect(serviceFile("launchd-user", o).content).not.toContain("UserName");
         // the daemon must not load the repo .env into the env it hands to units
         expect(f.content).toContain("<string>--no-env-file</string>");
+    });
+
+    test("the service PATH starts with bun's own directory when it is not a standard one", () => {
+        const at = (bun: string) => /<key>PATH<\/key><string>([^<]*)<\/string>/.exec(serviceFile("launchd-user", { ...o, bun }).content)![1]!;
+        expect(at("/home/ann/.bun/bin/bun")).toBe("/home/ann/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+        expect(at("/usr/local/bin/bun")).toBe("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+        expect(serviceFile("systemd-user", { ...o, bun: "/home/ann/.bun/bin/bun" }).content).toContain("PATH=/home/ann/.bun/bin:/opt/homebrew/bin");
     });
     test("systemd unit keeps holders alive when the daemon stops", () => {
         const f = serviceFile("systemd-user", o);

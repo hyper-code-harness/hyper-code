@@ -17,16 +17,26 @@
 export default function (ctx: Context, _session: Session | null, opts: {
         /** Conversation messages to convert. */ messages: any[] }): any[] {
     const out: any[] = [];
+    // Images from a run of consecutive tool results. Chat-completions tool
+    // messages carry text only, so images ride a follow-up user message —
+    // but only AFTER the last tool result of the run: a user message between
+    // parallel tool results breaks the tool_call chain (Claude behind
+    // LiteLLM answers 400). See issue #21.
+    let pendingImages: any[] = [];
+    const flushImages = () => {
+        if (pendingImages.length) out.push({ role: "user", content: pendingImages });
+        pendingImages = [];
+    };
 
     for (const m of opts.messages) {
         if (m?.role === "tool") {
             const parts = toParts(m.content);
             const text = textParts(parts).join("\n");
             out.push({ role: "tool", tool_call_id: m.tool_call_id, content: text || "(image attached below)" });
-            const images = parts.filter((p: any) => p.type === "image").map((p: any) => ({ type: "image_url", image_url: { url: `data:${p.mimeType};base64,${p.data}` } }));
-            if (images.length) out.push({ role: "user", content: images });
+            pendingImages.push(...parts.filter((p: any) => p.type === "image").map((p: any) => ({ type: "image_url", image_url: { url: `data:${p.mimeType};base64,${p.data}` } })));
             continue;
         }
+        flushImages();
 
         const parts = toParts(m?.content);
         const text = textParts(parts).join("\n");
@@ -45,6 +55,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         if (text.trim() !== "") msg.content = text;
         out.push(msg);
     }
+    flushImages();
 
     return out;
 }

@@ -37,10 +37,15 @@ export default function (
         if (m.role === "tool") {
             const content = parts(m.content);
             const text = asText(content).join("\n");
-            input.push({ type: "function_call_output", call_id: m.tool_call_id, output: text || "(image attached below)" });
-            for (const part of content) if (part.type === "image") {
-                input.push({ type: "message", role: "user", content: [{ type: "input_image", detail: "auto", image_url: `data:${part.mimeType};base64,${part.data}` }] });
-            }
+            const images = content.filter((p): p is Extract<types.tools.Content, { type: "image" }> => p.type === "image");
+            // The Responses API takes images inside the tool output itself (as
+            // Codex does for view_image), so no separate user message is needed
+            // and parallel call outputs stay adjacent.
+            const output = images.length
+                ? [...(text ? [{ type: "input_text", text }] : []),
+                    ...images.map((p) => ({ type: "input_image", detail: "auto", image_url: `data:${p.mimeType};base64,${p.data}` }))]
+                : text;
+            input.push({ type: "function_call_output", call_id: m.tool_call_id, output });
             continue;
         }
         if (m.role === "user") {

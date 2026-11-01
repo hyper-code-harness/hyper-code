@@ -15,8 +15,8 @@ agent: types.agent.Agent }): Promise<void> {
     }
     await ctx.fns.procs.db.run({
         sql: `
-        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_by, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
+        INSERT INTO agents (id, title, workspace_dir, workspace_host, model, reasoning_effort, system_prompt, system_prompt_name, system_prompt_core, tools, scratchpad, sleep_context, goal, function_rag_enabled, jev_rerank_enabled, function_rag_gate_enabled, status_line, status_line_every, status_line_mode, parent_id, visibility, fork_offset, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM agents WHERE id = ?), ?), ?)
         ON CONFLICT(id) DO UPDATE SET
             model = excluded.model,
             title = excluded.title,
@@ -24,6 +24,8 @@ agent: types.agent.Agent }): Promise<void> {
             workspace_dir = excluded.workspace_dir,
             workspace_host = excluded.workspace_host,
             system_prompt = excluded.system_prompt,
+            system_prompt_name = excluded.system_prompt_name,
+            system_prompt_core = excluded.system_prompt_core,
             tools = excluded.tools,
             scratchpad = excluded.scratchpad,
             parent_id = excluded.parent_id,
@@ -47,6 +49,8 @@ agent: types.agent.Agent }): Promise<void> {
             agent.model,
             agent.reasoningEffort ?? "auto",
             agent.systemPrompt,
+            agent.systemPromptName ?? "",
+            agent.systemPromptCore ?? "",
             agent.tools?.length ? JSON.stringify(agent.tools) : null,
             JSON.stringify(agent.scratchpad ?? {}),
             agent.sleepContext == null ? null : JSON.stringify(agent.sleepContext),

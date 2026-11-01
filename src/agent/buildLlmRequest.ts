@@ -26,30 +26,18 @@ export default async function (
 ): Promise<{ system: string; messages: any[] }> {
     const { agent } = opts;
     const fullPrompt = await ctx.fns.agent.fullSystemPrompt({ agent });
-    const fullHistory = agent.parentId
-        ? await ctx.fns.session.getFullMessages({ id: agent.id })
-        : (agent.messages ?? []);
-    const sleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: agent.sleepContext });
-    const generation = sleep?.mode === "compact"
-        ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" })
-        : null;
-    const storedSleepMessages = generation?.contextAgentId
-        ? await ctx.fns.session.getMessages({ id: String(generation.contextAgentId) })
-        : generation?.contextMessages;
-    // A checkpoint made by another model is adapted (Claude block → text) or,
-    // when unreadable (Codex item), dropped in favour of the full transcript.
-    const sleepMessages = storedSleepMessages?.length
-        ? ctx.fns.compaction.portable({ model: agent.model, producedBy: generation?.model, messages: storedSleepMessages })
-        : storedSleepMessages;
-    const raw = generation && sleepMessages?.length && Number(generation.sourceOffset) <= fullHistory.length
-        ? [...sleepMessages, ...fullHistory.slice(Math.max(0, Number(generation.tailStart ?? generation.sourceOffset)))]
-        : fullHistory;
+    // History and the active compaction are applied in ONE place: a fork's
+    // inherited prefix plus its own rows, with the checkpoint's tail counted in
+    // the same coordinates (agent.contextProjection). A root agent's live
+    // transcript is used as is.
+    const projection = await ctx.fns.agent.contextProjection({ agentId: agent.id, model: agent.model, sleepContext: agent.sleepContext, rootMessages: agent.messages ?? [] });
+    const raw = projection.messages;
 
     // A call with no result is a transcript every provider refuses, and a run
     // that dies between the two writes leaves one behind. Repairing here — on
     // the way OUT, for whichever dialect — means such an agent answers again
     // instead of 400-ing forever on history it cannot edit.
-    const { messages: base, repaired } = ctx.fns.session.repairToolPairs({ messages: raw });
+    const { messages: base, repaired, dropped } = ctx.fns.session.repairToolPairs({ messages: raw });
     // The retrieved function catalogue USED to be spliced into the last user
     // message from here, and was never persisted: the transcript disagreed with
     // what the model saw, and a catalogue that changed between requests
@@ -62,6 +50,13 @@ export default async function (
             event: "transcript.repair",
             msg: `${agent.id}: closed ${repaired.length} unanswered tool call(s)`,
             calls: repaired.map(r => `${r.name}#${r.id}`),
+        });
+    }
+    if (dropped.length) {
+        ctx.fns.procs.log.warn({
+            event: "transcript.repair",
+            msg: `${agent.id}: dropped ${dropped.length} tool result(s) with no preceding call`,
+            results: dropped.map(r => `${r.id}@${r.at}`),
         });
     }
 

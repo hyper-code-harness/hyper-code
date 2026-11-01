@@ -24,11 +24,11 @@ export default async function (
     // A compaction already in flight is not a failure: the next turn checks again once it lands.
     if (sleep?.draftRevision != null) return { status: "busy", estimatedTokens: 0 };
     const active = sleep ? ctx.fns.agent.getSleepGeneration({ sleepContext: sleep, kind: "active" }) : null;
-    const root = await ctx.fns.session.getMessages({ id: agent.id });
-    const storedActive = active?.contextAgentId ? await ctx.fns.session.getMessages({ id: String(active.contextAgentId) }) : (active?.contextMessages ?? []);
-    // Same view as buildLlmRequest: a foreign checkpoint is adapted, an unreadable one means the full transcript.
-    const activeMessages = active ? ctx.fns.compaction.portable({ model: agent.model, producedBy: active.model, messages: storedActive }) : [];
-    const effective = active && activeMessages ? [...activeMessages, ...root.slice(Math.max(0, Number(active.tailStart ?? active.sourceOffset ?? 0)))] : root;
+    // Same view as buildLlmRequest and compactContext (agent.contextProjection):
+    // a fork counts its inherited prefix, a foreign checkpoint is adapted and an
+    // unreadable one means the full history.
+    const projection = await ctx.fns.agent.contextProjection({ agentId: agent.id, model: agent.model, sleepContext: sleep });
+    const effective = projection.messages;
     // chars/4 underestimates code and JSON; the provider's own count of the last
     // request is authoritative when it exists (it predates this turn's reply).
     const last = ((await ctx.fns.procs.db.select({ sql: "SELECT payload, ts FROM events WHERE agent_id = ? AND type = 'assistant' ORDER BY idx DESC LIMIT 1", params: [agent.id] })) as any[])[0];
@@ -37,7 +37,13 @@ export default async function (
     // A usage recorded before the active compaction describes the old, larger context.
     const fresh = !active || Number(last?.ts ?? 0) > Number(active.activatedAt ?? 0);
     const estimatedTokens = Math.max(estimate(effective), fresh ? reported : 0);
-    if (active && activeMessages && active.tailStart >= root.length - 1) return { status: "already_compact", estimatedTokens };
+    // A legacy fork generation summarised only the fork's own rows: replace it
+    // with a full-history compaction whatever the size.
+    if (projection.legacy) {
+      try { const result = await ctx.fns.agent.compactContext({ agent }); return { status: result.status === "compacted" ? "compacted" : "already_compact", estimatedTokens }; }
+      catch (error: any) { const message = String(error?.message ?? error); await ctx.fns.session.appendEventWithHtml({ id: agent.id, type: "auto_compaction_failed", payload: { estimatedTokens, error: message } }).catch(() => undefined); return { status: "failed", estimatedTokens, error: message }; }
+    }
+    if (projection.tailStart != null && projection.tailStart >= projection.history.length - 1) return { status: "already_compact", estimatedTokens };
     const configured = await ctx.fns.settings.getNumber({ module: "agent", scopeType: "global", key: "autoCompactTokens", fallback: 700000 });
     const percent = await ctx.fns.settings.getNumber({ module: "agent", scopeType: "global", key: "autoCompactWindowPercent", fallback: 80 });
     const window = ctx.fns.compaction.contextWindow({ model: agent.model });

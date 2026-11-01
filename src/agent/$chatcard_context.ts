@@ -19,6 +19,7 @@ export default {
             { icon: "ph-info", label: "Agent inspector", hint: "on the canvas", post: `/canvas/${encodeURIComponent(agentId)}`, vals: { op: "showInspector" } },
             { icon: "ph-arrows-in-line-vertical", label: "Compact context…", hint: share, popup: { method: "chat.compactPopup", params: { agentId } } },
             { icon: "ph-note-pencil", label: "Prompt inject…", hint: view.agent.statusLineMode ?? "global", popovertarget: `status-line-popover-${agentId}` },
+            { icon: "ph-file-text", label: "System prompt…", hint: view.agent.systemPromptCore?.trim() ? "own" : (view.agent.systemPromptName || "default"), popup: { method: "agent.systemPromptPopup", params: { agentId } } },
             { icon: "ph-scroll", label: "Initial prompt", popup: { method: "agent.initialPromptPopup", params: { agentId } } },
         ];
     },

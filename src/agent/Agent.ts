@@ -10,6 +10,10 @@ export type Agent = {
     /** SSH host alias the workspace lives on (see remote.servers); empty/undefined = local. When set, workspaceDir is a path on that host. */
     workspaceHost?: string;
     systemPrompt: string;
+    /** Name of the base system prompt (agent.systemPrompts); empty means full. */
+    systemPromptName?: string;
+    /** A one-off base prompt given at creation; when set it is used instead of systemPromptName. */
+    systemPromptCore?: string;
     /** Narrow this agent to a subset of the declared tools (wire names). Unset
      *  = every loaded tool. What is excluded here never reaches the prompt or
      *  the provider's tool list, so it costs no prefix tokens either. */
@@ -20,8 +24,6 @@ export type Agent = {
     subscribers: Set<(ev: any, signal?: AbortSignal) => void>;
     waiters: Array<() => void>;
     isStreaming: boolean;
-    /** When the worker's current run (turn) started, ms since epoch; null/undefined when idle. Drives the chat's turn clock. */
-    runStartedAt?: number | null;
     abortController: AbortController | null;
     /** Cancels only the current provider sampling request when new user input arrives. */
     samplingAbortController?: AbortController | null;

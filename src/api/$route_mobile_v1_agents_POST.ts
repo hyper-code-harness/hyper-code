@@ -8,6 +8,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         createWorkspaceDir: body.createWorkspaceDir === true ? "1" : undefined,
         model: typeof body.model === "string" ? body.model : "",
         systemPrompt: typeof body.systemPrompt === "string" ? body.systemPrompt : "",
+        systemPromptName: typeof body.systemPromptName === "string" ? body.systemPromptName : "",
+        systemPromptCore: typeof body.systemPromptCore === "string" ? body.systemPromptCore : "",
         projectId: typeof body.projectId === "string" ? body.projectId : "",
     });
     if (result.error) return Response.json({ error: "invalid_agent", message: result.error }, { status: 400 });

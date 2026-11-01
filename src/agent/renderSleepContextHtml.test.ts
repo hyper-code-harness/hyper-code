@@ -14,6 +14,9 @@ describe("renderSleepContextHtml", () => {
         ctx.fns.agent.renderEventsHtml = (opts: any) => renderEventsHtml(ctx, null, opts);
         ctx.fns.agent.normalizeSleepContext = ({ sleepContext }: any) => sleepContext;
         ctx.fns.agent.getSleepGeneration = ({ sleepContext }: any) => sleepContext.generations.find((x: any) => x.revision === sleepContext.activeRevision);
+        // Root chat: context history is its own rows, positions equal idx.
+        ctx.fns.agent.contextHistory = async () => ({ messages: Array.from({ length: 10 }, (_, idx) => ({ role: "user", idx })), inherited: 0, ownRows: 10 });
+        ctx.fns.agent.compactTail = ({ generation }: any) => ({ start: generation.tailStart, legacy: false });
         const html = await renderSleepContextHtml(ctx, null, {
             agentId: "a1",
             sleepContext: {

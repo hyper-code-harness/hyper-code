@@ -7,9 +7,10 @@ function ctx(provider: string): any {
             fullSystemPrompt: async () => "runtime instructions",
             normalizeSleepContext: () => null,
             getSleepGeneration: () => null,
+            contextProjection: async ({ rootMessages }: any) => ({ messages: rootMessages ?? [] }),
         },
         session: {
-            repairToolPairs: ({ messages }: any) => ({ messages, repaired: [] }),
+            repairToolPairs: ({ messages }: any) => ({ messages, repaired: [], dropped: [] }),
             getMessages: async () => [], getFullMessages: async () => [],
         },
         auth: { attributeMessages: async ({ messages }: any) => ({ applied: false, messages }) },

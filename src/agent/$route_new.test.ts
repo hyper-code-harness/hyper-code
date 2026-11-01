@@ -37,8 +37,11 @@ describe("agent new routes", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("<details");
-    expect(html).toContain("Base system prompt");
-    expect(html).toContain("CORE BODY");
+    // The base prompt is a picker of named prompts now (agent.systemPromptPicker), full selected by default.
+    expect(html).toContain('name="systemPromptName"');
+    expect(html).toContain('<option value="full" selected');
+    expect(html).toContain('<option value="lean"');
+    expect(html).toContain("Write your own");
     // The markers/wire prompt died with the markers protocol — the form has
     // one base section now, and no "Markers protocol" details.
     expect(html).not.toContain("Markers protocol");

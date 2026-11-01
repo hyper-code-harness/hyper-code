@@ -1,7 +1,7 @@
 // Service files that make the OS supervise hyperd itself: launchd on macOS, systemd on Linux.
 // Generated from the running environment (bun path, this checkout, user, HOME) so nothing is hard-coded.
 import { homedir, userInfo } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 export type ServiceTarget = "launchd-system" | "launchd-user" | "systemd-user" | "systemd-system";
 
@@ -24,11 +24,11 @@ export function serviceFile(target: ServiceTarget, o: { bun?: string; repo?: str
     const repo = o.repo ?? resolve(import.meta.dir, "..");
     const user = o.user ?? userInfo().username;
     const home = o.home ?? homedir();
-    // units run with this PATH: put bun's own directory first (~/.bun/bin for the official installer), or every
-    // `bun run dev` unit would fail with "command not found" on a machine without a Homebrew bun
-    const base = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
-    const bunDir = bun.includes("/") ? bun.slice(0, bun.lastIndexOf("/")) : "";
-    const PATH = o.path ?? (bunDir && !base.split(":").includes(bunDir) ? `${bunDir}:${base}` : base);
+    // units run with this PATH: bun's own directory goes first (~/.bun/bin from the official installer), or every
+    // `bun run …` unit fails with "command not found" on a machine without a Homebrew bun
+    const base = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+    const bunDir = bun.includes("/") ? dirname(bun) : "";
+    const PATH = o.path ?? (bunDir && !base.includes(bunDir) ? [bunDir, ...base] : base).join(":");
     const main = `${repo}/hyperd/main.ts`;
     // --no-env-file: the daemon runs in the repo, and bun would load the repo .env into its own env and hand
     // it to every unit — a service then starts with a stale DATABASE_URL after .env changes.

@@ -370,7 +370,7 @@ ${opts.headExtra ?? ""}
 <div id="frame" class="relative flex h-screen">
   ${hideNavigation ? "" : ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', label: "Open agents and pages", title: "Agents and pages", marks: { action: "open-global-menu-mobile" }, attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" }, class: "hidden" })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
-  ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
+  ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load, htmx:after:swap[document.documentElement.dataset.dockMode==='menu'&&detail.ctx.target&&detail.ctx.target.id==='main'] from:document", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
   ${hideNavigation ? "" : '<div class="dock-panel-resizer" data-dock-panel-resizer tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize the projects and chats panel" title="Drag to resize · double click to reset"></div>'}
     <script src="/canvas/canvas.js?v=4" defer></script>
   <!-- This container owns no navigation attributes: live descendants must

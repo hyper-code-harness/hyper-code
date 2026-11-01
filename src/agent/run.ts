@@ -120,6 +120,48 @@ async function runTurn(
         return null;
     });
     let consumedUserIdx = -1;
+    // One `turn` event per answer: written at its start, completed with the end and the totals. A message the person
+    // sends mid-run (steering) closes the current turn and opens a new one right after it, so the time under it
+    // counts from that message. The chat's tool rows take their time from the nearest turn above them.
+    type Totals = { tools: number; errors: number; thinkMs: number; lastToolIdx?: number };
+    let turn: Record<string, any> = {};
+    let turnIdx = -1;
+    let totals: Totals = { tools: 0, errors: 0, thinkMs: 0 };
+    // The clock is a view of the turn, not part of it: a failed write costs the time under the row, never the answer.
+    const turnFailed = (error: any) => ctx.fns.procs.log?.warn?.({ event: 'agent.turn-event.failed', msg: String(error?.message ?? error), agentId: agent.id });
+    const openTurn = async () => {
+        turn = { type: 'turn', startedAt: Date.now() };
+        totals = { tools: 0, errors: 0, thinkMs: 0 };
+        turnIdx = -1;
+        try { turnIdx = Number((await ctx.fns.session.appendEvent({ id: agent.id, event: turn, ts: turn.startedAt }))?.idx ?? -1); }
+        catch (error: any) { turnFailed(error); }
+    };
+    const closeTurn = async (outcome: 'ok' | 'error' | 'stopped') => {
+        if (turnIdx < 0) return;
+        try {
+            await ctx.fns.session.replaceEventAt({ id: agent.id, idx: turnIdx, event: { ...turn, endedAt: Date.now(), ...totals, outcome } });
+            ctx.fns.procs.events?.refresh?.({ topic: `agent:${agent.id}`, reason: 'turn-end' });
+        } catch (error: any) {
+            turnFailed(error);
+        }
+    };
+    await openTurn();
+    let outcome: 'ok' | 'error' | 'stopped' = 'ok';
+    try {
+        return await turnLoop();
+    } catch (error) {
+        outcome = ac.signal.aborted ? 'stopped' : 'error';
+        throw error;
+    } finally {
+        await closeTurn(outcome);
+    }
+
+    function stoppedError() {
+        delete agent.scratchpad.activeStatusLine;
+        return Object.assign(new Error(`run aborted: ${String(ac.signal.reason ?? 'stopped_by_user')}`), { aborted: true });
+    }
+
+    async function turnLoop() {
     const MAX_TURNS = 300;
     let turns = 0;
 
@@ -129,15 +171,9 @@ async function runTurn(
     const planAttempts: Record<string, number> = {};
     let totalPlanInjections = 0;
     while (true) {
-        // The person pressed stop (or the lease was revoked) between two turns: every
-        // await above returned normally, so nothing threw and nothing noticed. Without
-        // this the loop happily started the NEXT model call on an aborted run — the
-        // button cleared run_state in the database while the loop kept talking, and the
-        // chat stayed alive until the whole chain of tools finished by itself.
-        if (ac.signal.aborted) {
-            delete agent.scratchpad.activeStatusLine;
-            throw Object.assign(new Error(String(ac.signal.reason ?? 'run_aborted')), { aborted: true });
-        }
+        // Stop landed while a tool ran: the call ended "stopped by the user" and returned normally, so nothing
+        // threw. Without this check the loop would ask the model once more and post its reply after the press.
+        if (ac.signal.aborted) throw stoppedError();
         if (++turns > MAX_TURNS) {
             await ctx.fns.session.appendErrorEvent({ id: agent.id, error: `run hit the ${MAX_TURNS}-turn cap — closing; send a message to continue` });
             await ctx.fns.session.appendMessage({ id: agent.id, message: {
@@ -158,6 +194,11 @@ async function runTurn(
             sql: "SELECT COALESCE(MAX(idx), -1) AS i FROM messages WHERE agent_id = ? AND role = 'user' AND excluded_from_cursor = 0",
             params: [agent.id],
         })) as any[])[0];
+        // A message that arrived during the run starts a new turn: the clock under it counts from it.
+        if (turns > 1 && Number(seen?.i ?? -1) > consumedUserIdx) {
+            await closeTurn('ok');
+            await openTurn();
+        }
         consumedUserIdx = Math.max(consumedUserIdx, Number(seen?.i ?? -1));
         await ctx.fns.session.syncAgentState({ agent });
 
@@ -170,9 +211,7 @@ async function runTurn(
         const sampling = new AbortController();
         agent.samplingAbortController = sampling;
         const onRunAbort = () => sampling.abort(ac.signal.reason ?? "run_aborted");
-        // addEventListener on a signal that is ALREADY aborted never fires, so a stop
-        // that landed while the previous turn was running would leave this sampling
-        // controller live and the request would go out in full.
+        // A listener added to an already aborted signal never fires.
         if (ac.signal.aborted) onRunAbort(); else ac.signal.addEventListener("abort", onRunAbort, { once: true });
         let streamed: any;
         const sampledFrom = Date.now();
@@ -204,6 +243,7 @@ async function runTurn(
         const { text, usage, finishReason, toolCalls = [] } = streamed;
         // How long the model took for this reply: the chat draws it as a "thinking" cell before the reply's first call.
         const thinkMs = Date.now() - sampledFrom;
+        totals.thinkMs += thinkMs;
         delete agent.scratchpad.mobileStream;
         const prose = String(text ?? '');
         delete agent.scratchpad.activeGoalFeedback;
@@ -356,7 +396,14 @@ async function runTurn(
         // filled, preserving the provider's native tool-call transcript.
         let terminal: { type: 'html'; html: string; text: string } | undefined;
         for (const call of toolCalls) {
+            // After Stop the rest of the reply's calls do not start; each row says why.
+            if (ac.signal.aborted) {
+                await ctx.fns.session.updateMessageContent({ id: agent.id, idx: pending[call.id]!, content: `(${call.name} not run — stopped by the user)` });
+                continue;
+            }
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
+            totals.tools++;
+            if (r.isError) totals.errors++;
             // The tool's own declaration says how much of its output the model sees and which end.
             const declared = ctx.fns.tools.list({}).find((t: any) => t.wireName === call.name);
             const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name, limits: declared?.outputLimits });
@@ -364,12 +411,13 @@ async function runTurn(
             // Events store data, never rendered markup. renderEventHtml builds
             // the current view on every read, so renderer improvements apply to
             // old calls too (including edit diff cards).
-            await ctx.fns.session.appendToolCallEvent({ id: agent.id, payload: {
+            const toolEvent = (await ctx.fns.session.appendToolCallEvent({ id: agent.id, payload: {
                 name: call.name, args: call.args, result: output, result_ref,
                 isError: r.isError,
                 messageIdx: append.idx,
                 ...(call === toolCalls[0] ? { thinkMs } : {}),
-            } });
+            } })) as { idx?: number } | undefined;
+            if (toolEvent?.idx != null) totals.lastToolIdx = toolEvent.idx;
 
             await ctx.fns.session.updateMessageContent({
                 id: agent.id,
@@ -400,5 +448,6 @@ async function runTurn(
             observeCompletedTurn(final.idx);
             return { text, html, usage, consumedUserIdx, terminal: true };
         }
+    }
     }
 }

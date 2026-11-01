@@ -448,7 +448,8 @@ async function agentFacingNames(ctx: Context, entries: ScanEntry[]): Promise<Set
         if (e.module) names.add(`${e.module.replaceAll("/", ".")}.${bare}`);
     }
 
-    const prompts = entries.filter(e => String(e.abs).endsWith("SYSTEM_PROMPT_CORE.txt"));
+    // Every built-in named system prompt (agent.systemPrompts): full is SYSTEM_PROMPT_CORE.txt, lean SYSTEM_PROMPT_LEAN.txt.
+    const prompts = entries.filter(e => /\/SYSTEM_PROMPT_[A-Z]+\.txt$/.test(String(e.abs)));
     for (const p of prompts) {
         const text = await Bun.file(p.abs).text().catch(() => "");
         for (const m of text.matchAll(/ctx\.fns\.([\w$]+(?:\.[\w$]+)+)/g)) names.add(m[1]!);

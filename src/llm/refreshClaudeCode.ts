@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from "node:fs";
 // Returns a currently-valid Claude Code subscription access_token.
 // Reads the OAuth pair from the macOS keychain item `Claude Code-credentials`
 // (the same one the official `claude` CLI uses), refreshes via Anthropic's
@@ -40,9 +41,13 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     }
 
     let creds: Creds;
-    const service = ctx.fns.llm.accountCredentialPath({ provider: "claude-code", account }).keychainService!;
+    const location = ctx.fns.llm.accountCredentialPath({ provider: "claude-code", account });
+    const service = location.keychainService!;
+    // Off macOS the claude CLI keeps the same JSON in <config dir>/.credentials.json.
+    const home = ctx.env.HOME ?? process.env.HOME ?? "";
+    const file = process.platform === "darwin" ? null : `${location.dir ?? `${home}/.claude`}/.credentials.json`;
     try {
-        const raw = readKeychain(user, service);
+        const raw = file ? readCredFile(file) : readKeychain(user, service);
         if (!raw) return null;
         creds = JSON.parse(raw);
     } catch (e: any) {
@@ -96,12 +101,17 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
                 expiresAt,
             },
         };
-        writeKeychain(user, service, JSON.stringify(updated));
+        if (file) writeFileSync(file, JSON.stringify(updated), { mode: 0o600 });
+        else writeKeychain(user, service, JSON.stringify(updated));
     } catch (e: any) {
         console.warn(`[claude-code] could not write refreshed creds: ${e?.message}`);
     }
     console.log(`[claude-code] refreshed — new access expires at ${new Date(expiresAt).toISOString()}`);
     return newAccess;
+}
+
+function readCredFile(path: string): string | null {
+    try { return readFileSync(path, "utf8").trim() || null; } catch { return null; }
 }
 
 function readKeychain(user: string, service: string): string | null {

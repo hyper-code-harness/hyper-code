@@ -27,6 +27,9 @@
     };
     // The chord of a keydown, in the same spelling. Shift is part of a printed symbol ("?", "+"), so it
     // only counts for letters and named keys.
+    // What Option + letter types on a Mac (U.S. and Dvorak layouts share this layer); dead keys (´ ˆ ˜ ¨ `)
+    // arrive as "Dead" and fall back to the layout map / e.code.
+    const OPTION = Object.fromEntries(Object.entries({ a: 'å', b: '∫', c: 'ç', d: '∂', f: 'ƒ', g: '©', h: '˙', j: '∆', k: '˚', l: '¬', m: 'µ', o: 'ø', p: 'π', q: 'œ', r: '®', s: 'ß', t: '†', v: '√', w: '∑', x: '≈', y: '¥', z: 'Ω' }).flatMap(([l, c]) => [[c, l], [c.toUpperCase(), l]]));
     let layoutMap = null;
     const loadLayout = () => navigator.keyboard?.getLayoutMap?.().then(m => { layoutMap = m; }).catch(() => {});
     loadLayout();
@@ -37,7 +40,12 @@
         // Option on a Mac composes a symbol (⌥X gives "≈"): then the letter is the one the active layout puts
         // on that physical key (Dvorak, Colemak, … — navigator.keyboard.getLayoutMap), and only without that
         // map the QWERTY letter of e.code. A letter or digit in e.key is used as it is, whatever the layout.
-        if (e.altKey && !/^[a-z0-9]$/i.test(key) && /^(Key[A-Z]|Digit\d)$/.test(e.code || '')) key = layoutMap?.get(e.code) || e.code.slice(e.code.startsWith('Key') ? 3 : 5);
+        // The Option symbol itself names the letter on a Mac whatever the layout (⌥x is ≈ on QWERTY and Dvorak
+        // alike), so it is read first; getLayoutMap exists only in Chromium on https/localhost.
+        if (e.altKey && !/^[a-z0-9]$/i.test(key)) {
+            const letter = OPTION[key] || (/^(Key[A-Z]|Digit\d)$/.test(e.code || '') ? layoutMap?.get(e.code) || e.code.slice(e.code.startsWith('Key') ? 3 : 5) : null);
+            if (letter) key = letter;
+        }
         const printable = key.length === 1;
         if (printable) key = key.toLowerCase();
         if (key === ' ') key = 'Space';

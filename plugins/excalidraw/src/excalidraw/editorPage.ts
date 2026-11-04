@@ -55,6 +55,50 @@ const status = document.getElementById("status");
 const say = (t, s = "") => { status.textContent = t; status.dataset.s = s; };
 const scene = JSON.parse(document.getElementById("scene").textContent) || { elements: [], appState: {}, files: {} };
 
+// A skeleton gives boxes and arrows only roughly: a label wider than its box wraps
+// mid-word and spills out, and an arrow bound by start/end ids keeps the x/y it was
+// given instead of joining the shapes. Grow each labelled shape to fit its text
+// (measured by Excalidraw itself) around the same centre, then route every arrow
+// without explicit points from edge to edge of the shapes it connects.
+function layoutSkeleton(input) {
+  const sk = input.map((e) => ({ ...e }));
+  const shapes = new Map();
+  for (const e of sk) if (e.id && e.type !== "arrow" && e.type !== "line") shapes.set(e.id, e);
+  for (const e of sk) {
+    if (!e.label || !e.label.text || e.type === "arrow" || e.type === "line") continue;
+    const [t] = convertToExcalidrawElements([{ type: "text", x: 0, y: 0, text: String(e.label.text), fontSize: e.label.fontSize || 20, fontFamily: e.label.fontFamily }]);
+    const tw = t.width * 1.1, th = t.height;
+    const k = e.type === "ellipse" ? Math.SQRT2 : e.type === "diamond" ? 2 : 1;
+    const needW = Math.ceil(tw * k + 30), needH = Math.ceil(th * k + 20);
+    const w0 = e.width ?? 0, h0 = e.height ?? 0;
+    if (w0 < needW) { if (e.width != null) e.x = (e.x ?? 0) - (needW - w0) / 2; e.width = needW; }
+    if (h0 < needH) { if (e.height != null) e.y = (e.y ?? 0) - (needH - h0) / 2; e.height = needH; }
+  }
+  // Distance from the centre to the outline along (dx, dy), as a fraction of that vector.
+  const reach = (s, dx, dy) => {
+    const hw = s.width / 2, hh = s.height / 2;
+    if (s.type === "ellipse") return 1 / Math.hypot(dx / hw, dy / hh);
+    if (s.type === "diamond") return 1 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
+    return Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+  };
+  const GAP = 6;
+  for (const a of sk) {
+    if ((a.type !== "arrow" && a.type !== "line") || a.points) continue;
+    const s = a.start && shapes.get(a.start.id), d = a.end && shapes.get(a.end.id);
+    if (!s || !d || s.width == null || d.width == null) continue;
+    const sx = s.x + s.width / 2, sy = s.y + s.height / 2, dx0 = d.x + d.width / 2, dy0 = d.y + d.height / 2;
+    const vx = dx0 - sx, vy = dy0 - sy, len = Math.hypot(vx, vy);
+    if (!len) continue;
+    const ux = vx / len, uy = vy / len;
+    const r1 = reach(s, vx, vy) * len + GAP, r2 = reach(d, -vx, -vy) * len + GAP;
+    if (r1 + r2 >= len) continue;
+    const x1 = sx + ux * r1, y1 = sy + uy * r1, x2 = dx0 - ux * r2, y2 = dy0 - uy * r2;
+    a.x = x1; a.y = y1; a.width = x2 - x1; a.height = y2 - y1;
+    a.points = [[0, 0], [x2 - x1, y2 - y1]];
+  }
+  return sk;
+}
+
 let elements = scene.elements || [];
 let converted = false;
 try {
@@ -65,7 +109,7 @@ try {
     scene.files = { ...(scene.files || {}), ...(files || {}) };
     converted = true;
   } else if (scene.hyperSkeleton) {
-    elements = convertToExcalidrawElements(scene.hyperSkeleton);
+    elements = convertToExcalidrawElements(layoutSkeleton(scene.hyperSkeleton));
     converted = true;
   }
 } catch (e) { say("не удалось сконвертировать: " + e.message, "err"); }

@@ -27,11 +27,17 @@
     };
     // The chord of a keydown, in the same spelling. Shift is part of a printed symbol ("?", "+"), so it
     // only counts for letters and named keys.
+    let layoutMap = null;
+    const loadLayout = () => navigator.keyboard?.getLayoutMap?.().then(m => { layoutMap = m; }).catch(() => {});
+    loadLayout();
+    window.addEventListener('focus', loadLayout);   // the layout may have been switched in another app
     const eventChord = e => {
         let key = e.key;
         if (!key || ['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null;
-        // Option on a Mac composes a symbol (⌥X gives "≈"): Alt chords take the physical letter instead.
-        if (e.altKey && /^Key[A-Z]$/.test(e.code || '')) key = e.code.slice(3);
+        // Option on a Mac composes a symbol (⌥X gives "≈"): then the letter is the one the active layout puts
+        // on that physical key (Dvorak, Colemak, … — navigator.keyboard.getLayoutMap), and only without that
+        // map the QWERTY letter of e.code. A letter or digit in e.key is used as it is, whatever the layout.
+        if (e.altKey && !/^[a-z0-9]$/i.test(key) && /^(Key[A-Z]|Digit\d)$/.test(e.code || '')) key = layoutMap?.get(e.code) || e.code.slice(e.code.startsWith('Key') ? 3 : 5);
         const printable = key.length === 1;
         if (printable) key = key.toLowerCase();
         if (key === ' ') key = 'Space';

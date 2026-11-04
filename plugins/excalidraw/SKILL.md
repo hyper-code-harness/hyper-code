@@ -9,7 +9,7 @@ Drawings are files: `<root>/<name>.excalidraw` (the scene) and `<name>.svg` (a p
 
 ## Workflow
 
-1. Create: `excalidraw.write({ name, mermaid })` — easiest; or `skeleton: [{ type: "rectangle", id: "a", x: 0, y: 0, label: { text: "API" } }, { type: "arrow", x: 0, y: 0, start: { id: "a" }, end: { id: "b" } }]`; or full `elements`.
+1. Create: `excalidraw.write({ name, mermaid })` — easiest; or `skeleton: [{ type: "rectangle", id: "a", x: 0, y: 0, label: { text: "API" } }, { type: "arrow", x: 0, y: 0, start: { id: "a" }, end: { id: "b" } }]`; or full `elements`. In a skeleton, shapes with a `label` grow to fit the text around the same centre, and arrows with `start`/`end` ids and no `points` are routed edge to edge, so arrow `x`/`y` can be left at 0.
 2. Open: give the user `/excalidraw/<name>` (or `ui.openUrl`). Mermaid/skeleton are converted to real elements on first open, then the editor autosaves scene + SVG.
 3. Read back: `excalidraw.read({ name })` → `outline` lists shapes, labels and arrows; `svg` is the preview.
 4. Show inline in Markdown:

@@ -50,6 +50,11 @@
     commands['chat.jumpBack'] = { title: 'Back through jumped chats', group: 'chat', run: jumpBack, when: closed };
     commands['chat.scrollDown'] = { title: 'Scroll the conversation down', group: 'chat', run: () => scroll(1), when: () => closed() && !!messages() };
     commands['chat.scrollUp'] = { title: 'Scroll the conversation up', group: 'chat', run: () => scroll(-1), when: () => closed() && !!messages() };
+    // Escape in the composer leaves it, so the page keys (?, bare-key commands) work again; an open
+    // @mention list keeps its own Escape (it closes the list first).
+    const composer = () => { const el = document.activeElement; return el?.id === 'input' && el.closest('#chat-panel') ? el : null; };
+    const mentionOpen = () => [...document.querySelectorAll('#chat-panel [data-mention-list]')].some(el => !el.hidden);
+    commands['chat.blur'] = { title: 'Leave the message box', group: 'chat', run: () => composer()?.blur(), when: () => !!composer() && !mentionOpen() };
 })();
 
 // Right-click menus (w.menu with contextOf): a right-click inside the element the menu names opens that menu at

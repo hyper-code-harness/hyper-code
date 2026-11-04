@@ -345,7 +345,7 @@ ${opts.headExtra ?? ""}
 <!-- keys.js: the one keyboard dispatcher; the bindings (keys.resolve) are inlined for it. -->
 <script>window.hyperKeymap=${JSON.stringify(await ctx.fns.keys.resolve({}).then(({ keymap, bindings }) => ({ keymap, bindings: bindings.map(({ from: _from, ...b }) => b) })).catch(() => ({ keymap: "default", bindings: [] }))).replace(/</g, "\\u003c")}</script>
 <script src="/keys/keys.js?v=5" defer></script>
-<script src="/ui/hotkeys.js?v=8" defer></script>
+<script src="/ui/hotkeys.js?v=9" defer></script>
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>

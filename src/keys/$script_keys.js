@@ -130,7 +130,9 @@
             const last = parts(keys.at(-1));
             return cap([...last.slice(0, -1), `${digits[0][2]}–${last.at(-1)}`]);
         }
-        return keys.map(k => String(k).split(' ').map(step => cap(parts(step))).join(' ')).join('');
+        // Each alternative is its own group (a sequence keeps its steps apart); "or" between alternatives.
+        return keys.map(k => `<span class="keys-alt">${String(k).split(' ').map(step => cap(parts(step))).join('<span class="keys-then"></span>')}</span>`)
+            .join('<span class="keys-or">or</span>');
     };
     function paint(root = document) {
         root.querySelectorAll?.('[data-keys-chord]').forEach(el => { el.innerHTML = cap(parts(el.dataset.keysChord)); });

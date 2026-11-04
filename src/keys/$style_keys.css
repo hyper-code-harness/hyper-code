@@ -8,9 +8,13 @@
 .keys-help-group { break-inside: avoid; margin-bottom: var(--w-s4); }
 .keys-help-group h3 { margin: 0 0 var(--w-s1); font-size: var(--w-text-small); text-transform: uppercase; letter-spacing: .04em; color: var(--w-ink-faint); }
 .keys-help-group dl { margin: 0; }
-.keys-help-group dl > div { display: grid; grid-template-columns: 9rem 1fr; gap: var(--w-s2); align-items: center; padding: 2px 0; }
+.keys-help-group dl > div { display: grid; grid-template-columns: 13rem 1fr; gap: var(--w-s2); align-items: center; padding: 2px 0; }
 .keys-help-group dl > div[data-missing] { opacity: .5; }
-.keys-help-group dt { display: flex; flex-wrap: wrap; gap: 2px; }
+.keys-help-group dt { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--w-s1); }
 .keys-help-group dd { margin: 0; }
 .keys-help-group dd code { margin-left: var(--w-s1); color: var(--w-ink-faint); font-size: var(--w-text-small); }
 .keys-help-none { color: var(--w-ink-faint); }
+/* Key caps of one command (here and in w.palette hints): alternatives apart with "or", steps of a sequence apart. */
+.keys-alt { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.keys-then { display: inline-block; width: var(--w-s1); }
+.keys-or { font-size: var(--w-text-small); color: var(--w-ink-faint); }

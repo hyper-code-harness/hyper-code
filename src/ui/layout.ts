@@ -342,7 +342,10 @@ ${opts.headExtra ?? ""}
 <!-- client.js first: every later script subscribes through window.hyperLive (docs/live-updates.md). -->
 <script src="/procs/events/client.js" defer></script>
 <script src="/ui/control.js" defer></script>
-<script src="/ui/hotkeys.js?v=7" defer></script>
+<!-- keys.js: the one keyboard dispatcher; the bindings (keys.resolve) are inlined for it. -->
+<script>window.hyperKeymap=${JSON.stringify(await ctx.fns.keys.resolve({}).then(({ keymap, bindings }) => ({ keymap, bindings: bindings.map(({ from: _from, ...b }) => b) })).catch(() => ({ keymap: "default", bindings: [] }))).replace(/</g, "\\u003c")}</script>
+<script src="/keys/keys.js?v=5" defer></script>
+<script src="/ui/hotkeys.js?v=8" defer></script>
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>
@@ -358,7 +361,7 @@ ${opts.headExtra ?? ""}
   ${hideNavigation ? "" : ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', label: "Open agents and pages", title: "Agents and pages", marks: { action: "open-global-menu-mobile" }, attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" }, class: "hidden" })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
   ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load, htmx:after:swap[document.documentElement.dataset.dockMode==='menu'&&detail.ctx.target&&detail.ctx.target.id==='main'] from:document", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
-    <script src="/canvas/canvas.js?v=4" defer></script>
+    <script src="/canvas/canvas.js?v=5" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

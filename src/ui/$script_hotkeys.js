@@ -1,6 +1,7 @@
-// Global keyboard shortcuts. Ctrl+J opens the next unread chat; Ctrl+K
-// returns through this tab's chat jump history. ⌘J/⌘K retain chat scrolling.
-// The global menu owns both pairs while it is open.
+// Global chat commands (keys are bound in src/keys/$keymap_default.ts, dispatched by /keys/keys.js):
+// chat.nextUnread opens the next unread chat; chat.jumpBack returns through this tab's chat jump
+// history; chat.scrollDown/Up scroll the conversation; nav.open opens the global menu.
+// The global menu owns its keys while it is open (it handles them first).
 (() => {
     if (window.__hyperAgentHotkeysInstalled) return;
     window.__hyperAgentHotkeysInstalled = true;
@@ -40,35 +41,15 @@
         visit(id);
     }
 
-    window.addEventListener('keydown', (event) => {
-        if (event.key === '/' && !event.altKey && !event.shiftKey && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            window.__navOpen?.();
-            return;
-        }
-
-        if (event.isComposing || event.altKey || event.shiftKey) return;
-        if (window.__navIsOpen?.()) return;
-
-        const key = event.key.toLowerCase();
-        if (key !== 'j' && key !== 'k') return;
-
-        if (event.metaKey && !event.ctrlKey) {
-            const messages = document.querySelector('#chat-panel #messages');
-            if (!messages) return;
-            event.preventDefault();
-            messages.scrollBy({
-                top: (key === 'j' ? 1 : -1) * Math.max(160, messages.clientHeight * 0.7),
-                behavior: 'auto',
-            });
-            return;
-        }
-
-        if (!event.ctrlKey || event.metaKey) return;
-        event.preventDefault();
-        if (key === 'j') void nextUnread();
-        else jumpBack();
-    });
+    const messages = () => document.querySelector('#chat-panel #messages');
+    const scroll = dir => { const m = messages(); m?.scrollBy({ top: dir * Math.max(160, m.clientHeight * 0.7), behavior: 'auto' }); };
+    const closed = () => !window.__navIsOpen?.();
+    const commands = (window.hyperCommands ??= {});
+    commands['nav.open'] = { title: 'Open the global menu', group: 'nav', run: () => window.__navOpen?.(), when: () => typeof window.__navOpen === 'function' };
+    commands['chat.nextUnread'] = { title: 'Next unread chat', group: 'chat', run: () => void nextUnread(), when: closed };
+    commands['chat.jumpBack'] = { title: 'Back through jumped chats', group: 'chat', run: jumpBack, when: closed };
+    commands['chat.scrollDown'] = { title: 'Scroll the conversation down', group: 'chat', run: () => scroll(1), when: () => closed() && !!messages() };
+    commands['chat.scrollUp'] = { title: 'Scroll the conversation up', group: 'chat', run: () => scroll(-1), when: () => closed() && !!messages() };
 })();
 
 // Right-click menus (w.menu with contextOf): a right-click inside the element the menu names opens that menu at

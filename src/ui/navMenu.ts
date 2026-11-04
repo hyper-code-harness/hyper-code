@@ -14,10 +14,14 @@ export default function (ctx: Context, _session: Session | null, _opts?: {}): st
         id: "nav-overlay", label: "Global menu", head, bodyId: "nav-results",
         body: w.spinner({ kind: "skeleton", lines: 6 }),
         attrs: { onclick: "if(event.target===this)window.__navClose()" },
+        // Keys of commands come from the keymap (/keys/keys.js fills them in); bare arrows and Enter are the box itself.
         hints: [
-            { keys: ["↑↓", "⌃J", "⌃K"], label: "move" }, { keys: ["←→", "⌃H", "⌃L"], label: "column" },
-            { keys: ["⌘←", "⌘→"], label: "widget" }, { keys: "↵", label: "open" }, { keys: "⌘↵", label: "beside" },
-            { keys: "⌘1–9", label: "tab" }, { keys: "⌘/", label: "open", end: true },
+            { keys: "↑↓", commands: ["menu.next", "menu.prev"], scope: "menu", label: "move" },
+            { keys: "←→", commands: ["menu.left", "menu.right"], scope: "menu", label: "column" },
+            { commands: ["menu.prevWidget", "menu.nextWidget"], scope: "menu", label: "widget" },
+            { keys: "↵", label: "open" }, { chord: "Mod-Enter", label: "beside" },
+            { commands: ["menu.tab"], scope: "menu", label: "tab" },
+            { commands: ["nav.open"], label: "open", end: true },
         ],
     }) + `
 <script>
@@ -96,6 +100,7 @@ export default function (ctx: Context, _session: Session | null, _opts?: {}): st
     const row = rows()[sel];
     const project = row?.getAttribute('data-nav-project-pick');
     if (project !== null && project !== undefined) { pickProject(project, true); return; }
+    if (row?.hasAttribute('hx-post')) { row.click(); return; }
     const href = row?.getAttribute('href');
     if (!href) return;
     if (beside || row.getAttribute('target') === '_blank' || row.hasAttribute('data-nav-new-tab')) window.open(href, '_blank', 'noopener');
@@ -158,23 +163,32 @@ export default function (ctx: Context, _session: Session | null, _opts?: {}): st
     sel = index >= 0 ? index : 0;
     mark();
   });
+  // Its commands and the \`menu\` key scope: the keys are in src/keys/$keymap_default.ts (scopes.menu) and win
+  // over the global ones while the menu is open. Bare arrows, Enter and Escape stay here — they are how the
+  // box behaves as a control, not rebindable commands.
+  const isOpen = () => window.__navIsOpen();
+  (window.hyperKeyScopes ??= {}).menu = isOpen;
+  const commands = (window.hyperCommands ??= {});
+  const command = (id, title, run) => { commands[id] = { title, group: 'menu', run, when: isOpen }; };
+  command('menu.next', 'Menu: next row', () => move(1));
+  command('menu.prev', 'Menu: previous row', () => move(-1));
+  command('menu.nextWidget', 'Menu: next widget', () => jump(1));
+  command('menu.prevWidget', 'Menu: previous widget', () => jump(-1));
+  command('menu.right', 'Menu: column to the right', () => column(1));
+  command('menu.left', 'Menu: column to the left', () => column(-1));
+  command('menu.open', 'Menu: open the selected row', () => openSelected(false));
+  command('menu.openBeside', 'Menu: open the selected row in a new tab', () => openSelected(true));
+  command('menu.close', 'Close the menu', () => window.__navClose());
+  command('menu.tab', 'Menu: show tab N', (_event, n) => { const tab = tabs()[Number(n) - 1]; if (tab) showTab(tab.getAttribute('data-nav-tab')); });
   window.addEventListener('keydown', event => {
-    if (!window.__navIsOpen()) return;
-    const key = event.key.toLowerCase();
+    if (!window.__navIsOpen() || event.isComposing) return;
+    const bare = !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
     if (event.key === 'Escape') { event.preventDefault(); window.__navClose(); return; }
-    if (event.key === 'ArrowDown' || ((event.metaKey || event.ctrlKey) && key === 'j')) { event.preventDefault(); move(1); return; }
-    if (event.key === 'ArrowUp' || ((event.metaKey || event.ctrlKey) && key === 'k')) { event.preventDefault(); move(-1); return; }
-    if ((event.metaKey || event.ctrlKey) && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) { event.preventDefault(); jump(event.key === 'ArrowRight' ? 1 : -1); return; }
-    // Touch typists: Ctrl+H / Ctrl+L as ← / → (⌘H would hide the window, ⌘L takes the address bar).
-    if (event.ctrlKey && !event.metaKey && (key === 'h' || key === 'l')) { event.preventDefault(); column(key === 'l' ? 1 : -1); return; }
+    if (event.key === 'ArrowDown' && bare) { event.preventDefault(); move(1); return; }
+    if (event.key === 'ArrowUp' && bare) { event.preventDefault(); move(-1); return; }
     // Bare ← / → move between columns only while the query is empty, so they still edit typed text.
-    if ((event.key === 'ArrowRight' || event.key === 'ArrowLeft') && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && !query()?.value) { event.preventDefault(); column(event.key === 'ArrowRight' ? 1 : -1); return; }
-    if ((event.metaKey || event.ctrlKey) && /^[1-9]$/.test(event.key)) {
-      const tab = tabs()[Number(event.key) - 1];
-      if (tab) { event.preventDefault(); showTab(tab.getAttribute('data-nav-tab')); }
-      return;
-    }
-    if (event.key === 'Enter') {
+    if ((event.key === 'ArrowRight' || event.key === 'ArrowLeft') && bare && !query()?.value) { event.preventDefault(); column(event.key === 'ArrowRight' ? 1 : -1); return; }
+    if (event.key === 'Enter' && !event.altKey && !event.shiftKey) {
       if (event.target.closest?.('#nav-results form')) return;
       event.preventDefault(); openSelected(event.metaKey || event.ctrlKey);
     }

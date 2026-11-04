@@ -61,5 +61,5 @@ export default async function (
         head: menu,
         items: pinToggle + panelToggle + zoneTop,
         foot: zoneBottom + onlineHtml + (me ? `<div class="dock-me" data-dock-id="me" data-dock-fixed data-dock-label="Account">${me}</div>` : "") + gearHtml,
-    }) + `<script src="/dock/dock.js?v=4" defer></script>`;
+    }) + `<script src="/dock/dock.js?v=5" defer></script>`;
 }

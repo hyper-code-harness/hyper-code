@@ -7,11 +7,8 @@
     const MIN_CHAT = 320, MIN_CANVAS = 360;
     const page = () => document.querySelector('[data-page="agent"][data-canvas-agent]');
     const agentOf = root => root?.getAttribute('data-canvas-agent') || '';
-    // The key lives here only (CHAT_KEY), so it can move into a shared key table later. Mac: ⌘\, else Ctrl+\.
-    const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-    const CHAT_KEY = { key: '\\', meta: MAC, ctrl: !MAC };
-    const CHAT_KEY_LABEL = MAC ? '⌘\\' : 'Ctrl+\\';
-    const isChatKey = e => e && e.key === CHAT_KEY.key && !!e.metaKey === CHAT_KEY.meta && !!e.ctrlKey === CHAT_KEY.ctrl && !e.altKey && !e.shiftKey;
+    // The key is bound in src/canvas/$keymap_default.ts (Mod-\); the label comes from the keymap.
+    const chatKeyLabel = () => window.hyperKeys?.label('canvas.toggleChat') || '';
 
     // Keep the conversation pinned to the bottom across a reflow, if it was there.
     const keepBottom = fn => {
@@ -25,7 +22,8 @@
         const collapsed = root.hasAttribute('data-chat-collapsed');
         root.querySelectorAll('[data-canvas-chat-toggle]').forEach(b => {
             b.setAttribute('aria-pressed', String(collapsed));
-            b.title = (collapsed ? 'Expand chat' : 'Collapse chat') + ' — ' + CHAT_KEY_LABEL;
+            const keys = chatKeyLabel();
+            b.title = (collapsed ? 'Expand chat' : 'Collapse chat') + (keys ? ' — ' + keys : '');
             const icon = b.querySelector('.ph');
             if (icon) { icon.classList.toggle('ph-arrows-in-simple', collapsed); icon.classList.toggle('ph-arrows-out-simple', !collapsed); }
             b.setAttribute('aria-label', b.title);
@@ -56,7 +54,7 @@
     // The work is the header button's htmx post (the server flips the row, canvas.changed redraws every page of
     // the chat); the command and the key only press it.
     commands['canvas.toggleChat'] = {
-        title: 'Collapse/expand chat column', group: 'canvas/window', keys: CHAT_KEY_LABEL,
+        title: 'Collapse/expand chat column', group: 'canvas/window', when: () => !!page(),
         run: () => {
             const button = [...(page()?.querySelectorAll('[data-canvas-chat-toggle]') ?? [])].find(b => b.offsetParent !== null)
                 ?? page()?.querySelector('[data-canvas-chat-toggle]');
@@ -65,11 +63,6 @@
             return true;
         },
     };
-    document.addEventListener('keydown', e => {
-        if (!isChatKey(e) || !page()) return;
-        e.preventDefault();
-        commands['canvas.toggleChat'].run();
-    });
 
     // Tabs changed (opened, switched, closed, retitled, state — here, in another page, or by the agent):
     // fetch the panel again. Only the latest request may swap, and when the active body is unchanged the
@@ -183,7 +176,7 @@
         if (msg.type === 'key') {
             const root = page();
             const own = root && [...root.querySelectorAll('[data-canvas-body] iframe')].some(f => f.contentWindow === event.source);
-            if (own && isChatKey(msg)) commands['canvas.toggleChat'].run();
+            if (own) window.hyperKeys?.handle(msg);
             return;
         }
         const root = page();

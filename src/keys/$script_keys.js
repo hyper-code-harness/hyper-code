@@ -3,12 +3,13 @@
 //   window.hyperCommands['dock.cycleMode'] = { title, run() {}, when() { return true } }
 // A key runs the command it is bound to when the command exists and its `when` (if any) is true;
 // otherwise the key is left to the browser. Rules:
-// - a chord with Ctrl, Alt or Meta fires in text fields too; a bare key (or Shift + key) only outside
-//   them, unless its binding says inInput: true;
+// - a chord with Ctrl, Alt or Meta fires in text fields too, a bare key (or Shift + key) only outside
+//   them; a binding's inInput: true / false overrides that (Escape in the composer, Ctrl-v kept for paste);
+//   the later steps of a sequence that began with a modified chord (Ctrl-x b) count as modified;
 // - scopes: a binding of a named scope (menu, …) works while window.hyperKeyScopes.<scope>() is true and wins
 //   over the global one; the global keys still work under it unless the scope rebinds them;
 // - a key somebody already handled (event.defaultPrevented — a widget) is skipped;
-// - a sequence ("Ctrl-x b", "g g") waits up to 1.5 s for its next step, Escape cancels it.
+// - a sequence ("Ctrl-x b", "g g") waits up to 1.5 s for its next step, Escape or Ctrl-g cancels it.
 // Frames forward their keys with postMessage; the receiver calls window.hyperKeys.handle(eventLike).
 (() => {
     if (window.hyperKeys) return;
@@ -29,6 +30,8 @@
     const eventChord = e => {
         let key = e.key;
         if (!key || ['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null;
+        // Option on a Mac composes a symbol (⌥X gives "≈"): Alt chords take the physical letter instead.
+        if (e.altKey && /^Key[A-Z]$/.test(e.code || '')) key = e.code.slice(3);
         const printable = key.length === 1;
         if (printable) key = key.toLowerCase();
         if (key === ' ') key = 'Space';
@@ -52,30 +55,36 @@
 
     const editable = t => !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''));
     const runnable = id => { const c = commands[id]; return c && typeof c.run === 'function' && (!c.when || c.when()) ? c : null; };
-    let pending = null, timer = 0;
-    const reset = () => { pending = null; clearTimeout(timer); };
+    let pending = null, pendingModified = false, timer = 0;
+    const reset = () => { pending = null; pendingModified = false; clearTimeout(timer); };
 
     // Returns true when the key was taken (the caller then prevents the default).
     function handle(e) {
         if (e.isComposing || e.defaultPrevented) return false;
         const chord = eventChord(e);
         if (!chord) return false;
-        if (pending && chord === 'Escape') { reset(); return true; }
+        if (pending && (chord === 'Escape' || chord === 'Ctrl-g')) { reset(); return true; }
         // The active named scopes first (in the order they were declared), then global.
         const active = Object.keys(tries).filter(s => s !== 'global' && (() => { try { return !!scopes[s]?.(); } catch { return false; } })());
         const node = pending ? pending.next.get(chord)
             : [...active, 'global'].map(s => tries[s]?.get(chord)).find(n => n && (n.next.size || (n.binding && runnable(n.binding.command))));
+        const modified = pendingModified || /(^|-)(Ctrl|Alt|Meta)-/.test(chord);
+        const inSequence = !!pending;
         reset();
-        if (!node) return false;
-        const modified = /(^|-)(Ctrl|Alt|Meta)-/.test(chord);
+        if (!node) return inSequence;   // an unknown second step ends the sequence and is swallowed, as in Emacs
+        const allowed = b => !editable(e.target) || (b?.inInput ?? modified);
         if (node.next.size) {
-            if (!modified && editable(e.target) && !node.binding?.inInput) return false;
+            // A prefix is taken in a text field when some sequence under it may finish there: "Ctrl-h b"
+            // bound with inInput: false leaves Ctrl-h to the field (delete backward in a Mac text box).
+            const leaves = n => [...(n.binding ? [n.binding] : []), ...[...n.next.values()].flatMap(leaves)];
+            if (!leaves(node).some(allowed)) return false;
             pending = node;
+            pendingModified = modified;
             timer = setTimeout(reset, 1500);
             return true;
         }
         const b = node.binding;
-        if (!b || (!modified && editable(e.target) && !b.inInput)) return false;
+        if (!b || !allowed(b)) return false;
         const command = runnable(b.command);
         if (!command) return false;
         try { command.run(e, ...(b.args || [])); } catch (err) { console.error(`[keys] ${b.command}`, err); }

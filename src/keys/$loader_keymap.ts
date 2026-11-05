@@ -1,4 +1,4 @@
-// `$keymap_<name>.ts` — keyboard bindings that belong to the keymap <name> (default, vim, emacs, …).
+// `$keymap_<name>.ts` — keyboard bindings that belong to the keymap <name> (default, or one a module ships).
 // The file default-exports `{ extends?: "<other keymap>", bind: { "<keys>": Binding }, scopes?: { <scope>: { "<keys>": Binding } } }`
 // where a Binding is "<command id>", { command, args?, inInput? } or null (unbind). `bind` is the global scope;
 // a named scope (menu, …) works only while the page says it is active (window.hyperKeyScopes.<scope>()).

@@ -27,7 +27,7 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     const conflicts: Array<{ scope: string; keys: string; kept: string; dropped: string }> = [];
     const bound = (value: unknown, from: string): Bound | null => value === null ? null : typeof value === "string"
         ? { command: value, from }
-        : { command: (value as any).command, args: Array.isArray((value as any).args) ? (value as any).args : undefined, inInput: (value as any).inInput === true || undefined, from };
+        : { command: (value as any).command, args: Array.isArray((value as any).args) ? (value as any).args : undefined, inInput: typeof (value as any).inInput === "boolean" ? (value as any).inInput : undefined, from };
 
     const apply = (name: string, seen: Set<string>) => {
         if (seen.has(name) || !maps[name]) return;

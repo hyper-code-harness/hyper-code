@@ -54,6 +54,7 @@
     // @mention list keeps its own Escape (it closes the list first).
     const composer = () => { const el = document.activeElement; return el?.id === 'input' && el.closest('#chat-panel') ? el : null; };
     const mentionOpen = () => [...document.querySelectorAll('#chat-panel [data-mention-list]')].some(el => !el.hidden);
+    commands['chat.focus'] = { title: 'Go to the message box', group: 'chat', run: () => document.querySelector('#chat-panel #input')?.focus(), when: () => !composer() && !!document.querySelector('#chat-panel #input') };
     commands['chat.blur'] = { title: 'Leave the message box', group: 'chat', run: () => composer()?.blur(), when: () => !!composer() && !mentionOpen() };
 })();
 

@@ -23,11 +23,13 @@
 //        of any prose the same turn produced.
 /** Performs the llm.toAnthropicMessages runtime operation. */
 /**
- * Convert our canonical transcript into Anthropic messages[] form. System.
+ * Convert canonical history into Anthropic blocks, preserving tool ordering and an optional stable-prefix cache boundary.
  * @param opts.messages Conversation messages to convert.
+ * @param opts.cacheableMessageCount Exclusive message boundary before transient control instructions; omitted disables cache marking.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
-        /** Conversation messages to convert. */ messages: any[] }): any[] {
+        /** Conversation messages to convert. */ messages: any[];
+        /** Exclusive canonical-message boundary for a stable-prefix cache marker. Omit to disable marking. @minimum 0 */ cacheableMessageCount?: number }): any[] {
     const out: { role: "user" | "assistant"; content: any[] }[] = [];
     const compactions: any[] = [];
 
@@ -40,7 +42,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         if (prev && prev.role === role) {
             const tail = prev.content[prev.content.length - 1];
             // Two text blocks in a row are one paragraph, not two blocks.
-            if (block.type === "text" && tail?.type === "text") { tail.text += "\n\n" + block.text; return; }
+            if (block.type === "text" && tail?.type === "text" && !tail.cache_control) { tail.text += "\n\n" + block.text; return; }
             // A tool_result always leads its message — prose from the same turn
             // follows it, never the other way round.
             if (block.type === "tool_result") {
@@ -53,7 +55,13 @@ export default function (ctx: Context, _session: Session | null, opts: {
         out.push({ role, content: [block] });
     };
 
-    for (const m of opts.messages) {
+    const markBoundary = () => {
+        const last = out[out.length - 1];
+        const block = last?.content[last.content.length - 1];
+        if (block) block.cache_control = { type: "ephemeral" };
+    };
+    for (const [index, m] of opts.messages.entries()) {
+        if (index === opts.cacheableMessageCount) markBoundary();
         const role = m?.role;
         let parts = toParts(m?.content);
         if (imagesToOmit > 0) {
@@ -98,6 +106,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
             push("assistant", { type: "tool_use", id: call.id, name: call.name, input: call.args ?? {} });
         }
     }
+
+    if (opts.cacheableMessageCount === opts.messages.length) markBoundary();
 
     if (compactions.length) {
         const block = compactions[compactions.length - 1];

@@ -15,15 +15,17 @@
 // Returns:
 //   { system: string, messages: Message[] }  — both ready to feed to a
 //   streamer. messages is [bootstrap-user, bootstrap-ack, ...transcript].
-/** Build llm request for the runtime.  * @param opts.agent Agent whose state is read or updated.
-*/
+/**
+ * Build provider-ready instructions and history, with a cache boundary before the transient continuation nudge.
+ * @param opts.agent Agent whose prompt and transcript are read.
+ */
 export default async function (
     ctx: Context,
     _session: Session | null,
     opts: {
         /** Live agent instance to operate on. */
     agent: types.agent.Agent },
-): Promise<{ system: string; messages: any[] }> {
+): Promise<{ system: string; messages: any[]; /** Exclusive canonical-message boundary before transient continuation instructions. */ cacheableMessageCount: number }> {
     const { agent } = opts;
     const fullPrompt = await ctx.fns.agent.fullSystemPrompt({ agent });
     // History and the active compaction are applied in ONE place: a fork's
@@ -129,6 +131,9 @@ export default async function (
         }
     }
 
+    // Preserve the reusable history prefix before adding request-only guidance.
+    const cacheableMessageCount = messages.length;
+
     // A transcript that ENDS with an assistant message is a "prefill" request:
     // the model is asked to continue its own half-written turn. It happens
     // normally here — a run answers a mid-run user message with a terminal
@@ -151,6 +156,7 @@ export default async function (
     return {
         system,
         messages,
+        cacheableMessageCount,
     };
 }
 

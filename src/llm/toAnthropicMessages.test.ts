@@ -1,9 +1,32 @@
 import { test, expect, describe } from "bun:test";
 import convert from "./toAnthropicMessages";
+import buildLlmRequest from "../agent/buildLlmRequest";
+import streamAnthropic from "./streamAnthropic";
 
 const ctx = {} as Context;
 
 describe("llm.toAnthropicMessages", () => {
+    test("cache boundary survives appended turns without absorbing transient guidance", () => {
+        const base = [{ role: "user", content: "task" }];
+        const control = { role: "user", content: "request-only guidance" };
+        const first = convert(ctx, null, { messages: [...base, control], cacheableMessageCount: base.length });
+        expect(first[0].content).toEqual([
+            { type: "text", text: "task", cache_control: { type: "ephemeral" } },
+            { type: "text", text: "request-only guidance" },
+        ]);
+        const history = [...base,
+            { role: "assistant", tool_calls: [{ id: "t1", name: "read", args: {} }] },
+            { role: "tool", tool_call_id: "t1", content: "result" },
+        ];
+        const next = convert(ctx, null, { messages: [...history, control], cacheableMessageCount: history.length });
+        expect(next[0].content[0].text).toBe(first[0].content[0].text);
+        expect(next.at(-1).content).toEqual([
+            { type: "tool_result", tool_use_id: "t1", content: "result", cache_control: { type: "ephemeral" } },
+            { type: "text", text: "request-only guidance" },
+        ]);
+        expect(history.at(-1)).not.toHaveProperty("cache_control");
+    });
+
     test("user/assistant text round-trip", () => {
         expect(convert(ctx, null, { messages: [
             { role: "user", content: "hi" },
@@ -106,4 +129,59 @@ test("final assistant content is trimmed (anthropic rejects trailing whitespace)
     const last = out[out.length - 1]!;
     expect(last.role).toBe("assistant");
     expect(last.content[0]!.text).toBe("\u00a7eval\nconsole.log(1)");
+});
+
+// Real builder + converter + streamer; only external dependencies are stubbed.
+test("stream caches history before the actual Continue nudge across sequential requests", async () => {
+    const bodies: any[] = [];
+    const requests: any[] = [];
+    const agent = { id: "cache-test", model: "anthropic:test", messages: [
+        { role: "user", content: "task" },
+        { role: "assistant", content: "first answer" },
+    ] } as any;
+    const context = { fns: {
+        agent: {
+            fullSystemPrompt: async () => "stable instructions",
+            contextProjection: async ({ rootMessages }: any) => ({ messages: rootMessages }),
+            buildLlmRequest: async (opts: any) => {
+                const request = await buildLlmRequest(context as any, null, opts);
+                requests.push(request);
+                return request;
+            },
+            wireTools: () => [],
+        },
+        session: { repairToolPairs: ({ messages }: any) => ({ messages, repaired: [], dropped: [] }) },
+        auth: { attributeMessages: async ({ messages }: any) => ({ messages, applied: false }) },
+        attachments: { resolveContent: async ({ messages }: any) => messages },
+        llm: {
+            resolveEndpoint: async () => ({ provider: "anthropic", modelId: "test", url: "https://unused.invalid" }),
+            resolveReasoningEffort: async () => ({ mode: "none" }),
+            toAnthropicMessages: (opts: any) => convert(context as any, null, opts),
+            connectFetch: async ({ init }: any) => {
+                bodies.push(JSON.parse(init.body));
+                return new Response("");
+            },
+            parseSSE: async function* () {},
+        },
+    } };
+    await streamAnthropic(context as any, null, { agent });
+    const first = bodies[0].messages;
+    const nudge = "Continue from where you stopped: if the previous answer already settled the user's request, say so briefly; otherwise take the next step.";
+    expect(requests[0].messages.at(-1).content).toBe(nudge);
+    expect(first.at(-1).content).toEqual([{ type: "text", text: nudge }]);
+    expect(requests[0].cacheableMessageCount).toBe(4);
+    expect(first.at(-2).content.at(-1).cache_control).toEqual({ type: "ephemeral" });
+    expect(first[1].content.at(-1).cache_control).toEqual({ type: "ephemeral" });
+    expect(agent.messages).toHaveLength(2);
+
+    agent.messages.push({ role: "user", content: "next task" }, { role: "assistant", content: "second answer" });
+    await streamAnthropic(context as any, null, { agent });
+    const second = bodies[1].messages;
+    // Breakpoints move; the serialized content of the old cached prefix must not.
+    const withoutMarkers = (rows: any[]) => rows.map(row => ({ ...row, content: row.content.map(({ cache_control, ...block }: any) => block) }));
+    expect(withoutMarkers(second.slice(0, first.length - 1))).toEqual(withoutMarkers(first.slice(0, -1)));
+    expect(requests[1].cacheableMessageCount).toBe(6);
+    expect(second.at(-2).content.at(-1).cache_control).toEqual({ type: "ephemeral" });
+    expect(second.at(-1).content).toEqual([{ type: "text", text: nudge }]);
+    expect(agent.messages).toHaveLength(4);
 });

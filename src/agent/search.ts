@@ -6,6 +6,9 @@
  * @param opts.limit Maximum matches returned. @default 20 @minimum 1 @maximum 500
  * @param opts.visibility Listing classes to search; defaults to both user-facing and team agents.
  * @param opts.owner Optional creator id used by owner-scoped menus.
+ * @param opts.offset Rows skipped before the first returned match, for paging. @default 0 @minimum 0
+ * @param opts.ids Optional exact agent ids; when given, only these agents are considered (e.g. pinned chats).
+ * @param opts.projectId Optional project id; when given, only agents assigned to that project are returned.
  */
 export default async function (
     ctx: Context,
@@ -19,6 +22,12 @@ export default async function (
         visibility?: ("nav" | "team")[];
         /** Optional creator id used by owner-scoped menus. */
         owner?: string;
+        /** Rows skipped before the first returned match, for paging. @default 0 @minimum 0 */
+        offset?: number;
+        /** Optional exact agent ids; when given, only these agents are considered (e.g. pinned chats). */
+        ids?: string[];
+        /** Optional project id; when given, only agents assigned to that project are returned. */
+        projectId?: string;
     },
 ): Promise<Array<{ id: string; title: string; model: string; icon: string | null; runState: string; visibility: "nav" | "team"; parentId: string | null; workspaceDir: string; workspaceHost: string; createdBy: string | null; lastMessageAt: number | null; hasUnread: boolean }>> {
     const query = (opts.query ?? "").trim().toLowerCase();
@@ -27,6 +36,10 @@ export default async function (
     const sequence = terms.length ? `%${terms.map(escapeLike).join("%")}%` : "";
     const prefix = `${escapeLike(query)}%`;
     const limit = Math.max(1, Math.min(500, Math.floor(opts.limit ?? 20)));
+    const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+    if (opts.ids && !opts.ids.length) return [];
+    const ids = opts.ids ?? [];
+    const idsSql = ids.length ? `AND a.id IN (${ids.map(() => "?").join(", ")})` : "";
     const visibility = opts.visibility?.length ? opts.visibility : ["nav", "team"];
     const visibilitySql = visibility.map(() => "?").join(", ");
     const firstOwner = opts.owner ? (await ctx.fns.auth.listUsers({}).catch(() => [] as types.auth.User[])).find((user: types.auth.User) => user.role === "owner")?.id ?? null : null;
@@ -44,6 +57,8 @@ export default async function (
              AND (? = '' OR lower(id || ' ' || COALESCE(title, '')) LIKE ? ESCAPE '\\'
                   OR public.word_similarity(?, lower(id || ' ' || COALESCE(title, ''))) >= 0.45)
              AND (? = '' OR created_by = ? OR (created_by IS NULL AND ? = ?))
+             AND (? = '' OR a.project_id = ?)
+             ${idsSql}
            ORDER BY CASE
                       WHEN lower(id) LIKE ? ESCAPE '\\' OR lower(COALESCE(title, '')) LIKE ? ESCAPE '\\' THEN 0
                       WHEN lower(id) = ? OR lower(COALESCE(title, '')) = ? THEN 1
@@ -52,8 +67,8 @@ export default async function (
                     END,
                     public.word_similarity(?, lower(id || ' ' || COALESCE(title, ''))) DESC,
                     last_message_at DESC NULLS LAST, id
-           LIMIT ?`,
-     params: [viewer ?? "", viewer ?? "", ...visibility, query, sequence, query, opts.owner ?? "", opts.owner ?? "", opts.owner ?? "", firstOwner ?? "", prefix, prefix, query, query, sequence, query, limit],
+           LIMIT ? OFFSET ?`,
+     params: [viewer ?? "", viewer ?? "", ...visibility, query, sequence, query, opts.owner ?? "", opts.owner ?? "", opts.owner ?? "", firstOwner ?? "", opts.projectId ?? "", opts.projectId ?? "", ...ids, prefix, prefix, query, query, sequence, query, limit, offset],
     });
     return (rows as any[]).map(row => ({ ...row, lastMessageAt: row.lastMessageAt == null ? null : Number(row.lastMessageAt), hasUnread: row.hasUnread === true || row.hasUnread === 't' }));
 }

@@ -9,14 +9,27 @@
 // breaks the schema. It is legal only when every object says
 // additionalProperties:false and lists all its properties as required, so we
 // ask for it exactly when the declaration already satisfies that.
-/** Builds model-facing schemas for registered tools. */
+/**
+ * Builds the provider wire-format schemas of the registered tools for one LLM request.
+ *
+ * Opt-in tools (`optIn: true`) are included only when `only` names them.
+ * @param opts.api Wire dialect: `openai`, `responses` or `anthropic`.
+ * @param opts.only Tool names (wire or bare) to keep, usually agent.tools; empty keeps every tool that is not opt-in.
+ */
 export default function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Value for api. */ api: string; /** Value for only. */ only?: string[] },
+    opts: {
+        /** Wire dialect: `openai`, `responses` or `anthropic`. */
+        api: string;
+        /** Tool names (wire or bare) to keep, usually agent.tools; empty keeps every tool that is not opt-in. */
+        only?: string[];
+    },
 ): any[] {
     let tools = ctx.fns.tools.list({});
     if (opts?.only?.length) tools = tools.filter((t: any) => opts.only!.includes(t.wireName) || opts.only!.includes(t.name));
+    // An opt-in tool ships only when the agent named it; without a list it stays out.
+    else tools = tools.filter((t: any) => !t.optIn);
     const api = String(opts?.api ?? "openai");
 
     return tools.map((t: any) => {

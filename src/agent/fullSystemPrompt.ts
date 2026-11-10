@@ -5,7 +5,8 @@
 //
 // Layers:
 //   1. the base prompt        — chosen by name (agent.systemPromptBase): full =
-//                               SYSTEM_PROMPT_CORE.txt, lean, or a saved one
+//                               SYSTEM_PROMPT_CORE.txt, lean, or a saved one;
+//                               replaced by the first agent.basePrompt answer
 //   2. the tool section       — ASSEMBLED from the $tool_ declarations that are
 //                               actually loaded (index + guidelines), so an
 //                               unmounted or narrowed-away tool costs no tokens
@@ -23,7 +24,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         /** Live agent instance to operate on. */
 agent: types.agent.Agent }): Promise<string> {
     const { agent } = opts;
-    const core = (await ctx.fns.agent.systemPromptBase({ agent })).text;
+    const core = (await basePromptAnswer(ctx, agent)) ?? (await ctx.fns.agent.systemPromptBase({ agent })).text;
     const tools = ctx.fns.tools.promptSection({ protocol: "json", only: agent.tools });
     // Fences are an output channel, not a tool: the model writes one into its
     // own reply and the renderer turns it into a chart or a diagram. Nothing
@@ -90,4 +91,28 @@ agent: types.agent.Agent }): Promise<string> {
     // agent.syncWorldState. Keep this function a pure function of things that
     // do not change within a session.
     return core + "\n\n" + tools + fenceBlock + inputBlock + canvasBlock + pluginBlock + sharedAgentBlock + perAgentBlock + runtime;
+}
+
+// The first non-null answer to `agent.basePrompt`, or null when nobody answers.
+// Handlers are asked one by one rather than through procs.hooks.first so that a
+// handler that throws or hangs loses its turn without costing the others theirs.
+const BASE_PROMPT_TIMEOUT_MS = 2000;
+async function basePromptAnswer(ctx: Context, agent: types.agent.Agent): Promise<string | null> {
+    const handlers = ctx.state.procs?.hooks?.handlers?.["agent.basePrompt"];
+    if (!handlers?.size) return null;
+    for (const [module, fn] of handlers) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+            const answer = await Promise.race([
+                Promise.resolve(fn(ctx, null, { agentId: agent.id, meta: agent.meta ?? null })),
+                new Promise((_resolve, reject) => { timer = setTimeout(() => reject(new Error(`timed out after ${BASE_PROMPT_TIMEOUT_MS}ms`)), BASE_PROMPT_TIMEOUT_MS); }),
+            ]);
+            if (answer !== undefined && answer !== null) return String(answer);
+        } catch (error: any) {
+            ctx.fns.procs.log.warn({ event: "agent.base-prompt.failed", msg: String(error?.message ?? error), agentId: agent.id, module });
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+    }
+    return null;
 }

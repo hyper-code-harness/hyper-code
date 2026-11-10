@@ -72,4 +72,8 @@ export type Tool = {
      *  file so a tool that is not loaded costs zero prompt tokens, and a tool
      *  that changes its body format cannot forget to say so. */
     doc?: string;
+
+    /** Off unless asked for: the tool is sent to the model only when the agent
+     *  names it in `agent.tools`. An agent with no tool list does not get it. */
+    optIn?: boolean;
 };

@@ -33,7 +33,7 @@ export default {
             items: await ctx.fns.nav.chatItems({ agents: groups.get(key)! }),
         })));
         return {
-            items: [{ id: "recent:new", label: "New agent", href: "/agent/new", icon: "ph-plus", action: true }],
+            items: [{ id: "recent:new", label: "New agent", href: "/agent/new", icon: "ph-plus", action: true }, ...await ctx.fns.nav.newAgentActionItems({ prefix: "recent" })],
             sections,
         };
     },

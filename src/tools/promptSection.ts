@@ -11,15 +11,28 @@
 // A tool with no snippet is callable but unadvertised. `only` narrows the set —
 // that is the prompt diet: a disabled tool costs zero prefix tokens instead of
 // sitting in the preamble of every request forever.
-/** Builds the tool instructions included in a model prompt. */
+/**
+ * Builds the "Available tools" prompt section for the tools an agent is offered.
+ *
+ * Opt-in tools (`optIn: true`) appear only when `only` names them.
+ * @param opts.protocol Tool-call protocol: `markers` adds each tool's wire-format block, `json` lists snippets only.
+ * @param opts.only Tool names (wire or bare) to keep, usually agent.tools; empty keeps every tool that is not opt-in.
+ */
 export default function (
     ctx: Context,
     _session: Session | null,
-    opts: { /** Value for protocol. */ protocol?: "markers" | "json"; /** Value for only. */ only?: string[] } = {},
+    opts: {
+        /** Tool-call protocol: `markers` adds each tool's wire-format block, `json` lists snippets only. */
+        protocol?: "markers" | "json";
+        /** Tool names (wire or bare) to keep, usually agent.tools; empty keeps every tool that is not opt-in. */
+        only?: string[];
+    } = {},
 ): string {
     const protocol = opts.protocol ?? "markers";
     let tools = ctx.fns.tools.list({});
     if (opts.only?.length) tools = tools.filter((t: any) => opts.only!.includes(t.wireName) || opts.only!.includes(t.name));
+    // An opt-in tool ships only when the agent named it; without a list it stays out.
+    else tools = tools.filter((t: any) => !t.optIn);
 
     const advertised = tools.filter((t: any) => t.promptSnippet);
     const index = advertised.length

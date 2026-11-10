@@ -26,7 +26,7 @@ export default {
         const chatItems = withProject(await ctx.fns.nav.chatItems({ agents }));
         const mentionsHtml = mentions.length ? await ctx.fns.mentions.rowsHtml({ items: mentions, navRow: true }) : "";
         return {
-            items: [{ id: "chats:new", label: "New agent", href: "/agent/new", icon: "ph-plus", action: true }],
+            items: [{ id: "chats:new", label: "New agent", href: "/agent/new", icon: "ph-plus", action: true }, ...await ctx.fns.nav.newAgentActionItems({ prefix: "chats" })],
             sections: [
                 ...(mentions.length ? [{ title: `Mentions · ${mentions.length}`, html: mentionsHtml, tone: "primary" as const }] : []),
                 ...(pinnedAgents.length ? [{ title: "Pinned", items: withProject(await ctx.fns.nav.chatItems({ agents: pinnedAgents })), tone: "warning" as const }] : []),

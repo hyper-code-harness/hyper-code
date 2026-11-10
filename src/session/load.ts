@@ -18,6 +18,7 @@ id: string }): Promise<types.agent.Agent | null> {
         systemPrompt: row.system_prompt,
         systemPromptName: row.system_prompt_name ?? "",
         systemPromptCore: row.system_prompt_core ?? "",
+        meta: parseMeta(row.meta),
         tools: row.tools == null ? undefined : (typeof row.tools === 'string' ? JSON.parse(row.tools) : row.tools),
         scratchpad: JSON.parse(row.scratchpad),
         messages: [],
@@ -41,4 +42,11 @@ id: string }): Promise<types.agent.Agent | null> {
         createdBy: row.created_by ?? null,
     };
     return await ctx.fns.session.syncAgentState({ agent });
+}
+
+// agents.meta is NOT NULL DEFAULT '{}': an empty object is "no meta", so an agent
+// nobody gave meta loads exactly as before (null).
+function parseMeta(raw: any): Record<string, any> | null {
+    const value = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw;
+    return value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length ? value : null;
 }

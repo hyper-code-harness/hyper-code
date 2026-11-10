@@ -8,11 +8,17 @@
  * @param opts.strict The strict value used by the operation.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { strict?: boolean } = {}) {
-    // A rebuild rescans; a production bundle has no filesystem to scan, so it
-    // reuses the list boot.apply was given.
-    const entries = ctx.env.NODE_ENV === "production"
-        ? (ctx.state as any).procs?.boot?.entries ?? []
-        : await ctx.fns.procs.project.scan({});
+    // A rebuild always rescans, the same way boot does (procs/boot/load.ts): a
+    // production bundle (`dev.build`) keeps its baked list and adds what the scan
+    // finds on top. NODE_ENV=production alone does not mean a bundle — a server
+    // run from source with it used the list frozen at boot, so a $script_ added by
+    // a later `git pull` never got a route (PR #27: /keys/keys.js was 401 and ⌘/
+    // stopped working until a restart).
+    const found = await ctx.fns.procs.project.scan({});
+    const baked: any[] = (ctx.state as any).procs?.boot?.baked ?? [];
+    const entries = baked.length
+        ? [...baked, ...found.filter((e: any) => !baked.some((b: any) => b.abs === e.abs))]
+        : found;
     const loaders = (ctx.state as any).procs?.boot?.loaders ?? {};
 
     // A derived ctx with empty tables: the loaders write into it exactly as they

@@ -107,6 +107,15 @@ await ctx.fns.procs.http.loadRoutes({})                // after touching $route_
 await ctx.fns.procs.migrate.up({})                     // after dropping a $migration_*.ts
 ```
 
+`loadRoutes` rescans the disk in every mode, `NODE_ENV=production` included:
+a server run from source picks up a `$route_`, `$script_` or `$style_` that
+arrived after boot (a `git pull`) without a restart. Only a baked bundle
+(`dev.build`) starts from its baked list, and the scan adds new files on top,
+the same rule boot uses. A pull that adds files also needs the matching loads:
+`dev.sync({ rel })` for each new `$loader_`/`$keymap_`-style file (a loader
+first), `repl.load({ name })` for changed modules (`ui` for the layout), then
+`loadRoutes` and `genTypes`.
+
 ## Authoring a runtime function
 
 Create with `ctx.fns.procs.dev.createFunction({ ... })`: it requires a

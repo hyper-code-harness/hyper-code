@@ -275,6 +275,9 @@ A plugin others install lives in its own Git repository, package at the root:
 
 ## Installing from the catalog
 
+![Hyper plugins as git clones: listing and plugin repositories on GitHub; catalog, install with preview, clones in ~/.hyper/user with plugins.lock.json, hot reload, modules.discover; develop, release and fork back to GitHub](plugins-architecture.svg)
+
+
 An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag, commit, previous[] }`. npm dependencies are installed into the clone's own `node_modules` with scripts disabled.
 
 - `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `tag`, `update`, `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.

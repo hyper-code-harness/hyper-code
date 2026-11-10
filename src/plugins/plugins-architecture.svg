@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 1380" width="1680" height="1380" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+<title>Hyper plugins as git clones</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect width="1680" height="1380" fill="#fbfbfd"/>
+<text x="840" y="52" text-anchor="middle" font-size="34" font-weight="700" fill="#222">Hyper plugins as git clones</text>
+<rect x="30" y="85" width="460" height="690" rx="18" fill="none" stroke="#3b6fd8" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="56" y="122" font-size="26" font-weight="700" fill="#3b6fd8">GitHub</text>
+<rect x="550" y="85" width="1100" height="975" rx="18" fill="none" stroke="#888" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="576" y="122" font-size="26" font-weight="700" fill="#555">Hyper server</text>
+<rect x="915" y="372" width="725" height="222" rx="14" fill="none" stroke="#2e8b57" stroke-width="1.5" stroke-dasharray="4 5"/>
+<text x="1630" y="392" text-anchor="end" font-size="18" fill="#2e8b57">disk ~/.hyper</text>
+<polyline points="460,200 580,200" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="520" y="190" text-anchor="middle" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">list</text>
+<polyline points="460,420 520,420 520,260 580,260" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="548" y="350" text-anchor="middle" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">tags</text>
+<polyline points="880,215 940,215" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<polyline points="1240,215 1300,215" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" marker-start="url(#ah)"/>
+<polyline points="1090,290 1090,400" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="1100" y="350" text-anchor="start" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">confirmed + digest</text>
+<polyline points="1240,485 1300,485" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<polyline points="1090,570 1090,650" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<polyline points="1240,725 1300,725" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<polyline points="940,470 730,470 730,650" fill="none" stroke="#444" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#ah)" />
+<text x="835" y="458" text-anchor="middle" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">file saved</text>
+<polyline points="880,725 940,725" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="910" y="713" text-anchor="middle" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">reload</text>
+<polyline points="1270,880 1270,540 1240,540" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="1282" y="860" text-anchor="start" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">edit · commit</text>
+<polyline points="1200,1040 1200,1085 490,1085 490,490 460,490" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="850" y="1075" text-anchor="middle" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">release: push + tag</text>
+<polyline points="1480,1040 1480,1120 260,1120 260,740" fill="none" stroke="#444" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#ah)" />
+<text x="850" y="1110" text-anchor="middle" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">fork · push to fork · syncUpstream</text>
+<polyline points="260,610 260,520" fill="none" stroke="#444" stroke-width="2.5"  marker-end="url(#ah)" />
+<text x="272" y="572" text-anchor="start" font-size="19" fill="#333" paint-order="stroke" stroke="#fbfbfd" stroke-width="7">forked from</text>
+<rect x="60" y="140" width="400" height="150" rx="14" fill="#eef4ff" stroke="#3b6fd8" stroke-width="3"/>
+<text x="260" y="182" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">Listing</text>
+<text x="260" y="220" text-anchor="middle" font-size="20" fill="#333">hyper-code-harness/plugins</text>
+<text x="260" y="250" text-anchor="middle" font-size="20" fill="#333">plugins/&lt;name&gt;.json → index.json</text>
+<text x="260" y="280" text-anchor="middle" font-size="20" fill="#333">repositories only, no versions</text>
+<rect x="60" y="350" width="400" height="170" rx="14" fill="#eef4ff" stroke="#3b6fd8" stroke-width="3"/>
+<text x="260" y="392" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">Plugin repository</text>
+<text x="260" y="430" text-anchor="middle" font-size="20" fill="#333">one plugin = one repository</text>
+<text x="260" y="460" text-anchor="middle" font-size="20" fill="#333">release = tag vX.Y.Z</text>
+<text x="260" y="490" text-anchor="middle" font-size="20" fill="#333">branches: main, feature/…</text>
+<rect x="60" y="610" width="400" height="130" rx="14" fill="#eef4ff" stroke="#3b6fd8" stroke-width="3"/>
+<text x="260" y="652" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">Fork</text>
+<text x="260" y="690" text-anchor="middle" font-size="20" fill="#333">origin = your fork</text>
+<text x="260" y="720" text-anchor="middle" font-size="20" fill="#333">upstream = the original</text>
+<rect x="580" y="140" width="300" height="150" rx="14" fill="#fff" stroke="#555" stroke-width="3"/>
+<text x="730" y="182" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">plugins.catalog</text>
+<text x="730" y="220" text-anchor="middle" font-size="20" fill="#333">listings + tags</text>
+<text x="730" y="250" text-anchor="middle" font-size="20" fill="#333">latest · installed · update</text>
+<rect x="940" y="140" width="300" height="150" rx="14" fill="#fff" stroke="#555" stroke-width="3"/>
+<text x="1090" y="182" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">plugins.install</text>
+<text x="1090" y="220" text-anchor="middle" font-size="20" fill="#333">→ plugins.gitInstall</text>
+<text x="1090" y="250" text-anchor="middle" font-size="20" fill="#333">install · update</text>
+<text x="1090" y="280" text-anchor="middle" font-size="20" fill="#333">rollback · remove</text>
+<rect x="1300" y="140" width="320" height="150" rx="14" fill="#fff8e6" stroke="#c98a00" stroke-width="3"/>
+<text x="1460" y="182" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">Preview</text>
+<text x="1460" y="220" text-anchor="middle" font-size="20" fill="#333">files · diff · requires</text>
+<text x="1460" y="250" text-anchor="middle" font-size="20" fill="#333">name collisions</text>
+<text x="1460" y="280" text-anchor="middle" font-size="20" fill="#333">digest = commit + tree</text>
+<rect x="940" y="400" width="300" height="170" rx="14" fill="#eaf7ee" stroke="#2e8b57" stroke-width="3"/>
+<text x="1090" y="442" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">~/.hyper/user/&lt;name&gt;</text>
+<text x="1090" y="480" text-anchor="middle" font-size="20" fill="#333">git clone</text>
+<text x="1090" y="510" text-anchor="middle" font-size="20" fill="#333">tag · branch · commit</text>
+<text x="1090" y="540" text-anchor="middle" font-size="20" fill="#333">own node_modules</text>
+<rect x="1300" y="400" width="320" height="170" rx="14" fill="#eaf7ee" stroke="#2e8b57" stroke-width="3"/>
+<text x="1460" y="442" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">plugins.lock.json</text>
+<text x="1460" y="480" text-anchor="middle" font-size="20" fill="#333">repo · tag | branch | commit</text>
+<text x="1460" y="510" text-anchor="middle" font-size="20" fill="#333">commit · previous[]</text>
+<rect x="580" y="650" width="300" height="150" rx="14" fill="#fff" stroke="#555" stroke-width="3"/>
+<text x="730" y="692" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">plugins.watchClones</text>
+<text x="730" y="730" text-anchor="middle" font-size="20" fill="#333">file saved</text>
+<text x="730" y="760" text-anchor="middle" font-size="20" fill="#333">→ reloadCloneFiles</text>
+<text x="730" y="790" text-anchor="middle" font-size="20" fill="#333">error → error board</text>
+<rect x="940" y="650" width="300" height="150" rx="14" fill="#fff" stroke="#555" stroke-width="3"/>
+<text x="1090" y="692" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">modules.discover</text>
+<text x="1090" y="730" text-anchor="middle" font-size="20" fill="#333">core src/ · plugins/</text>
+<text x="1090" y="760" text-anchor="middle" font-size="20" fill="#333">user/ clones · .hyper/</text>
+<text x="1090" y="790" text-anchor="middle" font-size="20" fill="#333">~/.hyper/src</text>
+<rect x="1300" y="650" width="320" height="150" rx="14" fill="#f3eefe" stroke="#7048c8" stroke-width="3"/>
+<text x="1460" y="692" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">ctx.fns.&lt;ns&gt;.*</text>
+<text x="1460" y="730" text-anchor="middle" font-size="20" fill="#333">plugin functions</text>
+<text x="1460" y="760" text-anchor="middle" font-size="20" fill="#333">routes · styles · widgets</text>
+<rect x="580" y="880" width="420" height="160" rx="14" fill="#fff" stroke="#555" stroke-width="3"/>
+<text x="790" y="922" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">UI</text>
+<text x="790" y="960" text-anchor="middle" font-size="20" fill="#333">/plugins/listing — catalog</text>
+<text x="790" y="990" text-anchor="middle" font-size="20" fill="#333">/plugins/&lt;name&gt; — git panel</text>
+<text x="790" y="1020" text-anchor="middle" font-size="20" fill="#333">buttons → install and develop</text>
+<rect x="1060" y="880" width="560" height="160" rx="14" fill="#fff" stroke="#555" stroke-width="3"/>
+<text x="1340" y="922" text-anchor="middle" font-size="25" font-weight="700" fill="#1d1d1f">Develop</text>
+<text x="1340" y="960" text-anchor="middle" font-size="20" fill="#333">plugins.edit → branch</text>
+<text x="1340" y="990" text-anchor="middle" font-size="20" fill="#333">plugins.release → test · bump · tag · push</text>
+<text x="1340" y="1020" text-anchor="middle" font-size="20" fill="#333">plugins.fork · plugins.syncUpstream</text>
+<text x="60" y="1190" font-size="26" font-weight="700" fill="#222">What a clone follows</text>
+<rect x="60" y="1215" width="120" height="40" rx="20" fill="#2e8b57"/><text x="120" y="1242" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">tag</text><text x="198" y="1242" font-size="20" fill="#333">v1.2.0 — a release; updates only when asked</text>
+<rect x="60" y="1267" width="120" height="40" rx="20" fill="#c98a00"/><text x="120" y="1294" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">branch</text><text x="198" y="1294" font-size="20" fill="#333">main / feature — dev mode; update = new branch commits</text>
+<rect x="60" y="1319" width="120" height="40" rx="20" fill="#7048c8"/><text x="120" y="1346" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">commit</text><text x="198" y="1346" font-size="20" fill="#333">abc1234 — an exact revision; never moves</text>
+<text x="900" y="1241" font-size="19" fill="#555">solid arrow — a call · dashed — files and git</text>
+<text x="900" y="1293" font-size="19" fill="#555">every change of a clone: preview → confirmed + digest</text>
+</svg>

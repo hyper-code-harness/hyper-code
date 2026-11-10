@@ -15,6 +15,8 @@ export default function (
     const m = String(opts.model ?? "").toLowerCase();
     const id = m.includes(":") ? m.slice(m.indexOf(":") + 1) : m;
     const provider = /^([^:/]+)/.exec(m)?.[1] ?? "";
+    // Fable 5.2 ships a 1M default and maximum context window (platform.claude.com/docs/en/models/fable-5-2/overview).
+    if (/fable-5-2/.test(id)) return 1_000_000;
     if (/claude|opus|sonnet|haiku|fable/.test(id)) return 200_000;
     if (provider === "codex" || /^gpt-(5|6)|daybreak/.test(id)) return 272_000;
     if (/^gpt-4\.1|gemini/.test(id)) return 1_000_000;

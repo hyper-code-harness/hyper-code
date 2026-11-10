@@ -533,6 +533,19 @@
     };
     document.addEventListener('click', onTabLink);
     document.addEventListener('auxclick', event => { if (event.button === 1) onTabLink(event); });
+    // A view may bind keys to its links: `<a data-canvas-key="ArrowRight">` is clicked when that key is pressed
+    // outside a text field (a slide show steps with ← →). Only the visible tab body is searched.
+    document.addEventListener('keydown', event => {
+        if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+        const t = event.target;
+        if (t?.closest?.('input,textarea,select,[contenteditable=""],[contenteditable="true"]')) return;
+        const root = page();
+        const a = [...(root?.querySelectorAll(`[data-canvas-body] a[data-canvas-key~="${CSS.escape(event.key)}"]`) ?? [])]
+            .find(el => el.offsetParent !== null);
+        if (!a) return;
+        event.preventDefault();
+        a.click();
+    });
     // The editor of an Edit view comes as <script> in the body. A refreshed panel is parsed from a template,
     // where scripts are inert, so they are recreated to run (a first page load runs them itself).
     const runBodyScripts = el => {

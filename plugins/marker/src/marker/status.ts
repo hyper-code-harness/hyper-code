@@ -17,11 +17,14 @@ export default async function (
     defaultOutputRoot: string;
     error?: string;
 }> {
+    // A missing executable (no marker, no python3) is an answer, not an error: spawn throws ENOENT for it.
     const run = async (args: string[]) => {
-        const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe", env: process.env });
+        let proc: ReturnType<typeof Bun.spawn>;
+        try { proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe", env: process.env }); }
+        catch (e) { return { code: 127, stdout: "", stderr: e instanceof Error ? e.message : String(e) }; }
         const [stdout, stderr, code] = await Promise.all([
-            new Response(proc.stdout).text(),
-            new Response(proc.stderr).text(),
+            new Response(proc.stdout as ReadableStream).text(),
+            new Response(proc.stderr as ReadableStream).text(),
             proc.exited,
         ]);
         return { code, stdout: stdout.trim(), stderr: stderr.trim() };

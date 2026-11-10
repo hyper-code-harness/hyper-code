@@ -13,7 +13,7 @@ import { SQL } from "bun";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-type Snapshot = { tables: string[]; relations: Set<string>; schemas: Set<string>; migrations: string[] };
+type Snapshot = { tables: string[]; relations: Set<string>; schemas: Set<string>; migrations: string[]; columns: string };
 type Worker = { url: string; name: string; template: string; admin: SQL; snapshot: Snapshot; dirty: boolean };
 
 const G = globalThis as any;
@@ -133,7 +133,16 @@ async function snapshotOf(admin: SQL): Promise<Snapshot> {
         WHERE n.nspname = 'public'`)).map((r: any) => r.relname as string));
     const schemas = new Set<string>((await admin.unsafe(`SELECT nspname FROM pg_namespace`)).map((r: any) => r.nspname as string));
     const migrations = (await admin.unsafe(`SELECT id FROM _migrations`)).map((r: any) => r.id as string);
-    return { tables: tables.filter((t: string) => t !== "_migrations"), relations, schemas, migrations };
+    const own = tables.filter((t: string) => t !== "_migrations");
+    return { tables: own, relations, schemas, migrations, columns: await columnsOf(admin, own) };
+}
+
+// The columns of the template's own tables, as one hash: a dropped table or column, or a changed type, changes
+// it; tables a test added on top do not (the reset drops those).
+async function columnsOf(sql: SQL, tables: string[]): Promise<string> {
+    const [row] = await sql.unsafe(`SELECT count(DISTINCT table_name) || ':' || md5(string_agg(table_name || '.' || column_name || ':' || data_type, ',' ORDER BY table_name, column_name)) AS h
+        FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ANY($1::text[])`, [tables]);
+    return String(row?.h ?? "");
 }
 
 /** Back to the migrated template in every worker database a test touched since the last reset. */
@@ -172,11 +181,9 @@ async function resetOnce(w: Worker): Promise<void> {
     const s = w.snapshot;
     let sql = w.admin;
     await sql.unsafe(`SET lock_timeout = '3s'`);
-    // A test that ran a migration's down() dropped tables of the template: TRUNCATE cannot bring them back, and
-    // every later test of this process would fail on the reset. Copy the template again instead.
-    const present = new Set((await sql.unsafe(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')`)).map((r: any) => r.relname as string));
-    if (s.tables.some(t => !present.has(t))) {
+    // A test that ran a migration's down() dropped tables or columns of the template: TRUNCATE cannot bring them
+    // back, and every later test of this process would fail. Copy the template again instead.
+    if (await columnsOf(sql, s.tables) !== s.columns) {
         await sql.close();
         const maint = new SQL(withDb(w.url, "postgres"), { max: 1, prepare: false });
         try {

@@ -89,7 +89,6 @@ describe("streamAnthropic — offline (mocked fetch + shared parseSSE)", () => {
         expect(res.text).toBe("yo");
         expect(res.thinking).toBe("hmm");
     });
-});
 
     test("marks cache breakpoints on the bootstrap turn and the conversation tail", async () => {
         let request: any;
@@ -117,3 +116,4 @@ describe("streamAnthropic — offline (mocked fetch + shared parseSSE)", () => {
         expect(res.usage.cache_read_tokens).toBe(90);
         expect(res.usage.cache_write_tokens).toBe(5);
     });
+});

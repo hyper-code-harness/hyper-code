@@ -61,7 +61,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         : `inline-flex ${frameSize} shrink-0 items-center justify-center rounded-md border border-base-300 bg-base-100 ${tone}`;
     // A model relayed through another Hyper (hyper/<node>:<model>) keeps the
     // upstream vendor mark and gets a small proxy arrow in the corner.
-    const proxy = key.startsWith('hyper/') ? `<i class="ph ph-arrows-left-right absolute -bottom-1 -right-1 rounded-full bg-base-100 text-[8px] leading-none text-warning" aria-hidden="true"></i>` : '';
+    const proxy = key.startsWith('hyper/') ? `<i class="ph ph-arrows-left-right absolute -bottom-1 -right-1 rounded-full bg-base-100 text-micro leading-none text-warning" aria-hidden="true"></i>` : '';
     const title = proxy ? `${model} (via Hyper node ${model.slice(6).split(':')[0]})` : model;
     return `<span class="${frame}${proxy ? ' relative' : ''}" title="${esc(title)}" aria-label="Model: ${esc(title)}">${mark}${proxy}</span>`;
 }

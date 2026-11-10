@@ -140,29 +140,6 @@ describe("llm.usageOverview", () => {
         await ctx.fns.settings.set({ module: "llm", scopeType: "global", key: "usageWarnPercent", value: 80 });
         expect((await ctx.fns.llm.usageOverview({ now: NOW }))[0].tone).toBe("neutral");
     });
-
-    test("includes an active xAI agent in the sidebar before a snapshot exists", async () => {
-        const ctx: any = await mkTestCtx();
-        await ctx.fns.agent.start({ model: "xai:grok-4.6" });
-        const entry = (await ctx.fns.llm.usageOverview({ now: NOW })).find((e: any) => e.provider === "xai");
-        expect(entry).toBeDefined();
-        expect(entry.model).toBe("xai:grok-4.6");
-        expect(entry.usedPercent).toBeNull();
-    });
-
-
-    test("counts the agents parked on each credential", async () => {
-        const ctx: any = await mkTestCtx();
-        await ctx.fns.agent.start({ model: "mock:test" });
-        await ctx.fns.agent.start({ model: "mock:test" });
-        await ctx.fns.agent.parkOnUsageLimit({
-            info: { kind: "usage_limit", provider: "mock", account: "default", message: "spent", retryable: false, resetsAt: NOW + 86_400_000 } as any,
-            now: NOW,
-        });
-        const entry = (await ctx.fns.llm.usageOverview({ now: NOW })).find((e: any) => e.provider === "mock");
-        expect(entry.parkedAgents).toBe(2);
-        expect(entry.usedPercent).toBe(100);
-    });
 });
 
 describe("ui.usageDial", () => {

@@ -92,9 +92,10 @@ test("code deployed before the switch keeps legacy shared-password sign-in", asy
     const res = await ctx.fns.procs.http.dispatch({ method: "POST", url: "/auth/login", body: { password: "legacy-password" } });
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toContain(ctx.fns.procs.auth.cookieName({}));
-    // A stranger cannot claim the install through the web setup.
+    // A stranger cannot claim the install through the web setup: refused before (local-only door, 403) or by the
+    // route itself (409) — never accepted.
     const setup = await ctx.fns.procs.http.dispatch({ method: "POST", url: "/auth/setup", body: new URLSearchParams({ name: "Mallory" }) });
-    expect(setup.status).toBe(409);
+    expect([403, 409]).toContain(setup.status);
     expect((await ctx.fns.auth.listUsers({})).length).toBe(0);
 });
 

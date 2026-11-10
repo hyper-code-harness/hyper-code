@@ -4,14 +4,6 @@
  * Use before handing work to hyperd from this server (the jobs runner calls it). Spawns `bun hyperd/main.ts` from the code repo in its own session, so it outlives this server; a running daemon is left alone. In production hyperd is meant to be started by launchd/systemd; this is the fallback.
  * @param opts.waitMs How long to wait for the socket to answer after spawning. @default 5000 @minimum 100 @maximum 30000
  */
-// the daemon and every unit it starts inherit this env: pass only the basics, never the server's DB URLs and API keys
-function daemonEnv(): Record<string, string> {
-    const keep = ["HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR", "TERM"];
-    const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && (keep.includes(k) || k.startsWith("HYPERD_"))) env[k] = v;
-    return env;
-}
-
 export default async function (
     ctx: Context,
     session: Session | null,
@@ -30,4 +22,12 @@ export default async function (
         try { const h = await ctx.fns.hyperd.call({ path: "/health", timeoutMs: 1000 }); return { ...h, started: true }; }
         catch (error: any) { if (Date.now() > until) throw new Error("hyperd did not come up: " + String(error?.message ?? error)); }
     }
+}
+
+// the daemon and every unit it starts inherit this env: pass only the basics, never the server's DB URLs and API keys
+function daemonEnv(): Record<string, string> {
+    const keep = ["HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR", "TERM"];
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && (keep.includes(k) || k.startsWith("HYPERD_"))) env[k] = v;
+    return env;
 }

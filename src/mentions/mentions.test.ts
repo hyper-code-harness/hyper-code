@@ -88,6 +88,7 @@ test("the composer asks /mentions/people; the agent learns whom it can mention o
     const { anna, get } = await people(ctx);
     const res = await get(anna, "/mentions/people");
     expect((await res.json()).map((p: any) => p.id)).toEqual(["niquola", "anna"]);
-    const blocks = await ctx.fns.procs.hooks.run({ name: "agent.promptAugment", opts: { agentId: "x", text: "hi" } });
+    const agent = await ctx.fns.agent.start({ model: "mock:test" });
+    const blocks = await ctx.fns.procs.hooks.run({ name: "agent.promptAugment", opts: { agentId: agent.id, text: "hi" } });
     expect(blocks.join("\n")).toContain("- @anna — Anna K <anna@health-samurai.io>");
 });

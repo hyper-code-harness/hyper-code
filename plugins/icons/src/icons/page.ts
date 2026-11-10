@@ -6,7 +6,7 @@
  * (icons.browserHtml): scripts only, no network, no access to the Hyper page.
  * @view
  */
-export default async function (ctx: Context, _session: Session | null, _opts: Record<string, never>): Promise<string> {
+export default async function (ctx: Context, _session: Session | null, _opts: {}): Promise<string> {
     const html = await ctx.fns.icons.browserHtml({});
     return ctx.fns.rpc.frame({ srcdoc: html, title: "Lucide icon search", sandbox: "allow-scripts allow-downloads" });
 }

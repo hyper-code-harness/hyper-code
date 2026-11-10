@@ -15,9 +15,12 @@ export default async function (_ctx: Context, _session: Session | null, _opts: {
     defaultOutputRoot: string;
     error?: string;
 }> {
+    // A missing executable (no MinerU, no uv tool Python) is an answer, not an error: spawn throws ENOENT for it.
     const run = async (args: string[]) => {
-        const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe", env: process.env });
-        const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
+        let proc: ReturnType<typeof Bun.spawn>;
+        try { proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe", env: process.env }); }
+        catch (e) { return { stdout: "", stderr: e instanceof Error ? e.message : String(e), code: 127 }; }
+        const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout as ReadableStream).text(), new Response(proc.stderr as ReadableStream).text(), proc.exited]);
         return { stdout: stdout.trim(), stderr: stderr.trim(), code };
     };
     const which = await run(["/bin/zsh", "-lc", "command -v mineru"]);

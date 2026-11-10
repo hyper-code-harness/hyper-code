@@ -21,10 +21,10 @@ export default async function (ctx: Context, _session: Session | null, _opts: { 
 <div class="mt-5 flex flex-wrap items-center gap-4">
  <button id="l-btn" type="button" class="btn btn-primary px-6 py-3 text-base">🎙 Start</button>
  <button id="l-clear" type="button" class="btn">Clear</button>
- <div class="h-2 w-40 overflow-hidden rounded bg-black/10"><div id="l-lvl" class="h-full w-0 bg-green-500 transition-[width] duration-75"></div></div>
+ <div class="h-2 w-40 overflow-hidden rounded bg-black/10"><div id="l-lvl" class="h-full w-0 bg-success transition-[width] duration-75"></div></div>
  <label class="text-xs text-faint">Clap sensitivity <input id="l-clap" type="range" min="0.1" max="0.8" step="0.05" value="0.2" class="align-middle"></label>
  <span id="l-clapdbg" class="font-mono text-xs text-faint"></span>
- <span id="l-clapflash" class="rounded-full px-2 py-1 text-xs opacity-0 transition-opacity duration-300 bg-yellow-400 text-black">👏 new block</span>
+ <span id="l-clapflash" class="rounded-full px-2 py-1 text-xs opacity-0 transition-opacity duration-300 bg-warning text-black">👏 new block</span>
  <span id="l-st" class="text-sm text-faint">off</span>
 </div>
 <div class="mt-6 grid gap-5 lg:grid-cols-[3fr_2fr]">

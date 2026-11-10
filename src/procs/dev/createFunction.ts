@@ -107,5 +107,5 @@ function render(opts: any): string {
     const fields = opts.params.map((p: any) => `        /** ${p.description}${p.default !== undefined ? ` @default ${p.default}` : ""}${p.minimum !== undefined ? ` @minimum ${p.minimum}` : ""}${p.maximum !== undefined ? ` @maximum ${p.maximum}` : ""} */\n        ${p.name}${p.required ? "" : "?"}: ${p.type};`).join("\n");
     const optsType = fields ? `{\n${fields}\n    }` : "{}";
     const body = String(opts.body).trim().split("\n").map((line: string) => `    ${line}`).join("\n");
-    return `/**\n * ${String(opts.summary).trim()}\n *\n * ${String(opts.description).trim()}\n${tags.join("\n")}${tags.length ? "\n" : ""} */\nexport default async function (\n    ctx: Context,\n    session: Session | null,\n    opts: ${optsType},\n): ${String(opts.returnType).trim()} {\n${body}\n}\n`;
+    return `/**\n * ${String(opts.summary).trim()}\n *\n * ${String(opts.description).trim().split("\n").map(line => line.trim()).join("\n * ")}\n${tags.join("\n")}${tags.length ? "\n" : ""} */\nexport default async function (\n    ctx: Context,\n    session: Session | null,\n    opts: ${optsType},\n): ${String(opts.returnType).trim()} {\n${body}\n}\n`;
 }

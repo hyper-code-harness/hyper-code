@@ -101,6 +101,7 @@ CREATE TRIGGER reject_cleanup BEFORE UPDATE ON agents FOR EACH ROW EXECUTE FUNCT
         await Promise.resolve();
         expect(calls).toEqual(['migrated', 'load', 'worker']);
         expect((await ctx.fns.procs.migrate.up({})).applied).toEqual([]);
-        expect(ctx.state.agent.boot.scratchpad).toEqual({ plan: { title: 'survives' } });
+        // boot rehydrates only running or queued agents; the cleaned row is what an idle one loads later
+        expect(JSON.parse((await rows(ctx))[0].scratchpad)).toEqual({ plan: { title: 'survives' } });
     });
 });

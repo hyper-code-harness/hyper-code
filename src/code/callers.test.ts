@@ -59,8 +59,8 @@ describe("code.callers", () => {
             const byName = Object.fromEntries(r.callers.map(c => [c.caller, c]));
             expect(byName["orders.charge"]!.depth).toBe(1);
             expect(byName["orders.place"]!.depth).toBe(2);
-            expect(byName["orders/$route_go_GET.ts"]!.depth).toBe(3);
-            expect(byName["orders/$route_go_GET.ts"]!.entryPoint).toBe(true);
+            expect(byName["orders.$route_go_GET"]!.depth).toBe(3);
+            expect(byName["orders.$route_go_GET"]!.entryPoint).toBe(true);
         } finally { cleanup(); }
     });
 

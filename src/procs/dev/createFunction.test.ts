@@ -20,6 +20,15 @@ test("createFunction dry run renders documented typed source without writing", a
     expect(await Bun.file(`${ctx.state.root}/src/demo/lookup.ts`).exists()).toBe(false);
 });
 
+test("createFunction keeps every line of a multi-line description inside the doc comment", async () => {
+    const result = await ctx.fns.procs.dev.createFunction({
+        module: "demo", name: "page", summary: "Shows one documented record as a page",
+        description: "Use this function for an address of one record.\n@view",
+        params: [], returnType: "Promise<string>", body: "return '';", dryRun: true,
+    });
+    expect(result.source).toContain(" * Use this function for an address of one record.\n * @view\n");
+});
+
 test("createFunction refuses an existing function without overwrite", async () => {
     await expect(ctx.fns.procs.dev.createFunction({
         module: "agent", name: "compact", summary: "Compacts an agent conversation",

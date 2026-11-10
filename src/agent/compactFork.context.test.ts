@@ -59,7 +59,9 @@ describe("fork compaction coordinates", () => {
     expect(generation.inherited).toBe(40);
     // The tail is counted in the fork's context history: past the 40 inherited rows.
     expect(generation.tailStart).toBeGreaterThan(40);
-    expect(summarised).toContain("parent fact 0");
+    // The parent part reaches the summarizer; its oldest rows may be pre-trimmed to the window budget
+    // ($compaction_default), so check the newest parent row, not the first.
+    expect(summarised).toContain("parent answer 9");
 
     const request = await ctx.fns.agent.buildLlmRequest({ agent: fork });
     const at = request.messages.findIndex((m: any) => String(m.content).endsWith("fork summary"));

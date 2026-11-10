@@ -7,6 +7,198 @@ description: "Draw a picture as inline SVG when it is not a chart: a schema, a t
 
 Takes SVG markup, strips everything that makes it more than a picture, and returns a figure that behaves in a chat column. Rendering needs no layout engine or headless browser: the markup you write is the markup that renders.
 
+## Interaction diagrams now live in `diagrams`
+
+Prefer `ctx.fns.diagrams.scenarioHelpers`, `scenarioDiagram`, `scenarioValidate` and `sequenceDiagram`; corresponding `types.diagrams` models own their implementations. The old SVG names/types remain compatibility forwarding for saved fences and require the official diagrams plugin. See `plugins/diagrams/SKILL.md` for helper-first examples and precise moved scope. SVG still owns flow/ER/state/architecture/Gantt and low-level geometry; diagrams has no dependency back on SVG.
+
+`flowDiagram` now also accepts `theme: 'ibm-inspired'`: pre-layout 8px size increments, 16px padding, 14/18 node text, 12/16 labels, 1px borders and 8px rounded corners. Interaction renderers accept the same theme with geometry-aware actor/action padding. Inspired by official IBM technical-diagram guidance, not copied assets or exact grid compliance; font fallback/estimated metrics and unconstrained ELK coordinates remain. Default and d2-inspired flow behavior are preserved.
+
+## Typed JSON diagram helpers
+
+Use these instead of inventing a diagram language or generating Mermaid source.
+Each returns standalone `svg`, `width`, `height` and typed geometry. Call from a
+trusted `svg tsx` fence and `return result.svg`. Inspect current function docs for
+full schemas and limits before calling.
+
+| Function | Input and supported scope |
+| --- | --- |
+| `svg.erDiagram` | `entities: [{id,label?,fields:[{id,name,type?,pk?,fk?}]}]`, `relationships: [{id,from,to,fromCardinality,toCardinality,label?}]`. Cardinalities: `1`, `0..1`, `0..*`, `1..*`, displayed explicitly (not crow-foot glyphs). PK/FK flags are caller-supplied, never inferred. |
+| `svg.sequenceDiagram` | Ordered `participants: [{id,label}]`, `messages: [{id,from,to,label,dashed?}]`. Lifelines, self-messages and dashed returns; no activation bars or fragments. |
+| `svg.stateDiagram` | `nodes: [{id,label,kind?: 'state'|'initial'|'final'}]`, `edges: [{id,from,to,label?}]`. Cycles, parallel edges and self-loops; no composite states. |
+| `svg.architectureDiagram` | `nodes: [{id,label,group?}]`, `edges: [{id,from,to,label?}]`, optional `groups: [{id,label}]`. One-level service groups, not nested architecture/C4 semantics. |
+| `svg.gantt` | `tasks: [{id,label,start,end,dependencies?,progress?}]`. Dates `YYYY-MM-DD` in UTC; end-exclusive intervals; equal dates are milestones. Progress 0–1. Dependencies are visual links, not automatic scheduling; dependency cycles rejected. Optional width 720–2400 (default 1100). |
+
+All accept optional `title`. ER, State and Architecture accept `direction: 'right'
+(default) | 'down'` and use the pinned local ELK dependency. Sequence uses input
+order; Gantt uses dates. The initial style is a fixed restrained light palette,
+inspired by beautiful-mermaid (not a runtime dependency). Text wrapping uses
+estimated metrics. Dense graphs can still have crossings or shared segments.
+
+ER additionally accepts `layout: 'elk' | 'aca'` (default `'elk'`) and returns
+`engine: 'elk-layered' | 'aca'`. ACA runs actual native Adaptagrams incremental
+alignment (`svg.layoutIncremental`), then `svg.routeEdges` for orthogonal paths.
+It requires `hola-graph==0.1.5` in `~/.hyper/deps/svg/hola-graph-0.1.5`; missing
+installation errors include commands, and there is no silent ELK fallback.
+ACA supports at most 60 entities and rejects self-links and parallel undirected
+links (including reversed pairs). `direction` and `layerGap` are ELK-only and
+ignored by ACA. `nodeGap` is minimum same-layer spacing for ELK (default 90),
+or box inflation/separation for ACA (default 32; increased if needed for routing).
+`edgeGap` defaults to 40 for ELK and 12 for ACA; ACA uses at least 1 pixel.
+`layerGap` defaults to 140. Entity widths follow content in both layouts;
+`fields: []` produces a compact names-only box. ACA may retain some seed alignment;
+its routes can cross/share segments, and label placement is not collision-aware.
+
+The five helpers expose stable input-derived `elementId` values and escaped
+`data-node-id` / `data-edge-id` attributes, plus geometry for a future interactive
+renderer. IDs must be queried within each SVG, not globally across the document.
+They are static pictures, not animation implementations. The existing
+`flowDiagram` has its own simpler geometry contract; do not assume identical
+route fields across helpers. SVG sanitization may remove custom attributes;
+inspect the sanitized representation before building interaction on it.
+
+
+## Typed interaction scenarios
+
+Author scenarios with `svg.scenarioHelpers({})`, not raw step objects or a fluent
+DSL. Await the factory once; its positional constructors are ordinary synchronous
+functions. `Actor` and `Step` are exported global types (`types.diagrams.Actor` and
+`types.diagrams.Step`). Reusable fragments are plain TypeScript functions returning
+`Step[]`; call them repeatedly without ID prefixes (construct fresh steps each time,
+not repeated references to an already-created array).
+
+```svg tsx
+type Actor = types.diagrams.Actor;
+type Step = types.diagrams.Step;
+const { actor, request, reply, send, redirect, action, phase } =
+  await ctx.fns.diagrams.scenarioHelpers({});
+const app = actor('app', 'Application');
+const auth = actor('auth', 'Authorization server');
+function exchange(app: Actor, auth: Actor): Step[] {
+  return [
+    request(app, auth, 'Request token'),
+    reply(auth, app, 'Return token'),
+  ];
+}
+const result = await ctx.fns.diagrams.scenarioDiagram({ model: {
+  title: 'Simplified authorization exchange',
+  actors: [app, auth],
+  steps: [
+    phase('Sign in', [
+      action(app, 'Prepare request'),
+      ...exchange(app, auth),
+    ]),
+    phase('Refresh', exchange(app, auth)),
+    send(app, auth, 'Send audit event'),
+    redirect(auth, app, 'Resume application'),
+  ],
+} });
+return result.svg;
+```
+
+Signatures: `actor(id, label)`; `request/reply/send/redirect(from, to, label, options?)`;
+`action(actor, label, options?)`; `phase(title, steps, options?)`. Message/action arguments
+are actor objects, not string IDs. Helpers convert references to IDs internally;
+include every actor in `model.actors`. Phases copy the supplied step array.
+All step helpers share one factory-local counter: `step-1`, `step-2`, etc.
+IDs are deterministic for the same construction order, not stable across reordered
+calls; nested children are constructed before their enclosing phase. For a stable
+ID use the optional final `{ id: 'token-request' }`, for example
+`request(app, auth, 'Request token', { id: 'token-request' })`. Explicit IDs reserve
+that value; generated IDs skip reserved values. Any explicit ID already allocated
+(explicitly or automatically) throws immediately. Actor and root IDs are not
+reserved by helpers: the renderer still checks their global uniqueness.
+Use one factory per scenario; separate factories start fresh and may collide when
+merged. The factory returns functions for in-process TSX use, not HTTP JSON transport.
+
+`svg.scenarioValidate({ model })` and `svg.scenarioDiagram({ model })` remain the
+validation boundary: duplicate global IDs, unregistered actors and unsupported
+fields fail there. Limits are 30 actors, 200 total steps and eight nested phase
+levels; IDs are nonblank and at most 128 characters, labels/titles at most 300.
+Empty scenarios and phases are supported. The internal model stays serializable
+JSON (`types.diagrams.Scenario`), suitable for storage and existing consumers.
+Rendering preserves real phase frames, local actions, dashed replies and typed
+geometry with stable element IDs. It does not execute or verify protocol semantics.
+
+## Typed flowchart helpers
+
+Author flowcharts with `const { step, decision, database, link } = await
+ctx.fns.svg.flowHelpers({})`. These are synchronous positional constructors, not
+builders: `step(label)` returns a rectangle, `decision(label)` a diamond,
+`database(label)` a cylinder; `link(fromNode, toNode, label?)` copies typed node
+handles to edge IDs. Collect their plain JSON outputs explicitly for
+`svg.flowDiagram({ nodes, edges, direction?, title?, theme?, compact?, nodeGap?, layerGap?, mainPath?, columns? })`; existing raw JSON works.
+
+Use `theme: 'd2-inspired'` for a coherent blue-outline visual preset, not the D2
+engine or an exact copy of a D2 theme. It measures 16px node text at 24px line
+height before ELK, increases internal padding and minimum dimensions, uses 4px
+rectangle corners, 2px borders/connectors and 10px arrowheads. Edge labels use
+14px text, 12/6px horizontal/vertical padding and their own pale background.
+Default node/layer gaps are 48/80px, or 32/32px with `compact: true`; explicit
+`nodeGap` and `layerGap` win. Diamond safe text regions, cylinder boundary ports,
+and equal-width columns use these measured dimensions, not SVG recoloring.
+Omit `theme` (or use `'default'`) for the previous appearance and geometry.
+Start with `flowHelpers` as below, then add `theme: 'd2-inspired'` to the
+`flowDiagram` call; no custom SVG styling is required.
+
+For a centered grid use `columns: 3` or `columns: 5`, `direction: 'down'` and
+`mainPath`. All shapes receive the same outer width (the widest measured shape)
+before ELK layout, while heights and safe diamond text areas are preserved.
+The main path sits exactly at the viewport center; equally spaced side column
+axes and unused symmetric side lanes are reserved. Existing branch order is kept,
+not mirrored; five columns can contain empty outer lanes. This mode works with
+`compact` and explicit gaps. It expands only empty vertical strips and transforms
+all route points and label positions together, retaining orthogonal routing.
+It rejects nonstraight main paths, overlapping horizontal column projections and
+graphs needing more side lanes than requested. `right` is not supported in this
+mode; omit `columns` for the existing unrestricted ELK layout.
+
+For long branching flows use `compact: true`: this reduces minimum same-layer and
+between-layer node gaps from 40/64 to 24/24 px, and routing clearances from 20/24
+to 12/12 px. Text and shapes retain their original size. Override with `nodeGap`
+and `layerGap` (12–200 px); these are minima, so edge labels can force larger gaps.
+Use `mainPath: [start.id, decision.id, next.id, ...]` to favor one connected path
+as a straight vertical axis with `direction: 'down'`, or a horizontal axis with
+`direction: 'right'`. IDs must be distinct, existing and joined by directed edges.
+This selects ELK's one-sided Brandes–Koepf placement and gives those edges higher
+straightness priority **before routing**. It is a layout preference, not a hard
+alignment constraint, and does not center the path within the whole canvas.
+Branches and the shared stop sink remain auto-placed; nodes are never shifted
+after routing. Omit these options to preserve the previous layout defaults.
+
+```svg tsx
+const { step, decision, link } = await ctx.fns.svg.flowHelpers({});
+const check = step('Проверить заказ');
+const paid = decision('Оплачен?');
+const fulfilled = step('Выполнить заказ');
+const pending = step('Ожидать оплату');
+const result = await ctx.fns.svg.flowDiagram({
+  title: 'Обработка заказа',
+  theme: 'd2-inspired',
+  nodes: [check, paid, fulfilled, pending],
+  edges: [link(check, paid), link(paid, fulfilled, 'Да'), link(paid, pending, 'Нет')]
+});
+return result.svg;
+```
+
+Node constructors share a factory-local counter (`node-1`, `node-2`, …),
+deterministic for the same construction order. Optional final `{ id: 'paid' }`
+reserves a stable ID; duplicates throw and generated IDs skip reservations.
+Ordinary reusable fragment functions can use the same factory without prefixes.
+Independent factories restart the counter: do not merge their nodes blindly.
+Types: `types.svg.FlowConstructors`, `FlowNode`, `FlowEdge`. The factory contains
+functions for in-process use; its node and edge outputs are serializable JSON.
+
+The renderer uses pinned `elkjs@0.11.0` for content-sized orthogonal layout.
+Direction is `right` (default) or `down`; result is
+`{ svg, width, height, boxes, routes, engine }`. Install dependencies with
+`bun install --frozen-lockfile` in `plugins/svg`; no browser/service is used.
+Limits remain DAG-only: 100 nodes, 200 edges; cycles, self-loops, duplicate
+source-target pairs and groups are unsupported. Nodes are
+`{ id, label, shape?: 'rect' | 'diamond' | 'cylinder' }`, edges `{ from, to, label? }`.
+The renderer validates references and labels; helpers do not register nodes or
+validate a whole graph. Dense graphs may have crossings/shared segments; text
+sizing is estimated. Inspect the picture. This is not a Mermaid parser or animation.
+
 ## Nested rows and columns with Yoga
 
 Use `svg.flexLayout({ root, width?, height? })` for a block hierarchy: panels,
@@ -332,3 +524,46 @@ const compact = await ctx.fns.svg.compactLayout({ layout: aca, gridSize: 50, gap
 Input boxes must have finite coordinates within ±1e9 and dimensions in (0, 1e6]; at most 300 uniquely identified routes with valid distinct endpoints. `gridSize` is an integer 1–1e6, `gap` is finite 0–1e6. Empty graphs work without an engine. The origin resets to zero; input bounds and route points are ignored. Output is `GraphLayoutResult`, with `algorithm: "radial-compaction"` and `routing: "straight"`: newly computed border-clipped segments, **not obstacle-avoiding paths**. Segments may cross cards or one another. For fixed-box orthogonal routing, call `svg.routeEdges` separately with clearance smaller than half the packing gap, preserve edge IDs/endpoints and label that routing honestly; crossings and shared lanes remain possible. Always inspect the picture.
 
 Regression tests: `bun test plugins/svg/src/svg/compactLayout.test.ts`. The ACA-original and radial before/after fixture and SVG in `fixtures/radial-kubernetes.*` retain the same 10 cards (220×64), nine edges, and branches around Pod. `radial-kubernetes-routed.svg` demonstrates separate orthogonal routing. The old `compact-kubernetes.*` fixture remains as historical shelf output, not the current expected result. Straight-edge limitations and remaining whitespace are visible, not hidden.
+
+### Explicit shared flow trunks
+
+Use the fourth `link` argument to bundle branches, not a special label or global
+switch. Existing `link(from, to, label?)` calls are unchanged. For example:
+
+```ts
+const { step, decision, link } = await ctx.fns.svg.flowHelpers({});
+const first = decision('Healthy?'), second = decision('Quorum?');
+const proceed = step('Proceed'), stop = step('Manual review');
+const result = await ctx.fns.svg.flowDiagram({
+  nodes: [first, second, proceed, stop],
+  edges: [link(first, second, 'Yes'), link(second, proceed, 'Yes'),
+    link(first, stop, 'No', { bundle: 'failure' }),
+    link(second, stop, 'No', { bundle: 'failure' })],
+  direction: 'down', mainPath: [first.id, second.id, proceed.id],
+  columns: 3, compact: true, theme: 'd2-inspired'
+});
+```
+
+Raw edges accept `bundle?: string` (nonblank, at most 128 characters). Every
+member must have the same target. No meaning is inferred from `No` or `Нет`.
+After layout, routing searches clear side strips against **all node bounds and
+unbundled edge-label boxes**, and already accepted bundles. Sources connect with
+straight perpendicular branches; labels stay next to their sources. The shared
+trunk is drawn once, junction dots show the joins, and only its target end has
+an arrowhead. Ordinary links keep their original routes. Columns reserve extra
+side-strip space for bundled labels, without changing equal node widths.
+
+`routes` still contains one entry per logical edge. A bundled entry has `bundle`
+and its `points` end **at the trunk junction**, not at its logical `to` node.
+The additional `bundles` array (empty without bundles) contains `{id, to, points,
+junctions}` in the same final SVG coordinates. Consumers must draw each trunk
+once; do not invent full per-edge paths by overpainting the trunk.
+
+Limits: the target must be downstream of all source centers, with an unobstructed
+side-center entrance and straight side branches. Blocked layouts throw a clear
+`no clear side corridor` error instead of routing through a node or label.
+Downward layouts and their rightward transpose are supported; columns remain
+down-only. Existing ELK column constraints still apply (straight main path,
+nonoverlapping column projections, enough side lanes). Not every DAG has such a
+layout. This is not a general multi-bend bus router; ordinary edge crossings are
+not globally eliminated. Inspect the actual rendered diagram.

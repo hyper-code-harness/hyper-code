@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "d3-force": "3.0.0",
+    "elkjs": "0.11.0",
     "yoga-layout": "3.2.1"
   },
   "devDependencies": {

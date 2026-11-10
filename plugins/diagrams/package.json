@@ -1,0 +1,12 @@
+{
+  "name": "diagrams",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "Diagrams",
+    "icon": "ph-flow-arrow",
+    "optional": true,
+    "description": "Compose typed interaction scenarios with synchronous helpers and render sequence diagrams as standalone SVG."
+  }
+}

@@ -278,12 +278,13 @@ A plugin others install lives in its own Git repository, package at the root:
 ![Hyper plugins as git clones: listing and plugin repositories on GitHub; catalog, install with preview, clones in ~/.hyper/user with plugins.lock.json, hot reload, modules.discover; develop, release and fork back to GitHub](plugins-architecture.svg)
 
 
-An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag, commit, previous[] }`. npm dependencies are installed into the clone's own `node_modules` with scripts disabled.
+An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag | branch, commit, previous[] }` (no tag and no branch: pinned to the commit). npm dependencies are installed into the clone's own `node_modules` with scripts disabled.
 
-- `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `tag`, `update`, `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.
+- `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `mode` (`tag`, `branch`, `commit`) with `tag` / `branch` / `commit`, `update` (a newer release, or for a branch `newCommits` upstream), `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.
 - `plugins.install({ name, version? })` — preview: repo, tag, commit, the plugins it requires that are missing (`companions`), files, packages, conflicts and a `digest` (commit + tree + content). Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it (`git fetch --tags` + checkout, diff in the preview).
+- **Dev mode** — follow a branch or pin a commit instead of a release: `plugins.install({ name, branch: "main" })` (or `feature/x`) puts the clone ON that branch, tracking `origin/<branch>`; `plugins.install({ name, commit: "abc1234" })` pins it detached at that commit (a short SHA is resolved; one no branch or tag of origin reaches is refused). Give one of `version`, `branch`, `commit`. On an installed plugin the same call switches mode with a preview; `plugins.install({ name })` then keeps the mode: on a branch it previews the fast-forward to the new head (the new `commits` and the diff) and refuses a rewritten branch, on a pinned commit there is nothing to update, and `version` goes back to a release. Nothing pulls in the background — the preview is the review. `plugins.branchUpdates({ name })` counts the new upstream commits (`git ls-remote`, cached five minutes; fetches only `origin/<branch>`, never moves the checkout).
 - `plugins.uninstall({ name, force? })` — preview, then confirm the same way; a clone with uncommitted or unpushed work also needs `force: true`.
-- `plugins.gitInstall({ operation: "rollback", name })` — back to the previous tag of the lock. Update and rollback refuse while the clone has local work and list it.
+- `plugins.gitInstall({ operation: "rollback", name })` — back to the previous ref of the lock, of any kind (tag, branch or commit). Update and rollback refuse while the clone has local work and list it.
 - `plugins.installed({})` — per clone: lock tag, HEAD tag, commit, branch, dirty files, unpushed commits, ahead/behind, `fork`.
 - People do the same on `/plugins/listing` (the Catalog tab). Ask the person before confirming an install for them: plugin code runs in this process with full authority.
 
@@ -295,7 +296,8 @@ The clone is a working copy, so a plugin is fixed where it runs. Saves under `US
 - `plugins.release({ name, version? })` — run the plugin's tests, bump `version` (patch + 1 by default), commit, tag `vX.Y.Z`, push branch and tag, move the lock. Refuses without push rights to origin.
 - `plugins.fork({ name })` — fork on GitHub with `gh`; old origin becomes `upstream`, origin the fork. Then release to the fork.
 - `plugins.syncUpstream({ name, merge? })` — fetch upstream, report behind/ahead, merge on request; a conflict aborts the merge and lists the files.
-- The plugin page (`/plugins/<name>`) shows the badges (`v1.0.1`, `edited`, `main +3`, `fork`) and the same actions as buttons.
+- `plugins.release` also works from a branch-mode clone: it tags the branch and moves the lock back to that release tag.
+- The plugin page (`/plugins/<name>`) shows the badges (`v1.0.1`; dev mode `main · abc1234`, `abc1234`, `+3 new`; `edited`, `main +3`, `fork`), the same actions as buttons, `Update (+N new)` for a branch, and a **Switch to: tag / branch / commit** form that opens the reviewed preview.
 
 ### Lifecycle at a glance
 
@@ -303,9 +305,13 @@ The clone is a working copy, so a plugin is fixed where it runs. Saves under `US
 |---|---|---|---|
 | Install | `plugins.install({ name })` → `confirmed` | `git clone` at the newest `vX.Y.Z`, detached HEAD; own `bun install --ignore-scripts`; lock entry | name or namespace already mounted; a required plugin is not in the listing |
 | Update | `plugins.install({ name, version? })` on an installed plugin | `git fetch --tags`, checkout of the new tag; the previous tag goes to `previous[]` | uncommitted or unpushed work |
-| Rollback | `plugins.gitInstall({ operation: "rollback", name })` | checkout of the last `previous[]` tag | uncommitted or unpushed work |
+| Follow a branch | `plugins.install({ name, branch })` → `confirmed` | clone (or switch) onto the branch, tracking `origin/<branch>`; lock `{ branch, commit }` | no such branch on origin; local work |
+| Update a branch | `plugins.install({ name })` on a branch clone | fetch, preview the new commits + diff, fast-forward on confirm | rewritten (non-fast-forward) branch; local work |
+| Pin a commit | `plugins.install({ name, commit })` → `confirmed` | detached at that SHA (short SHA resolved); later updates only with a new ref | commit not reachable from origin; local work |
+| Back to a release | `plugins.install({ name, version })` | checkout of the tag; the old branch/commit goes to `previous[]` | uncommitted or unpushed work |
+| Rollback | `plugins.gitInstall({ operation: "rollback", name })` | checkout of the last `previous[]` ref (tag, branch or commit) | uncommitted or unpushed work |
 | Edit | `plugins.edit({ name })` | `git switch main` (or a new branch); saves hot-reload | — |
-| Release | `plugins.release({ name })` | tests → bump `version` → commit → tag → push; lock moves to the new tag | failing tests; no push rights (fork first) |
+| Release | `plugins.release({ name })` | tests → bump `version` → commit → tag → push; lock moves to the new tag (also from branch mode) | failing tests; no push rights (fork first) |
 | Fork | `plugins.fork({ name })` | `gh repo fork`; `origin` = your fork, `upstream` = the original | no `gh` login |
 | Sync | `plugins.syncUpstream({ name, merge? })` | fetch upstream, ahead/behind; merge on request | merge conflict (aborted, files listed) |
 | Remove | `plugins.uninstall({ name })` → `confirmed` | the clone is deleted, lock entry dropped | a plugin that requires it is installed; local work without `force` |
@@ -317,7 +323,7 @@ Every step that changes the clone is a preview first and applies only with `conf
 - **A save does not go live.** The clone watcher starts at boot (`plugins.watchClones({})` returns `already` when it runs). A server started before it existed needs a restart, or call `plugins.reload({})` after the save. Some machines deliver no file events at all (a network or security extension on macOS); there `plugins.reload({})` is the way.
 - **Update refused with "local work".** The message lists uncommitted files and unpushed commits. Commit and `plugins.release`, push to a branch, or discard them with git in the clone; nothing is overwritten for you.
 - **Two copies of one plugin.** A plugin is mounted from one place: a name both in `USER_PLUGINS` and among the official `plugins/` stops the boot with a collision. Remove one of them.
-- **Lock file.** `~/.hyper/plugins.lock.json`: `{ "<name>": { repo, tag, commit, previous: [{ tag, commit }] } }`. It is written by the plugin calls; edit it by hand only to repair it.
+- **Lock file.** `~/.hyper/plugins.lock.json`: `{ "<name>": { repo, tag?, branch?, commit, previous: [{ tag?, branch?, commit }] } }` — `branch` set: follows it; `tag`: a release; neither: pinned commit. Older files with only `tag` read unchanged. It is written by the plugin calls; edit it by hand only to repair it.
 
 ## Discovery is not installation
 

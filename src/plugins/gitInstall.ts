@@ -1,14 +1,20 @@
 /**
  * Installs, updates, rolls back or removes a plugin as a git clone in USER_PLUGINS, after a preview bound by a commit digest
  *
- * Use for plugins distributed as git repositories with vX.Y.Z release tags. The first call is a preview and leaves
+ * Use for plugins distributed as git repositories with vX.Y.Z release tags, or in dev mode on a branch or an exact
+ * commit: give exactly one of tag, branch or commit. A branch clone is checked out ON the branch tracking origin;
+ * a commit clone sits detached at that SHA (a short SHA is resolved; one no branch or tag of origin reaches is
+ * refused). The first call is a preview and leaves
  * USER_PLUGINS untouched: install clones the tag into a staging folder beside USER_PLUGINS, runs `bun install
  * --ignore-scripts` there, checks the tree with plugins.inspectPackage, checks its namespaces against every other
  * mounted module and its procs.requires against what is mounted or cloned in the same step (opts.with), and returns
  * the files, new npm packages and a digest of operation, repo, commit SHA, tree SHA and content. Update fetches the
  * repository's tags into the clone and previews the new tag with a diff against the current commit; rollback does
  * the same for the last `previous` entry of the lock. Both refuse while the clone has uncommitted or unpushed work
- * and list it. Remove previews what goes away, refuses while another installed plugin requires it, and needs
+ * and list it. Update without a ref on a branch clone fetches and previews the fast-forward to the new branch head
+ * (the new commits in `commits` and the diff), refusing a rewritten branch; on a commit clone it has nothing to do
+ * until a new ref is given. A ref of another kind switches mode, also with preview. Nothing pulls in the
+ * background: the preview is the review. Rollback returns to the previous ref of any kind. Remove previews what goes away, refuses while another installed plugin requires it, and needs
  * force:true when the clone has local work. Repeating the call with confirmed:true and the digest applies it: moves
  * the staged clone into USER_PLUGINS/<name> (or checks the new commit out in place), records repo, tag, commit and
  * history in the lock file (plugins.lockFile) and remounts plugins with procs.modules.reload.
@@ -16,7 +22,8 @@
  * @param opts.name Plugin name: the folder under USER_PLUGINS and the package.json name.
  * @param opts.repo Repository for install (`github:owner/repo`, `git+file:///…` or a git URL); update defaults to the lock's.
  * @param opts.tag Release tag (vX.Y.Z) for install and update.
- * @param opts.commit Expected commit SHA of the tag; the preview fails when the tag points elsewhere.
+ * @param opts.branch Branch of the repository to install on or switch to and follow (dev mode), e.g. main or feature/x.
+ * @param opts.commit Alone: the exact commit (7–40 hex) to pin the clone to. With tag or branch: the expected SHA it points at; the preview fails otherwise.
  * @param opts.with Other plugins to clone in the same step, name → { repo, tag }: the plugins this one requires (plugins.install fills it).
  * @param opts.replaces Absolute folder of an older copy of the same plugin this clone replaces (plugins.migrateToGit): modules mounted from it are not a namespace collision.
  * @param opts.reload Remount plugins after applying; plugins.migrateToGit remounts once at the end. @default true
@@ -33,7 +40,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     repo?: string;
     /** Release tag (vX.Y.Z) for install and update. */
     tag?: string;
-    /** Expected commit SHA of the tag; the preview fails when the tag points elsewhere. */
+    /** Branch of the repository to install on or switch to and follow (dev mode), e.g. main or feature/x. */
+    branch?: string;
+    /** Alone: the exact commit (7–40 hex) to pin the clone to. With tag or branch: the expected SHA it points at; the preview fails otherwise. */
     commit?: string;
     /** Other plugins to clone in the same step, name → { repo, tag }: the plugins this one requires. */
     with?: Record<string, { repo: string; tag: string }>;
@@ -57,6 +66,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!['install', 'update', 'rollback', 'remove'].includes(operation)) throw new Error('Unsupported operation');
     if (!NAME.test(String(name ?? ''))) throw new Error('Invalid plugin name');
     if (opts.tag !== undefined && !TAG.test(opts.tag)) throw new Error('Release tag must be vX.Y.Z');
+    const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/;
+    if (opts.branch !== undefined && (!BRANCH.test(opts.branch) || opts.branch.includes('..') || opts.branch.endsWith('.lock') || opts.branch.endsWith('/')))
+        throw new Error('Invalid branch name');
+    if (opts.commit !== undefined && !/^[0-9a-f]{7,40}$/.test(opts.commit)) throw new Error('Commit must be a 7–40 character hex SHA');
+    if (opts.tag !== undefined && opts.branch !== undefined) throw new Error('Give one of tag, branch or commit');
+    // With tag or branch, commit is the expected SHA it points at (plugins.install passes the listed one).
+    const refKind: 'tag' | 'branch' | 'commit' | null = opts.tag !== undefined ? 'tag' : opts.branch !== undefined ? 'branch' : opts.commit !== undefined ? 'commit' : null;
+    if (refKind && operation !== 'install' && operation !== 'update') throw new Error('tag, branch and commit are only for install and update');
     const extra = Object.entries(opts.with ?? {});
     if (extra.length && operation !== 'install' && operation !== 'update') throw new Error('with is only for install and update');
     for (const [n, w] of extra)
@@ -79,6 +96,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (code && !allowFail) throw new Error(`git ${args[0]} failed: ${(err.trim().split('\n').at(-1) ?? String(code)).slice(0, 300)}`);
         return code ? '' : out.trim();
     };
+    const ok = async (cwd: string, args: string[]) => (await Bun.spawn(['git', ...args], { cwd, stdout: 'ignore', stderr: 'ignore', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }).exited) === 0;
     const npmInstall = async (cwd: string) => {
         const pkg = JSON.parse(await fs.readFile(path.join(cwd, 'package.json'), 'utf8').catch(() => '{}'));
         if (!Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).length) return '';
@@ -123,6 +141,13 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         };
     };
     const modules = () => ctx.state.procs.modules ?? [];
+    const ref = (tag?: string, branch?: string) => branch ? { branch } : tag ? { tag } : {};
+    // Branch mode: the clone sits ON the branch (not detached), tracking origin/<branch>.
+    const track = async (dir: string, b: string, sha: string) => {
+        await git(dir, ['checkout', '-q', '-B', b, sha]);
+        // A rollback to a branch origin has since deleted still lands on the commit; it just tracks nothing.
+        await git(dir, ['branch', '-q', `--set-upstream-to=origin/${b}`, b], true);
+    };
     const dirOf = (n: string) => path.join(mount, n);
 
     await fs.mkdir(mount, { recursive: true });
@@ -187,36 +212,71 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (operation === 'install' && installed) throw new Error(`${name} is already installed: use update`);
         if (operation !== 'install' && !installed) throw new Error('Plugin is not installed: ' + name);
         if (operation !== 'install' && !entry) throw new Error(`${name} was not installed as a git clone`);
-        let from: { tag?: string; commit: string } | undefined;
-        let repo: string, tag: string, commit: string;
+        let from: { tag?: string; branch?: string; commit: string } | undefined;
+        let repo: string, commit: string;
+        // The new ref: exactly one of tag (release), branch (follow it) or commit (pinned); `undefined` fields drop out of the digest.
+        let tag: string | undefined, branch: string | undefined;
         const staged = path.join(stage, name);
+        const reachable = async (dir: string, sha: string) =>
+            !!(await git(dir, ['for-each-ref', '--count=1', '--contains', sha, 'refs/remotes', 'refs/tags'], true));
+        const resolveCommit = async (dir: string, want: string) => {
+            const sha = await git(dir, ['rev-parse', '--verify', '--quiet', `${want}^{commit}`], true);
+            if (!/^[0-9a-f]{40}$/.test(sha) || !sha.startsWith(want) || !await reachable(dir, sha))
+                throw new Error(`Commit ${want} is not reachable from any branch or tag of the repository`);
+            return sha;
+        };
+        const branchHead = async (dir: string, b: string) => {
+            const sha = await git(dir, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${b}^{commit}`], true);
+            if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`No branch ${b} on origin`);
+            return sha;
+        };
         if (operation === 'install') {
-            if (!opts.repo || !opts.tag) throw new Error('install needs repo and tag');
-            repo = opts.repo; tag = opts.tag;
+            if (!opts.repo || !refKind) throw new Error('install needs repo and one of tag, branch or commit');
+            repo = opts.repo;
             await git(stage, ['clone', '-q', '--no-checkout', gitUrl(repo), staged]);
-            commit = await tagCommit(staged, tag);
+            if (refKind === 'tag') { tag = opts.tag!; commit = await tagCommit(staged, tag); }
+            else if (refKind === 'branch') { branch = opts.branch!; commit = await branchHead(staged, branch); }
+            else commit = await resolveCommit(staged, opts.commit!);
         } else {
             const st = await ctx.fns.plugins.cloneStatus({ dir: target });
             if (!st.git || !st.commit) throw new Error(`${name} is not a git clone`);
             if (st.dirty.length || st.unpushed.length)
                 throw new Error(`${name} has local work — commit and push, or discard it first. Uncommitted: ${st.dirty.join(', ') || 'none'}. Unpushed: ${st.unpushed.join('; ') || 'none'}`);
-            from = { commit: st.commit, ...(st.tag ? { tag: st.tag } : {}) };
+            from = { commit: st.commit, ...(st.tag ? { tag: st.tag } : {}), ...(st.branch ? { branch: st.branch } : {}) };
             repo = opts.repo ?? entry!.repo;
             if (operation === 'update') {
-                if (!opts.tag) throw new Error('update needs a tag');
-                tag = opts.tag;
+                // No ref given: a branch-mode clone follows its branch; a tag needs the new tag; a pinned commit has nothing to follow.
+                const kind = refKind ?? (entry!.branch ? 'branch' : entry!.tag ? 'tag' : null);
+                if (!kind) throw new Error(`${name} is pinned to commit ${entry!.commit.slice(0, 7)}: nothing to update — give a tag, branch or commit`);
+                if (kind === 'tag' && !opts.tag) throw new Error('update needs a tag');
                 await git(target, ['fetch', '-q', gitUrl(repo), 'refs/tags/*:refs/tags/*']);
-                commit = await tagCommit(target, tag);
+                if (kind === 'tag') { tag = opts.tag!; commit = await tagCommit(target, tag); }
+                else {
+                    await git(target, ['fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
+                    if (kind === 'branch') {
+                        branch = opts.branch ?? entry!.branch!;
+                        commit = await branchHead(target, branch);
+                        // Following the same branch only ever fast-forwards: a rewritten branch is a deliberate switch by commit.
+                        if (entry!.branch === branch && !await ok(target, ['merge-base', '--is-ancestor', st.commit, commit]))
+                            throw new Error(`origin/${branch} is not a fast-forward of ${st.commit.slice(0, 7)} (history was rewritten): switch with commit or tag explicitly`);
+                    } else commit = await resolveCommit(target, opts.commit!);
+                }
             } else {
                 const prev = entry!.previous.at(-1);
                 if (!prev) throw new Error('Nothing to roll back to');
-                tag = prev.tag; commit = prev.commit;
+                tag = prev.tag; branch = prev.branch; commit = prev.commit;
                 if (!await git(target, ['rev-parse', '--verify', '--quiet', `${commit}^{commit}`], true))
-                    throw new Error(`Commit ${commit.slice(0, 12)} of ${tag} is not in the clone`);
+                    throw new Error(`Commit ${commit.slice(0, 12)}${tag ? ' of ' + tag : ''} is not in the clone`);
             }
-            await git(stage, ['clone', '-q', '--no-checkout', target, staged]);
+            // Checking the branch out resets a local branch of that name: refuse when it holds commits no remote has.
+            if (branch && await git(target, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], true)) {
+                const lost = (await git(target, ['log', '--format=%h %s', `refs/heads/${branch}`, '--not', '--remotes', '--tags'], true)).split('\n').filter(Boolean);
+                if (lost.length) throw new Error(`Local branch ${branch} has commits on no remote: ${lost.slice(0, 5).join('; ')} — push or delete them first`);
+            }
+            // --shared: the staged copy sees every object of the clone, also commits only origin/<branch> or the reflog holds.
+            await git(stage, ['clone', '-q', '--shared', '--no-checkout', target, staged]);
         }
-        if (opts.commit && opts.commit !== commit) throw new Error(`${tag} points at ${commit.slice(0, 12)}, not ${opts.commit.slice(0, 12)}`);
+        if (opts.commit && refKind !== 'commit' && opts.commit !== commit) throw new Error(`${tag ?? branch} points at ${commit.slice(0, 12)}, not ${opts.commit.slice(0, 12)}`);
         await git(staged, ['checkout', '-q', '--detach', commit]);
         const tree = await git(staged, ['rev-parse', `${commit}^{tree}`]);
         await exclude(staged);
@@ -262,19 +322,21 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         const old = installed ? await ctx.fns.plugins.inspectPackage({ dir: target }).catch(() => undefined) : undefined;
         const files = await diffFiles(installed ? target : null, plugin, staged, old);
         const diffStat = from ? await git(target, ['diff', '--stat', from.commit, commit], true) : '';
+        // The commits the change brings in (what a branch moved by), newest first.
+        const commits = from ? (await git(target, ['log', '--format=%h %s', '-n', '200', `${from.commit}..${commit}`], true)).split('\n').filter(Boolean) : [];
         const had = installed ? await listPkgs(target) : new Set<string>();
         const has = await listPkgs(staged);
         for (const c of companions) for (const p of await listPkgs(c.dir)) has.add(p);
         const result: types.plugins.GitChange = {
-            operation, name, repo, tag, commit, tree,
-            ...(from ? { from } : {}),
+            operation, name, repo, ...(tag ? { tag } : {}), ...(branch ? { branch } : {}), commit, tree,
+            ...(from ? { from, commits } : {}),
             plugin, ...files,
             ...(diffStat ? { diffStat: diffStat.slice(0, 4000) } : {}),
             ...(companions.length ? { companions: companions.map(c => ({ name: c.name, repo: c.repo, tag: c.tag, commit: c.commit, ...(c.plugin.version ? { version: c.plugin.version } : {}), namespaces: c.plugin.namespaces })) } : {}),
             newPackages: [...has].filter(n => !had.has(n)).sort(),
             ...(/Blocked \d+ postinstalls?/.test(log) ? { blockedScripts: log.match(/Blocked \d+ postinstalls?/)![0] } : {}),
             digest: createHash('sha256').update(JSON.stringify({
-                operation, name, repo, tag, commit, tree, content: plugin.digest, from: from?.commit ?? null,
+                operation, name, repo, tag, branch, commit, tree, content: plugin.digest, from: from?.commit ?? null,
                 companions: companions.map(c => [c.name, c.repo, c.tag, c.commit, c.tree, c.plugin.digest]),
             })).digest('hex'),
             status: 'preview',
@@ -294,17 +356,19 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 for (const n of moved) await fs.rm(dirOf(n), { recursive: true, force: true });
                 throw new Error('Could not move the clone into USER_PLUGINS; nothing installed', { cause });
             }
-            lock.plugins[name] = { repo, tag, commit, previous: [] };
+            lock.plugins[name] = { repo, ...ref(tag, branch), commit, previous: [] };
+            if (branch) await track(target, branch, commit);
         } else {
             // In place: the clone keeps its remotes, branches and reflog. node_modules comes from the staged copy.
-            await git(target, ['checkout', '-q', '--detach', commit]);
+            if (branch) await track(target, branch, commit);
+            else await git(target, ['checkout', '-q', '--detach', commit]);
             await fs.rm(path.join(target, 'node_modules'), { recursive: true, force: true });
             if (await exists(path.join(staged, 'node_modules'))) await fs.rename(path.join(staged, 'node_modules'), path.join(target, 'node_modules'));
             for (const c of companions) await fs.rename(c.dir, dirOf(c.name));
             const previous = [...entry!.previous];
             if (operation === 'rollback') previous.pop();
-            else previous.push({ tag: entry!.tag, commit: entry!.commit });
-            lock.plugins[name] = { repo, tag, commit, previous: previous.slice(-20) };
+            else previous.push({ ...ref(entry!.tag, entry!.branch), commit: entry!.commit });
+            lock.plugins[name] = { repo, ...ref(tag, branch), commit, previous: previous.slice(-20) };
         }
         for (const c of companions) lock.plugins[c.name] = { repo: c.repo, tag: c.tag, commit: c.commit, previous: [] };
         await ctx.fns.plugins.lockFile({ lock });

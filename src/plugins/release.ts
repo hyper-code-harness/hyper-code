@@ -71,7 +71,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const { lock } = await ctx.fns.plugins.lockFile({});
     const entry = lock.plugins[opts.name];
     if (entry) {
-        lock.plugins[opts.name] = { ...entry, tag, commit, previous: [...entry.previous, { tag: entry.tag, commit: entry.commit }].slice(-20) };
+        // From any mode (tag, branch, commit) the lock moves to the new release tag; the old ref goes to previous.
+        const was = entry.branch ? { branch: entry.branch } : entry.tag ? { tag: entry.tag } : {};
+        lock.plugins[opts.name] = { repo: entry.repo, tag, commit, previous: [...entry.previous, { ...was, commit: entry.commit }].slice(-20) };
         await ctx.fns.plugins.lockFile({ lock });
     }
     return { name: opts.name, version, tag, commit, branch: st.branch, pushed: st.origin, tests };

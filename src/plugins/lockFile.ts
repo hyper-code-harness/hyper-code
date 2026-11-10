@@ -32,7 +32,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!raw || typeof raw !== 'object' || !raw.plugins || typeof raw.plugins !== 'object' || Array.isArray(raw.plugins))
         throw new Error('Malformed plugin lock: ' + file);
     for (const [name, e] of Object.entries(raw.plugins) as Array<[string, any]>)
-        if (!e || typeof e.repo !== 'string' || typeof e.tag !== 'string' || !/^[0-9a-f]{40}$/.test(String(e.commit)) || !Array.isArray(e.previous))
+        if (!e || typeof e.repo !== 'string' || (e.tag !== undefined && typeof e.tag !== 'string') || (e.branch !== undefined && typeof e.branch !== 'string')
+            || !/^[0-9a-f]{40}$/.test(String(e.commit)) || !Array.isArray(e.previous)
+            || e.previous.some((p: any) => !p || !/^[0-9a-f]{40}$/.test(String(p.commit))))
             throw new Error(`Malformed plugin lock entry ${name}: ${file}`);
     return { path: file, lock: raw as types.plugins.PluginLock };
 }

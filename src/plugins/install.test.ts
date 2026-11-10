@@ -11,6 +11,10 @@ import versions from './versions';
 import catalog from './catalog';
 import install from './install';
 import uninstall from './uninstall';
+import branchUpdates from './branchUpdates';
+import cloneDir from './cloneDir';
+import listingPage from './listingPage';
+import cloneBadge from './cloneBadge';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
@@ -49,10 +53,10 @@ async function world() {
             plugins: {},
         },
     };
-    for (const [k, f] of Object.entries({ gitInstall, lockFile, cloneStatus, inspectPackage, listing, versions, catalog, install, uninstall }))
+    for (const [k, f] of Object.entries({ gitInstall, lockFile, cloneStatus, inspectPackage, listing, versions, catalog, install, uninstall, branchUpdates, cloneDir, listingPage, cloneBadge }))
         ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
     const deps = async () => JSON.parse(await readFile(join(root, 'hyper', 'plugins.lock.json'), 'utf8').catch(() => '{"plugins":{}}')).plugins;
-    return { ctx, user, deps };
+    return { ctx, user, deps, root };
 }
 
 test('versions: semver tags only, newest first by number', async () => {
@@ -149,4 +153,46 @@ test('updating a plugin the host itself mounts is not a namespace collision (mod
     }
     w.ctx.state.procs.modules = [{ name: 'base', dir: join(w.user, '..', 'elsewhere', 'base'), namespaces: ['base'] }];
     await expect(ctx.fns.plugins.install({ name: 'base' })).rejects.toThrow('Namespace collision: base is provided by base');
+});
+
+test('dev mode through install: follow a branch, see "+N new" in the catalog, update by preview; pin a commit; back to a release', async () => {
+    const w = await world();
+    const ctx = w.ctx;
+    const repo = join(w.root, 'repos', 'base');
+    const branch = Bun.spawnSync(['git', 'symbolic-ref', '--short', 'HEAD'], { cwd: repo }).stdout.toString().trim();
+    await expect(ctx.fns.plugins.install({ name: 'base', version: '1.2.0', branch })).rejects.toThrow('one of');
+    const p = await ctx.fns.plugins.install({ name: 'base', branch });
+    expect(p).toMatchObject({ operation: 'install', branch });
+    await ctx.fns.plugins.install({ name: 'base', branch, confirmed: true, expectedDigest: p.digest });
+    let entry = (await ctx.fns.plugins.catalog({ q: 'base' })).plugins[0];
+    expect(entry).toMatchObject({ mode: 'branch', branch, newCommits: 0, update: false });
+    expect(ctx.fns.plugins.cloneBadge({ git: entry.git }).map((b: any) => b.label)).toEqual([`${branch} · ${p.commit.slice(0, 7)}`]);
+
+    await writeFile(join(repo, 'src', 'base', 'version.ts'), 'export default async () => "dev";');
+    git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'dev work');
+    entry = (await ctx.fns.plugins.catalog({ q: 'base', fresh: true })).plugins[0];
+    expect(entry).toMatchObject({ mode: 'branch', newCommits: 1, update: true });
+    expect(ctx.fns.plugins.cloneBadge({ git: entry.git }).map((b: any) => b.label)).toContain('+1 new');
+    const page = await ctx.fns.plugins.listingPage({ q: 'base' });
+    expect(page).toContain(`Update ${branch} (+1 new)`);
+
+    const up = await ctx.fns.plugins.install({ name: 'base' });
+    expect(up).toMatchObject({ operation: 'update', branch, changed: ['src/base/version.ts'] });
+    expect(up.commits[0]).toContain('dev work');
+    const review = await ctx.fns.plugins.listingPage({ change: up });
+    expect(review).toContain('New commits · 1');
+    expect(review).toContain(`name="branch" value="${branch}"`);
+    await ctx.fns.plugins.install({ name: 'base', branch, confirmed: true, expectedDigest: up.digest });
+    expect((await ctx.fns.plugins.catalog({ q: 'base' })).plugins[0]).toMatchObject({ newCommits: 0, update: false });
+
+    const v12 = Bun.spawnSync(['git', 'rev-parse', 'v1.2.0^{commit}'], { cwd: repo }).stdout.toString().trim();
+    const pin = await ctx.fns.plugins.install({ name: 'base', commit: v12.slice(0, 8) });
+    await ctx.fns.plugins.install({ name: 'base', commit: v12.slice(0, 8), confirmed: true, expectedDigest: pin.digest });
+    entry = (await ctx.fns.plugins.catalog({ q: 'base' })).plugins[0];
+    expect(entry).toMatchObject({ mode: 'commit', commit: v12, update: false, installed: '1.2.0' });
+    expect(ctx.fns.plugins.cloneBadge({ git: entry.git }).map((b: any) => b.label)).toEqual([v12.slice(0, 7)]);
+    await expect(ctx.fns.plugins.install({ name: 'base' })).rejects.toThrow('nothing to update');
+    const rel = await ctx.fns.plugins.install({ name: 'base', version: '1.10.0' });
+    await ctx.fns.plugins.install({ name: 'base', version: '1.10.0', confirmed: true, expectedDigest: rel.digest });
+    expect((await w.deps()).base).toMatchObject({ tag: 'v1.10.0', previous: [{ branch }, { branch }, { commit: v12 }] });
 });

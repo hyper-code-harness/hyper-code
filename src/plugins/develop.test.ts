@@ -86,6 +86,21 @@ test('edit switches to main, release bumps, tags, pushes and moves the lock', as
     expect(await f.ctx.fns.plugins.edit({ name: 'demo', branch: 'feature/x' })).toMatchObject({ branch: 'feature/x', created: true, commit: r.commit });
 });
 
+test('release from a branch-mode clone tags it and moves the lock back to that tag', async () => {
+    const f = await fixture();
+    await f.ctx.fns.plugins.gitInstall({ operation: 'update', name: 'demo', branch: 'main' })
+        .then((p: any) => f.ctx.fns.plugins.gitInstall({ operation: 'update', name: 'demo', branch: 'main', confirmed: true, expectedDigest: p.digest }));
+    expect(await f.lock()).toMatchObject({ branch: 'main', previous: [{ tag: 'v1.0.0' }] });
+    expect(git(f.clone, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+    await writeFile(join(f.clone, 'src', 'demo', 'hello.ts'), 'export default async () => "dev";');
+    git(f.clone, 'commit', '-qam', 'dev fix');
+    const r = await f.ctx.fns.plugins.release({ name: 'demo' });
+    expect(r).toMatchObject({ tag: 'v1.0.1', branch: 'main' });
+    const lock = await f.lock();
+    expect(lock).toMatchObject({ tag: 'v1.0.1', commit: r.commit, previous: [{ tag: 'v1.0.0' }, { branch: 'main' }] });
+    expect(lock.branch).toBeUndefined();
+});
+
 test('release without push rights suggests fork; fork rewires remotes; syncUpstream reports, merges and lists conflicts', async () => {
     const f = await fixture();
     await f.ctx.fns.plugins.edit({ name: 'demo' });

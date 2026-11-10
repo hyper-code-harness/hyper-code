@@ -4,14 +4,18 @@ export type GitChange = {
     name: string;
     /** Repository as the lock records it: `github:owner/repo`, `git+file:///…` or a git URL. */
     repo?: string;
-    /** Release tag the clone is (or will be) checked out at; absent for remove. */
+    /** Release tag the clone is (or will be) checked out at (tag mode). */
     tag?: string;
-    /** Commit SHA of that tag — what the digest binds. */
+    /** Branch the clone is (or will be) checked out on, following origin (branch mode). Neither tag nor branch: pinned to commit. */
+    branch?: string;
+    /** Commit SHA of that ref — what the digest binds. */
     commit?: string;
     /** Tree SHA of that commit. */
     tree?: string;
-    /** The tag and commit the clone is at before the change (update, rollback, remove). */
-    from?: { tag?: string; commit: string };
+    /** The tag, branch and commit the clone is at before the change (update, rollback, remove). */
+    from?: { tag?: string; branch?: string; commit: string };
+    /** Commits the change brings in (`<short sha> <subject>`, newest first; empty when it goes back): update, rollback. */
+    commits?: string[];
     plugin?: types.plugins.PackageInspection;
     /** Files compared with the current clone. */
     added: string[];

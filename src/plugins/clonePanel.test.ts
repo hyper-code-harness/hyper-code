@@ -10,6 +10,7 @@ import cloneDir from './cloneDir';
 import cloneBadge from './cloneBadge';
 import clonePanel from './clonePanel';
 import edit from './edit';
+import branchUpdates from './branchUpdates';
 import route from './$route_$name_git_POST';
 
 const roots: string[] = [];
@@ -48,7 +49,7 @@ async function fixture() {
             },
         },
     };
-    for (const [k, f] of Object.entries({ gitInstall, inspectPackage, lockFile, cloneStatus, cloneDir, cloneBadge, clonePanel, edit }))
+    for (const [k, f] of Object.entries({ gitInstall, inspectPackage, lockFile, cloneStatus, cloneDir, cloneBadge, clonePanel, edit, branchUpdates }))
         ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
     const p = await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + bare, tag: 'v1.0.1' });
     await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + bare, tag: 'v1.0.1', confirmed: true, expectedDigest: p.digest });
@@ -56,7 +57,7 @@ async function fixture() {
         req: new Request('http://h/plugins/demo/git', { method: 'POST', body: new URLSearchParams(fields).toString(), headers: { origin: 'http://h', 'content-type': 'application/x-www-form-urlencoded', ...headers } }),
         params: { name: 'demo' },
     });
-    return { root, ctx, calls, post, clone: join(root, 'user', 'demo') };
+    return { root, ctx, calls, post, bare, work, clone: join(root, 'user', 'demo') };
 }
 
 test('badges: release, edited, branch +N, fork', () => {
@@ -66,6 +67,11 @@ test('badges: release, edited, branch +N, fork', () => {
     expect(b({ tag: 'v1.0.1', dirty: ['x'] })).toEqual(['v1.0.1', 'edited']);
     expect(b({ branch: 'main', baseTag: 'v1.0.1', sinceTag: 3, unpushed: ['a b'] })).toEqual(['main +3', 'edited']);
     expect(b({ branch: 'main', tag: 'v1.0.1', fork: true })).toEqual(['main', 'fork']);
+    expect(b({ mode: 'branch', lockedBranch: 'main', branch: 'main', tag: 'v1.0.1' })).toEqual(['main · ccccccc']);
+    expect(b({ mode: 'branch', lockedBranch: 'main', branch: 'main', newCommits: 2 })).toEqual(['main · ccccccc', '+2 new']);
+    expect(b({ mode: 'commit', baseTag: 'v1.0.1', sinceTag: 4 })).toEqual(['ccccccc']);
+    // A branch clone switched to another branch by plugins.edit shows the edit state, not the mode.
+    expect(b({ mode: 'branch', lockedBranch: 'main', branch: 'fix', sinceTag: 1 })).toEqual(['fix +1']);
 });
 
 test('panel on a clean install offers Edit, Update and no Release; after edit it offers Release', async () => {
@@ -105,4 +111,41 @@ test('route: CSRF, origin and fields are checked; release and fork confirm first
     expect(f.calls).toEqual(['release', 'fork']);
     r = await f.post({ _csrf: 'tok', operation: 'sync' });
     expect(r.main).toContain('Up to date with upstream/main');
+});
+
+test('branch mode on the page: "+N new" and Update (+N new); Switch to previews through plugins.install', async () => {
+    const f = await fixture();
+    // Re-install the clone on main (branch mode).
+    const gone = await f.ctx.fns.plugins.gitInstall({ operation: 'remove', name: 'demo' });
+    await f.ctx.fns.plugins.gitInstall({ operation: 'remove', name: 'demo', confirmed: true, expectedDigest: gone.digest });
+    const p = await f.ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + f.bare, branch: 'main' });
+    await f.ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + f.bare, branch: 'main', confirmed: true, expectedDigest: p.digest });
+    const req = new Request('http://h/plugins/demo');
+    let html = await f.ctx.fns.plugins.clonePanel({ name: 'demo', req });
+    expect(html).toContain(`data-badge="branch">main · ${p.commit!.slice(0, 7)}`);
+    expect(html).toContain('follows branch <code>main</code>');
+    expect(html).toContain('data-git-switch');
+    expect(html).toContain('<option value="branch" selected>');
+
+    await writeFile(join(f.work, 'src', 'demo', 'a.ts'), 'export default () => 2;');
+    git(f.work, 'add', '-A'); git(f.work, 'commit', '-qm', 'two'); git(f.work, 'push', '-q', f.bare, 'main');
+    f.ctx.state.pluginBranchHeads?.clear();
+    html = await f.ctx.fns.plugins.clonePanel({ name: 'demo', req });
+    expect(html).toContain('data-badge="new">+1 new');
+    expect(html).toContain('Update (+1 new)');
+    expect(html).toMatch(/1 new commit on <code>origin\/main<\/code>:<br><code>[0-9a-f]+ two<\/code>/);
+    // The checkout did not move: only origin/main was fetched.
+    expect(git(f.clone, 'rev-parse', 'HEAD')).toBe(p.commit!);
+
+    const seen: any[] = [];
+    f.ctx.fns.plugins.install = async (o: any) => { seen.push(o); return { operation: 'update', name: 'demo', tag: 'v1.0.1', commit: 'c'.repeat(40), added: [], removed: [], changed: [], newPackages: [], digest: 'd', status: 'preview' }; };
+    f.ctx.fns.plugins.listingPage = async (o: any) => `review ${o.change.tag}`;
+    expect(((await f.post({ _csrf: 'tok', operation: 'switch', kind: 'nope', ref: 'x' })) as Response).status).toBe(400);
+    expect(((await f.post({ _csrf: 'bad', operation: 'switch', kind: 'tag', ref: 'v1.0.1' })) as Response).status).toBe(403);
+    const r: any = await f.post({ _csrf: 'tok', operation: 'switch', kind: 'tag', ref: 'v1.0.1' });
+    expect(r.main).toBe('review v1.0.1');
+    await f.post({ _csrf: 'tok', operation: 'switch', kind: 'commit', ref: 'ABC1234' });
+    expect(seen).toEqual([{ name: 'demo', version: '1.0.1' }, { name: 'demo', commit: 'abc1234' }]);
+    f.ctx.fns.plugins.install = async () => { throw new Error('No branch nope on origin'); };
+    expect(((await f.post({ _csrf: 'tok', operation: 'switch', kind: 'branch', ref: 'nope' })) as any).main).toContain('No branch nope on origin');
 });

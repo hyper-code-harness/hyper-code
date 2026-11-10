@@ -153,3 +153,106 @@ test('installed reports each clone: lock tag, commit, branch, dirty, ahead and f
     p = await at();
     expect(p.git).toMatchObject({ fork: true, unpushed: [expect.stringContaining(' x')] });
 });
+
+/** Commits a new hello.ts body on main of the demo work copy and pushes it: the branch moves upstream. */
+async function moveMain(f: Awaited<ReturnType<typeof fixture>>, body: string, extra: Record<string, string> = {}) {
+    const work = join(f.root, 'work', 'demo');
+    await writeFile(join(work, 'src', 'demo', 'hello.ts'), `export default async () => ${JSON.stringify(body)};`);
+    for (const [p, c] of Object.entries(extra)) await writeFile(join(work, p), c);
+    git(work, 'add', '-A'); git(work, 'commit', '-qm', 'main: ' + body);
+    git(work, 'push', '-q', f.demo.slice('git+file://'.length), 'main');
+    return git(work, 'rev-parse', 'HEAD');
+}
+
+test('branch mode: install on main tracks origin; the moved branch previews its commits and fast-forwards on confirm', async () => {
+    const f = await fixture();
+    const preview = await f.call({ operation: 'install', name: 'demo', repo: f.demo, branch: 'main' });
+    expect(preview).toMatchObject({ status: 'preview', branch: 'main', plugin: { version: '2.0.0' } });
+    expect(preview.tag).toBeUndefined();
+    await f.call({ operation: 'install', name: 'demo', repo: f.demo, branch: 'main', confirmed: true, expectedDigest: preview.digest });
+    const clone = join(f.user, 'demo');
+    expect(git(clone, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+    expect(git(clone, 'rev-parse', '--abbrev-ref', '@{upstream}')).toBe('origin/main');
+    expect((await f.lock()).plugins.demo).toEqual({ repo: f.demo, branch: 'main', commit: preview.commit, previous: [] });
+
+    const head = await moveMain(f, 'v3-dev');
+    const update = await f.call({ operation: 'update', name: 'demo' });
+    expect(update).toMatchObject({ branch: 'main', commit: head, from: { branch: 'main', commit: preview.commit }, changed: ['src/demo/hello.ts'] });
+    expect(update.commits).toHaveLength(1);
+    expect(update.commits![0]).toContain('main: v3-dev');
+    expect(update.diffStat ?? '').toContain('hello.ts');
+    expect(await f.hello()).toBe('v2'); // preview changes nothing
+    await f.call({ operation: 'update', name: 'demo', confirmed: true, expectedDigest: update.digest });
+    expect(await f.hello()).toBe('v3-dev');
+    expect(git(clone, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+    expect((await f.lock()).plugins.demo).toMatchObject({ branch: 'main', commit: head, previous: [{ branch: 'main', commit: preview.commit }] });
+    expect((await cloneStatus({} as any, null, { dir: clone }))).toMatchObject({ branch: 'main', dirty: [], unpushed: [], behind: 0 });
+
+    // A rewritten branch is not a fast-forward: refused, the clone stays.
+    const work = join(f.root, 'work', 'demo');
+    git(work, 'reset', '-q', '--hard', 'HEAD~1');
+    await writeFile(join(work, 'OTHER.md'), 'x'); git(work, 'add', '-A'); git(work, 'commit', '-qm', 'rewritten');
+    git(work, 'push', '-q', '--force', f.demo.slice('git+file://'.length), 'main');
+    await expect(f.call({ operation: 'update', name: 'demo' })).rejects.toThrow('not a fast-forward');
+    expect(await f.hello()).toBe('v3-dev');
+});
+
+test('branch mode refuses local work like a tag clone', async () => {
+    const f = await fixture();
+    await f.confirm({ operation: 'install', name: 'demo', repo: f.demo, branch: 'main' });
+    const clone = join(f.user, 'demo');
+    await moveMain(f, 'v3-dev');
+    await writeFile(join(clone, 'NOTES.md'), 'mine');
+    await expect(f.call({ operation: 'update', name: 'demo' })).rejects.toThrow(/local work.*NOTES\.md/);
+    git(clone, 'commit', '-qam', 'local note');
+    await expect(f.call({ operation: 'update', name: 'demo' })).rejects.toThrow(/Unpushed: [0-9a-f]+ local note/);
+});
+
+test('commit mode: short SHA pins detached; nothing to update; switch to a tag and roll back across kinds', async () => {
+    const f = await fixture();
+    const work = join(f.root, 'work', 'demo');
+    const v1 = git(work, 'rev-parse', 'v1.0.0^{commit}');
+    await expect(f.call({ operation: 'install', name: 'demo', repo: f.demo, commit: 'deadbeef' })).rejects.toThrow('not reachable');
+    await expect(f.call({ operation: 'install', name: 'demo', repo: f.demo, tag: 'v1.0.0', branch: 'main' })).rejects.toThrow('one of');
+    const pin = await f.call({ operation: 'install', name: 'demo', repo: f.demo, commit: v1.slice(0, 7) });
+    expect(pin).toMatchObject({ commit: v1 });
+    expect(pin.tag).toBeUndefined(); expect(pin.branch).toBeUndefined();
+    await f.call({ operation: 'install', name: 'demo', repo: f.demo, commit: v1.slice(0, 7), confirmed: true, expectedDigest: pin.digest });
+    const clone = join(f.user, 'demo');
+    expect(Bun.spawnSync(['git', 'symbolic-ref', '-q', 'HEAD'], { cwd: clone }).exitCode).not.toBe(0);
+    expect((await f.lock()).plugins.demo).toEqual({ repo: f.demo, commit: v1, previous: [] });
+    await expect(f.call({ operation: 'update', name: 'demo' })).rejects.toThrow('nothing to update');
+
+    // commit → tag
+    const toTag = await f.call({ operation: 'update', name: 'demo', tag: 'v2.0.0' });
+    expect(toTag.from).toEqual({ commit: v1, tag: 'v1.0.0' });
+    await f.call({ operation: 'update', name: 'demo', tag: 'v2.0.0', confirmed: true, expectedDigest: toTag.digest });
+    expect(await f.hello()).toBe('v2');
+    // tag → branch
+    const head = await moveMain(f, 'v3-dev');
+    await f.confirm({ operation: 'update', name: 'demo', branch: 'main' });
+    expect(await f.hello()).toBe('v3-dev');
+    expect(git(clone, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+    expect((await f.lock()).plugins.demo).toMatchObject({ branch: 'main', commit: head, previous: [{ commit: v1 }, { tag: 'v2.0.0' }] });
+
+    // rollback: branch → tag (detached) → commit
+    const back = await f.call({ operation: 'rollback', name: 'demo' });
+    expect(back).toMatchObject({ tag: 'v2.0.0', from: { branch: 'main', commit: head } });
+    await f.call({ operation: 'rollback', name: 'demo', confirmed: true, expectedDigest: back.digest });
+    expect(await f.hello()).toBe('v2');
+    expect(Bun.spawnSync(['git', 'symbolic-ref', '-q', 'HEAD'], { cwd: clone }).exitCode).not.toBe(0);
+    await f.confirm({ operation: 'rollback', name: 'demo' });
+    expect(await f.hello()).toBe('v1');
+    expect((await f.lock()).plugins.demo).toEqual({ repo: f.demo, commit: v1, previous: [] });
+});
+
+test('lock files from before ref modes read unchanged; a malformed previous entry is refused', async () => {
+    const f = await fixture();
+    const file = join(f.root, 'hyper', 'plugins.lock.json');
+    await mkdir(join(f.root, 'hyper'), { recursive: true });
+    const old = { plugins: { demo: { repo: f.demo, tag: 'v1.0.0', commit: 'a'.repeat(40), previous: [{ tag: 'v0.9.0', commit: 'b'.repeat(40) }] } } };
+    await writeFile(file, JSON.stringify(old));
+    expect((await f.ctx.fns.plugins.lockFile({})).lock).toEqual(old);
+    await writeFile(file, JSON.stringify({ plugins: { demo: { ...old.plugins.demo, previous: [{ tag: 'v0.9.0' }] } } }));
+    await expect(f.ctx.fns.plugins.lockFile({})).rejects.toThrow('Malformed');
+});

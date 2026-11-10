@@ -2,7 +2,8 @@
  * Lists offline installed plugins with their provenance lock and drift status
  *
  * Reads local metadata and bounded trees without contacting providers or executing code. Conflicting locks are invalid; legacy installations without content SHA256 remain untrusted.
- * A git clone (what plugins.install puts there) carries `git`: lock tag, HEAD tag, commit, branch, uncommitted
+ * A git clone (what plugins.install puts there) carries `git`: ref mode (tag, branch, commit) with the lock tag or
+ * followed branch and, for a branch, the new commits origin had at the last fetch; HEAD tag, commit, branch, uncommitted
  * files, unpushed commits, ahead/behind and whether origin is a fork of the installed repository; its status is
  * `clone` (clean, at a tag), `branch` (on a branch or ahead of its tag) or `edited` (local work not on a remote).
  */
@@ -62,7 +63,10 @@ export default async function (ctx: Context, session: Session | null, opts: {}):
         if (!st?.git || !st.commit) return undefined;
         const lock = locked[name];
         const { git: _g, ...rest } = st;
-        return { ...rest, commit: st.commit, ...(lock ? { lockedTag: lock.tag } : {}), fork: !!(st.upstream || (lock && st.origin && !same(st.origin, lock.repo))) };
+        // Branch mode counts what origin/<branch> had at the last fetch (offline); plugins.branchUpdates asks origin.
+        const mode = !lock ? undefined : lock.branch ? 'branch' as const : lock.tag ? 'tag' as const : 'commit' as const;
+        return { ...rest, commit: st.commit, ...(lock?.tag ? { lockedTag: lock.tag } : {}), ...(lock?.branch ? { lockedBranch: lock.branch } : {}), ...(mode ? { mode } : {}),
+            ...(mode === 'branch' && st.branch === lock!.branch ? { newCommits: st.behind } : {}), fork: !!(st.upstream || (lock && st.origin && !same(st.origin, lock.repo))) };
     };
     for (const entry of entries) {
         const name = entry.name;

@@ -4,7 +4,8 @@
  * Use to find a plugin to install by capability words ("charts", "sql", "diagrams") or to see what can be updated.
  * Reads every configured listing (plugins.listing; each entry names its listing), asks each repository for its vX.Y.Z tags (plugins.versions, cached) and compares with the
  * git clones in USER_PLUGINS recorded in the plugin lock: `installed` is the installed version, `tag` the release the
- * clone was installed at, `update` is true when a newer tag exists, `providedBy` names a module mounted from
+ * clone was installed at (or `branch` / `commit` with `mode` for a dev-mode clone), `update` is true when a newer
+ * tag exists or, for a clone following a branch, when the branch has `newCommits` upstream (plugins.branchUpdates, cached), `providedBy` names a module mounted from
  * elsewhere that already owns the name. Install with plugins.install({ name }).
  * @param opts.q Words matched against name, label and description; omit for every plugin.
  * @param opts.fresh Re-read the tags instead of using the few-minute cache. @default false
@@ -36,16 +37,28 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             if (latest) entry.latest = latest.version; else entry.error = 'no vX.Y.Z release tag';
         } catch (e) { entry.error = e instanceof Error ? e.message : 'releases unavailable'; }
         if (lock[p.name] && mount) {
-            entry.tag = lock[p.name]!.tag;
+            const locked = lock[p.name]!;
+            entry.mode = locked.branch ? 'branch' : locked.tag ? 'tag' : 'commit';
+            if (locked.tag) entry.tag = locked.tag;
+            if (locked.branch) entry.branch = locked.branch;
+            entry.commit = locked.commit;
             const pkg = await fs.readFile(path.join(mount, p.name, 'package.json'), 'utf8').then(JSON.parse, () => null);
             if (typeof pkg?.version === 'string') entry.installed = pkg.version;
             if (Array.isArray(pkg?.procs?.requires)) entry.requires = pkg.procs.requires.map(String);
-            entry.update = !!(entry.latest && newer(entry.latest, entry.tag.slice(1)));
+            // A tag clone has an update when a newer release exists; a branch clone when its branch moved upstream
+            // (plugins.branchUpdates: ls-remote, cached); a commit clone only by an explicit switch.
+            if (locked.tag) entry.update = !!(entry.latest && newer(entry.latest, locked.tag.slice(1)));
+            else if (locked.branch) {
+                const u = await ctx.fns.plugins.branchUpdates({ name: p.name, fresh: opts.fresh === true }).catch(() => null);
+                entry.newCommits = u?.behind ?? 0;
+                entry.update = (entry.newCommits ?? 0) > 0;
+            }
             const st = await ctx.fns.plugins.cloneStatus({ dir: path.join(mount, p.name) }).catch(() => null);
             if (st?.git && st.commit) {
                 const { git: _g, ...rest } = st;
                 const norm = (u: string) => u.replace(/^git\+/, '').replace(/^github:/, 'https://github.com/').replace(/^file:\/\//, '').replace(/\.git$/, '').toLowerCase();
-                entry.git = { ...rest, commit: st.commit, lockedTag: lock[p.name]!.tag, fork: !!(st.upstream || (st.origin && norm(st.origin) !== norm(lock[p.name]!.repo))) };
+                entry.git = { ...rest, commit: st.commit, ...(locked.tag ? { lockedTag: locked.tag } : {}), ...(locked.branch ? { lockedBranch: locked.branch } : {}), mode: entry.mode,
+                    ...(entry.newCommits !== undefined ? { newCommits: entry.newCommits } : {}), fork: !!(st.upstream || (st.origin && norm(st.origin) !== norm(lock[p.name]!.repo))) };
             }
         } else {
             const m = modules.find(m => m.name === p.name || m.namespaces.includes(p.name));

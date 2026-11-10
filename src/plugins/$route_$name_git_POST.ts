@@ -1,10 +1,12 @@
 /**
- * Runs one git action on an installed plugin clone from its page: edit, release, fork or sync upstream
+ * Runs one git action on an installed plugin clone from its page: edit, release, fork, sync upstream or switch ref
  *
  * POST /plugins/:name/git, URL-encoded, same-origin and with the page's CSRF token. `edit` switches the clone to
  * main (plugins.edit). `release` and `fork` push to or create a repository outside this machine, so the first post
  * only shows what will happen and `confirmed=true` does it (plugins.release, plugins.fork). `sync` fetches upstream
- * and reports behind/ahead (plugins.syncUpstream); `merge` with confirmed=true merges it. Answers with the plugin
+ * and reports behind/ahead (plugins.syncUpstream); `merge` with confirmed=true merges it. `switch` with kind
+ * (tag, branch or commit) and ref previews moving the clone there (plugins.install) and shows the review whose
+ * Confirm applies it by digest. Answers with the plugin
  * page, the git panel showing the result or the error.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
@@ -20,14 +22,28 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const text = await req.text();
     if (text.length > 4096) return new Response('Request too large', { status: 413 });
     const form = new URLSearchParams(text);
-    const allowed = ['_csrf', 'operation', 'confirmed'];
+    const allowed = ['_csrf', 'operation', 'confirmed', 'kind', 'ref'];
     if ([...form.keys()].some(k => !allowed.includes(k)) || allowed.some(k => form.getAll(k).length > 1))
         return new Response('Invalid fields', { status: 400 });
     if (!await ctx.fns.auth.verifyCsrf({ req, token: form.get('_csrf') ?? '' })) return new Response('Invalid CSRF token', { status: 403 });
     const name = opts.params.name ?? '';
     if (!/^[a-z][a-z0-9-]{0,63}$/.test(name)) return new Response('Invalid plugin name', { status: 400 });
     const operation = form.get('operation') ?? '';
-    if (!['edit', 'release', 'fork', 'sync', 'merge'].includes(operation)) return new Response('Invalid operation', { status: 400 });
+    if (!['edit', 'release', 'fork', 'sync', 'merge', 'switch'].includes(operation)) return new Response('Invalid operation', { status: 400 });
+    // Switch to another ref: answer with the reviewed preview of plugins.install; its Confirm posts to /plugins/listing with the digest.
+    if (operation === 'switch') {
+        const kind = form.get('kind') ?? '', ref = (form.get('ref') ?? '').trim();
+        if (!['tag', 'branch', 'commit'].includes(kind) || !ref || ref.length > 100) return new Response('Invalid ref', { status: 400 });
+        const pick = kind === 'tag' ? { version: ref.replace(/^v/, '') } : kind === 'branch' ? { branch: ref } : { commit: ref.toLowerCase() };
+        try {
+            const change = await ctx.fns.plugins.install({ name, ...pick });
+            return { title: name, main: await ctx.fns.plugins.listingPage({ change }) };
+        } catch (e) {
+            const page = new URL(`/plugins/${encodeURIComponent(name)}`, req.url);
+            const result = await ctx.fns.plugins.clonePanel({ name, req: new Request(page.href, { headers: { cookie: req.headers.get('cookie') ?? '' } }), error: e instanceof Error ? e.message.slice(0, 1000) : 'Switch failed' });
+            return { title: name, main: `<link rel="stylesheet" href="/plugins/plugins.css"><div class="pl"><a href="/plugins/${encodeURIComponent(name)}" class="pl-back">Back to ${Bun.escapeHTML(name)}</a>${result}</div>` };
+        }
+    }
     const confirmed = form.get('confirmed') === 'true';
     const panel: { notice?: string; error?: string; confirm?: { operation: 'release' | 'fork' | 'merge'; detail: string } } = {};
     try {

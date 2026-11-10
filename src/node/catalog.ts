@@ -8,7 +8,10 @@
  * Lists own provider models filtered by the client's provider allow-list and,
  * unless excluded, models reachable through this host's own nodes (chained,
  * with `via`). Each entry carries the wire api and billing kind the client
- * needs to build and classify requests.
+ * needs to build and classify requests. Only the anthropic, responses and openai
+ * HTTP transports implemented by node.relay are exported. Cursor uses a local
+ * SDK, not a relay endpoint, even when its model id matches a native provider.
+ * Cached chained entries are subject to the same transport restriction.
  * @param opts.providers Provider allow-list; empty means every shareable provider.
  * @param opts.excludeNode Node name not to chain back into (the requesting client).
  * @param opts.hops Current hop count; chained entries are omitted at the limit.
@@ -32,20 +35,19 @@ export default async function (
     const all = await ctx.fns.llm.listModels({ skipNodes: true });
     const out: Array<{ id: string; api: "anthropic" | "responses" | "openai" | "cursor"; provider: string; account: string; kind: "subscription" | "api"; via?: string }> = [];
     const seen = new Set<string>();
-    // Cursor re-sells other vendors' model ids (claude-*, gpt-*, kimi-*): the same id is offered by the
-    // vendor's own provider in its native wire api, which every client speaks. Dedup is by id, first wins —
-    // so Cursor goes last and only adds ids nobody else has (older clients do not speak the cursor api).
-    const groups = Object.entries(all).sort(([a], [b]) => Number(a === "cursor") - Number(b === "cursor"));
-    for (const [group, models] of groups) {
-        if (group === "lmstudio" || group === "mock") continue;
+    // Match node.relay's HTTP routes, not the wider local stream dispatcher.
+    // Check provider as well as api: old cached entries may mislabel Cursor.
+    const relayApis = new Set(["anthropic", "responses", "openai"]);
+    for (const [group, models] of Object.entries(all)) {
+        if (group === "lmstudio" || group === "mock" || group === "cursor") continue;
         for (const full of models) {
             const m = /^([a-z][\w\-]*)(?:\/([\w\-.]+))?:(.+)$/.exec(full);
             if (!m) continue;
             const provider = m[1]!, account = m[2] ?? "default", id = m[3]!;
-            if (allow.size && !allow.has(provider)) continue;
+            if (provider === "cursor" || (allow.size && !allow.has(provider))) continue;
             let ep;
             try { ep = await ctx.fns.llm.resolveEndpoint({ model: full }); } catch { continue; }
-            if (ep.api === "mock" || ep.kind === "local" || seen.has(id)) continue;
+            if ((ep.api !== "anthropic" && ep.api !== "responses" && ep.api !== "openai") || ep.provider === "cursor" || ep.kind === "local" || seen.has(id)) continue;
             seen.add(id);
             out.push({ id, api: ep.api, provider, account, kind: ep.kind });
         }
@@ -59,7 +61,7 @@ export default async function (
         for (const node of nodes) {
             if (!node.enabled || node.name === opts.excludeNode) continue;
             for (const entry of node.catalog ?? []) {
-                if (entry.via || seen.has(entry.id)) continue;
+                if (entry.via || entry.provider === "cursor" || !relayApis.has(entry.api) || seen.has(entry.id)) continue;
                 if (allow.size && !allow.has(entry.provider)) continue;
                 seen.add(entry.id);
                 out.push({ id: entry.id, api: entry.api, provider: entry.provider, account: entry.account, kind: entry.kind, via: `hyper/${node.name}` });

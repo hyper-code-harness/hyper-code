@@ -1,7 +1,7 @@
 /**
  * Syncs files or directories between the local machine and an SSH server with rsync, in either direction.
  *
- * Incremental, compressed rsync over the shared persistent SSH connection (same ControlMaster socket as remote.exec); only changed files are sent and missing destination parent directories are created (works with GNU rsync and macOS openrsync). direction "push" copies local → remote (deploy code, configs, data); "pull" copies remote → local (logs, build artifacts, screenshots). Use remote.writeFile / remote.readFile for a single text file.
+ * Incremental, compressed rsync over the shared persistent SSH connection (same ControlMaster socket as remote.exec); only changed files are sent and missing destination parent directories are created (works with GNU rsync, including 3.2.4+ argument escaping, and macOS openrsync). direction "push" copies local → remote (deploy code, configs, data); "pull" copies remote → local (logs, build artifacts, screenshots). Use remote.writeFile / remote.readFile for a single text file.
  * @param opts.host SSH host alias from ~/.ssh/config, as returned by remote.servers.
  * @param opts.direction push = local → remote, pull = remote → local.
  * @param opts.local Local path, relative to the workspace or absolute. A trailing slash on a source directory copies its contents rather than the directory itself.
@@ -59,7 +59,10 @@ export default async function (
     }
     args.push(...(opts.direction === "push" ? [local, remote] : [remote, local]));
     const started = Date.now();
-    const p = Bun.spawn({ cmd: args, stdout: "pipe", stderr: "pipe" });
+    // GNU rsync >= 3.2.4 escapes remote args itself, which would double our
+    // shell quoting; RSYNC_OLD_ARGS=1 restores the shell-word behaviour that
+    // openrsync and older GNU rsync have (both ignore the variable).
+    const p = Bun.spawn({ cmd: args, stdout: "pipe", stderr: "pipe", env: { ...process.env, RSYNC_OLD_ARGS: "1" } });
     const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
     if (code !== 0) throw new Error("rsync exit " + code + ": " + err.trim().slice(0, 800));
     const num = (re: RegExp) => Number((re.exec(out)?.[1] ?? "0").replaceAll(",", ""));

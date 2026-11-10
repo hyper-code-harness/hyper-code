@@ -88,6 +88,15 @@ jobs:
           curl -fsSL https://install.duckdb.org | sh
           echo "$HOME/.duckdb/cli/latest" >> "$GITHUB_PATH"
 
+      - name: Install svg layout engines
+        # plugins/svg layoutHola/layoutIncremental/layoutCompact run these native
+        # engines and refuse to substitute another algorithm (plugins/svg/SKILL.md).
+        run: |
+          python3 -m venv ~/.hyper/deps/svg/hola-graph-0.1.5
+          ~/.hyper/deps/svg/hola-graph-0.1.5/bin/python -m pip install --quiet hola-graph==0.1.5
+          git clone --quiet https://github.com/LUMII-Syslab/imcs_layoutengine.git ~/.hyper/deps/svg/imcs_layoutengine
+          git -C ~/.hyper/deps/svg/imcs_layoutengine checkout --quiet 3bbcefdc5bf25be976f4379ec986bd1db05f47bc
+
       - name: Prepare test database
         run: |
           container="$(docker ps --filter ancestor=paradedb/paradedb:latest-pg18 --format '{{.ID}}' | head -1)"

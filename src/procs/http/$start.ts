@@ -14,7 +14,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
         // it, and dying at ten seconds looks like a hang with no line in the log.
         idleTimeout: 120,
         port,
-        hostname: host || "0.0.0.0",
+        hostname: host || "127.0.0.1",
         // The whole pipeline lives in procs.http.handle so it hot-reloads; the
         // server passes itself along because a WebSocket upgrade needs it.
         fetch: (req, srv) => ctx.fns.procs.http.handle({ req, server: srv }),

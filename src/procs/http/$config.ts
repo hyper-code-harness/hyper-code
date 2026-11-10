@@ -3,5 +3,5 @@
 //                              the outside world then reaches Hyper only via HTTPS/HTTP2.
 export default {
     port: { type: "integer", required: true, default: 3000, env: "PORT" },
-    host: { type: "string", default: "0.0.0.0", env: "HYPER_HTTP_HOST" },
+    host: { type: "string", default: "127.0.0.1", env: "HYPER_HTTP_HOST" },
 } as const satisfies ConfigSchema;

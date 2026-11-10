@@ -1,6 +1,8 @@
 import { describe, test, expect } from "bun:test";
 import renderEventHtmlFn from "./renderEventHtml";
 import toolMeta from "./toolMeta";
+import sanitizeHtmlBody from "./sanitizeHtmlBody";
+import sanitizeSvgImage from "./sanitizeSvgImage";
 import toolLang from "./toolLang";
 import renderEditArgs from "./renderEditArgs";
 import renderToolRun from "./renderToolRun";
@@ -17,6 +19,8 @@ const kit = await renderCtx({ "markdown.highlight": async (_c: any, _s: any, { c
 // exactly what these assertions are about.
 const ctx = { fns: {
   agent: {
+    sanitizeSvgImage: (opts: {svg: string}) => sanitizeSvgImage(ctx, null, opts),
+    sanitizeHtmlBody: (opts: { html: string }) => sanitizeHtmlBody(ctx, null, opts),
     toolMeta: (opts: any) => toolMeta(ctx, null, opts),
     toolLang: (opts: any) => toolLang(ctx, null, opts),
     renderEditArgs: (opts: any) => renderEditArgs(ctx, null, opts),
@@ -36,6 +40,11 @@ const renderEventHtml = (c: any, event: any, opts: { agentId?: string } = {}) =>
     renderEventHtmlFn(c, null, { event, agentId: opts.agentId });
 
 describe("agent.renderEventHtml", () => {
+  test('assistant: old stored events and raw Markdown HTML are sanitized on display', async () => {
+    const html = await renderEventHtml(ctx, { type: 'assistant', html: '<p onclick="alert(1)" hx-get="/private" data-hx-post="/delete">safe</p><script>alert(1)</script><img src="javascript:alert(1)" onerror="alert(1)"><svg onload="alert(1)"><text>bad</text></svg>' });
+    expect(html).toContain('<p>safe</p><img>');
+    expect(html).not.toMatch(/onclick|onerror|onload|hx-get|data-hx-post|javascript:|<script|<svg/);
+  });
   test("renders Telegram attachment events as incoming message cards", async () => {
     const html = await renderEventHtml(ctx, {
       type: "attachment_event",
@@ -152,7 +161,7 @@ describe("agent.renderEventHtml", () => {
   test("assistant: ordinary markdown output passes through unchanged", async () => {
     const html = '<h2>T</h2><p><strong class="a">b</strong> <a href="/y">l</a> <code>a&lt;b</code><br></p><pre><code class="language-ts">const x = a &lt; b;</code></pre><table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table><details><summary>s</summary>x</details>';
     const out = await renderEventHtml(ctx, { type: "assistant", html, text: 'x', messageIdx: 4 });
-    expect(out).toContain(html);
+    expect(out).toContain(sanitizeHtmlBody(ctx, null, { html }));
     expect(out).not.toContain('class="w-code"');
   });
 

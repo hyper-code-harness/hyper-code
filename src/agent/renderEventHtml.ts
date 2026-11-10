@@ -132,7 +132,9 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         // Defensive: if the pre-rendered html is unbalanced (markdown.render sometimes chokes on heredoc / shell
         // `>` / mixed-code prose) fall back to the plain text as code. One bad answer must not break the page.
         const rawHtml = ev.html || ('<p>' + esc(ev.text || '') + '</p>');
-        const safe = safeAssistantHtml(rawHtml) ?? await ctx.fns.w.code({ code: String(ev.text || '') });
+        // Sanitize at display time too: stored events and raw Markdown HTML are untrusted.
+        const normalized = safeAssistantHtml(rawHtml);
+        const safe = normalized != null ? ctx.fns.agent.sanitizeHtmlBody({ html: normalized }) : await ctx.fns.w.code({ code: String(ev.text || '') });
         return ctx.fns.w.message({ role: 'agent', id: 'm-' + idx, html: await mentionChips(ctx, safe, 'light'), ts, trail, actions: messageActions(idx, agentId) });
     }
     if (ev.type === "thinking") {

@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { testCtx } from "../../$test";
 
-// Official plugins mounted: the hybrid case below looks for telegram.*.
+// Official plugins mounted: the hybrid case below looks for zulip.*.
 const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });
 
 // The index is built once for the file; the tests only read it.
@@ -40,8 +40,8 @@ test("BM25 search and lexical fallback find the same intended function", async (
 });
 
 test("hybrid mode degrades to BM25 while embeddings are off", async () => {
-    const hits = await ctx.fns.runtime.docs.search({ query: "send telegram message", mode: "hybrid", limit: 3 });
-    expect(hits[0]?.name).toBe("telegram.send");
+    const hits = await ctx.fns.runtime.docs.search({ query: "send zulip message", mode: "hybrid", limit: 3 });
+    expect(hits[0]?.name).toBe("zulip.send");
     expect(hits[0]?.similarity).toBeNull();
 });
 

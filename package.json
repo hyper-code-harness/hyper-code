@@ -48,8 +48,7 @@
     "marked": "^18.0.7",
     "parse5": "^8.0.1",
     "shiki": "^4.0.2",
-    "tailwindcss": "^4.3.3",
-    "telegram": "^2.26.22"
+    "tailwindcss": "^4.3.3"
   },
   "procs": {
     "plugins": [
@@ -82,7 +81,6 @@
       "gplaces": {},
       "gcs": {},
       "tts": {},
-      "telegram": {},
       "gh": {},
       "zulip": {},
       "tasks": {},

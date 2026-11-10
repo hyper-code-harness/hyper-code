@@ -1,6 +1,0 @@
-/** Discovers broadcast channels from a Telegram folder and optionally adds them to the News catalogue. */
-export default async function(ctx:Context,_session:Session|null,opts:{
- /** Folder title or numeric identifier. @default I */ folder?:string|number;
- /** Add discovered channels to the catalogue. @default false */ add?:boolean;
- /** Case-insensitive titles excluded from discovery. */ exclude?:string[];
-}={}):Promise<Array<{id:string;title:string;added:boolean}>>{const wanted=opts.folder??"I",folders=await ctx.fns.telegram.folders({}),folder=folders.find((f:any)=>String(f.id)===String(wanted)||String(f.title).toLowerCase()===String(wanted).toLowerCase());if(!folder)throw new Error(`telegram.newsDiscover: folder ${wanted} not found`);const excluded=new Set(["haiku","just links",...(opts.exclude??[]).map(x=>x.toLowerCase())]);const channels=(await ctx.fns.telegram.folder({id:folder.id})).filter((c:any)=>c.type==="channel"&&!excluded.has(String(c.title).toLowerCase()));const out=[];for(const channel of channels){if(opts.add)await ctx.fns.telegram.newsChannelAdd({chat:channel.id,title:channel.title,folderId:folder.id});out.push({id:String(channel.id),title:channel.title,added:opts.add===true})}return out;}

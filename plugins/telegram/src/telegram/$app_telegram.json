@@ -1,0 +1,8 @@
+{
+  "label": "Telegram",
+  "href": "/telegram",
+  "hint": "Personal messages",
+  "icon": "ph-telegram-logo",
+  "group": "Communication",
+  "order": 40
+}

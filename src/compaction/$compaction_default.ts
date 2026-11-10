@@ -25,9 +25,24 @@ const OVERFLOW = /context_length_exceeded|request_too_large|prompt is too long|e
  * @param opts.model Model used for the summary.
  * @param opts.messages Effective transcript to compact.
  */
+const MAX_ITEM_CHARS = 20_000;
+const CHARS_PER_TOKEN = 3;
+
 export default async function (ctx: Context, _session: Session | null, opts: Parameters<types.compaction.Compactor>[2]): Promise<types.compaction.CompactionResult> {
     const system = SUMMARIZATION_PROMPT + (opts.focus?.trim() ? "\n\nFocus instructions: " + opts.focus.trim() : "");
-    let history = [...opts.messages];
+    // Huge tool results (MBs of page dumps) are useless to a summary: clip each
+    // message, then pre-trim the oldest items to a char budget derived from the
+    // model's window, so an oversized transcript does not cost one failed LLM
+    // call per dropped message.
+    const clip = (m: any) => typeof m?.content === "string" && m.content.length > MAX_ITEM_CHARS ? { ...m, content: m.content.slice(0, MAX_ITEM_CHARS) + `\n…[clipped ${m.content.length - MAX_ITEM_CHARS} chars]` } : m;
+    let history = opts.messages.map(clip);
+    const window = ctx.fns.compaction.contextWindow({ model: opts.model }) ?? 128_000;
+    const budget = Math.floor(window * CHARS_PER_TOKEN * 0.8);
+    const sizes = history.map((m) => JSON.stringify(m).length);
+    let size = sizes.reduce((s, n) => s + n, 0);
+    let start = 0;
+    while (start < history.length - 1 && (size > budget || history[start]?.role === "tool")) size -= sizes[start++];
+    history = history.slice(start);
     for (;;) {
         opts.signal?.throwIfAborted();
         try {

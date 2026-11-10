@@ -65,9 +65,13 @@ test("the browser route pins, moves and runs the tab menu; pinned tabs are icons
     // Right-click menus as in Chrome: one per tab, Unpin on the pinned one, Pin on the other.
     expect(panel).toContain(`id="canvas-tab-menu-${one}"`);
     expect(panel).toContain(`data-context-of="[data-canvas-header] .w-tab:has(&gt; [data-canvas-tab=&quot;${one}&quot;])"`);
-    const menuOf = (id: number) => panel.slice(panel.indexOf(`id="canvas-tab-menu-${id}"`)).split("</div>")[0]!;
+    const menuOf = (id: number) => panel.slice(panel.indexOf(`id="canvas-tab-menu-${id}"`), panel.indexOf(`id="canvas-tab-menu-${id}"`) + 1800);
     expect(menuOf(one)).toContain(">Unpin<");
     expect(menuOf(two)).toContain(">Pin<");
+    for (const id of [one, two]) {
+        expect(menuOf(id)).toContain('data-action="reload-canvas-tab"');
+        expect(menuOf(id)).toContain(">Reload tab<");
+    }
     res = await post({ move: { itemId: two, before: one } });
     expect(res.status).toBe(200);
     expect(await titles()).toEqual(["*two", "*one"]);

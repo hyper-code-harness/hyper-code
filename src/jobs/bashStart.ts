@@ -55,7 +55,10 @@ export default async function (
         "command -v tmux >/dev/null || { echo 'tmux is not installed' >&2; exit 3; }",
         `mkdir -p "${dir}" && chmod 700 "$HOME/.hyper-jobs" "${dir}" || exit 1`,
         `( umask 077; cat > "${dir}/run.sh" ) || exit 1`,
-        `tmux new-session -d -s ${q("hj-" + opts.jobId)} ${q(`bash "${dir}/run.sh" > "${dir}/out.log" 2>&1`)} || { rm -f "${dir}/run.sh"; echo 'tmux could not start the job' >&2; exit 6; }`,
+        // A tmux server whose last session just ended exits while a new client attaches ("server exited
+        // unexpectedly"); the next attempt starts a fresh server, so retry a few times before giving up.
+        `started=; for attempt in 1 2 3; do tmux new-session -d -s ${q("hj-" + opts.jobId)} ${q(`bash "${dir}/run.sh" > "${dir}/out.log" 2>&1`)} && { started=1; break; }; tmux has-session -t ${q("hj-" + opts.jobId)} 2>/dev/null && { started=1; break; }; sleep 0.2; done`,
+        `[ -n "$started" ] || { rm -f "${dir}/run.sh"; echo 'tmux could not start the job' >&2; exit 6; }`,
         "echo STARTED",
     ].join("\n");
     const r = await ctx.fns.jobs.sh({ host: opts.host, script, stdin: launcher, timeout: 30 });

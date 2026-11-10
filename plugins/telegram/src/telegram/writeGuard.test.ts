@@ -4,6 +4,9 @@ import sendFile from "./sendFile";
 import createFolder from "./createFolder";
 import leave from "./leave";
 import deleteMessages from "./deleteMessages";
+import sendPoll from "./sendPoll";
+import folderAddChat from "./folderAddChat";
+import addMember from "./addMember";
 
 const ctx: any = {};
 
@@ -28,5 +31,19 @@ describe("Telegram write guards", () => {
     });
     test("deleteMessages rejects non-positive ids even when confirmed", async () => {
         await expect(deleteMessages(ctx, null, { chat: "me", ids: [0], confirm: true })).rejects.toThrow("positive integers");
+    });
+    test("sendPoll requires explicit confirmation before connecting", async () => {
+        await expect(sendPoll(ctx, null, { chat: "me", question: "q?", options: ["a", "b"] })).rejects.toThrow("confirm: true");
+    });
+    test("sendPoll validates options and quiz settings before connecting", async () => {
+        await expect(sendPoll(ctx, null, { chat: "me", question: "q?", options: ["a"], confirm: true })).rejects.toThrow("2–10");
+        await expect(sendPoll(ctx, null, { chat: "me", question: "q?", options: ["a", "b"], correctOption: 2, confirm: true })).rejects.toThrow("out of range");
+        await expect(sendPoll(ctx, null, { chat: "me", question: "q?", options: ["a", "b"], correctOption: 0, multiple: true, confirm: true })).rejects.toThrow("multiple-choice");
+    });
+    test("folderAddChat requires explicit confirmation before connecting", async () => {
+        await expect(folderAddChat(ctx, null, { folder: "I", chat: "me" })).rejects.toThrow("confirm: true");
+    });
+    test("addMember requires explicit confirmation before connecting", async () => {
+        await expect(addMember(ctx, null, { chat: "me", user: "x_bot" })).rejects.toThrow("confirm: true");
     });
 });

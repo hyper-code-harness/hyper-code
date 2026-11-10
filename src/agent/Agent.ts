@@ -18,6 +18,9 @@ export type Agent = {
      *  = every loaded tool. What is excluded here never reaches the prompt or
      *  the provider's tool list, so it costs no prefix tokens either. */
     tools?: string[];
+    /** Free-form JSON a plugin keeps on this chat (profile, role…), persisted as is in agents.meta.
+     *  Core never reads inside it; it is handed to agent.basePrompt answers. null/undefined = none. */
+    meta?: Record<string, any> | null;
     messages: types.session.Message[];                        // synchronized runtime view of DB-backed transcript
     events: any[];                          // synchronized runtime view of DB-backed event trace
     cursors: Record<string, number>;

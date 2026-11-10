@@ -9,17 +9,45 @@
 // Never throws for a tool's own failure: a broken call is a message to the
 // model, not an exception for the run loop. An unknown name is reported the
 // same way, because in JSON mode the model picks the name itself.
-/** Validates and invokes a registered tool. */
+/**
+ * Validates and invokes one registered model tool, returning the text the model should see.
+ *
+ * Checks the arguments against the tool's JSON Schema and its validator, runs it in the agent's workspace, and reports failures as an error result instead of throwing. When the agent has a tool list, a call outside it (or to an opt-in tool it did not name) is logged; with setting tools.enforceAllowlist on it is refused.
+ * @param opts.name Tool to call: its wire name, bare name or registry key (`tools.read`).
+ * @param opts.args Arguments object decoded from the model's tool call, checked against the tool's schema.
+ * @param opts.agent Agent making the call; sets the workspace, the running indicator and the tool-list check.
+ */
 export default async function (
     ctx: Context,
     session: Session | null,
-    opts: { /** Runtime, plugin, or tool name. */ name: string; /** Command-line arguments. */ args?: any; /** Agent associated with the operation. */ agent?: types.agent.Agent },
+    opts: {
+        /** Tool to call: its wire name, bare name or registry key (`tools.read`). */
+        name: string;
+        /** Arguments object decoded from the model's tool call, checked against the tool's schema. */
+        args?: any;
+        /** Agent making the call; sets the workspace, the running indicator and the tool-list check. */
+        agent?: types.agent.Agent;
+    },
 ): Promise<{ output: string; content?: types.tools.Content[]; isError: boolean; terminal?: { type: 'html'; html: string; text: string } }> {
     const name = String(opts.name ?? "").trim();
     const all = ctx.fns.tools.list({});
     const tool = all.find((t: any) => t.wireName === name || t.name === name || t.key === name);
     if (!tool) {
         return { output: `Error: unknown tool "${name}". Available: ${all.map((t: any) => t.wireName).join(", ")}`, isError: true };
+    }
+
+    // The agent's tool list is what it was offered; a call outside it (or an
+    // opt-in tool it never named) is logged, and refused only when
+    // tools.enforceAllowlist is on. No list and no opt-in → nothing to check.
+    const allowed: string[] = Array.isArray(opts.agent?.tools) ? opts.agent!.tools! : [];
+    const listed = allowed.includes(tool.wireName) || allowed.includes(tool.name);
+    if ((allowed.length && !listed) || (tool.optIn && !listed)) {
+        const enforce = await ctx.fns.settings.get({ module: "tools", scopeType: "global", key: "enforceAllowlist" }).catch(() => false) === true;
+        const why = tool.optIn && !allowed.length ? "is opt-in and the agent has no tool list" : "is not in the agent's tool list";
+        ctx.fns.procs.log.warn({ event: "tools.call.not-allowed", msg: `tool "${tool.wireName}" ${why}`, agentId: opts.agent?.id, tool: tool.wireName, enforce });
+        if (enforce) {
+            return { output: `Error: tool "${tool.wireName}" ${why}${allowed.length ? ` (allowed: ${allowed.join(", ")})` : ""}`, isError: true };
+        }
     }
 
     const args = opts.args ?? {};

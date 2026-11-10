@@ -5,6 +5,7 @@
  * @param opts.systemPrompt Additional system instructions.
  * @param opts.systemPromptName Name of the base system prompt (agent.systemPrompts); empty means the default.
  * @param opts.systemPromptCore A one-off base system prompt text used instead of a named one.
+ * @param opts.meta Free-form JSON kept on the agent as is (agents.meta), e.g. a plugin's profile; read by agent.basePrompt answers.
  * @param opts.parentId Optional parent agent identifier.
  * @param opts.forkOffset Optional inherited parent transcript offset.
  * @param opts.visibility Listing policy: nav, team, or hidden. @default nav
@@ -30,6 +31,8 @@ export default async function (
     systemPromptCore?: string;
             /** Narrow the agent to these tool wire names; unset means every declared tool. */
     tools?: string[];
+        /** Free-form JSON kept on the agent as is (agents.meta), e.g. a plugin's profile; read by agent.basePrompt answers. */
+    meta?: Record<string, any> | null;
     /** Parent id used by the operation. */
     parentId?: string | null;
         /** Listing policy; this does not grant or restrict access. @default nav */
@@ -63,6 +66,7 @@ export default async function (
         systemPromptName: String(opts.systemPromptName ?? "").trim(),
         systemPromptCore: String(opts.systemPromptCore ?? ""),
         tools: opts.tools,
+        ...(opts.meta ? { meta: opts.meta } : {}),
         messages: [],
         events: [],
         cursors: {},

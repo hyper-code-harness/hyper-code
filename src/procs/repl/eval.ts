@@ -33,7 +33,7 @@ export default async function (
     const typecheck = opts.typecheck ?? configuredTypecheck;
     if (typecheck !== false) {
         const checked = await ctx.fns.procs.repl.typecheck({ code, bindings });
-        if (!checked.ok) throw new TypeError(`eval: typecheck failed:\n${checked.errors.map((e: string) => `  ${e}`).join("\n")}`);
+        if (!checked.ok) throw new TypeError(ctx.fns.procs.repl.typecheckError({ code: code, errors: checked.errors }));
     }
     const buffer: string[] = [];
     const log = (...args: any[]) => {

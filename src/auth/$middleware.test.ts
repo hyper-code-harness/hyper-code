@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import middleware from "../$middleware";
 import guard from "../http/guardRequest";
 import publicOrigin from "../http/publicOrigin";
+import frameSignIn from "./frameSignIn";
+import page from "./page";
 
 const nik = { id: "nik", email: null, name: "Nik", role: "owner", hasPassword: true, canSignIn: true, configuredAt: 1, createdAt: 1, disabledAt: null };
 
@@ -42,4 +44,30 @@ test("signed-in user is attached to the session", async () => {
 test("authenticated cross-origin writes are rejected", async () => {
     const response = await middleware(context({ user: nik, required: true }), null, { req: new Request("https://hyper.example/api/mobile/v1/agents/ab/stop", { method: "POST", headers: { origin: "https://evil.example", host: "hyper.example" } }) });
     expect(response?.status).toBe(403);
+});
+
+test("an anonymous frame (canvas tab) gets a break-out sign-in page, not a redirect inside the frame", async () => {
+    const ctx = context({ user: null, required: true });
+    ctx.fns.auth.frameSignIn = (o: any) => frameSignIn(ctx, null, o);
+    ctx.fns.auth.page = (o: any) => page(ctx, null, o);
+    ctx.fns.w = { escape: ({ text }: any) => Bun.escapeHTML(text) };
+    const res = await middleware(ctx, null, { req: new Request("https://hyper.example/code/tests", { headers: { accept: "text/html", host: "hyper.example", "sec-fetch-dest": "iframe", "sec-fetch-mode": "navigate", "sec-fetch-site": "same-origin", referer: "https://hyper.example/agent/ab?x=1" } }) });
+    expect(res?.status).toBe(401);
+    expect(res?.headers.get("location")).toBeNull();
+    expect(res?.headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
+    const html = await res!.text();
+    expect(html).toContain(`href="/auth/login?next=%2Fagent%2Fab%3Fx%3D1" target="_top"`);
+    expect(html).toContain(`target="_blank"`);
+    // a top-level page still redirects as before
+    const top = await middleware(ctx, null, { req: new Request("https://hyper.example/code/tests", { headers: { accept: "text/html", host: "hyper.example", "sec-fetch-dest": "document" } }) });
+    expect(top?.status).toBe(303);
+});
+
+test("frame sign-in never returns to another site or to an auth page", async () => {
+    const ctx: any = { fns: { auth: {}, w: { escape: ({ text }: any) => Bun.escapeHTML(text) } } };
+    ctx.fns.auth.page = (o: any) => page(ctx, null, o);
+    for (const referer of ["https://evil.example/agent/ab", "https://hyper.example/auth/login?next=/x", "not a url"]) {
+        const html = await frameSignIn(ctx, null, { req: new Request("https://hyper.example/gcal/", { headers: { referer } }) }).text();
+        expect(html).toContain(`href="/auth/login?next=%2F" target="_top"`);
+    }
 });

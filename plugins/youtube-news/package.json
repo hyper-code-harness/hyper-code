@@ -1,0 +1,12 @@
+{
+  "name": "youtube-news",
+  "private": true,
+  "type": "module",
+  "procs": {
+    "src": "src",
+    "label": "YouTube News",
+    "icon": "ph-youtube-logo",
+    "optional": true,
+    "description": "Track YouTube channels incrementally and publish new videos with transcripts into News."
+  }
+}

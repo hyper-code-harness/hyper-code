@@ -87,9 +87,40 @@
         menu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - h - 8)) + 'px';
     });
     document.addEventListener('click', e => {
+        // Native popovers usually light-dismiss, but do not rely on that for menus opened by a
+        // context click or an htmx swap. Keep the opener exempt so its own click can toggle it.
+        if (e.target instanceof Element && !e.target.closest('.w-menu')) {
+            const opener = e.target.closest('[popovertarget]');
+            document.querySelectorAll('.w-menu:popover-open').forEach(menu => {
+                if (opener?.getAttribute('popovertarget') !== menu.id) menu.hidePopover();
+            });
+        }
         const item = e.target.closest?.('.w-menu[data-context-of] .w-menu-item');
         if (!item) return;
         const menu = item.closest('.w-menu');
+        if (item.dataset.action === 'reload-canvas-tab') {
+            const host = owner.get(menu);
+            const tab = host?.querySelector('[data-canvas-tab]');
+            const panel = host?.closest('[data-canvas-panel]');
+            const reload = () => panel?.querySelector('[data-canvas-reload]')?.click();
+            if (tab && panel && !tab.hasAttribute('aria-current')) {
+                // Select the clicked tab first; canvas.js asynchronously swaps its body.
+                const id = tab.getAttribute('data-canvas-tab');
+                const selected = () => document.querySelector('[data-canvas-panel] [data-canvas-body]')?.getAttribute('data-canvas-item') === id;
+                const observer = new MutationObserver(() => {
+                    if (!selected()) return;
+                    observer.disconnect();
+                    document.querySelector('[data-canvas-panel] [data-canvas-reload]')?.click();
+                });
+                observer.observe(panel.parentElement, { childList: true, subtree: true });
+                setTimeout(() => observer.disconnect(), 10000);
+                tab.click();
+                if (selected()) {
+                    observer.disconnect();
+                    reload();
+                }
+            } else reload();
+        }
         if (item.dataset.action === 'copy-text') {
             const host = owner.get(menu);
             const text = (host?.querySelector('[data-copy-text]') ?? host)?.cloneNode(true);

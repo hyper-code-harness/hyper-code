@@ -2,7 +2,9 @@ import { test, expect, afterEach } from 'bun:test';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import bunInstall from './bunInstall';
+import gitInstall from './gitInstall';
+import lockFile from './lockFile';
+import cloneStatus from './cloneStatus';
 import inspectPackage from './inspectPackage';
 import listing from './listing';
 import versions from './versions';
@@ -18,7 +20,7 @@ function git(cwd: string, ...args: string[]) {
     if (p.exitCode) throw new Error(p.stderr.toString());
 }
 
-/** Local git repos (base; chart requires base; lonely requires missing), a file:// listing and an empty host. */
+/** Local git repos (base; chart requires base; lonely requires missing), a file:// listing and an empty USER_PLUGINS. */
 async function world() {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'plugins-install-')));
     roots.push(root);
@@ -37,9 +39,9 @@ async function world() {
     const entries = [await repo('base', ['1.0.0', '1.2.0', '1.10.0']), await repo('chart', ['2.0.0'], ['base']), await repo('lonely', ['1.0.0'], ['missing'])];
     const index = join(root, 'index.json');
     await writeFile(index, JSON.stringify({ format: 2, plugins: entries }));
-    const host = join(root, 'host');
+    const user = join(root, 'hyper', 'user');
     const ctx: any = {
-        env: { PLUGIN_HOST: host, HOME: root },
+        env: { USER_PLUGINS: user, HOME: root },
         state: { procs: { modules: [{ name: 'core', dir: '/core/src', namespaces: ['agent', 'plugins'] }] } },
         fns: {
             settings: { get: async () => ['file://' + index] },
@@ -47,10 +49,10 @@ async function world() {
             plugins: {},
         },
     };
-    for (const [k, f] of Object.entries({ bunInstall, inspectPackage, listing, versions, catalog, install, uninstall }))
+    for (const [k, f] of Object.entries({ gitInstall, lockFile, cloneStatus, inspectPackage, listing, versions, catalog, install, uninstall }))
         ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
-    const deps = async () => JSON.parse(await readFile(join(host, 'package.json'), 'utf8')).dependencies ?? {};
-    return { ctx, host, deps };
+    const deps = async () => JSON.parse(await readFile(join(root, 'hyper', 'plugins.lock.json'), 'utf8').catch(() => '{"plugins":{}}')).plugins;
+    return { ctx, user, deps };
 }
 
 test('versions: semver tags only, newest first by number', async () => {
@@ -71,7 +73,8 @@ test('install pulls in required plugins from the listing; catalog shows state; u
 
     const preview = await ctx.fns.plugins.install({ name: 'chart' });
     expect(preview.status).toBe('preview');
-    expect(preview.spec).toEndWith('#v2.0.0');
+    expect(preview.tag).toBe('v2.0.0');
+    expect(preview.repo).toStartWith('git+file://');
     expect(preview.companions?.map((c: any) => [c.name, c.version])).toEqual([['base', '1.10.0']]);
     expect(await w.deps()).toEqual({});
     await ctx.fns.plugins.install({ name: 'chart', confirmed: true, expectedDigest: preview.digest });
@@ -112,7 +115,7 @@ test('an older release, then update to the newest; a requirement missing from th
 test('several listings: merged in order, first wins on a name, a broken one does not hide the others', async () => {
     const w = await world();
     const ctx = w.ctx;
-    const dir = join(w.host, '..');
+    const dir = join(w.user, '..', '..');
     const good = { name: 'demo', label: 'Demo', description: 'd', source: 'github:o/demo' };
     const a = 'file://' + join(dir, 'a.json'), b = 'file://' + join(dir, 'b.json');
     await writeFile(join(dir, 'a.json'), JSON.stringify({ format: 2, plugins: [good, { ...good, name: 'bad', source: 'npm:x' }, good] }));
@@ -139,11 +142,11 @@ test('updating a plugin the host itself mounts is not a namespace collision (mod
     const ctx = w.ctx;
     const first = await ctx.fns.plugins.install({ name: 'base', version: '1.0.0' });
     await ctx.fns.plugins.install({ name: 'base', version: '1.0.0', confirmed: true, expectedDigest: first.digest });
-    const dir = join(w.host, 'node_modules', 'base');
+    const dir = join(w.user, 'base');
     for (const mounted of [dir, join(dir, 'src')]) {
         w.ctx.state.procs.modules = [{ name: 'base', dir: mounted, namespaces: ['base'] }];
         expect((await ctx.fns.plugins.install({ name: 'base' })).operation).toBe('update');
     }
-    w.ctx.state.procs.modules = [{ name: 'base', dir: join(w.host, '..', 'elsewhere', 'base'), namespaces: ['base'] }];
+    w.ctx.state.procs.modules = [{ name: 'base', dir: join(w.user, '..', 'elsewhere', 'base'), namespaces: ['base'] }];
     await expect(ctx.fns.plugins.install({ name: 'base' })).rejects.toThrow('Namespace collision: base is provided by base');
 });

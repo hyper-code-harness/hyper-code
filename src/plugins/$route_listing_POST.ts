@@ -1,6 +1,6 @@
 /**
  * Previews or confirms one plugin change from the catalog page: install or update by name (plugins.install, with the
- * plugins it requires), remove (plugins.uninstall) or rollback. Same-origin URL-encoded forms only; a request
+ * plugins it requires), remove (plugins.uninstall, force=true for a clone with local work) or rollback to the previous release (plugins.gitInstall). Same-origin URL-encoded forms only; a request
  * without confirmed=true never changes anything.
  */
 export default async function (ctx: Context, _session: Session | null, opts: { /** Incoming HTTP request. */ req: Request }) {
@@ -12,7 +12,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
     const text = await req.text();
     if (text.length > 8192) return new Response('Request too large', { status: 413 });
     const form = new URLSearchParams(text);
-    const allowed = ['operation', 'name', 'version', 'digest', 'confirmed'];
+    const allowed = ['operation', 'name', 'version', 'digest', 'confirmed', 'force'];
     if ([...form.keys()].some(k => !allowed.includes(k)) || allowed.some(k => form.getAll(k).length > 1))
         return new Response('Invalid fields', { status: 400 });
     const operation = form.get('operation');
@@ -23,9 +23,9 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
         const change = operation === 'install'
             ? await ctx.fns.plugins.install({ name, ...(form.get('version') ? { version: form.get('version')! } : {}), ...confirm })
             : operation === 'remove'
-                ? await ctx.fns.plugins.uninstall({ name, ...confirm })
+                ? await ctx.fns.plugins.uninstall({ name, ...(form.get('force') === 'true' ? { force: true } : {}), ...confirm })
                 : operation === 'rollback'
-                    ? await ctx.fns.plugins.bunInstall({ operation: 'rollback', ...confirm })
+                    ? await ctx.fns.plugins.gitInstall({ operation: 'rollback', name, ...confirm })
                     : null;
         if (!change) return new Response('Invalid operation', { status: 400 });
         return { title: 'Plugin catalog', main: await ctx.fns.plugins.listingPage({ change, ...embed }) };

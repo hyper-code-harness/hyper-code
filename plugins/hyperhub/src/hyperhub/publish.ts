@@ -28,7 +28,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
     if(!/^[a-zA-Z0-9][a-zA-Z0-9_-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._-]*)*$/.test(opts.repo) || opts.repo.length > 240) throw new Error('Invalid repo');
     if(!path.isAbsolute(opts.dir) || (await fs.lstat(opts.dir)).isSymbolicLink()) throw new Error('Absolute non-symlink source directory required');
     const source = await fs.realpath(opts.dir), remote = new URL('/git/'+opts.repo+'.git',url).href;
-    const v = await ctx.fns.hyperhub.validateTree({dir:source});
+    const v = await ctx.fns.plugins.validateTree({dir:source});
     if(!/^[a-z][a-z0-9-]{0,63}$/.test(v.name)) throw new Error('Invalid plugin name');
     const targetPath = 'plugins/'+v.name, prefix = targetPath+'/';
     const status = await ctx.fns.hyperhub.registryRequest({baseUrl:url.origin,action:'repoStatus',repo:opts.repo});
@@ -70,8 +70,8 @@ export default async function (ctx: Context, session: Session | null, opts: {
         }
         const digest = new Bun.CryptoHasher('sha256').update(JSON.stringify(['publish-v3',source,remote,'main',v.name,targetPath,v.digest,repositoryExists,baseCommit,baseTree,removedFiles,!!opts.createRepo])).digest('hex');
         const snapshot = path.join(stage,'snapshot');
-        await fs.cp(source,snapshot,{recursive:true,dereference:false,filter:entry => entry !== path.join(source,'.hyperhub-lock.json')});
-        const copied = await ctx.fns.hyperhub.validateTree({dir:snapshot});
+        await fs.cp(source,snapshot,{recursive:true,dereference:false,filter:entry => entry !== path.join(source,'.plugin-lock.json')});
+        const copied = await ctx.fns.plugins.validateTree({dir:snapshot});
         if(copied.digest !== v.digest) throw new Error('Source changed during preview');
         let commit:string|null = null;
         if(opts.confirmed) {

@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { testCtx } from "../../$test";
 
-// Official plugins mounted: the search cases below look for duckdb.* and telegram.*.
+// Official plugins mounted: the hybrid case below looks for telegram.*.
 const ctx = await testCtx({ env: { PROCS_PLUGINS: "./plugins" } });
 
 // The index is built once for the file; the tests only read it.
@@ -32,10 +32,10 @@ test("a changed function is rewritten, its unchanged neighbours are not", async 
 });
 
 test("BM25 search and lexical fallback find the same intended function", async () => {
-    const bm25 = await ctx.fns.runtime.docs.search({ query: "read only duckdb sql query", mode: "bm25", limit: 3 });
-    const lexical = await ctx.fns.runtime.docs.search({ query: "read only duckdb sql query", mode: "lexical", limit: 3 });
-    expect(bm25[0]?.name).toBe("duckdb.query");
-    expect(lexical[0]?.name).toBe("duckdb.query");
+    const bm25 = await ctx.fns.runtime.docs.search({ query: "watch database query rows and wake agent", mode: "bm25", limit: 3 });
+    const lexical = await ctx.fns.runtime.docs.search({ query: "watch database query rows and wake agent", mode: "lexical", limit: 3 });
+    expect(bm25[0]?.name).toBe("agent.watch");
+    expect(lexical[0]?.name).toBe("agent.watch");
     expect(bm25[0]?.bm25).toBeGreaterThan(0);
 });
 

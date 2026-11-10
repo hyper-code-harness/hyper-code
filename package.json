@@ -76,7 +76,6 @@
       "browser": {},
       "brave": {},
       "websearch": {},
-      "duckdb": {},
       "youtube": {},
       "gplaces": {},
       "gcs": {},
@@ -115,9 +114,6 @@
       },
       "reladraw": {
         "path": "plugins/reladraw"
-      },
-      "mermaid": {
-        "path": "plugins/mermaid"
       },
       "marker": {
         "path": "plugins/marker"

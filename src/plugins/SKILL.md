@@ -12,7 +12,7 @@ For runtime ownership, current lifecycle limitations, and the proposed opt-in lo
 ## Choose the right home
 
 - Put substantial private integrations in a direct child of the configured external `USER_PLUGINS` directory, not the repository's official `plugins/` tree. Resolve the configured directory instead of assuming a particular home path. Valid user children are mounted automatically by discovery; adding or changing runtime files still requires loading/reloading.
-- Official plugins live in this repository's `plugins/<name>/`; changes there are shared product work, not private customization.
+- Plugins meant for others are published as their own repository and installed from the catalog (see Publishing below). The repository's `plugins/<name>/` folders are being moved out that way.
 - Use `.hyper/<namespace>/<function>.ts` for small project-local procedures. It is an additional runtime root, not a full plugin package.
 - Mounted plugins execute trusted server code with the host's authority. Metadata validation and managed-copy checks are not a sandbox. Review code before loading it.
 
@@ -256,32 +256,34 @@ Legacy `$setting_*` declarations with `type: "secret"` remain read-only in this 
 
 A configuration widget must be a mounted runtime function owned by the plugin, callable with `{}` and returning `Promise<string>` containing an HTML fragment. Keep GET rendering read-only: no sends, writes, account changes or other outward actions merely from visiting the page. Its HTML is trusted mounted-plugin code, not untrusted content made safe by a sandbox; escape external text. Any custom buttons/forms must target the plugin's own endpoints, whose authentication, authorization, CSRF defenses, input validation and explicit confirmation requirements remain the plugin author's responsibility. The generic settings whitelist does not authorize custom actions.
 
-## Repository format: independent plugins in one repository
+## Publishing: one plugin, one repository, releases are tags
 
-Use the same layout for a repository containing one plugin or several:
+A plugin others install lives in its own Git repository, package at the root:
 
 ```text
 <repository>/
-  README.md                 # optional repository overview
-  plugins/
-    example/
-      package.json
-      SKILL.md
-      src/example/status.ts
-    another/
-      package.json
-      SKILL.md
-      src/another/status.ts
+  package.json      # name, version, procs { label, icon, description, requires? }
+  SKILL.md
+  src/<namespace>/…
 ```
 
-Each `plugins/<name>` directory is a complete plugin package. Its directory basename must equal its validated `package.json` name (an unscoped lowercase plugin name); do not use repository names or arbitrary paths as substitutes for plugin identity. Each plugin owns independent runtime namespaces and must not require sibling plugins or shared repository-local runtime code. Calling built-in core procedures is still normal. No root bundle manifest, root package.json, shared dependency installation or root README is required. A repository groups source and Git history; it is not a combined runtime plugin.
+- **Release** = a semver tag `vX.Y.Z` equal to `version` in package.json. Bump, commit, `git tag v1.2.0`, push the tag. Nothing else changes anywhere.
+- **Plugins it needs** go to `procs.requires: ["duckdb"]`. Installing it installs them too (newest release from the catalog); removing one that another installed plugin requires is refused. A plugin it only *uses when present* is not a requirement: call it optionally (`(ctx.fns as any).duckdb?.query`) and say so in SKILL.md.
+- **npm libraries** go to `dependencies` as usual; bun installs them beside the plugin. Install lifecycle scripts (`preinstall`, `install`, `postinstall`, `prepare`) are refused and never run; a `test` script is fine.
+- **Tests** run against Hyper without being inside it: `import { testCtx } from "hyper:test"` in a `*.test.ts`, then `bun <hyper-code>/script/plugin-test.ts .`. That mounts the plugin, what it requires and the plugins among its devDependencies (put e.g. `"duckdb": "github:hyper-code-harness/duckdb#v1.0.0"` there to test an optional integration).
+- **Listings.** A listing is an `index.json` (format 2) built from one `plugins/<name>.json` per plugin: `name, label, icon, description, source: "github:owner/repo"` — no version. The public one is `hyper-code-harness/plugins`; add a plugin there by pull request once, its releases are found from its tags. The setting `plugins.listings` (env `PLUGIN_LISTINGS`, comma-separated) is an ordered list, so a team or a person adds its own listing next to the public one. A name in several listings keeps the first listing's entry and the clash is shown, never silently replaced.
 
-Publish one selected plugin subtree at a time. Publication must preserve sibling plugins, unrelated root files and existing repository history; it must not replace the repository with the selected package. Legacy repositories with a plugin at the root remain readable for compatibility. Reading or publishing another plugin is not permission to silently move, delete or migrate that legacy root package. See `plugins/hyperhub/SKILL.md` for the provider's publication workflow and registry prerequisites.
+## Installing from the catalog
 
-Repository storage and runtime activation are separate. The current HyperHub materializer fetches the whole repository into temporary storage and copies only the selected plugin into the managed destination. This is not a persistent bundle cache or a repository-wide install/enable operation. A persistent repository cache with separately enabled plugin subtrees is planned, not implemented by that workflow. Keep installed managed copies under the configured `USER_PLUGINS` layout; do not manually point discovery at a proposed cache.
+`PLUGIN_HOST` (e.g. `~/.hyper/plugins`) is a bun package whose direct dependencies are the installed plugins, mounted as user plugins.
+
+- `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `update`, `requires`, or `providedBy` when a module mounted from elsewhere already owns the name.
+- `plugins.install({ name, version? })` — preview: the plugin, the plugins it requires that are missing (`companions`), files, packages, conflicts and a `digest`. Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it.
+- `plugins.uninstall({ name })` — preview, then confirm the same way. `plugins.bunInstall({ operation: "rollback" })` restores the previous host state.
+- People do the same on `/plugins/listing` (the Catalog tab). Ask the person before confirming an install for them: plugin code runs in this process with full authority.
 
 ## Discovery is not installation
 
 A plugin can be discoverable or available from a provider without being mounted. Use the plugin lifecycle APIs and their review/confirmation workflow to install, activate, replace or remove plugins; do not treat a search result, domain match, or configuration declaration as permission. Publishing is a separate outward action requiring its own explicit authorization.
 
-Managed local copies have stricter limits than ordinary configured local mounts: `package.json` and `SKILL.md` are required, the name must be an unscoped lowercase basename, `procs.src` must stay inside the tree, and a nonempty source tree is required. Managed copies reject symlinks, embedded `.git`/`node_modules`, likely credential files, package scripts and nonempty dependency declarations; bounded file counts, sizes and metadata apply. Host/multi-plugin manifests are not installable as a plugin. These checks protect copying and provenance, not runtime isolation. Consult `plugins.validateTree` and the current provider workflow for exact limits instead of assuming discovery implies installability.
+Catalog installs are checked by `plugins.inspectPackage`: an unscoped lowercase name, a `procs` block with `procs.src` inside the package, a nonempty source tree, no symlinks or likely credential files, no install lifecycle scripts, bounded file counts and sizes. Host/multi-plugin manifests are not installable as a plugin. These checks are structural, not runtime isolation: review the code (the preview lists every file) before confirming.

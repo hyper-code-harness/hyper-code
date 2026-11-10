@@ -39,7 +39,7 @@ export default async function (
      for(const entry of entries){
       const match=/^(100644|100755) blob [0-9a-f]+ +([0-9]+)\t(.+)$/.exec(entry),file=match?.[3];
       if(!file||file.split('/').some(x=>!x||x==='.'||x==='..')||/[\\\r\n]/.test(file))throw new Error('Unsafe Git tree');
-      if(file.split('/').some(x=>x==='.plugin-lock.json'||x==='.hyperhub-lock.json'||x==='.git'))throw new Error('Registry source must not contain installation provenance or Git metadata');
+      if(file.split('/').some(x=>x==='.plugin-lock.json'||x==='.git'))throw new Error('Registry source must not contain installation provenance or Git metadata');
       const size=Number(match?.[2]);if(size>2_000_000||(bytes+=size)>20_000_000)throw new Error('Plugin exceeds size limit');
      }
      const archive=path.join(stage,'plugin.tar');

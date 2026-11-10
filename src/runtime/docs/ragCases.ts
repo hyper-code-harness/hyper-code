@@ -37,7 +37,7 @@ export default function (_ctx: Context, _session: Session | null, opts: {
 const CASES: types.runtime.docs.RagCase[] = [
     // ---- original hand-written probes -------------------------------------
     { query: "send a telegram message", expected: ["telegram.send"], relevant: ["telegram.sendFile", "telegram.messages"], source: "synthetic" },
-    { query: "read only duckdb sql", expected: ["duckdb.query"], relevant: ["duckdb.run", "duckdb.ndjson"], source: "synthetic" },
+    { query: "durably watch a condition and wake the agent", expected: ["agent.watch"], relevant: ["agent.wake"], source: "synthetic" },
     { query: "wait until a condition becomes true then resume the agent", expected: ["agent.watch"], source: "synthetic" },
     { query: "list unread gmail messages", expected: ["gmail.list"], relevant: ["gmail.get"], source: "synthetic" },
     { query: "create a GitHub issue", expected: ["gh.createIssue"], relevant: ["gh.issues", "gh.issue"], source: "synthetic" },

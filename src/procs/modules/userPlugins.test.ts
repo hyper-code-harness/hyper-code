@@ -49,3 +49,43 @@ test("rejects user plugin function collisions", async () => {
         rmSync(root, { recursive: true, force: true });
     }
 });
+
+function pluginHost(): string {
+    const host = mkdtempSync(join(tmpdir(), "hyper-plugin-host-"));
+    const plugin = (name: string, ns: string) => {
+        const dir = join(host, "node_modules", name);
+        mkdirSync(join(dir, "src", ns), { recursive: true });
+        writeFileSync(join(dir, "package.json"), JSON.stringify({ name, version: "1.0.0", procs: { src: "src" } }));
+        writeFileSync(join(dir, "src", ns, "ping.ts"), "export default async function () { return 'pong'; }\n");
+    };
+    plugin("hostdemo", "hostdemo");
+    plugin("transitive", "transitive");
+    writeFileSync(join(host, "package.json"), JSON.stringify({ name: "hyper-plugins", private: true, dependencies: { hostdemo: "github:x/hostdemo#v1" } }));
+    return host;
+}
+
+test("PLUGIN_HOST mounts only the host's direct dependencies, as user plugins", async () => {
+    const host = pluginHost();
+    try {
+        const ctx = await testCtx({ env: { PLUGIN_HOST: host } });
+        const mounted = ctx.fns.procs.modules.list({}) as any[];
+        const demo = mounted.find(m => m.name === "hostdemo");
+        expect(demo?.source).toBe("user");
+        expect(demo?.plugin).toBe(true);
+        expect(await (ctx.fns as any).hostdemo.ping({})).toBe("pong");
+        expect(mounted.some(m => m.name === "transitive")).toBe(false);
+    } finally {
+        rmSync(host, { recursive: true, force: true });
+    }
+});
+
+test("PLUGIN_HOST plugins cannot override core functions", async () => {
+    const host = pluginHost();
+    mkdirSync(join(host, "node_modules", "hostdemo", "src", "plugins"), { recursive: true });
+    writeFileSync(join(host, "node_modules", "hostdemo", "src", "plugins", "list.ts"), "export default async function () { return []; }\n");
+    try {
+        await expect(testCtx({ env: { PLUGIN_HOST: host } })).rejects.toThrow(/collisions.*plugins\.list/s);
+    } finally {
+        rmSync(host, { recursive: true, force: true });
+    }
+});

@@ -23,7 +23,7 @@ test("default port Host is allowed", async () => {
     expect(await guard(context(), null, { req: request("localhost:80", { origin: "http://localhost" }) })).toBeUndefined();
 });
 test("localhost browser and originless CLI accepted", async () => {
-    for (const headers of [{}, { origin: "http://localhost:3000" }]) expect(await guard(context(), null, { req: request(undefined, headers) })).toBeUndefined();
+    for (const headers of [{}, { origin: "http://localhost:3000" }] as Record<string, string>[]) expect(await guard(context(), null, { req: request(undefined, headers) })).toBeUndefined();
 });
 test("domain checking disabled permits arbitrary same-origin host but retains other guards", async () => {
     const ctx = context("192.0.2.1", [], false);
@@ -56,7 +56,7 @@ test("guard precedes redirect, public routes and sidebar exemptions", async () =
     for (const path of ["/auth/login", "/sidebar/api/test", "/sidebar/approve/test", "/procs/repl"]) expect((await middleware(ctx, null, { req: request("evil.example", {}, path, "GET") }))?.status).toBe(403);
 });
 test("originless browser writes fail closed and Referer is validated", async () => {
-    for (const headers of [{ "sec-fetch-site": "same-site" }, { "sec-fetch-site": "same-origin" }, { referer: "https://evil.example/a" }, { referer: "null" }]) {
+    for (const headers of [{ "sec-fetch-site": "same-site" }, { "sec-fetch-site": "same-origin" }, { referer: "https://evil.example/a" }, { referer: "null" }] as Record<string, string>[]) {
         expect((await guard(context(), null, { req: request(undefined, headers) }))?.status).toBe(403);
     }
 });

@@ -41,7 +41,7 @@ export default async function (ctx: Context, _session: Session | null, opts: Par
     const sizes = history.map((m) => JSON.stringify(m).length);
     let size = sizes.reduce((s, n) => s + n, 0);
     let start = 0;
-    while (start < history.length - 1 && (size > budget || history[start]?.role === "tool")) size -= sizes[start++];
+    while (start < history.length - 1 && (size > budget || history[start]?.role === "tool")) size -= sizes[start++]!;
     history = history.slice(start);
     for (;;) {
         opts.signal?.throwIfAborted();

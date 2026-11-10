@@ -10,6 +10,8 @@
 
     // Bundler mode
     "moduleResolution": "bundler",
+    // Bun resolves the "bun" export condition (packages from git ship TypeScript sources there, no dist).
+    "customConditions": ["bun"],
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,

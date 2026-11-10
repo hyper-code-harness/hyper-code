@@ -104,7 +104,7 @@ test("transaction: concurrent commit/rollback and outside query use separate con
         expect(new Set([...pids, outside]).size).toBe(3);
         expect(await parallel.fns.procs.db.conn({})).toBe(pool);
         release.resolve();
-        expect(pids).toContain(await a);
+        expect(pids).toContain(await a as number);
         expect(await b).toBe("concurrent rollback");
     } finally {
         release.resolve();

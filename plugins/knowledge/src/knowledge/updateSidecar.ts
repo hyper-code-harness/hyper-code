@@ -24,7 +24,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         // Match the writer's eligible-source view: rows excluded from the LLM are
         // not evidence. The durable cutoff itself need not remain visible here.
         const messages = await ctx.fns.session.getMessages({ id: agent.id });
-        const sourceMessages = messages.filter(m => (m.role === "user" || m.role === "tool") && Number.isSafeInteger(m.idx) && m.idx > lastIdx && m.idx <= messageIdx)
+        const sourceMessages = messages.filter(m => (m.role === "user" || m.role === "tool") && typeof m.idx === "number" && Number.isSafeInteger(m.idx) && m.idx > lastIdx && m.idx <= messageIdx)
             .map(m => ({ idx: m.idx as number, role: String(m.role), content: typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((p: {type?: string}) => p.type === "text").map((p: {text?: string}) => p.text ?? "").join("\n") : "" }));
         // Fail rather than silently truncate and incorrectly mark unseen sources as extracted.
         if (sourceMessages.length > 500 || JSON.stringify(sourceMessages).length > 400_000) throw new Error(`Knowledge source window exceeds extraction limit (${sourceMessages.length} messages since checkpoint ${lastIdx}); watermark preserved. Re-enable tracking via knowledge.setTracking to start from the current end of the chat.`);

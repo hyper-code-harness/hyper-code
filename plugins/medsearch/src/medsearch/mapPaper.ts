@@ -15,7 +15,7 @@ export default async function (
         ? r.authorList.author.map((a) => a.fullName || [a.firstName, a.lastName].filter(Boolean).join(" ")).filter(Boolean)
         : String(r.authorString || "").split(/,\s*/).map((x) => x.trim()).filter(Boolean);
     const meshTerms = Array.isArray(r.meshHeadingList?.meshHeading)
-        ? r.meshHeadingList.meshHeading.map((m) => m.descriptorName || m.meshHeading).filter(Boolean)
+        ? r.meshHeadingList.meshHeading.map((m) => m.descriptorName || m.meshHeading).filter((t): t is string => Boolean(t))
         : [];
     const publicationTypes = Array.isArray(r.pubTypeList?.pubType) ? r.pubTypeList.pubType.map(String) : [];
     return {

@@ -11,7 +11,7 @@ let proc: ReturnType<typeof Bun.spawn> | null = null;
 beforeAll(async () => {
     if (!available) return;
     proc = Bun.spawn(["bun", `${CP}/scripts/e2e-server.ts`, "http://hyper.test"], { stdout: "pipe", stderr: "inherit", cwd: CP });
-    const reader = proc.stdout.getReader();
+    const reader = (proc.stdout as ReadableStream<Uint8Array>).getReader();
     let buf = "";
     while (!buf.includes("\n")) { const { value, done } = await reader.read(); if (done) break; buf += new TextDecoder().decode(value); }
     cp = JSON.parse(buf.trim().split("\n").pop()!);

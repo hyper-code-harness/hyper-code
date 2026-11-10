@@ -13,7 +13,7 @@ test("projects widget: one pick and one panel per project plus Misc; panels open
     const out: any = await widget.render(ctx, null, { size: "wide", config: {} });
     const html: string = out.html;
     expect(html.match(/data-nav-project-pick="[^"]+"/g)).toEqual(['data-nav-project-pick="a"', 'data-nav-project-pick="misc"']);
-    const panel = (id: string) => html.split(`data-nav-project-panel="${id}"`)[1].split("data-nav-project-panel")[0];
+    const panel = (id: string) => html.split(`data-nav-project-panel="${id}"`)[1]!.split("data-nav-project-panel")[0]!;
     expect(panel("a")).toContain("/agent/new?project=a");
     expect(panel("a")).toContain("in project");
     expect(panel("a")).not.toContain("loose");

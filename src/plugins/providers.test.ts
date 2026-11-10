@@ -20,7 +20,7 @@ function fixture() {
 }
 
 test('no provider plugin is required, removed owner and removed entries disappear',async()=>{
- const f=fixture(); expect((await providers(f.ctx,null,{}))[0].id).toBe('sample');
+ const f=fixture(); expect((await providers(f.ctx,null,{}))[0]!.id).toBe('sample');
  f.modules.length=0;expect(await providers(f.ctx,null,{})).toEqual([]);
  await expect(dispatch(f.ctx,null,{provider:'sample',operation:'search',args:{}})).rejects.toThrow('Missing');
  f.modules.push({name:'sample',dir:'/sample'}); f.ctx.state.procs.boot.entries=[];
@@ -67,7 +67,7 @@ test('custom source root remains owned and unsafe configuration links are reject
  f.ctx.state.registry.sample.search.meta.abs='/sample/custom/code/sample/search.ts';f.ctx.state.registry.sample.materialize.meta.abs='/sample/custom/code/sample/materialize.ts';
  expect(await providers(f.ctx,null,{})).toHaveLength(1);
  for(const href of ['/\\\\evil.example','//evil.example','/\nevil','https://evil.example']){f.descriptor.fn.configurationHref=href;await expect(providers(f.ctx,null,{})).rejects.toThrow('Malformed');}
- f.descriptor.fn.configurationHref='/sample/config';expect((await providers(f.ctx,null,{}))[0].configurationHref).toBe('/sample/config');
+ f.descriptor.fn.configurationHref='/sample/config';expect((await providers(f.ctx,null,{}))[0]!.configurationHref).toBe('/sample/config');
 });
 
 test('classified dev.sync singleton imports changed descriptor using current boot ownership',async()=>{
@@ -76,6 +76,6 @@ test('classified dev.sync singleton imports changed descriptor using current boo
   await writeFile(abs,`export default ${JSON.stringify({...f.descriptor.fn,label:'Reloaded from disk'})};`);
   f.modules[0].dir=root;for(const e of f.ctx.state.procs.boot.entries){e.rootDir=root;e.abs=join(root,e.runtimeName?e.runtimeName+'.ts':'$plugin_provider_sample.ts');}
   f.ctx.state.registry.sample.search.meta.abs=join(root,'search.ts');f.ctx.state.registry.sample.materialize.meta.abs=join(root,'materialize.ts');
-  await loader(f.ctx,null,{entries:[{kind:'plugin',name:'provider_sample',abs}]});expect((await providers(f.ctx,null,{}))[0].label).toBe('Reloaded from disk');
+  await loader(f.ctx,null,{entries:[{kind:'plugin',name:'provider_sample',abs}]});expect((await providers(f.ctx,null,{}))[0]!.label).toBe('Reloaded from disk');
  } finally {await rm(root,{recursive:true,force:true});}
 });

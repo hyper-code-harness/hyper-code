@@ -103,7 +103,7 @@ describe("jobs", () => {
         const r = await ctx.fns.tools.call({ name: "bash", args: { command: "sleep 2; echo done", background: { wake: "report" } }, agent: a });
         expect(Date.now() - started).toBeLessThan(1500);
         expect(r.isError).toBe(false);
-        const id = /job (j[0-9a-f]+)/.exec(r.output)![1];
+        const id = /job (j[0-9a-f]+)/.exec(r.output)![1]!;
         const j = await until(ctx, id);
         expect(j).toMatchObject({ status: "succeeded", prompt: "report" });
     }, 15_000);
@@ -125,7 +125,7 @@ describe("jobs", () => {
         const r = await ctx.fns.tools.call({ name: "bash", args: { command: "echo one; sleep 3; echo two", timeout: 60, background: { afterMs: 400, wake: "Tests finished. Inspect failures." } }, agent: a });
         expect(Date.now() - started).toBeLessThan(2500);
         expect(r.output).toContain("Still running after 0s — moved to background job");
-        const id = /job (j[0-9a-f]+)/.exec(r.output)![1];
+        const id = /job (j[0-9a-f]+)/.exec(r.output)![1]!;
         expect(await until(ctx, id)).toMatchObject({ status: "succeeded" });
         const msg = (await inbox(ctx, a.id))[0].content;
         expect(msg).toContain("one\ntwo");
@@ -201,7 +201,7 @@ describe("to background", () => {
         const r = await call;
         expect(r.isError).toBe(false);
         expect(r.output).toContain("moved to the background");
-        const id = /job (j[0-9a-f]+)/.exec(r.output)![1];
+        const id = /job (j[0-9a-f]+)/.exec(r.output)![1]!;
         expect(ctx.fns.tools.runs({ agentId: a.id })).toHaveLength(0);
         const j = await until(ctx, id);
         expect(j).toMatchObject({ status: "failed", runner: "attached", result: { exitCode: 4 } });
@@ -223,7 +223,7 @@ describe("to background", () => {
         let run2: any;
         for (let i = 0; i < 50 && !run2?.detachable; i++) { await Bun.sleep(30); run2 = ctx.fns.tools.runs({ agentId: a.id })[0]; }
         ctx.fns.tools.detachRun({ id: run2.id });
-        const id2 = /job (j[0-9a-f]+)/.exec((await call2).output)![1];
+        const id2 = /job (j[0-9a-f]+)/.exec((await call2).output)![1]!;
         const handle = ctx.state.attachedJobs.get(id2);
         ctx.state.attachedJobs.delete(id2);
         expect(await until(ctx, id2)).toMatchObject({ status: "lost" });

@@ -5,7 +5,7 @@ export type TestRun = {
     finishedAt?: number;
     exitCode: number | null;
     /** which tests: fast (*.test.ts), it (*.it.test.ts), live (*.live.test.ts), all (fast + it) */
-    kind: TestKind;
+    kind: types.code.TestKind;
     /** true when only picked files ran (opts.path given): the report is .runtime/test-report-picked.xml */
     picked?: boolean;
     path: string;
@@ -22,6 +22,3 @@ export type TestRun = {
     /** names of the failed tests so far (last 200) */
     failed: string[];
 };
-
-/** A kind of test, by file name: fast *.test.ts, it *.it.test.ts (real processes), live *.live.test.ts (network); all = fast + it. */
-export type TestKind = "fast" | "it" | "live" | "all";

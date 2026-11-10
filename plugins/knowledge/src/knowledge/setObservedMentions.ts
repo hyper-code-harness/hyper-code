@@ -30,7 +30,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
         if (!row) throw new Error("Missing source agent");
         const prefix = row.parent_id ? await inherited(row.parent_id) : [];
         const own = await ctx.fns.session.getMessages({ id });
-        return [...(row.fork_offset == null ? prefix : prefix.slice(0, row.fork_offset)), ...own.map(m => ({ agentId: id, idx: Number(m.idx), role: String(m.role), content: typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((p: { type: string; text?: string }) => p.type === "text").map((p: { text?: string }) => p.text).join("\n") : "" }))];
+        return [...(row.fork_offset == null ? prefix : prefix.slice(0, row.fork_offset)), ...own.map(m => ({ agentId: id, idx: Number(m.idx), role: String(m.role), content: typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((p: Record<string, any>) => p.type === "text").map((p: Record<string, any>) => p.text).join("\n") : "" }))];
     };
     sourceMessages.push(...(await inherited(parentId)).filter(m => m.agentId !== parentId || m.idx <= cutoff));
     const locate = (quote: string, ref?: { sourceAgentId?: string; sourceMessageIdx?: number }) => {

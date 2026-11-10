@@ -7,7 +7,7 @@ export type ConfigurationResult = {
         key: string;
         descriptor: { type: string; title?: string; description?: string; env?: string; default?: string | number | boolean | null; options?: string[]; min?: number; max?: number };
         currentValue?: string | number | boolean | null;
-        source: 'db' | 'env' | 'default';
+        source: 'file' | 'db' | 'env' | 'default';
         secret: boolean;
         configured: boolean;
     }>;

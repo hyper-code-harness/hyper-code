@@ -33,8 +33,8 @@ test("retrieved candidates travel as a world_state row, not by rewriting the use
     const messages = await ctx.fns.session.getMessages({ id: agent.id });
     // The user's own words are left exactly as written — the catalogue is a row
     // of its own, so the transcript shows what the model actually saw.
-    expect(messages[0].content).toBe("send a telegram message");
-    const row = messages.findLast((message: any) => message.message_type === "world_state");
+    expect(messages[0]!.content).toBe("send a telegram message");
+    const row = messages.findLast((message: any) => message.message_type === "world_state")!;
     expect(row.content).toContain("<relevant_runtime_functions>");
     expect(row.content).toContain("telegram.send");
     // Cursor-excluded, like the status line: it answers no user turn.

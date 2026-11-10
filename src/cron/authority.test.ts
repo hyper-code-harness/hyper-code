@@ -26,7 +26,7 @@ test("grant rejects forged agent/system and unsupported scopes",async()=>{
  await ctx.fns.cron.setEnabled({name:"grant-test",enabled:false});
 });
 test("parallel owner services isolate scope, identity and cleanup; legacy has no authority",async()=>{
- for(const [name,owner] of [["parallel-a","owner-a"],["parallel-b","owner-b"]]){await add(name);await grant(name,owner);}
+ for(const [name,owner] of [["parallel-a","owner-a"],["parallel-b","owner-b"]] as const){await add(name);await grant(name,owner);}
  await add("legacy"); await drain();
  for(const [name,owner] of [["parallel-a","owner-a"],["parallel-b","owner-b"]]){const r=(await ctx.fns.cron.runs({name}))[0];expect(r.status).toBe("done");expect(r.result.authority.ownerId).toBe(owner);expect(r.result.wrong).toBeNull();expect(r.result.user).toBeNull();expect(r.result.agent).toBeNull();}
  expect((await ctx.fns.cron.runs({name:"legacy"}))[0].result.authority).toBeNull();

@@ -6,7 +6,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
     const q = new URL(opts.req.url).searchParams.get("kind") ?? "fast";
     if (!["fast", "it", "live", "all"].includes(q)) return Response.json({ error: "invalid kind: " + q }, { status: 400 });
     const body = (opts.req.headers.get("content-type") ?? "").includes("json") ? await opts.req.json().catch(() => null) : null;
-    const files = body?.files;
+    const files: unknown = (body as { files?: unknown } | null)?.files;
     if (files !== undefined && (!Array.isArray(files) || !files.length || files.some((f: unknown) => typeof f !== "string")))
         return Response.json({ error: "files must be a non-empty list of test file paths" }, { status: 400 });
     try {

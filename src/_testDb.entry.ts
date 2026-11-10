@@ -133,7 +133,7 @@ async function snapshotOf(admin: SQL): Promise<Snapshot> {
         WHERE n.nspname = 'public'`)).map((r: any) => r.relname as string));
     const schemas = new Set<string>((await admin.unsafe(`SELECT nspname FROM pg_namespace`)).map((r: any) => r.nspname as string));
     const migrations = (await admin.unsafe(`SELECT id FROM _migrations`)).map((r: any) => r.id as string);
-    return { tables: tables.filter(t => t !== "_migrations"), relations, schemas, migrations };
+    return { tables: tables.filter((t: string) => t !== "_migrations"), relations, schemas, migrations };
 }
 
 /** Back to the migrated template in every worker database a test touched since the last reset. */
@@ -184,7 +184,7 @@ async function resetOnce(w: Worker): Promise<void> {
     }
     // Only the tables that hold rows: one round trip to find them, one TRUNCATE for all.
     const probe = s.tables.map(t => `SELECT ${sqlString(t)} AS t WHERE EXISTS (SELECT 1 FROM public.${ident(t)})`).join(" UNION ALL ");
-    const full = probe ? (await sql.unsafe(probe)).map((r: any) => r.t as string) : [];
+    const full = probe ? (await sql.unsafe(probe)).map((r: any) => r.t as string) as string[] : [];
     if (full.length) await sql.unsafe(`TRUNCATE ${full.map(t => "public." + ident(t)).join(", ")} RESTART IDENTITY CASCADE`);
     // Sequences advanced by rows that were deleted, not truncated (ids start at 1 again, as on a fresh db).
     const seqs = await sql.unsafe(`SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' AND last_value IS NOT NULL`);

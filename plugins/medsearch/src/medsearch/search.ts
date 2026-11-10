@@ -61,7 +61,7 @@ export default async function (
     if (!ids.length) return { source, query: String(opts.query), total: Number(found.esearchresult?.count || 0), nextCursor: null, papers: [] };
     const details = await ctx.fns.medsearch.europepmc({ path: "search", params: { query: `EXT_ID:(${ids.join(" OR ")}) AND SRC:MED`, pageSize: String(ids.length), resultType: "core" } });
     const mapped = await Promise.all((details.resultList?.result ?? []).map((record: any) => ctx.fns.medsearch.mapPaper({ record })));
-    const byId = new Map(mapped.map((p: types.medsearch.Paper) => [p.pmid, { ...p, source: "pubmed" as const }]));
+    const byId = new Map<string | null, types.medsearch.Paper>(mapped.map((p: types.medsearch.Paper) => [p.pmid, { ...p, source: "pubmed" as const }]));
     let papers = ids.map((id) => byId.get(id)).filter((p): p is types.medsearch.Paper => Boolean(p));
     papers = rerank === "jev"
         ? await ctx.fns.medsearch.jevRank({ query: rankQuery, papers, limit, preselect: opts.jevCandidates, minScore: opts.minRelevance ?? 0.3 })

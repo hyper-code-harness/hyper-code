@@ -26,12 +26,12 @@ test("core testCtx excludes inherited plugin migrations before they execute", as
         expect(ctx.env.USER_PLUGINS).toBe("");
         expect(ctx.env.PROCS_PLUGINS).toBe("");
         expect(ctx.fns.procs.modules.list({}).some((m: any) => m.name.startsWith("isolation-"))).toBe(false);
-        expect(ctx.state.procs.migrate.list.some((m: any) => m.id.includes("tripwire"))).toBe(false);
+        expect(ctx.state.procs.migrate.list!.some((m: any) => m.id.includes("tripwire"))).toBe(false);
         // Explicit fixture mounts still work, but their migration must never run
         // during core setup either (including schema-qualified migrations).
         const mounted = await testCtx({ env: { USER_PLUGINS: join(root, "user") } });
         expect(mounted.fns.procs.modules.list({}).some((m: any) => m.name === "isolation-user")).toBe(true);
-        expect(mounted.state.procs.migrate.list.some((m: any) => m.id.includes("tripwire"))).toBe(false);
+        expect(mounted.state.procs.migrate.list!.some((m: any) => m.id.includes("tripwire"))).toBe(false);
     } finally {
         for (const key of ["USER_PLUGINS", "PROCS_PLUGINS"] as const) {
             if (previous[key] === undefined) delete process.env[key];

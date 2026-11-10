@@ -63,6 +63,13 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install plugin dependencies
+        # A plugin with npm dependencies keeps its own bun.lock; tsc and its tests need them installed.
+        run: |
+          for d in plugins/*/; do
+            if [ -f "$d/bun.lock" ]; then (cd "$d" && bun install --frozen-lockfile --ignore-scripts); fi
+          done
+
       - name: Generate ambient types
         # src/ctx_ns.d.ts is generated, not committed: its import paths point at
         # whatever is mounted on the machine that wrote it. Boot does this in

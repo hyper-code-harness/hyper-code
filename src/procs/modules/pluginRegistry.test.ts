@@ -45,7 +45,7 @@ test("registry orders exact roots, overrides optional/false and preserves user s
         f.plugin("plugins/optional",true);f.plugin("user/user-one",true);
         writeFileSync(join(f.dir,"workspace.json"),JSON.stringify({modules:{optional:false},pluginRegistry:{version:1,entries:[{path:"user/user-one",enabled:true},{path:"plugins/optional",enabled:true}]}}));
         const roots=(await discover(f.ctx,null,{})).filter(r=>r.plugin);
-        expect(roots.map(r=>r.name)).toEqual(["user-one","optional"]); expect(roots[0].source).toBe("user");expect(roots[1].optional).toBe(true);
+        expect(roots.map(r=>r.name)).toEqual(["user-one","optional"]); expect(roots[0]!.source).toBe("user");expect(roots[1]!.optional).toBe(true);
     }finally{f.close();}
 });
 test("disabled concrete roots never enter discovered source roots and missing disabled paths are allowed",async()=>{

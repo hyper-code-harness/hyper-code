@@ -8,11 +8,10 @@
 export default async function (ctx: Context, _session: Session | null, opts: { entries: any[] }): Promise<void> {
     const routes = (ctx.state.procs.http.routes ??= {});
     for (const entry of opts.entries) {
-        (routes[entry.routePath] ??= {}).GET = async () => {
+        (routes[entry.routePath] ??= {}).GET = async (rctx: Context, _s: Session | null, args?: { req?: Request }) => {
             const built = await buildScript(entry.abs, entry.fileName, ctx.fns.procs.project.runtimeDir({}));
-            return new Response(Bun.file(built), {
-                headers: { "content-type": contentTypeFor(entry.routePath), "cache-control": "public, max-age=0, must-revalidate" },
-            });
+            // Strong ETag + 304 — see http/serveFile: a repeat visit revalidates instead of re-downloading.
+            return rctx.fns.procs.http.serveFile({ path: built, contentType: contentTypeFor(entry.routePath), req: args?.req });
         };
         ctx.fns.procs.log.debug({ event: "load.script", msg: entry.routePath, from: `${entry.root}/${entry.rel}` });
     }

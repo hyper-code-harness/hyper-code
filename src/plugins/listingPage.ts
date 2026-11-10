@@ -8,6 +8,7 @@
  * @param opts.q Search words passed to plugins.catalog.
  * @param opts.change A previewed change to review, or an applied one to report.
  * @param opts.error Error message to show above the list.
+ * @param opts.embed Keep embed mode (`?embed=1`, no app navigation) on every link and form, for the framed catalog. @default false
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Search words passed to plugins.catalog. */
@@ -16,14 +17,17 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     change?: types.plugins.HostChange;
     /** Error message to show above the list. */
     error?: string;
+    /** Keep embed mode (`?embed=1`, no app navigation) on every link and form, for the framed catalog. @default false */
+    embed?: boolean;
 }): Promise<string> {
     const esc = (v: unknown) => Bun.escapeHTML(String(v ?? ''));
+    const self = opts.embed ? '/plugins/listing?embed=1' : '/plugins/listing';
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const icon = (v?: string) => v && /^ph-[a-z0-9-]+$/.test(v) ? `<i class="ph ${esc(v)}" aria-hidden="true"></i>` : '⊞';
     const form = (fields: Record<string, string>, label: string, primary = false) =>
-        `<form method="POST" action="/plugins/listing">${Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('')}<button class="pl-button${primary ? '' : ' pl-secondary'}" type="submit">${esc(label)}</button></form>`;
-    const head = `<link rel="stylesheet" href="/plugins/plugins.css"><div class="pl"><header class="pl-head"><div class="pl-mark" aria-hidden="true">⊞</div><div><h1>Plugin catalog</h1><p class="pl-sub">Plugins from their own repositories, installed with bun after review</p></div></header><nav class="pl-tabs" aria-label="Extensions"><a href="/plugins">Sources</a><a href="/plugins?tab=installed">Installed</a><a href="/plugins/listing" aria-current="page">Catalog</a></nav>`;
+        `<form method="POST" action="${self}">${Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('')}<button class="pl-button${primary ? '' : ' pl-secondary'}" type="submit">${esc(label)}</button></form>`;
+    const head = `<link rel="stylesheet" href="/plugins/plugins.css"><div class="pl"><header class="pl-head"><div class="pl-mark" aria-hidden="true">⊞</div><div><h1>Plugin catalog</h1><p class="pl-sub">Plugins from their own repositories, installed with bun after review</p></div></header>${opts.embed ? '' : '<nav class="pl-tabs" aria-label="Extensions"><a href="/plugins">Sources</a><a href="/plugins?tab=installed">Installed</a><a href="/plugins/listing" aria-current="page">Catalog</a></nav>'}`;
     const err = opts.error ? `<p class="pl-alert" role="alert">${esc(opts.error)}</p>` : '';
     const codes = (items: string[]) => items.map(i => `<code>${esc(i)}</code>`).join(' ') || 'none';
 
@@ -44,9 +48,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             + (c.companions?.length ? `<dt>Also installs</dt><dd>${c.companions.map(p => `<code>${esc(p.name)}${p.version ? ' ' + esc(p.version) : ''}</code> <span class="pl-origin">(${esc(p.spec)})</span>`).join('<br>')}</dd>` : '')
             + `<dt>New packages</dt><dd>${c.newPackages.length > 40 ? codes(c.newPackages.slice(0, 40)) + ` … and ${c.newPackages.length - 40} more` : codes(c.newPackages)}</dd>${c.blockedScripts ? `<dt>Scripts</dt><dd>${esc(c.blockedScripts)} — not run</dd>` : ''}</dl>`
             + list('Added', c.added) + list('Changed', c.changed) + list('Removed', c.removed)
-            + (done ? '' : `<p class="pl-note">◇ Review the source and files above. Plugin code runs in this Hyper process with full access once mounted; migrations it runs are not undone by rollback.</p><div class="pl-actions pl-confirm">${form(confirm, `Confirm ${verb.toLowerCase()}`, true)}<a class="pl-button pl-secondary" href="/plugins/listing">Cancel</a></div>`)
+            + (done ? '' : `<p class="pl-note">◇ Review the source and files above. Plugin code runs in this Hyper process with full access once mounted; migrations it runs are not undone by rollback.</p><div class="pl-actions pl-confirm">${form(confirm, `Confirm ${verb.toLowerCase()}`, true)}<a class="pl-button pl-secondary" href="${self}">Cancel</a></div>`)
             + (done && c.status === 'applied' && c.operation !== 'remove' ? `<p><a class="pl-back" href="/plugins/${encodeURIComponent(c.name)}">Open ${esc(c.name)}</a></p>` : '')
-            + `<p><a class="pl-back" href="/plugins/listing">Back to catalog</a></p></section>`;
+            + `<p><a class="pl-back" href="${self}">Back to catalog</a></p></section>`;
         return head + err + body + '</div>';
     }
 
@@ -67,7 +71,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const listed = new Set((cat?.plugins ?? []).map(p => p.name));
     const extra = opts.q ? '' : Object.keys(deps).filter(n => !listed.has(n)).map(n =>
         `<article class="pl-card"><div class="pl-icon" aria-hidden="true">⊞</div><div class="pl-body"><div class="pl-title"><h2>${esc(n)}</h2><span class="pl-badge">Installed · not in the catalog</span></div><div class="pl-meta"><code>${esc(deps[n])}</code></div></div><div class="pl-actions">${form({ operation: 'remove', name: n }, 'Remove')}</div></article>`).join('');
-    const search = `<form method="GET" action="/plugins/listing" class="pl-search" role="search"><input type="search" name="q" value="${esc(opts.q ?? '')}" placeholder="Search plugins: charts, sql, diagrams…" aria-label="Search plugins"><button class="pl-button" type="submit">Search</button></form>`;
+    const search = `<form method="GET" action="/plugins/listing" class="pl-search" role="search">${opts.embed ? '<input type="hidden" name="embed" value="1">' : ''}<input type="search" name="q" value="${esc(opts.q ?? '')}" placeholder="Search plugins: charts, sql, diagrams…" aria-label="Search plugins"><button class="pl-button" type="submit">Search</button></form>`;
     return head + err + search
         + (!host ? '<p class="pl-alert" role="status">PLUGIN_HOST is not configured; set it to a folder (e.g. ~/.hyper/plugins) to install from the catalog.</p>' : '')
         + (notices.length ? `<details class="pl-origin"><summary>${notices.length} catalog notice${notices.length === 1 ? '' : 's'}</summary><ul>${notices.map(n => `<li>${esc(n)}</li>`).join('')}</ul></details>` : '')

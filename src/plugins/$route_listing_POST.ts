@@ -17,6 +17,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
         return new Response('Invalid fields', { status: 400 });
     const operation = form.get('operation');
     const name = form.get('name') ?? '';
+    const embed = new URL(req.url).searchParams.get('embed') === '1' ? { embed: true } : {};
     const confirm = form.get('confirmed') === 'true' ? { confirmed: true, expectedDigest: form.get('digest') ?? '' } : {};
     try {
         const change = operation === 'install'
@@ -27,8 +28,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
                     ? await ctx.fns.plugins.bunInstall({ operation: 'rollback', ...confirm })
                     : null;
         if (!change) return new Response('Invalid operation', { status: 400 });
-        return { title: 'Plugin catalog', main: await ctx.fns.plugins.listingPage({ change }) };
+        return { title: 'Plugin catalog', main: await ctx.fns.plugins.listingPage({ change, ...embed }) };
     } catch (error) {
-        return { title: 'Plugin catalog', main: await ctx.fns.plugins.listingPage({ error: error instanceof Error ? error.message : 'Operation failed' }) };
+        return { title: 'Plugin catalog', main: await ctx.fns.plugins.listingPage({ error: error instanceof Error ? error.message : 'Operation failed', ...embed }) };
     }
 }

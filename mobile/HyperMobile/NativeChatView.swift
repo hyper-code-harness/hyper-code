@@ -684,8 +684,7 @@ private struct AgentCanvasSurface: View {
     @State private var command: WebNavigationCommand?
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, revision: events.revision, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+        VStack(spacing: 0) {
             HStack(spacing: 8) {
                 canvasControl("chevron.left", label: "Previous Canvas", disabled: !events.canSelectPrevious) {
                     events.selectPrevious(baseURL: baseURL, agentID: agentID)
@@ -693,27 +692,28 @@ private struct AgentCanvasSurface: View {
                 canvasControl("chevron.right", label: "Next Canvas", disabled: !events.canSelectNext) {
                     events.selectNext(baseURL: baseURL, agentID: agentID)
                 }
+                Spacer()
+                if isLoading { ProgressView().controlSize(.small) }
                 canvasControl("xmark", label: "Close Canvas", action: onClose)
             }
-            .padding(10)
-            if isLoading {
-                ProgressView().padding(12).background(.ultraThinMaterial, in: Circle())
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            .padding(.horizontal, 10)
+            .frame(height: 44)
+            .background(.bar)
+            Divider()
+            AgentCanvasWebView(baseURL: baseURL, agentID: agentID, revision: events.revision, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
         }
         .background(Color(.systemBackground))
     }
     private func canvasControl(_ systemName: String, label: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .semibold))
-                .frame(width: 38, height: 38)
-                .background(.ultraThinMaterial, in: Circle())
-                .shadow(color: .black.opacity(disabled ? 0.08 : 0.2), radius: 8, y: 3)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(disabled)
-        .opacity(disabled ? 0.4 : 1)
+        .opacity(disabled ? 0.35 : 1)
         .accessibilityLabel(label)
     }
 

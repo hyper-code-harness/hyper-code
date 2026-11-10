@@ -19,7 +19,11 @@ export default function (ctx: Context, _session: Session | null, opts: {
     if (location.file) return existsSync(location.file);
     if (!location.keychainService) return false;
     const user = ctx.env.USER ?? process.env.USER ?? "";
-    if (!user || process.platform !== "darwin") return false;
+    if (process.platform !== "darwin") {
+        const home = ctx.env.HOME ?? process.env.HOME ?? "";
+        return existsSync(`${location.dir ?? `${home}/.claude`}/.credentials.json`);
+    }
+    if (!user) return false;
     // No -w: only ask whether the item exists, never read the token into this
     // function or its logs.
     const proc = Bun.spawnSync({

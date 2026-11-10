@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from "node:fs";
 // Returns a currently-valid Claude Code subscription access_token.
 // Reads the OAuth pair from the macOS keychain item `Claude Code-credentials`
 // (the same one the official `claude` CLI uses), refreshes via Anthropic's
@@ -40,9 +41,13 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     }
 
     let creds: Creds;
-    const service = ctx.fns.llm.accountCredentialPath({ provider: "claude-code", account }).keychainService!;
+    const location = ctx.fns.llm.accountCredentialPath({ provider: "claude-code", account });
+    const service = location.keychainService!;
+    // Off macOS the claude CLI keeps the same JSON in <config dir>/.credentials.json.
+    const home = ctx.env.HOME ?? process.env.HOME ?? "";
+    const file = process.platform === "darwin" ? null : `${location.dir ?? `${home}/.claude`}/.credentials.json`;
     try {
-        const raw = readKeychain(user, service);
+        const raw = file ? readCredFile(file) : readKeychain(user, service);
         if (!raw) return null;
         creds = JSON.parse(raw);
     } catch (e: any) {
@@ -63,12 +68,12 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     const inflight: Map<string, Promise<string | null>> = ((ctx.state as any).llm ??= {}).claudeCodeRefresh ??= new Map();
     const pending = inflight.get(service);
     if (pending) return pending;
-    const p = refresh(ctx, user, service, creds).finally(() => inflight.delete(service));
+    const p = refresh(ctx, user, service, creds, file).finally(() => inflight.delete(service));
     inflight.set(service, p);
     return p;
 }
 
-async function refresh(ctx: Context, user: string, service: string, creds: Creds): Promise<string | null> {
+async function refresh(ctx: Context, user: string, service: string, creds: Creds, file: string | null): Promise<string | null> {
     const oauth = creds.claudeAiOauth;
     const now = Date.now();
 
@@ -89,7 +94,7 @@ async function refresh(ctx: Context, user: string, service: string, creds: Creds
         console.warn(`[claude-code] refresh failed ${res.status}: ${(await res.text()).slice(0, 300)}`);
         // The `claude` CLI shares this keychain item and may have rotated the
         // pair under us — adopt its token instead of failing the request.
-        const current = readCreds(user, service);
+        const current = readCreds(user, service, file);
         if (current && current.refreshToken !== oauth.refreshToken && current.expiresAt - Date.now() > 60_000) {
             console.log("[claude-code] using the pair another process refreshed");
             return current.accessToken;
@@ -116,7 +121,8 @@ async function refresh(ctx: Context, user: string, service: string, creds: Creds
                 expiresAt,
             },
         };
-        writeKeychain(user, service, JSON.stringify(updated));
+        if (file) writeFileSync(file, JSON.stringify(updated), { mode: 0o600 });
+        else writeKeychain(user, service, JSON.stringify(updated));
     } catch (e: any) {
         console.warn(`[claude-code] could not write refreshed creds: ${e?.message}`);
     }
@@ -124,13 +130,17 @@ async function refresh(ctx: Context, user: string, service: string, creds: Creds
     return newAccess;
 }
 
-function readCreds(user: string, service: string): Creds["claudeAiOauth"] | null {
+function readCreds(user: string, service: string, file: string | null): Creds["claudeAiOauth"] | null {
     try {
-        const raw = readKeychain(user, service);
+        const raw = file ? readCredFile(file) : readKeychain(user, service);
         return raw ? (JSON.parse(raw) as Creds).claudeAiOauth ?? null : null;
     } catch {
         return null;
     }
+}
+
+function readCredFile(path: string): string | null {
+    try { return readFileSync(path, "utf8").trim() || null; } catch { return null; }
 }
 
 function readKeychain(user: string, service: string): string | null {

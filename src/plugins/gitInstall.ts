@@ -18,6 +18,8 @@
  * @param opts.tag Release tag (vX.Y.Z) for install and update.
  * @param opts.commit Expected commit SHA of the tag; the preview fails when the tag points elsewhere.
  * @param opts.with Other plugins to clone in the same step, name → { repo, tag }: the plugins this one requires (plugins.install fills it).
+ * @param opts.replaces Absolute folder of an older copy of the same plugin this clone replaces (plugins.migrateToGit): modules mounted from it are not a namespace collision.
+ * @param opts.reload Remount plugins after applying; plugins.migrateToGit remounts once at the end. @default true
  * @param opts.force Remove a clone even though it has uncommitted or unpushed work. @default false
  * @param opts.confirmed Apply the previewed change. @default false
  * @param opts.expectedDigest Digest returned by the preview being confirmed.
@@ -35,6 +37,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     commit?: string;
     /** Other plugins to clone in the same step, name → { repo, tag }: the plugins this one requires. */
     with?: Record<string, { repo: string; tag: string }>;
+    /** Absolute folder of an older copy of the same plugin this clone replaces: modules mounted from it are not a namespace collision. */
+    replaces?: string;
+    /** Remount plugins after applying; plugins.migrateToGit remounts once at the end. @default true */
+    reload?: boolean;
     /** Remove a clone even though it has uncommitted or unpushed work. @default false */
     force?: boolean;
     /** Apply the previewed change. @default false */
@@ -73,7 +79,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (code && !allowFail) throw new Error(`git ${args[0]} failed: ${(err.trim().split('\n').at(-1) ?? String(code)).slice(0, 300)}`);
         return code ? '' : out.trim();
     };
-    const bunInstall = async (cwd: string) => {
+    const npmInstall = async (cwd: string) => {
         const pkg = JSON.parse(await fs.readFile(path.join(cwd, 'package.json'), 'utf8').catch(() => '{}'));
         if (!Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).length) return '';
         const p = Bun.spawn([process.execPath, 'install', '--ignore-scripts', '--production', '--no-save'], { cwd, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, BUN_BE_BUN: '1' } });
@@ -214,7 +220,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         await git(staged, ['checkout', '-q', '--detach', commit]);
         const tree = await git(staged, ['rev-parse', `${commit}^{tree}`]);
         await exclude(staged);
-        let log = await bunInstall(staged);
+        let log = await npmInstall(staged);
         const plugin = await ctx.fns.plugins.inspectPackage({ dir: staged });
         if (plugin.name !== name) throw new Error(`Package is ${plugin.name}, not ${name}`);
 
@@ -226,7 +232,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const c = await tagCommit(dir, w.tag);
             await git(dir, ['checkout', '-q', '--detach', c]);
             await exclude(dir);
-            log += await bunInstall(dir);
+            log += await npmInstall(dir);
             const p = await ctx.fns.plugins.inspectPackage({ dir });
             if (p.name !== n) throw new Error(`Package is ${p.name}, not ${n}`);
             companions.push({ name: n, repo: w.repo, tag: w.tag, commit: c, tree: await git(dir, ['rev-parse', `${c}^{tree}`]), plugin: p, dir });
@@ -234,6 +240,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 
         // Namespaces are global: one owned by any other mounted module stays theirs — no silent override.
         const all = [{ name, plugin }, ...companions.map(c => ({ name: c.name, plugin: c.plugin }))];
+        const replaced = opts.replaces ? await fs.realpath(opts.replaces).catch(() => opts.replaces!) : null;
         for (const p of all) {
             const own = await fs.realpath(dirOf(p.name)).catch(() => dirOf(p.name));
             const claimed = all.filter(o => o !== p).flatMap(o => o.plugin.namespaces);
@@ -241,6 +248,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 if (claimed.includes(ns)) throw new Error(`Namespace collision: ${ns} is shipped by more than one plugin of this change`);
                 for (const m of modules().filter(m => m.namespaces.includes(ns))) {
                     const owner = await fs.realpath(m.dir).catch(() => m.dir);
+                    if (replaced && p.name === name && (owner === replaced || owner.startsWith(replaced + '/'))) continue;
                     if (owner !== own && !owner.startsWith(own + '/')) throw new Error(`Namespace collision: ${ns} is provided by ${m.name}`);
                 }
             }
@@ -300,6 +308,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         }
         for (const c of companions) lock.plugins[c.name] = { repo: c.repo, tag: c.tag, commit: c.commit, previous: [] };
         await ctx.fns.plugins.lockFile({ lock });
+        if (opts.reload === false) return { ...result, status: 'applied' };
         try {
             await ctx.fns.procs.modules.reload({});
             return { ...result, status: 'applied' };

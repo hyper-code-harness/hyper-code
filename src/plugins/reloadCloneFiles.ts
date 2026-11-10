@@ -20,6 +20,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const out = { reloaded: [] as string[], routes: false, remounted: false, errors: {} as Record<string, string> };
     if (!configured) return out;
     const mount = path.resolve(configured.replace(/^~(?=\/)/, String(ctx.env.HOME || os.homedir())));
+    // A plugin operation (plugins.gitInstall) in progress remounts by itself when it is done.
+    if (await fs.lstat(path.join(path.dirname(mount), '.plugin-operation-lock')).then(() => true, () => false)) return out;
     const board: Map<string, string> = (((ctx.state.procs as any).dev ??= {}).errors ??= new Map());
     const modules = ctx.state.procs.modules ?? [];
     const srcOf = new Map<string, string | null>();

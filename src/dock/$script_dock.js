@@ -164,12 +164,12 @@
     document.addEventListener('click', e => { if (e.target.closest?.('#dock [data-action="open-global-menu"]')) { e.preventDefault(); window.__navOpen?.(); } });
     document.addEventListener('click', e => { const b = e.target.closest?.('[data-dock-mode-set]'); if (b) { e.preventDefault(); setMode(b.dataset.dockModeSet); } });
     window.hyperDockMode = { get: mode, set: setMode };
-    document.addEventListener('keydown', e => {
-        if (e.key.toLowerCase() !== 'b' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.isComposing) return;
-        if (!dock()) return;
-        e.preventDefault();
-        setMode(MODES[(MODES.indexOf(mode()) + 1) % MODES.length]);
-    });
+    // Bound to ⌘B / Ctrl+B in src/keys/$keymap_default.ts.
+    (window.hyperCommands ??= {})['dock.cycleMode'] = {
+        title: 'Cycle the Dock: bar → menu → dot', group: 'dock',
+        run: () => setMode(MODES[(MODES.indexOf(mode()) + 1) % MODES.length]),
+        when: () => !!dock(),
+    };
     // Another browser tab changed the mode: follow it.
     window.addEventListener('storage', e => { if (e.key === 'hyper-dock-mode') setMode(e.newValue || 'bar'); });
 

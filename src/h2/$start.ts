@@ -122,7 +122,7 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     });
     // WebSockets arrive as HTTP/1.1 upgrades (no RFC 8441 over h2); see h2/wsProxy.
     server.on("upgrade", (req: any, socket: any, head: any) => ctx.fns.h2.wsProxy({ req, socket, head }));
-    await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, cfg.host || "0.0.0.0", () => ok()); });
+    await new Promise<void>((ok, fail) => { server.once("error", fail); server.listen(port, cfg.host || "127.0.0.1", () => ok()); });
     ctx.fns.procs.log.info({ event: "h2.started", msg: `https://${tsName && hasTsCert ? tsName : "localhost"}:${port} (HTTP/2${on(cfg.http1) ? " + HTTP/1.1" : " only, HTTP/1.1 for WebSockets"}, experimental)` });
     // Prove the WebSocket path end to end once; a failure is logged, never fatal.
     void ctx.fns.h2.wsSelfCheck({ port, servername: hasTsCert ? tsName ?? undefined : undefined })

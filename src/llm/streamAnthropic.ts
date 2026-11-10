@@ -44,7 +44,10 @@ export default async function (
         system,
         messages,
         stream: true,
-        max_tokens: 16384,
+        // Output budget per response: as large as the model allows, so a long tool call
+        // (a whole file in one write) is not cut off. A provider that rejects the value
+        // gets a smaller one on retry below.
+        max_tokens: /opus-(4-[6-9]|5)|sonnet-5|fable|mythos/.test(ep.modelId) ? 128000 : 64000,
     };
 
     // "auto" as the applied level (Claude 5 default) sends nothing: the model decides, as before levels existed.
@@ -107,12 +110,22 @@ export default async function (
         headers["anthropic-beta"] = [headers["anthropic-beta"], "compact-2026-09-04"].filter(Boolean).join(",");
     }
 
-    const res = await ctx.fns.llm.connectFetch({ url: ep.url, init: {
+    const send = () => ctx.fns.llm.connectFetch({ url: ep.url, init: {
         method: "POST",
         headers,
         body: JSON.stringify(body),
         signal: opts.signal,
     } });
+    let res = await send();
+    // Too large an output budget for this model/provider is a 400 naming max_tokens:
+    // step down instead of failing the turn.
+    for (const smaller of [64000, 32000, 16384]) {
+        if (res.ok || res.status !== 400 || body.max_tokens <= smaller) break;
+        const errText = await res.clone().text();
+        if (!/max_tokens/i.test(errText)) break;
+        body.max_tokens = smaller;
+        res = await send();
+    }
     if (!res.ok) {
         // Same classification path as streamCodex: a spent Claude subscription
         // window must arrive at the worker as a parkable failure carrying its

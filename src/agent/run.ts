@@ -238,6 +238,29 @@ export default async function (
             await ctx.fns.session.syncAgentState({ agent });
             continue;
         }
+        // Cut off at the token limit before any tool call was formed (often a
+        // long thinking/prose preamble to a big write): ending the run here
+        // looked like the agent silently going idle. Say so and go again, a
+        // few times at most so a model that always overruns cannot loop.
+        if (finishReason === 'length' && toolCalls.length === 0) {
+            const cuts = (agent.scratchpad.lengthCuts = Number(agent.scratchpad.lengthCuts ?? 0) + 1);
+            await ctx.fns.session.appendErrorEvent({ id: agent.id, error: `reply truncated at token limit (${cuts}/3)` + (cuts >= 3 ? ' — stopping' : ' — retrying') });
+            if (cuts < 3) {
+                if (prose.trim()) await ctx.fns.session.appendMessage({ id: agent.id, message: { role: 'assistant', content: prose } });
+                await ctx.fns.session.appendMessage({ id: agent.id, message: {
+                    role: 'user',
+                    content: 'Your previous reply hit the output token limit and was cut off before any tool call, so nothing was executed. '
+                        + 'Continue, but keep each reply shorter: split large files into several write calls.',
+                    excluded_from_cursor: true,
+                } });
+                await ctx.fns.session.syncAgentState({ agent });
+                continue;
+            }
+            delete agent.scratchpad.lengthCuts;
+        } else if (finishReason !== 'length') {
+            delete agent.scratchpad.lengthCuts;
+        }
+
 
         // The assistant turn is ONE row, carrying both what it said and what it
         // called — that pairing is what the next request replays.

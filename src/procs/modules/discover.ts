@@ -209,25 +209,6 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
         }
     }
 
-    // PLUGIN_HOST: a bun package folder whose direct dependencies ARE the installed
-    // plugins (plugins.bunInstall writes it). Mounted like USER_PLUGINS children —
-    // active, source "user" so the boot collision guard covers them — but read from
-    // node_modules/<name>, and only names the host's package.json depends on:
-    // transitive packages bun put beside them are libraries, never plugins.
-    for (const { dir, name } of await hostPlugins(ctx)) {
-        const real = await realpath(dir).catch(() => dir);
-        if (seen.has(real)) continue;
-        const manifest = await readManifest(dir);
-        if (!manifest) { console.warn(`[modules] ${name}: installed in PLUGIN_HOST without a procs block`); continue; }
-        if (!registry && declared[name] === false) continue;
-        seen.add(real);
-        out.push({
-            ...await describe(ctx, session, { dir, name, manifest }),
-            name, dir: resolve(dir, manifest.src ?? "src"), folder: dir, source: "user", optional: false, plugin: true,
-            config: (declared[name] || {}) as Record<string, any>,
-        });
-    }
-
     // External: a repo modules.fetch cloned into WORKDIR/.claude/skills, or a
     // folder the project ships somewhere else.
     // Naming a folder that the scan above already found is not a second module,
@@ -306,18 +287,6 @@ async function readManifest(dir: string, project = false): Promise<any | null> {
     if (!await Bun.file(dir + "/src").stat().then(s => s.isDirectory()).catch(() => false)) return null;
     const workspace = await Bun.file(dir + "/workspace.json").json().catch(() => null);
     return { src: "src", label: workspace?.label, icon: workspace?.icon, description: workspace?.description };
-}
-
-// Direct dependencies of the PLUGIN_HOST package, resolved to node_modules/<name>.
-// Empty or unset PLUGIN_HOST disables the layer; a missing folder is just empty.
-async function hostPlugins(ctx: Context): Promise<Array<{ name: string; dir: string }>> {
-    const host = String(ctx.env.PLUGIN_HOST ?? "").trim();
-    if (!host) return [];
-    const root = resolve(host.replace(/^~(?=\/)/, String(ctx.env.HOME || homedir())));
-    const pkg = await Bun.file(join(root, "package.json")).json().catch(() => null);
-    return Object.keys(pkg?.dependencies ?? {})
-        .filter(name => /^[a-z][a-z0-9-]{0,63}$/.test(name))
-        .map(name => ({ name, dir: join(root, "node_modules", name) }));
 }
 
 // A prefix becomes a segment of every name the project ships, and a name is

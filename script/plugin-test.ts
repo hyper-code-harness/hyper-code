@@ -4,13 +4,13 @@
 //
 // A plugin test does `import { testCtx } from "hyper:test"` and gets the same booted ctx core tests get, with
 // only that plugin mounted — plus the plugins its package.json lists in procs.requires and the plugins among its
-// devDependencies (ones it uses when present), taken from the plugin's own node_modules or this machine's PLUGIN_HOST. They are mounted the way an
-// installed plugin is: a throwaway plugin host whose node_modules links to each of them. No official plugins, no
+// devDependencies (ones it uses when present), taken from the plugin's own node_modules or this machine's USER_PLUGINS. They are mounted the way an
+// installed plugin is: a throwaway USER_PLUGINS folder that links to each of them. No official plugins, no
 // USER_PLUGINS and no workspace.json of the machine take part. The test database is Hyper's (its .env).
 // Plugin migrations are not run.
 
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { timeoutFlag } from "./test";
@@ -29,26 +29,24 @@ async function manifest(dir: string): Promise<{ name: string; requires: string[]
     return { name: String(pkg.name), requires: Array.isArray(pkg.procs.requires) ? pkg.procs.requires.map(String) : [], devPlugins };
 }
 
-/** Builds a plugin host linking the plugin, its plugin devDependencies and, transitively, every plugin they require. */
+/** Builds a throwaway USER_PLUGINS folder linking the plugin, its plugin devDependencies and, transitively, every plugin they require. */
 export async function prepareHost(dir: string, env: Record<string, string | undefined> = process.env): Promise<{ host: string; plugins: Record<string, string> }> {
     const root = resolve(dir);
     const own = await manifest(root);
-    const machineHost = (env.PLUGIN_HOST ?? "").trim().replace(/^~(?=\/)/, env.HOME ?? "");
+    const machine = (env.USER_PLUGINS ?? "").trim().replace(/^~(?=\/)/, env.HOME ?? "");
     const plugins: Record<string, string> = { [own.name]: root };
     const queue = [...own.requires, ...own.devPlugins].map(name => ({ name, by: own.name }));
     while (queue.length) {
         const { name, by } = queue.shift()!;
         if (plugins[name]) continue;
-        const found = [join(root, "node_modules", name), ...(machineHost ? [join(machineHost, "node_modules", name)] : [])]
+        const found = [join(root, "node_modules", name), ...(machine ? [join(machine, name)] : [])]
             .find(d => existsSync(join(d, "package.json")));
         if (!found) throw new Error(`${by} requires ${name}: add it to devDependencies and run bun install`);
         plugins[name] = found;
         queue.push(...(await manifest(found)).requires.map(n => ({ name: n, by: name })));
     }
     const host = await mkdtemp(join(tmpdir(), "hyper-plugin-test-"));
-    await mkdir(join(host, "node_modules"));
-    for (const [name, path] of Object.entries(plugins)) await symlink(path, join(host, "node_modules", name), "dir");
-    await writeFile(join(host, "package.json"), JSON.stringify({ name: "plugin-test-host", private: true, dependencies: Object.fromEntries(Object.keys(plugins).map(n => [n, "link:" + n])) }));
+    for (const [name, path] of Object.entries(plugins)) await symlink(path, join(host, name), "dir");
     return { host, plugins };
 }
 

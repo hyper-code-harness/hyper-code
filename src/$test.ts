@@ -51,7 +51,6 @@ export async function testCtx(opts?: { root?: string; workdir?: string; env?: Re
     // host manifest. Tests of plugin discovery may explicitly opt into disposable fixtures via
     // opts.env; those fixtures must not migrate persistent/qualified schemas.
     ctx.env.USER_PLUGINS = "";
-    ctx.env.PLUGIN_HOST = "";
     ctx.env.PROCS_PLUGINS = "";
     // Tests never touch the working database: they go to the test Postgres (hyper-db-test, port 54399 in
     // docker-compose.yml) — TEST_DATABASE_URL, or DATABASE_URL with that port. A suite on the live server used
@@ -72,7 +71,7 @@ export async function testCtx(opts?: { root?: string; workdir?: string; env?: Re
     const pinnedDb = !!opts?.env?.DATABASE_URL;
 
     const shareable = ctx.state.root === defaultRoot && !opts?.workdir
-        && !opts?.env?.USER_PLUGINS && !opts?.env?.PLUGIN_HOST && !opts?.env?.PROCS_PLUGINS && opts?.env?.PROCS_PATH === undefined;
+        && !opts?.env?.USER_PLUGINS && !opts?.env?.PROCS_PLUGINS && opts?.env?.PROCS_PATH === undefined;
     const G = globalThis as any;
     if (shareable && G.__hyperTestBoot) {
         ctx.state = copyState(G.__hyperTestBoot);

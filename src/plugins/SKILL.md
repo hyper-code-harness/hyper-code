@@ -275,12 +275,24 @@ A plugin others install lives in its own Git repository, package at the root:
 
 ## Installing from the catalog
 
-`PLUGIN_HOST` (e.g. `~/.hyper/plugins`) is a bun package whose direct dependencies are the installed plugins, mounted as user plugins.
+An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag, commit, previous[] }`. npm dependencies are installed into the clone's own `node_modules` with scripts disabled.
 
-- `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `update`, `requires`, or `providedBy` when a module mounted from elsewhere already owns the name.
-- `plugins.install({ name, version? })` — preview: the plugin, the plugins it requires that are missing (`companions`), files, packages, conflicts and a `digest`. Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it.
-- `plugins.uninstall({ name })` — preview, then confirm the same way. `plugins.bunInstall({ operation: "rollback" })` restores the previous host state.
+- `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `tag`, `update`, `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.
+- `plugins.install({ name, version? })` — preview: repo, tag, commit, the plugins it requires that are missing (`companions`), files, packages, conflicts and a `digest` (commit + tree + content). Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it (`git fetch --tags` + checkout, diff in the preview).
+- `plugins.uninstall({ name, force? })` — preview, then confirm the same way; a clone with uncommitted or unpushed work also needs `force: true`.
+- `plugins.gitInstall({ operation: "rollback", name })` — back to the previous tag of the lock. Update and rollback refuse while the clone has local work and list it.
+- `plugins.installed({})` — per clone: lock tag, HEAD tag, commit, branch, dirty files, unpushed commits, ahead/behind, `fork`.
 - People do the same on `/plugins/listing` (the Catalog tab). Ask the person before confirming an install for them: plugin code runs in this process with full authority.
+
+## Changing an installed plugin
+
+The clone is a working copy, so a plugin is fixed where it runs. Saves under `USER_PLUGINS/*/src` hot-reload in production too (`plugins.watchClones`, started at boot; `PLUGIN_WATCH=0` turns it off); a broken file goes to the error board and the old version keeps running.
+
+- `plugins.edit({ name, branch? })` — leave the detached release tag for `main` (or a new branch).
+- `plugins.release({ name, version? })` — run the plugin's tests, bump `version` (patch + 1 by default), commit, tag `vX.Y.Z`, push branch and tag, move the lock. Refuses without push rights to origin.
+- `plugins.fork({ name })` — fork on GitHub with `gh`; old origin becomes `upstream`, origin the fork. Then release to the fork.
+- `plugins.syncUpstream({ name, merge? })` — fetch upstream, report behind/ahead, merge on request; a conflict aborts the merge and lists the files.
+- The plugin page (`/plugins/<name>`) shows the badges (`v1.0.1`, `edited`, `main +3`, `fork`) and the same actions as buttons.
 
 ## Discovery is not installation
 

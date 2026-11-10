@@ -1,5 +1,5 @@
 // Preload of script/plugin-test.ts: provides `hyper:test` to a plugin's tests. testCtx() is Hyper's own test
-// harness with the throwaway plugin host mounted, so the plugin under test (and what it requires) is in ctx.fns.
+// harness with the throwaway USER_PLUGINS folder mounted, so the plugin under test (and what it requires) is in ctx.fns.
 import { plugin } from "bun";
 import { testCtx } from "../src/$test";
 
@@ -12,7 +12,7 @@ plugin({
             loader: "object",
             exports: {
                 testCtx: (opts: { env?: Record<string, string> } = {}) =>
-                    testCtx({ ...opts, env: { ...opts.env, PLUGIN_HOST: host } }),
+                    testCtx({ ...opts, env: { ...opts.env, USER_PLUGINS: host } }),
             },
         }));
     },

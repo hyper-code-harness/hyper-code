@@ -25,6 +25,9 @@ export default async function (ctx: Context, session: Session | null, opts: { re
         {
             const user = who.user;
             if (!user && !who.legacy) {
+                // A page loading inside a frame (canvas tab) signs in from the top window, never inside the frame.
+                const dest = opts.req.headers.get("sec-fetch-dest");
+                if (opts.req.method === "GET" && (dest === "iframe" || dest === "frame")) return ctx.fns.auth.frameSignIn({ req: opts.req });
                 const wantsHTML = (opts.req.headers.get("accept") ?? "").includes("text/html") && opts.req.method === "GET";
                 if (wantsHTML) return new Response(null, { status: 303, headers: { location: `/auth/login?next=${encodeURIComponent(url.pathname + url.search)}`, "cache-control": "no-store" } });
                 return Response.json({ error: "unauthorized", message: "Authentication required" }, { status: 401, headers: { "cache-control": "no-store" } });

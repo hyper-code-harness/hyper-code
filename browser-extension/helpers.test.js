@@ -51,7 +51,7 @@ test('manifest is local MV3 with no injection or remote privileged scripts', asy
   const manifest = await Bun.file(new URL('./manifest.json', import.meta.url)).json();
   expect(manifest.manifest_version).toBe(3);
   expect(manifest.host_permissions).toEqual(['http://localhost/*', 'http://127.0.0.1/*', 'https://*/*']);
-  expect(manifest.content_scripts).toEqual([{matches: ['http://localhost/*', 'http://127.0.0.1/*', 'https://*/*'], js: ['hotkeys.js'], run_at: 'document_start'}]);
+  expect(manifest.content_scripts).toEqual([{matches: ['http://localhost/*', 'http://127.0.0.1/*', 'https://*/*'], js: ['hotkeys.js'], run_at: 'document_start', all_frames: true}]);
   expect(manifest.permissions).toContain('debugger');
   expect(manifest.content_security_policy.extension_pages).toContain("script-src 'self'");
   const worker = await Bun.file(new URL('./worker.js', import.meta.url)).text();

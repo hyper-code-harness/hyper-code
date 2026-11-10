@@ -41,6 +41,9 @@ type Sup = {
     env?: Record<string, string>; // one-shot env from the API (secrets): memory only, never on disk
 };
 const units = new Map<string, Sup>();
+// Opt-in only: a container must drain its services before PID 1 exits.
+const drainOnExit = process.env.HYPERD_SHUTDOWN === "stop";
+let shuttingDown = false;
 
 // ---- events -------------------------------------------------------------------------------------
 // events.ndjson is daily like out.log: rolled to events.<day>.ndjson on the first event of a new day
@@ -137,7 +140,10 @@ function start(s: Sup) {
 function signalRun(s: Sup, sig: string) {
     const child = (() => { try { return pidOf(s.unit.name, s.run, "child.pid"); } catch { return null; } })();
     if (!child) return false;
-    try { process.kill(-child, sig as any); return true; } catch {}
+    // Opt-in wrappers receive the initial signal alone; forced cleanup still reaches their entire group.
+    if (sig === "SIGKILL" || s.unit.stop?.target !== "process") {
+        try { process.kill(-child, sig as any); return true; } catch {}
+    }
     try { process.kill(child, sig as any); return true; } catch { return false; }
 }
 
@@ -153,8 +159,9 @@ function stop(s: Sup, reason = "stopped") {
 
 function onExit(s: Sup, exit: Exit) {
     s.lastExit = exit;
-    // a run that stayed up for a while (or passed a real ready check) resets the crash-loop counter
-    if (exit.at - (s.startedAt ?? exit.at) >= 10_000 || (s.unit.ready && s.readyAt)) s.restarts = 0;
+    // Container mode requires stable uptime: a ready-then-crash loop must exhaust its budget.
+    // Preserve the historical readiness reset for ordinary OS-supervised daemons.
+    if (exit.at - (s.startedAt ?? exit.at) >= 10_000 || (!drainOnExit && s.unit.ready && s.readyAt)) s.restarts = 0;
     const failed = exit.reason === "lost" || exit.signal != null || exit.code !== 0;
     emit(s.unit.name, "exited", { code: exit.code, signal: exit.signal, reason: exit.reason, ms: exit.at - (s.startedAt ?? exit.at) });
     const policy = policyOf(s.unit);
@@ -376,8 +383,10 @@ async function scanFiles(autostart: boolean) {
                 const changed = !prev || JSON.stringify(prev.unit) !== JSON.stringify(unit);
                 const s = register(unit, "file", path);
                 if (changed) emit(unit.name, prev ? "changed" : "loaded", { file: path });
-                // autostart only for units hyperd has not seen before; known ones keep their recovered want/state
-                if (autostart && !prev && (unit.autostart ?? kindOf(unit) === "service") && !s.want && ["stopped", "exited", "failed"].includes(s.state)) start(s);
+                // Container drain records why it stopped: restart those services on the next boot,
+                // but preserve manually stopped services and ordinary daemon adoption semantics.
+                const drained = drainOnExit && s.lastExit?.reason === "daemon_shutdown";
+                if (autostart && (!prev || drained) && (unit.autostart ?? kindOf(unit) === "service") && !s.want && ["stopped", "exited", "failed"].includes(s.state)) start(s);
             } catch (error: any) {
                 errors.push(String(error?.message ?? error).startsWith(f) ? String(error.message) : `${f}: ${error?.message ?? error}`);
             }
@@ -402,7 +411,8 @@ async function handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const parts = url.pathname.split("/").filter(Boolean);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) as any : {};
-    if (url.pathname === "/health") return json({ ok: true, pid: process.pid, seq, units: units.size, home: HOME });
+    if (shuttingDown && req.method !== "GET") return fail("daemon is shutting down", 503);
+    if (url.pathname === "/health") return json({ ok: !shuttingDown, pid: process.pid, seq, units: units.size, home: HOME }, shuttingDown ? 503 : 200);
     if (url.pathname === "/status") return json({ pid: process.pid, seq, units: [...units.values()].map(view) });
     if (url.pathname === "/reload" && req.method === "POST") return json(await scanFiles(!!body.autostart));
     if (url.pathname === "/events") {
@@ -537,6 +547,29 @@ setInterval(async () => { if (ticking) return; ticking = true; try { await tick(
 const scan = await scanFiles(true);
 if (scan.errors.length) emit("hyperd", "unit_errors", { errors: scan.errors });
 console.log(`hyperd ${process.pid} on ${SOCK}, ${units.size} units`);
-const shutdown = () => { emit("hyperd", "daemon_stopping", { pid: process.pid }); server.stop(true); rmSync(SOCK, { force: true }); if (readJson(pidFile) === process.pid) rmSync(pidFile, { force: true }); process.exit(0); };
+const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    emit("hyperd", "daemon_stopping", { pid: process.pid, drain: drainOnExit });
+    if (drainOnExit) {
+        // Disable every restart before waiting, including backoff/waiting units.
+        for (const s of units.values()) { s.want = false; persist(s); }
+        const active = (s: Sup) => ["starting", "running", "ready", "stopping"].includes(s.state);
+        const pending = new Set(units.values());
+        while (pending.size) {
+            // Stop dependents before dependencies. Cycles have no safe order: drain together.
+            let batch = [...pending].filter(s => ![...pending].some(other => other !== s && other.unit.after?.includes(s.unit.name)));
+            if (!batch.length) batch = [...pending];
+            for (const s of batch) stop(s, "daemon_shutdown");
+            while (batch.some(active)) await Bun.sleep(TICK_MS);
+            for (const s of batch) pending.delete(s);
+        }
+        emit("hyperd", "services_stopped", {});
+    }
+    server.stop(true);
+    rmSync(SOCK, { force: true });
+    if (readJson(pidFile) === process.pid) rmSync(pidFile, { force: true });
+    process.exit(0);
+};
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);

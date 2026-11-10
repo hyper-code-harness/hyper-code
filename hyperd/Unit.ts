@@ -39,6 +39,8 @@ export type Unit = {
     stop?: {
         /** @default "SIGTERM" */
         signal?: string;
+        /** Initial signal recipient. Use process for a graceful wrapper; timeout escalation always kills the group. @default "group" */
+        target?: "group" | "process";
         /** SIGKILL after this long. @default 10000 */
         timeoutMs?: number;
     };
@@ -107,9 +109,10 @@ export function checkUnit(raw: unknown, where = "unit"): Unit {
         const s = u.stop;
         if (!s || typeof s !== "object") errs.push("stop must be an object");
         else {
-            for (const k of Object.keys(s)) if (!["signal", "timeoutMs"].includes(k)) errs.push(`stop: unknown key "${k}"`);
+            for (const k of Object.keys(s)) if (!["signal", "timeoutMs", "target"].includes(k)) errs.push(`stop: unknown key "${k}"`);
             if (s.signal !== undefined && !(str(s.signal) && /^SIG[A-Z0-9]+$/.test(s.signal))) errs.push("stop.signal must look like SIGTERM");
             if (s.timeoutMs !== undefined && !num(s.timeoutMs)) errs.push("stop.timeoutMs must be a number");
+            if (s.target !== undefined && !["group", "process"].includes(s.target)) errs.push("stop.target must be group | process");
         }
     }
     if (errs.length) throw new Error(`${where}: ${errs.join("; ")}`);

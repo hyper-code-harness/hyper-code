@@ -4,6 +4,52 @@ hyperd keeps processes running for you and for agents: databases, dev servers, b
 sessions. Every process runs under its own small holder, so restarting hyper (or hyperd) does not kill it.
 State is in files under `~/.hyper/run/hyperd/` (hyperd may be what starts the database).
 
+## Container shutdown (explicit opt-in)
+
+`HYPERD_SHUTDOWN=stop` makes SIGTERM/SIGINT drain all managed units before the daemon exits.
+It disables restarts and write API requests, stops dependents before their `after` dependencies,
+and waits for each unit's normal stop timeout/escalation. Dependency cycles drain together.
+Without this environment variable, daemon restart/adoption semantics are unchanged.
+In this mode a readiness success alone does not reset the crash-loop counter: the process must
+survive 10 seconds. Set finite `restart.maxRestarts` explicitly for every container service.
+
+Use an actual PID 1 reaper (for example `tini -- bun /opt/hyperd/main.ts`), not Bun as PID 1.
+Set PostgreSQL `stop.signal: SIGINT` and `stop.timeoutMs: 60000` (fast, clean shutdown),
+and Docker `stop_grace_period` greater than the sum of all sequential stop budgets plus margin
+(for example 150 seconds for a small stack). Readiness is a startup gate, not continuous health
+recovery: timeout currently reports unhealthy without automatically restarting a unit.
+A daemon restart with the opt-in drains services; do not use it for an adoption-only restart.
+
+The API grants arbitrary process execution as the daemon's UID. There is no per-unit UID field.
+Never expose its Unix socket over TCP or grant a non-root app access to a root daemon socket.
+Mixing PostgreSQL UID 999 and app/browser UID 1000 in one daemon therefore needs a separately
+reviewed privilege model; this flag does not solve that problem. Container deployment also needs
+Linux validation of browser sandboxing, process reaping, persisted data and actual PG shutdown.
+
+## Chrome graceful shutdown (explicit opt-in)
+
+A process-group SIGTERM is not Chrome's normal browser exit: Chrome may return zero while leaving
+`Singleton*` symlinks and `profile.exit_type=SessionEnded`. Use the bundled `hyperd/chrome.ts` supervisor:
+
+```yaml
+cmd: [bun, /opt/hyperd/chrome.ts, --, google-chrome, --remote-debugging-port=9222, --user-data-dir=/home/browser/profile]
+env:
+  CDP_BROWSER_URL: http://127.0.0.1:9222
+stop:
+  target: process
+  timeoutMs: 20000
+```
+
+`stop.target` defaults to `group`; `process` sends only the initial stop signal to the wrapper, so
+Chrome's renderers are not terminated before `Browser.close`. The wrapper sends CDP `Browser.close`
+and waits for Chrome to exit. CDP discovery, websocket connection and browser exit share an 8-second
+budget (`CHROME_CLOSE_TIMEOUT_MS`, 100–60000 ms). Failure falls back to the browser leader's SIGTERM;
+hyperd's stop deadline still SIGKILLs the entire group, even with `target: process`. Keep the unit's
+stop budget larger than the wrapper's. This fallback is bounded, not a guarantee of a clean profile.
+The endpoint must be loopback and belong exclusively to this child. Keep existing sandbox flags,
+profile and dependency ordering; do not suppress restore warnings or edit crash markers.
+
+
 ## Install
 
 hyperd needs only Bun (≥ 1.3, for PTY) and this checkout. It must be started by the OS, not by hyper,

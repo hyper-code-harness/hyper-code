@@ -22,4 +22,14 @@ describe("reasoning effort policy", () => {
     test("non-reasoning models resolve to off", async () => {
         expect(await resolve(ctx, null, { model: "lmstudio:plain", effort: "high" })).toMatchObject({ applied: "off", mode: "none" });
     });
+    // Fable rejects thinking.type "disabled" (live API, Fable 5.1/5.2). It stays on mode "none": no thinking
+    // field is sent and the model thinks adaptively by itself. streamAnthropic sends "disabled" for an
+    // adaptive-mode "off" on any model it does not know as Claude 5, so Fable must not enter that mode.
+    test("Fable never resolves to a mode that sends thinking disabled", async () => {
+        for (const model of ["claude-code:claude-fable-5-1", "claude-code:claude-fable-5-2"]) {
+            for (const effort of ["auto", "off", "high"] as const) {
+                expect((await resolve(ctx, null, { model, effort })).mode).toBe("none");
+            }
+        }
+    });
 });

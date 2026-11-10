@@ -39,6 +39,7 @@ describe("llm.listModels", () => {
             "claude-code:claude-opus-5-5",
             "claude-code:claude-fable-5",
             "claude-code:claude-fable-5-1",
+            "claude-code:claude-fable-5-2",
         ]);
         expect(groups["anthropic-oauth"]).toContain("anthropic-oauth/personal:claude-opus-5-5");
         expect(groups["anthropic-oauth"]!.some(model => model.startsWith("anthropic-oauth:"))).toBe(false);

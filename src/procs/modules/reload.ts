@@ -15,6 +15,9 @@ export default async function (ctx: Context, _session: Session | null, _opts?: {
     if (!lint.ok) throw new Error("modules rejected by lint:\n" + lint.errors.map((e: string) => "  ✗ " + e).join("\n"));
     await root.fns.procs.dev.genTypes({});
     await root.fns.procs.http.loadRoutes({});
+    // A remount or a pull brings $style files and classes the compiled sheets have never seen; in prod no
+    // watcher runs dev.sync, so without this a new rule stayed out of the css until a restart.
+    await root.fns.procs.styles.rebuild({});
     // Provider modules may have appeared/disappeared — rebuild the service cards
     // (manifest merges provides of asked-for modules into the service list).
     // Optional: `services` is a library a host mounts, and the framework alone

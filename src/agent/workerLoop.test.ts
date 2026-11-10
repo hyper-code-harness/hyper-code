@@ -142,7 +142,7 @@ describe('agent.workerLoop', () => {
         expect(runCount).toBe(1);
     }, 5_000);
 
-    test('drains 20 agents under 250ms wall-clock (parallelism scales)', async () => {
+    test('drains 20 agents in parallel (runs overlap, not serial)', async () => {
         const ctx: any = await mkTestCtx();
         ctx.fns.agent.workerLoop = workerLoop;
         ctx.fns.agent.wakeWorker = wakeWorker;
@@ -158,7 +158,6 @@ describe('agent.workerLoop', () => {
             intervals.push({ id: opts.agent.id, start, end: Date.now() });
         };
 
-        const t0 = Date.now();
         const loopPromise = workerLoop(ctx, null);
 
         const deadline = Date.now() + 5_000;
@@ -167,12 +166,16 @@ describe('agent.workerLoop', () => {
         (ctx.state as any).workerLoopRunning = false;
         wakeWorker(ctx, null);
         await loopPromise;
-        const wall = Date.now() - t0;
 
         expect(intervals).toHaveLength(ids.length);
-        // Serial would be ≥ 20 × 100ms = 2s. Parallel should land ≤ 250ms
-        // (drain claim overhead + ~100ms run + a couple of awaits).
-        expect(wall).toBeLessThan(250);
+        // Serial runs never overlap: 20 × 100ms ≥ 2s from first start to last
+        // end. Parallel runs overlap; most start before the first one ends.
+        // Measured on the run intervals, not wall-clock, so a loaded CI
+        // runner does not fail it.
+        const firstEnd = Math.min(...intervals.map(i => i.end));
+        expect(intervals.filter(i => i.start < firstEnd).length).toBeGreaterThan(ids.length / 2);
+        const span = Math.max(...intervals.map(i => i.end)) - Math.min(...intervals.map(i => i.start));
+        expect(span).toBeLessThan(1000);
     }, 10_000);
 
     test('wakeWorker fired before waitForWork is observed (no slept-through race)', async () => {

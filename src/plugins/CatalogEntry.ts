@@ -12,6 +12,8 @@ export type CatalogEntry = types.plugins.ListingEntry & {
     providedBy?: string;
     /** Plugins it needs (procs.requires of the installed copy); unknown until installed or previewed. */
     requires?: string[];
+    /** Git state of the installed clone (badges: release, edited, branch +N, fork). */
+    git?: types.plugins.CloneGit;
     /** Why the latest release is unknown. */
     error?: string;
 };

@@ -62,7 +62,7 @@ export default async function (ctx: Context, session: Session | null, opts: {}):
         if (!st?.git || !st.commit) return undefined;
         const lock = locked[name];
         const { git: _g, ...rest } = st;
-        return { ...rest, commit: st.commit, ...(lock ? { lockedTag: lock.tag } : {}), fork: !!(lock && st.origin && !same(st.origin, lock.repo)) };
+        return { ...rest, commit: st.commit, ...(lock ? { lockedTag: lock.tag } : {}), fork: !!(st.upstream || (lock && st.origin && !same(st.origin, lock.repo))) };
     };
     for (const entry of entries) {
         const name = entry.name;

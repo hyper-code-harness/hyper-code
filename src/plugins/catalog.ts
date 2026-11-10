@@ -41,6 +41,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             if (typeof pkg?.version === 'string') entry.installed = pkg.version;
             if (Array.isArray(pkg?.procs?.requires)) entry.requires = pkg.procs.requires.map(String);
             entry.update = !!(entry.latest && newer(entry.latest, entry.tag.slice(1)));
+            const st = await ctx.fns.plugins.cloneStatus({ dir: path.join(mount, p.name) }).catch(() => null);
+            if (st?.git && st.commit) {
+                const { git: _g, ...rest } = st;
+                const norm = (u: string) => u.replace(/^git\+/, '').replace(/^github:/, 'https://github.com/').replace(/^file:\/\//, '').replace(/\.git$/, '').toLowerCase();
+                entry.git = { ...rest, commit: st.commit, lockedTag: lock[p.name]!.tag, fork: !!(st.upstream || (st.origin && norm(st.origin) !== norm(lock[p.name]!.repo))) };
+            }
         } else {
             const m = modules.find(m => m.name === p.name || m.namespaces.includes(p.name));
             if (m) entry.providedBy = `${m.source ?? 'runtime'} module ${m.name}`;

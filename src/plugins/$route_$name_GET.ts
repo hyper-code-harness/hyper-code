@@ -35,6 +35,12 @@ export default async function (
             skillHtml = `<section class="mt-7"><div class="mb-3 flex items-center justify-between gap-3"><div><h2 class="font-medium">SKILL.md</h2><p class="mt-0.5 text-xs text-subtle">Instructions available to the agent</p></div><a href="/procs/modules/skill?name=${encodeURIComponent(module.name)}" class="text-xs text-faint hover:text-primary">Open separately <i class="ph ph-arrow-up-right"></i></a></div><article class="md-preview prose prose-sm max-w-none rounded-xl border border-base-300 bg-base-100 px-5 py-4 text-base-content">${rendered}</article></section>`;
         }
     }
+    // A plugin in USER_PLUGINS that is a git clone gets its git panel: status badges and Edit/Release/... buttons.
+    let gitHtml = "";
+    if (tab === "overview" && module.source === "user") {
+        try { gitHtml = await ctx.fns.plugins.clonePanel({ name, req: opts.req }); }
+        catch { gitHtml = ""; }
+    }
     let settingsHtml = "";
     if (tab === "settings") {
         try { settingsHtml = await ctx.fns.plugins.configurationPage({ name }); }
@@ -47,7 +53,7 @@ export default async function (
   ${tabs}
   <div id="plugin-panel-${tab}" aria-label="${tab[0]!.toUpperCase() + tab.slice(1)}">
   ${tab === "overview" ? `<dl class="mt-7 overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-xs">${rows.map(([label, value]) => `<div class="grid grid-cols-[8rem_minmax(0,1fr)] gap-4 border-t border-base-200 px-4 py-3 first:border-t-0"><dt class="text-xs text-faint">${label}</dt><dd class="min-w-0 break-words text-sm text-muted">${value}</dd></div>`).join("")}</dl>
-  <section class="mt-7"><h2 class="text-xs font-semibold uppercase tracking-wider text-faint">Namespaces</h2><div class="mt-3 flex flex-wrap gap-2">${module.namespaces.map(chip).join("") || `<span class="text-sm text-faint">None</span>`}</div></section>
+  ${gitHtml}<section class="mt-7"><h2 class="text-xs font-semibold uppercase tracking-wider text-faint">Namespaces</h2><div class="mt-3 flex flex-wrap gap-2">${module.namespaces.map(chip).join("") || `<span class="text-sm text-faint">None</span>`}</div></section>
   ${skillHtml || '<p class="mt-7 text-sm text-faint">No SKILL.md available.</p>'}` : tab === "settings" ? settingsHtml : `<section class="mt-8"><div class="mb-3 flex items-end justify-between gap-3"><div><h2 class="font-medium">Runtime functions</h2><p class="mt-0.5 text-xs text-faint">Live JSDoc, parameter schema, and return types</p></div><span class="rounded-full bg-base-200 px-2.5 py-1 text-xs text-subtle">${documented}/${module.fns.length} documented</span></div><div class="space-y-3">${functionCards || `<div class="rounded-xl border border-base-300 p-4 text-sm text-faint">No functions</div>`}</div></section>`}
   </div>
 </section></div>` };

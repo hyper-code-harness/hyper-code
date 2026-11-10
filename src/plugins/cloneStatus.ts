@@ -20,6 +20,8 @@ export default async function (_ctx: Context, _session: Session | null, opts: {
     branch?: string;
     /** Nearest vX.Y.Z tag reachable from HEAD. */
     baseTag?: string;
+    /** Commits since baseTag (0 when HEAD is at it). */
+    sinceTag: number;
     dirty: string[];
     unpushed: string[];
     ahead: number;
@@ -32,7 +34,7 @@ export default async function (_ctx: Context, _session: Session | null, opts: {
         return { ok: p.exitCode === 0, out: p.stdout.toString().replace(/\s+$/, '').replace(/^\n+/, '') };
     };
     if (!run('rev-parse', '--is-inside-work-tree').ok || run('rev-parse', '--show-toplevel').out !== (await import('node:fs')).realpathSync(opts.dir))
-        return { git: false, dirty: [], unpushed: [], ahead: 0, behind: 0 };
+        return { git: false, sinceTag: 0, dirty: [], unpushed: [], ahead: 0, behind: 0 };
     const lines = (s: string) => s.split('\n').filter(Boolean);
     const commit = run('rev-parse', 'HEAD').out.trim();
     const tag = lines(run('tag', '--points-at', 'HEAD', '--list', 'v*').out).filter(t => /^v\d+\.\d+\.\d+$/.test(t)).sort().at(-1);
@@ -47,6 +49,7 @@ export default async function (_ctx: Context, _session: Session | null, opts: {
         const counts = run('rev-list', '--left-right', '--count', `HEAD...${against.out}`).out.split(/\s+/).map(Number);
         ahead = counts[0] || 0; behind = counts[1] || 0;
     }
+    const sinceTag = baseTag.ok && baseTag.out ? Number(run('rev-list', '--count', `${baseTag.out}..HEAD`).out) || 0 : 0;
     const remote = (n: string) => { const r = run('remote', 'get-url', n); return r.ok && r.out ? r.out : undefined; };
     const origin = remote('origin'), upstream = remote('upstream');
     return {
@@ -54,7 +57,7 @@ export default async function (_ctx: Context, _session: Session | null, opts: {
         ...(tag ? { tag } : {}),
         ...(branch.ok && branch.out ? { branch: branch.out } : {}),
         ...(baseTag.ok && baseTag.out ? { baseTag: baseTag.out } : {}),
-        dirty, unpushed, ahead, behind,
+        sinceTag, dirty, unpushed, ahead, behind,
         ...(origin ? { origin } : {}),
         ...(upstream ? { upstream } : {}),
     };

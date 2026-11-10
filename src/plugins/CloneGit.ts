@@ -9,6 +9,8 @@ export type CloneGit = {
     branch?: string;
     /** Nearest release tag reachable from HEAD. */
     baseTag?: string;
+    /** Commits since baseTag (0 when HEAD is at it). */
+    sinceTag: number;
     /** Uncommitted paths. */
     dirty: string[];
     /** Commits on no remote branch and under no tag. */

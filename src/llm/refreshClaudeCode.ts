@@ -56,8 +56,21 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
         return null;
     }
 
+    if (oauth.expiresAt - Date.now() > 60_000) return oauth.accessToken;
+
+    // One refresh per account at a time: refresh tokens rotate, so a second
+    // concurrent refresh would send the token the first one just invalidated.
+    const inflight: Map<string, Promise<string | null>> = ((ctx.state as any).llm ??= {}).claudeCodeRefresh ??= new Map();
+    const pending = inflight.get(service);
+    if (pending) return pending;
+    const p = refresh(ctx, user, service, creds).finally(() => inflight.delete(service));
+    inflight.set(service, p);
+    return p;
+}
+
+async function refresh(ctx: Context, user: string, service: string, creds: Creds): Promise<string | null> {
+    const oauth = creds.claudeAiOauth;
     const now = Date.now();
-    if (oauth.expiresAt - now > 60_000) return oauth.accessToken;
 
     const tokenUrl = ctx.env.CLAUDE_CODE_OAUTH_TOKEN_URL ?? DEFAULT_TOKEN_URL;
     const clientId = ctx.env.CLAUDE_CODE_CLIENT_ID ?? DEFAULT_CLIENT_ID;
@@ -74,6 +87,13 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     });
     if (!res.ok) {
         console.warn(`[claude-code] refresh failed ${res.status}: ${(await res.text()).slice(0, 300)}`);
+        // The `claude` CLI shares this keychain item and may have rotated the
+        // pair under us — adopt its token instead of failing the request.
+        const current = readCreds(user, service);
+        if (current && current.refreshToken !== oauth.refreshToken && current.expiresAt - Date.now() > 60_000) {
+            console.log("[claude-code] using the pair another process refreshed");
+            return current.accessToken;
+        }
         return null;
     }
     const data: any = await res.json();
@@ -102,6 +122,15 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     }
     console.log(`[claude-code] refreshed — new access expires at ${new Date(expiresAt).toISOString()}`);
     return newAccess;
+}
+
+function readCreds(user: string, service: string): Creds["claudeAiOauth"] | null {
+    try {
+        const raw = readKeychain(user, service);
+        return raw ? (JSON.parse(raw) as Creds).claudeAiOauth ?? null : null;
+    } catch {
+        return null;
+    }
 }
 
 function readKeychain(user: string, service: string): string | null {

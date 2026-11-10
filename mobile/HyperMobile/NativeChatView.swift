@@ -120,7 +120,7 @@ struct NativeChatView: View {
                 }
             }
             .scrollDismissesKeyboard(.immediately)
-                AttachmentComposer(text: $draft, baseURL: baseURL, attachments: $attachments, focused: $focused, resetID: composerResetID, sending: store.isSending, running: store.isRunning, injectText: injectText, injectEvery: injectEvery, send: sendAction, stop: stopAction)
+                AttachmentComposer(initialText: draft, baseURL: baseURL, attachments: $attachments, focused: $focused, resetID: composerResetID, sending: store.isSending, running: store.isRunning, injectText: injectText, injectEvery: injectEvery, textChanged: saveDraft, send: send, stop: stopAction)
                     .frame(maxWidth: 860)
                     .frame(maxWidth: .infinity)
             }
@@ -171,7 +171,6 @@ struct NativeChatView: View {
             }
             canvasEvents.start(baseURL: baseURL, agentID: agent.id)
         }
-        .onChange(of: draft) { _, value in MobileStateCache.shared.updateDraft(value, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id) }
         .onDisappear { MobileStateCache.shared.flush(); store.stopPolling(); canvasEvents.stop(); onRead() }
         .onChange(of: canvasEvents.tabs.isEmpty) { _, isEmpty in
             if isEmpty { canvasVisible = false }
@@ -243,7 +242,7 @@ struct NativeChatView: View {
                     GeometryReader { proxy in
                         let chatWidth = min(470, max(360, proxy.size.width * 0.38))
                         HStack(spacing: 0) {
-                            AgentCanvasSurface(baseURL: baseURL, agentID: agent.id, events: canvasEvents, onShowChats: onShowChats) {
+                            AgentCanvasSurface(baseURL: baseURL, agentID: agent.id, events: canvasEvents) {
                                 canvasDismissed = true
                                 MobileStateCache.shared.updateCanvasHidden(true, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
                                 withAnimation(.snappy(duration: 0.2)) { canvasVisible = false }
@@ -299,26 +298,28 @@ struct NativeChatView: View {
         }
     }
 
-    private var sendAction: () -> Void { { send() } }
     private var stopAction: () -> Void { { stop() } }
     private var modelDisplayName: String { currentModel.split(separator: ":", maxSplits: 1).last.map(String.init) ?? currentModel }
-    private func send() {
+    private func saveDraft(_ value: String) {
+        MobileStateCache.shared.updateDraft(value, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
+    }
+    private func send(_ value: String) {
         targetEventIdx = nil
-        let value = draft, selected = attachments
+        let selected = attachments
         guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selected.isEmpty else { return }
         // Clear and recreate the native text field before awaiting the network.
         // This also cancels any pending keyboard-dictation composition that could
         // otherwise write its final transcript back after Send was tapped.
         focused = false
         draft = ""
-        MobileStateCache.shared.updateDraft("", profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
+        saveDraft("")
         attachments = []
         composerResetID = UUID()
         Task {
             let sent = await store.send(value, attachments: selected, baseURL: baseURL, agentID: agent.id)
             if !sent {
                 draft = value
-                MobileStateCache.shared.updateDraft(value, profileID: profileID ?? MobileStateCache.fallbackProfileID(for: baseURL), agentID: agent.id)
+                saveDraft(value)
                 attachments = selected
                 composerResetID = UUID()
             }
@@ -668,7 +669,7 @@ private struct AgentCanvasWebView: View {
     }
 
     var body: some View {
-        HyperWebView(urlString: "\(urlString)?nativeRevision=\(revision.uuidString)", authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
+        HyperWebView(urlString: "\(urlString)?presentation=sidebar&nativeRevision=\(revision.uuidString)", authenticatedBaseURL: baseURL, command: command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
     }
 }
 
@@ -676,7 +677,6 @@ private struct AgentCanvasSurface: View {
     let baseURL: URL
     let agentID: String
     @ObservedObject var events: CanvasEventBridge
-    let onShowChats: (() -> Void)?
     let onClose: () -> Void
     @State private var isLoading = true
     @State private var canGoBack = false
@@ -687,9 +687,6 @@ private struct AgentCanvasSurface: View {
         ZStack(alignment: .topLeading) {
             AgentCanvasWebView(baseURL: baseURL, agentID: agentID, revision: events.revision, command: $command, isLoading: $isLoading, canGoBack: $canGoBack, canGoForward: $canGoForward)
             HStack(spacing: 8) {
-                if let onShowChats {
-                    canvasControl("sidebar.left", label: "Show chats", action: onShowChats)
-                }
                 canvasControl("chevron.left", label: "Previous Canvas", disabled: !events.canSelectPrevious) {
                     events.selectPrevious(baseURL: baseURL, agentID: agentID)
                 }

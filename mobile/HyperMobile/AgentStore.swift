@@ -148,9 +148,11 @@ final class ChatStore: ObservableObject {
             let page = try await APIClient(baseURL: baseURL).events(agentID: agentID, after: nextAfter, limit: 200)
             merge(page.events)
             nextAfter = max(nextAfter, page.nextAfter)
-            isRunning = page.isRunning
+            let newRunning = page.isRunning
+            if isRunning != newRunning { isRunning = newRunning }
             error = nil
-            partial = page.partial
+            let newPartial = page.partial
+            if partial != newPartial { partial = newPartial }
             persistCache()
         } catch { self.error = error.localizedDescription }
     }

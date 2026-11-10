@@ -12,7 +12,7 @@ export default async function (ctx: Context, _session: Session | null, opts: { r
         headExtra: `<style>
           #main { overflow:hidden !important; padding:0 !important; }
           [data-mobile-canvas] > .canvas-panel { display:flex !important; margin:0 !important; border:0 !important; border-radius:0 !important; }
-          [data-mobile-canvas] > .canvas-panel > header { display:none !important; }
+          [data-mobile-canvas] > .canvas-panel > header, [data-mobile-canvas] > .canvas-panel > [data-canvas-rail] { display:none !important; }
           [data-mobile-canvas] > .canvas-resizer, [data-mobile-canvas] [data-canvas-toggle="close"] { display:none !important; }
         </style>`,
         main: `<div data-page="agent" data-mobile-canvas data-canvas-agent="${id}" data-canvas-open class="flex min-h-0 min-w-0 flex-1 bg-base-200">${panel}</div>`,

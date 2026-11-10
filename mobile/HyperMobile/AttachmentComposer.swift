@@ -3,7 +3,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 
 struct AttachmentComposer: View {
-    @Binding var text: String
+    let initialText: String
     let baseURL: URL
     @Binding var attachments: [PendingAttachment]
     var focused: FocusState<Bool>.Binding
@@ -11,8 +11,28 @@ struct AttachmentComposer: View {
     let sending: Bool, running: Bool
     let injectText: String
     let injectEvery: Int
-    let send: () -> Void, stop: () -> Void
+    let textChanged: (String) -> Void
+    let send: (String) -> Void
+    let stop: () -> Void
+    @State private var text: String
     @State private var photoItems: [PhotosPickerItem] = []
+    @State private var draftSaveTask: Task<Void, Never>?
+
+    init(initialText: String, baseURL: URL, attachments: Binding<[PendingAttachment]>, focused: FocusState<Bool>.Binding, resetID: UUID, sending: Bool, running: Bool, injectText: String, injectEvery: Int, textChanged: @escaping (String) -> Void, send: @escaping (String) -> Void, stop: @escaping () -> Void) {
+        self.initialText = initialText
+        self.baseURL = baseURL
+        _attachments = attachments
+        self.focused = focused
+        self.resetID = resetID
+        self.sending = sending
+        self.running = running
+        self.injectText = injectText
+        self.injectEvery = injectEvery
+        self.textChanged = textChanged
+        self.send = send
+        self.stop = stop
+        _text = State(initialValue: initialText)
+    }
     @State private var showingFiles = false
     @State private var showingPhotos = false
     @State private var showingCamera = false
@@ -83,7 +103,7 @@ struct AttachmentComposer: View {
                             .overlay(Circle().stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
                     }.accessibilityLabel("Stop agent")
                 }
-                Button(action: send) { Circle().fill(canSend ? Color.accentColor : Color.secondary.opacity(0.35)).frame(width: 44, height: 44).overlay { if sending { ProgressView().tint(.white) } else { Image(systemName: "arrow.up").font(.headline.bold()).foregroundStyle(.white) } } }.disabled(!canSend)
+                Button { submit() } label: { Circle().fill(canSend ? Color.accentColor : Color.secondary.opacity(0.35)).frame(width: 44, height: 44).overlay { if sending { ProgressView().tint(.white) } else { Image(systemName: "arrow.up").font(.headline.bold()).foregroundStyle(.white) } } }.disabled(!canSend)
             }.padding(.horizontal, 10)
             if !injectText.isEmpty {
                 Text("↳ \(injectText)\(injectEvery > 1 ? " · every \(injectEvery) turns" : "")")
@@ -95,7 +115,23 @@ struct AttachmentComposer: View {
         }
         .padding(.vertical, 8).background(.bar)
         .onChange(of: photoItems) { _, items in Task { await loadPhotos(items) } }
-        .onChange(of: text) { _, _ in updateMentionSuggestions() }
+        .onChange(of: initialText) { _, value in
+            guard value != text else { return }
+            text = value
+        }
+        .onChange(of: text) { _, value in
+            updateMentionSuggestions()
+            draftSaveTask?.cancel()
+            draftSaveTask = Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
+                textChanged(value)
+            }
+        }
+        .onDisappear {
+            draftSaveTask?.cancel()
+            textChanged(text)
+        }
         .photosPicker(isPresented: $showingPhotos, selection: $photoItems, maxSelectionCount: max(1, 10 - attachments.count), matching: .images)
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker { result in
@@ -108,6 +144,19 @@ struct AttachmentComposer: View {
         .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in loadFiles(result) }
     }
 
+
+    private func submit() {
+        let value = text
+        draftSaveTask?.cancel()
+        guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty else { return }
+        // The composer owns its draft state so typing does not invalidate the whole timeline.
+        // Clear that local state before handing the value to the parent; a failed send restores
+        // `initialText`, while a successful send keeps the field empty.
+        text = ""
+        mentionStart = nil
+        mentionResults = []
+        send(value)
+    }
 
     private func mentionQuery() -> (start: String.Index, query: String)? {
         guard let regex = try? NSRegularExpression(pattern: #"(^|[^\w@.\/-])@([a-z0-9-]{0,64})$"#, options: [.caseInsensitive]) else { return nil }

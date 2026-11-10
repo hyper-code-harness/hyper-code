@@ -27,6 +27,7 @@ final class MobileStateCache {
     static let shared = MobileStateCache()
     private var servers: [String: CachedServerUIState]
     private var saveTask: Task<Void, Never>?
+    private let saveQueue = DispatchQueue(label: "dev.hyper.mobile.state-cache", qos: .utility)
     private let fileURL: URL
 
     private init() {
@@ -113,13 +114,21 @@ final class MobileStateCache {
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled else { return }
-            self?.saveNow()
+            guard !Task.isCancelled, let self else { return }
+            let snapshot = self.servers
+            let fileURL = self.fileURL
+            self.saveQueue.async {
+                guard let data = try? JSONEncoder().encode(snapshot) else { return }
+                try? data.write(to: fileURL, options: .atomic)
+            }
         }
     }
 
     private func saveNow() {
-        guard let data = try? JSONEncoder().encode(servers) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        let snapshot = servers
+        saveQueue.sync {
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            try? data.write(to: fileURL, options: .atomic)
+        }
     }
 }

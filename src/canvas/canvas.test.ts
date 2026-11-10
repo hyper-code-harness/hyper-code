@@ -23,6 +23,7 @@ test("canvas opens and closes per agent, keeps the chat width, and the agent pag
     expect(mobileHtml).toContain(`data-canvas-agent="${a.id}"`);
     expect(mobileHtml).toContain('data-canvas-panel');
     expect(mobileHtml).toContain('/canvas/canvas.js');
+    expect(mobileHtml).toContain('[data-mobile-canvas] > .canvas-panel > [data-canvas-rail] { display:none !important; }');
 
     expect(html).not.toMatch(/data-canvas-agent="[^"]+" data-canvas-open/);
 

@@ -75,15 +75,25 @@ final class CanvasEventBridge: ObservableObject {
               (response as? HTTPURLResponse)?.statusCode == 200,
               let html = String(data: data, encoding: .utf8),
               let current = html.firstMatch(of: /data-canvas-rev="([^"]+)"/)?.1 else { return }
-        tabs = html.matches(of: /data-canvas-tab="([0-9]+)"[^>]*(?:aria-current="true")?[\s\S]*?data-canvas-select="[0-9]+"[^>]*title="([^"]*)"/).compactMap { match in
-            guard let id = Int(match.1) else { return nil }
-            return CanvasTab(id: id, title: String(match.2).split(separator: " · ").first.map(String.init) ?? "Canvas")
-        }
-        activeTabID = html.firstMatch(of: /data-canvas-item="([0-9]+)"/).flatMap { Int(String($0.1)) }
+        let newTabs = Self.parseTabs(from: html)
+        if tabs != newTabs { tabs = newTabs }
+        let newActiveTabID = html.firstMatch(of: /data-canvas-item="([0-9]+)"/).flatMap { Int(String($0.1)) }
+        if activeTabID != newActiveTabID { activeTabID = newActiveTabID }
         let value = String(current)
         defer { lastRevision = value }
         guard let lastRevision else { return }
         guard lastRevision != value else { return }
         revision = UUID()
     }
+
+    /// Reads the stable Canvas tab hooks emitted by both the legacy markup and the current w.tabs markup.
+    /// Current tabs put `data-canvas-tab` and `title` on the same button and no longer emit
+    /// `data-canvas-select`; keeping that old hook optional preserves compatibility with older servers.
+    static func parseTabs(from html: String) -> [CanvasTab] {
+        html.matches(of: /<button\b(?=[^>]*\bdata-canvas-tab="([0-9]+)")(?=[^>]*\btitle="([^"]*)")[^>]*>/).compactMap { match in
+            guard let id = Int(match.1) else { return nil }
+            return CanvasTab(id: id, title: String(match.2).split(separator: " · ").first.map(String.init) ?? "Canvas")
+        }
+    }
+
 }

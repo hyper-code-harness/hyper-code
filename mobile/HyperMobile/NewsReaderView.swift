@@ -153,7 +153,7 @@ private struct NewsDetailView: View {
             .navigationTitle("\(index + 1) of \(items.count)")
             .navigationBarTitleDisplayMode(.inline)
             .task(id: item.id) { await markCurrentRead() }
-            .sheet(isPresented: $showingAgent) { NewsAgentSheet(baseURL: baseURL, item: item) }
+            .fullScreenCover(isPresented: $showingAgent) { NewsAgentSheet(baseURL: baseURL, item: item) }
     }
 
     private func article(_ item: NewsItem) -> some View {
@@ -228,15 +228,22 @@ private struct NewsAgentSheet: View {
                 Section("News") { Text(item.title).font(.callout.weight(.semibold)); Text(item.sourceLabel).font(.caption).foregroundStyle(.secondary) }
                 Section("Agent task") {
                     TextField("What should the agent do?", text: $prompt, axis: .vertical).lineLimit(2...6).focused($focused)
-                    Button { start() } label: { HStack { if starting { ProgressView().controlSize(.small) }; Label("Start agent", systemImage: "sparkles") } }.disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || starting)
                 }
                 if let error { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }
             .navigationTitle("Start news agent")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.disabled(starting) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button { start() } label: {
+                        if starting { ProgressView().controlSize(.small) }
+                        else { Text("Start") }
+                    }
+                    .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || starting)
+                }
+            }
         }
-        .presentationDetents([.medium, .large])
         .task { focused = true }
     }
 

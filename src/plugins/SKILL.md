@@ -294,6 +294,28 @@ The clone is a working copy, so a plugin is fixed where it runs. Saves under `US
 - `plugins.syncUpstream({ name, merge? })` — fetch upstream, report behind/ahead, merge on request; a conflict aborts the merge and lists the files.
 - The plugin page (`/plugins/<name>`) shows the badges (`v1.0.1`, `edited`, `main +3`, `fork`) and the same actions as buttons.
 
+### Lifecycle at a glance
+
+| Step | Call | What happens in the clone | Refused when |
+|---|---|---|---|
+| Install | `plugins.install({ name })` → `confirmed` | `git clone` at the newest `vX.Y.Z`, detached HEAD; own `bun install --ignore-scripts`; lock entry | name or namespace already mounted; a required plugin is not in the listing |
+| Update | `plugins.install({ name, version? })` on an installed plugin | `git fetch --tags`, checkout of the new tag; the previous tag goes to `previous[]` | uncommitted or unpushed work |
+| Rollback | `plugins.gitInstall({ operation: "rollback", name })` | checkout of the last `previous[]` tag | uncommitted or unpushed work |
+| Edit | `plugins.edit({ name })` | `git switch main` (or a new branch); saves hot-reload | — |
+| Release | `plugins.release({ name })` | tests → bump `version` → commit → tag → push; lock moves to the new tag | failing tests; no push rights (fork first) |
+| Fork | `plugins.fork({ name })` | `gh repo fork`; `origin` = your fork, `upstream` = the original | no `gh` login |
+| Sync | `plugins.syncUpstream({ name, merge? })` | fetch upstream, ahead/behind; merge on request | merge conflict (aborted, files listed) |
+| Remove | `plugins.uninstall({ name })` → `confirmed` | the clone is deleted, lock entry dropped | a plugin that requires it is installed; local work without `force` |
+
+Every step that changes the clone is a preview first and applies only with `confirmed: true` and the preview's `digest`. A preview is bound to the commit and the tree, so a tag moved between preview and confirm is refused.
+
+### When something is off
+
+- **A save does not go live.** The clone watcher starts at boot (`plugins.watchClones({})` returns `already` when it runs). A server started before it existed needs a restart, or call `plugins.reload({})` after the save. Some machines deliver no file events at all (a network or security extension on macOS); there `plugins.reload({})` is the way.
+- **Update refused with "local work".** The message lists uncommitted files and unpushed commits. Commit and `plugins.release`, push to a branch, or discard them with git in the clone; nothing is overwritten for you.
+- **Two copies of one plugin.** A plugin is mounted from one place: a name both in `USER_PLUGINS` and among the official `plugins/` stops the boot with a collision. Remove one of them.
+- **Lock file.** `~/.hyper/plugins.lock.json`: `{ "<name>": { repo, tag, commit, previous: [{ tag, commit }] } }`. It is written by the plugin calls; edit it by hand only to repair it.
+
 ## Discovery is not installation
 
 A plugin can be discoverable or available from a provider without being mounted. Use the plugin lifecycle APIs and their review/confirmation workflow to install, activate, replace or remove plugins; do not treat a search result, domain match, or configuration declaration as permission. Publishing is a separate outward action requiring its own explicit authorization.

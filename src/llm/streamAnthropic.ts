@@ -26,18 +26,19 @@ export default async function (
     const reasoning = await ctx.fns.llm.resolveReasoningEffort({ model: agent.model, effort: agent.reasoningEffort ?? "auto" });
     // buildLlmRequest keeps the required Claude Code identity in the top-level
     // system field for both externally managed and hyper-code2-managed OAuth.
-    const { system, messages: convo } = await ctx.fns.agent.buildLlmRequest({ agent });
+    const { system, messages: convo, cacheableMessageCount } = await ctx.fns.agent.buildLlmRequest({ agent });
     // Prompt caching. Two breakpoints: the bootstrap turn (tools + system +
     // core prompt — identical for every turn and for every transcript-sharing
     // fork) and the tail of the conversation, so each request re-reads the
     // previous one's prefix instead of paying for the whole transcript.
-    const messages = ctx.fns.llm.toAnthropicMessages({ messages: convo });
+    // Mark before the transient Continue nudge, at block granularity so
+    // same-role text merging cannot absorb guidance into the cached prefix.
+    const messages = ctx.fns.llm.toAnthropicMessages({ messages: convo, cacheableMessageCount: cacheableMessageCount ?? convo.length });
     const mark = (message: any) => {
         const block = message?.content?.[message.content.length - 1];
         if (block && typeof block === "object") block.cache_control = { type: "ephemeral" };
     };
     if (messages.length > 2 && messages[1]?.role === "assistant") mark(messages[1]);
-    mark(messages[messages.length - 1]);
 
     const body: any = {
         model: ep.modelId,

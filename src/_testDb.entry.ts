@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 type Snapshot = { tables: string[]; relations: Set<string>; schemas: Set<string>; migrations: string[] };
-type Worker = { url: string; name: string; admin: SQL; snapshot: Snapshot; dirty: boolean };
+type Worker = { url: string; name: string; template: string; admin: SQL; snapshot: Snapshot; dirty: boolean };
 
 const G = globalThis as any;
 const workers: Map<string, Promise<Worker>> = (G.__hyperTestDbWorkers ??= new Map());
@@ -75,7 +75,7 @@ async function openWorker(baseUrl: string, hash: string, migrate: (url: string) 
     const admin = new SQL(url, { max: 1, prepare: false });
     (G.__hyperTestAdminPools ??= new Set()).add(admin);
     const snapshot = await snapshotOf(admin);
-    const w: Worker = { url, name, admin, snapshot, dirty: true };
+    const w: Worker = { url, name, template, admin, snapshot, dirty: true };
     await resetWorker(w);
     return w;
 }
@@ -170,8 +170,26 @@ async function resetWorker(w: Worker): Promise<void> {
 
 async function resetOnce(w: Worker): Promise<void> {
     const s = w.snapshot;
-    const sql = w.admin;
+    let sql = w.admin;
     await sql.unsafe(`SET lock_timeout = '3s'`);
+    // A test that ran a migration's down() dropped tables of the template: TRUNCATE cannot bring them back, and
+    // every later test of this process would fail on the reset. Copy the template again instead.
+    const present = new Set((await sql.unsafe(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')`)).map((r: any) => r.relname as string));
+    if (s.tables.some(t => !present.has(t))) {
+        await sql.close();
+        const maint = new SQL(withDb(w.url, "postgres"), { max: 1, prepare: false });
+        try {
+            await maint.unsafe(`DROP DATABASE IF EXISTS ${ident(w.name)} WITH (FORCE)`);
+            await maint.unsafe(`CREATE DATABASE ${ident(w.name)} TEMPLATE ${ident(w.template)}`);
+        } finally {
+            await maint.close();
+        }
+        G.__hyperTestAdminPools?.delete(w.admin);
+        w.admin = sql = new SQL(w.url, { max: 1, prepare: false });
+        G.__hyperTestAdminPools?.add(sql);
+        return;
+    }
     // What a test created beyond the template: its own tables (db.test.ts makes `t`, `notes`), schemas.
     const extraSchemas = (await sql.unsafe(`SELECT nspname FROM pg_namespace`)).map((r: any) => r.nspname as string).filter((n: string) => !s.schemas.has(n));
     for (const n of extraSchemas) await sql.unsafe(`DROP SCHEMA IF EXISTS ${ident(n)} CASCADE`);

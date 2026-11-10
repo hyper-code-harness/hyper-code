@@ -67,6 +67,7 @@
       "external": {},
       "agent": {},
       "cron": {},
+      "plugins": {},
       "tsgo": {},
       "procs/http": {
         "port": 3010

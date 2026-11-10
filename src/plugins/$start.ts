@@ -1,0 +1,5 @@
+/** Starts the USER_PLUGINS clone watcher (plugins.watchClones) so plugin edits hot-reload in production too. */
+export default async function (ctx: Context, _session: Session | null, _opts?: {}) {
+    if (_session) throw new Error("plugins start is lifecycle-only");
+    return ctx.fns.plugins.watchClones({});
+}

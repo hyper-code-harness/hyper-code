@@ -23,7 +23,7 @@ function git(cwd: string, ...args: string[]): string {
 async function fixture() {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'git-install-')));
     roots.push(root);
-    const repo = async (name: string, releases: Array<{ v: string; body: string; extra?: Record<string, string> }>, requires: string[] = []) => {
+    const repo = async (name: string, releases: Array<{ v: string; body: string; extra?: Record<string, string>; pkg?: Record<string, unknown>; lock?: boolean }>, requires: string[] | Record<string, string> = []) => {
         const bare = join(root, 'remotes', name + '.git');
         const work = join(root, 'work', name);
         await mkdir(bare, { recursive: true });
@@ -31,9 +31,15 @@ async function fixture() {
         await mkdir(join(work, 'src', name), { recursive: true });
         git(work, 'init', '-q', '-b', 'main');
         for (const r of releases) {
-            await writeFile(join(work, 'package.json'), JSON.stringify({ name, version: r.v, type: 'module', procs: { src: 'src', requires } }));
+            await writeFile(join(work, 'package.json'), JSON.stringify({ name, version: r.v, type: 'module', procs: { src: 'src', requires }, ...r.pkg }));
             await writeFile(join(work, 'src', name, 'hello.ts'), `export default async () => ${JSON.stringify(r.body)};`);
-            for (const [f, c] of Object.entries(r.extra ?? {})) await writeFile(join(work, f), c);
+            for (const [f, c] of Object.entries(r.extra ?? {})) { await mkdir(join(work, f, '..'), { recursive: true }); await writeFile(join(work, f), c); }
+            // lock: the author's `bun install` — bun.lock is committed, node_modules is not.
+            if (r.lock) {
+                const p = Bun.spawnSync([process.execPath, 'install', '--ignore-scripts'], { cwd: work, env: { ...process.env, BUN_BE_BUN: '1' } });
+                if (p.exitCode) throw new Error(p.stderr.toString());
+                await rm(join(work, 'node_modules'), { recursive: true, force: true });
+            }
             git(work, 'add', '-A'); git(work, 'commit', '-qm', r.v); git(work, 'tag', 'v' + r.v);
         }
         git(work, 'push', '-q', '--tags', bare, 'main');
@@ -53,7 +59,7 @@ async function fixture() {
     const confirm = async (o: any) => call({ ...o, confirmed: true, expectedDigest: (await call(o)).digest });
     const hello = async (n = 'demo') => (await import(join(user, n, 'src', n, 'hello.ts') + '?t=' + Math.random())).default();
     const lock = async () => JSON.parse(await readFile(join(root, 'hyper', 'plugins.lock.json'), 'utf8'));
-    return { root, user, demo, needy, ctx, call, confirm, hello, lock, reloads: () => reloads };
+    return { root, user, demo, needy, ctx, call, confirm, hello, lock, repo, reloads: () => reloads };
 }
 
 test('install clones the tag after a preview bound to the commit; update, rollback and the lock follow', async () => {
@@ -256,3 +262,111 @@ test('lock files from before ref modes read unchanged; a malformed previous entr
     await writeFile(file, JSON.stringify({ plugins: { demo: { ...old.plugins.demo, previous: [{ tag: 'v0.9.0' }] } } }));
     await expect(f.ctx.fns.plugins.lockFile({})).rejects.toThrow('Malformed');
 });
+
+/** An npm package vendored in the plugin repository (no network). Its postinstall leaves built.txt beside it and a line in $LEAF_MARK, a file outside every clone. */
+const LEAF = {
+    'vendor/leaf/package.json': JSON.stringify({ name: 'leaf', version: '1.0.0', main: 'index.js', scripts: { postinstall: 'echo built > built.txt && echo run >> "$LEAF_MARK"' } }),
+    'vendor/leaf/index.js': 'module.exports = 1;',
+};
+const DEPS = { dependencies: { leaf: 'file:./vendor/leaf' } };
+
+test('npm dependencies install exactly from the committed bun.lock; a missing or stale bun.lock is refused', async () => {
+    const f = await fixture();
+    const locked = await f.repo('locked', [{ v: '1.0.0', body: 'a', extra: LEAF, pkg: DEPS, lock: true }]);
+    const preview = await f.call({ operation: 'install', name: 'locked', repo: locked, tag: 'v1.0.0' });
+    expect(preview.newPackages).toEqual(['leaf']);
+    expect(preview.plugin?.files).toContain('bun.lock');
+    await f.confirm({ operation: 'install', name: 'locked', repo: locked, tag: 'v1.0.0' });
+    expect(await readdir(join(f.user, 'locked', 'node_modules', 'leaf'))).toContain('index.js');
+    // bun.lock is the author's tracked file; the clone stays clean after the install.
+    expect((await cloneStatus(f.ctx, null, { dir: join(f.user, 'locked') })).dirty).toEqual([]);
+
+    const nolock = await f.repo('nolock', [{ v: '1.0.0', body: 'a', extra: LEAF, pkg: DEPS }]);
+    await expect(f.call({ operation: 'install', name: 'nolock', repo: nolock, tag: 'v1.0.0' })).rejects.toThrow('declares npm dependencies but its repository has no bun.lock');
+
+    // v1.0.0 locked one dependency; v2.0.0 adds another to package.json and keeps the old bun.lock.
+    const stale = await f.repo('stale', [
+        { v: '1.0.0', body: 'a', extra: LEAF, pkg: DEPS, lock: true },
+        { v: '2.0.0', body: 'b', pkg: { dependencies: { leaf: 'file:./vendor/leaf', twig: 'file:./vendor/leaf' } } },
+    ]);
+    await expect(f.call({ operation: 'install', name: 'stale', repo: stale, tag: 'v2.0.0' })).rejects.toThrow('bun.lock does not match package.json');
+    await f.confirm({ operation: 'install', name: 'stale', repo: stale, tag: 'v1.0.0' });
+    await expect(f.call({ operation: 'update', name: 'stale', tag: 'v2.0.0' })).rejects.toThrow('bun.lock does not match package.json');
+    expect((await f.lock()).plugins.stale.tag).toBe('v1.0.0');
+    expect(await readdir(f.user)).not.toContain('nolock');
+}, 120_000);
+
+test('npm install scripts run only for trustedDependencies, only on confirm, and the preview names them', async () => {
+    const f = await fixture();
+    const mark = join(f.root, 'leaf-mark');
+    const runs = async () => (await readFile(mark, 'utf8').catch(() => '')).split('\n').filter(Boolean).length;
+    process.env.LEAF_MARK = mark;
+    try {
+    const plain = await f.repo('plain', [{ v: '1.0.0', body: 'a', extra: LEAF, pkg: DEPS, lock: true }]);
+    const p1 = await f.call({ operation: 'install', name: 'plain', repo: plain, tag: 'v1.0.0' });
+    expect(p1.installScripts).toBeUndefined();
+    expect(p1.blockedScripts).toMatch(/Blocked 1 postinstall/);
+    await f.confirm({ operation: 'install', name: 'plain', repo: plain, tag: 'v1.0.0' });
+    expect(await readdir(join(f.user, 'plain', 'node_modules', 'leaf'))).not.toContain('built.txt');
+    expect(await runs()).toBe(0);
+
+    const trusting = await f.repo('trusting', [
+        { v: '1.0.0', body: 'a', extra: LEAF, pkg: DEPS, lock: true },
+        { v: '2.0.0', body: 'b', pkg: { ...DEPS, trustedDependencies: ['leaf'] }, lock: true },
+    ]);
+    const p2 = await f.call({ operation: 'install', name: 'trusting', repo: trusting, tag: 'v2.0.0' });
+    expect(p2.installScripts).toEqual([{ plugin: 'trusting', package: 'leaf', scripts: ['postinstall: echo built > built.txt && echo run >> "$LEAF_MARK"'] }]);
+    expect(p2.plugin?.trustedDependencies).toEqual(['leaf']);
+    // The preview ran nothing and left nothing behind.
+    expect(await runs()).toBe(0);
+    expect(await readdir(f.user)).not.toContain('trusting');
+    expect(await readdir(join(f.root, 'hyper', '.plugin-staging'))).toEqual([]);
+    await f.call({ operation: 'install', name: 'trusting', repo: trusting, tag: 'v2.0.0', confirmed: true, expectedDigest: p2.digest });
+    expect(await readdir(join(f.user, 'trusting', 'node_modules', 'leaf'))).toContain('built.txt');
+    expect(await runs()).toBe(1);
+
+    // An update that starts trusting a package shows it too, and rolling back to the release without it drops the built file.
+    await f.call({ operation: 'remove', name: 'trusting' }).then(p => f.call({ operation: 'remove', name: 'trusting', confirmed: true, expectedDigest: p.digest }));
+    await f.confirm({ operation: 'install', name: 'trusting', repo: trusting, tag: 'v1.0.0' });
+    expect(await readdir(join(f.user, 'trusting', 'node_modules', 'leaf'))).not.toContain('built.txt');
+    const up = await f.call({ operation: 'update', name: 'trusting', tag: 'v2.0.0' });
+    expect(up.installScripts?.map(i => i.package)).toEqual(['leaf']);
+    expect(await runs()).toBe(1);
+    await f.call({ operation: 'update', name: 'trusting', tag: 'v2.0.0', confirmed: true, expectedDigest: up.digest });
+    expect(await readdir(join(f.user, 'trusting', 'node_modules', 'leaf'))).toContain('built.txt');
+    expect(await runs()).toBe(2);
+    await f.confirm({ operation: 'rollback', name: 'trusting' });
+    expect(await readdir(join(f.user, 'trusting', 'node_modules', 'leaf'))).not.toContain('built.txt');
+    expect(await runs()).toBe(2);
+
+    const odd = await f.repo('odd', [{ v: '1.0.0', body: 'a', pkg: { trustedDependencies: ['../escape'] } }]);
+    await expect(f.call({ operation: 'install', name: 'odd', repo: odd, tag: 'v1.0.0' })).rejects.toThrow('trustedDependencies must list npm package names');
+    } finally { delete process.env.LEAF_MARK; }
+}, 120_000);
+
+test('procs.requires with version ranges: checked on install, and an update may not leave a dependent\'s range', async () => {
+    const f = await fixture();
+    const picky = await f.repo('picky', [{ v: '1.0.0', body: 'p' }], { demo: '^1.0' });
+    const w = (tag: string) => ({ operation: 'install', name: 'picky', repo: picky, tag: 'v1.0.0', with: { demo: { repo: f.demo, tag } } });
+    await expect(f.call(w('v2.0.0'))).rejects.toThrow('picky requires demo ^1.0, but this change brings demo 2.0.0');
+    const preview = await f.call(w('v1.0.0'));
+    expect(preview.plugin?.requires).toEqual(['demo']);
+    expect(preview.plugin?.requiresRanges).toEqual({ demo: '^1.0' });
+    await f.call({ ...w('v1.0.0'), confirmed: true, expectedDigest: preview.digest });
+    expect(await f.hello('demo')).toBe('v1');
+
+    // demo 2.0.0 would break picky: refused, with the way out. Removing demo is refused as before.
+    await expect(f.call({ operation: 'update', name: 'demo', tag: 'v2.0.0' })).rejects.toThrow('picky requires demo ^1.0; demo 2.0.0 does not satisfy it');
+    await expect(f.call({ operation: 'remove', name: 'demo' })).rejects.toThrow('required by picky');
+    expect((await f.lock()).plugins.demo.tag).toBe('v1.0.0');
+
+    // Against an already installed and mounted plugin: the range is checked with its package.json version.
+    f.ctx.state.procs.modules.push({ name: 'demo', dir: join(f.user, 'demo', 'src'), namespaces: ['demo'] });
+    const strict = await f.repo('strict', [{ v: '1.0.0', body: 's' }], { demo: '>=2 <3' });
+    await expect(f.call({ operation: 'install', name: 'strict', repo: strict, tag: 'v1.0.0' })).rejects.toThrow('strict requires demo >=2 <3, but demo 1.0.0 is installed — switch demo to a matching version first');
+
+    // A plain list still means "any version", and a malformed range is refused by the package check.
+    await f.confirm({ operation: 'install', name: 'needy', repo: f.needy, tag: 'v1.0.0' });
+    const bad = await f.repo('bad', [{ v: '1.0.0', body: 'b' }], { demo: 'latest' });
+    await expect(f.call({ operation: 'install', name: 'bad', repo: bad, tag: 'v1.0.0' })).rejects.toThrow('procs.requires: demo needs a version range');
+}, 120_000);

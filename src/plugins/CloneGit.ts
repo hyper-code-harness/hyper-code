@@ -26,6 +26,8 @@ export type CloneGit = {
     upstream?: string;
     /** Branch mode: commits origin/<lockedBranch> has that HEAD lacks (plugins.branchUpdates), when it was asked. */
     newCommits?: number;
+    /** The repository has no remote at all: a private plugin kept as a local git repository (plugins.gitInit), never published. */
+    local?: boolean;
     /** origin is not the repository the plugin was installed from (lock repo) — a fork. */
     fork: boolean;
 };

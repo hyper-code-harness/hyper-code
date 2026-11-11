@@ -3,8 +3,8 @@
  *
  * Use before changing a clone (update, rollback and remove refuse or ask for force when it has local work) and to
  * show its status. Offline: compares with the remote-tracking refs as last fetched. `unpushed` lists commits of
- * HEAD that are on no remote branch and under no tag; `dirty` ignores node_modules and bun.lock, which the
- * installer keeps out of git. ahead/behind count HEAD against the upstream of the current branch, or against the
+ * HEAD that are on no remote branch and under no tag; `dirty` ignores node_modules, which the installer keeps out
+ * of git — bun.lock is the author's file and counts. ahead/behind count HEAD against the upstream of the current branch, or against the
  * checked-out tag when detached.
  * @param opts.dir Absolute directory of the clone.
  */
@@ -41,7 +41,7 @@ export default async function (_ctx: Context, _session: Session | null, opts: {
     const branch = run('symbolic-ref', '-q', '--short', 'HEAD');
     const baseTag = run('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*.[0-9]*.[0-9]*', 'HEAD');
     const dirty = lines(run('status', '--porcelain', '--untracked-files=all').out)
-        .map(l => l.slice(3)).filter(p => !p.startsWith('node_modules') && p !== 'bun.lock');
+        .map(l => l.slice(3)).filter(p => !p.startsWith('node_modules'));
     const unpushed = lines(run('log', '--format=%h %s', 'HEAD', '--not', '--remotes', '--tags').out);
     let ahead = 0, behind = 0;
     const against = branch.ok ? run('rev-parse', '--abbrev-ref', '@{upstream}') : { ok: !!baseTag.ok, out: baseTag.out };

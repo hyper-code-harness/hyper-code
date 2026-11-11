@@ -43,6 +43,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         ...(st.branch ? { branch: st.branch } : {}), ...(st.baseTag ? { baseTag: st.baseTag } : {}),
         sinceTag: st.sinceTag, dirty: st.dirty, unpushed: st.unpushed, ahead: st.ahead, behind: st.behind,
         ...(st.origin ? { origin: st.origin } : {}), ...(st.upstream ? { upstream: st.upstream } : {}),
+        ...(!st.origin && !st.upstream ? { local: true } : {}),
         fork: !!(st.upstream || (lock && st.origin && norm(st.origin) !== norm(lock.repo))),
     };
     const esc = (v: unknown) => Bun.escapeHTML(String(v ?? ''));
@@ -59,9 +60,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         ...(updates?.behind ? [['Upstream', `${updates.behind} new commit${updates.behind === 1 ? '' : 's'} on <code>origin/${esc(updates.branch)}</code>:<br>${updates.commits.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')}`] as [string, string]] : []),
         ...(updates?.error ? [['Upstream', esc(updates.error)] as [string, string]] : []),
         ...(git.origin ? [['Origin', `<code>${esc(git.origin)}</code>`] as [string, string]] : []),
+        ...(git.local ? [['Origin', 'none — a local plugin: versioned here, published nowhere. Add a remote with git to release it.'] as [string, string]] : []),
         ...(git.upstream ? [['Upstream', `<code>${esc(git.upstream)}</code>`] as [string, string]] : []),
         ...(git.dirty.length ? [['Uncommitted', git.dirty.slice(0, 20).map(f => `<code>${esc(f)}</code>`).join(' ')] as [string, string]] : []),
-        ...(git.unpushed.length ? [['Unpushed', git.unpushed.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')] as [string, string]] : []),
+        ...(git.unpushed.length && !git.local ? [['Unpushed', git.unpushed.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')] as [string, string]] : []),
     ];
     let actions: string;
     if (opts.confirm) {
@@ -70,7 +72,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     } else {
         const list = [
             !git.branch ? button({ operation: 'edit' }, 'Edit', true) : '',
-            git.branch && !git.dirty.length ? button({ operation: 'release' }, 'Release') : '',
+            git.branch && !git.dirty.length && !git.local ? button({ operation: 'release' }, 'Release') : '',
             // A pinned commit has nothing to follow: it moves only through Switch to.
             lock && !local && git.mode !== 'commit' ? button({ operation: 'install', name: opts.name }, git.mode === 'branch' && updates?.behind ? `Update (+${updates.behind} new)` : 'Update', git.mode === 'branch' && !!updates?.behind, '/plugins/listing') : '',
             lock && !local && lock.previous.length ? button({ operation: 'rollback', name: opts.name }, 'Rollback', false, '/plugins/listing') : '',

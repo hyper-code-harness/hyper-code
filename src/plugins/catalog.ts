@@ -44,7 +44,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             entry.commit = locked.commit;
             const pkg = await fs.readFile(path.join(mount, p.name, 'package.json'), 'utf8').then(JSON.parse, () => null);
             if (typeof pkg?.version === 'string') entry.installed = pkg.version;
-            if (Array.isArray(pkg?.procs?.requires)) entry.requires = pkg.procs.requires.map(String);
+            // ["demo"] or { "demo": "^1.2" }: shown as `demo` and `demo ^1.2`.
+            const req = pkg?.procs?.requires;
+            if (Array.isArray(req)) entry.requires = req.map(String);
+            else if (req && typeof req === 'object') entry.requires = Object.entries(req).map(([n, r]) => String(r).trim() === '*' ? n : `${n} ${String(r).trim()}`);
             // A tag clone has an update when a newer release exists; a branch clone when its branch moved upstream
             // (plugins.branchUpdates: ls-remote, cached); a commit clone only by an explicit switch.
             if (locked.tag) entry.update = !!(entry.latest && newer(entry.latest, locked.tag.slice(1)));

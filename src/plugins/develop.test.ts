@@ -138,3 +138,39 @@ test('release without push rights suggests fork; fork rewires remotes; syncUpstr
     expect(s).toMatchObject({ behind: 1, ahead: 1, merged: false, conflicts: ['src/demo/hello.ts'], commit: head });
     expect(git(f.clone, 'status', '--porcelain')).toBe('');
 });
+
+test('release demands a committed bun.lock that matches package.json when the plugin has npm dependencies', async () => {
+    const f = await fixture();
+    await f.ctx.fns.plugins.edit({ name: 'demo' });
+    const bun = (...args: string[]) => {
+        const p = Bun.spawnSync([process.execPath, ...args], { cwd: f.clone, env: { ...process.env, BUN_BE_BUN: '1' } });
+        if (p.exitCode) throw new Error(p.stderr.toString());
+    };
+    const pkg = async (deps: Record<string, string>) =>
+        writeFile(join(f.clone, 'package.json'), JSON.stringify({ name: 'demo', version: '1.0.0', type: 'module', procs: { src: 'src' }, dependencies: deps }, null, 2) + '\n');
+    // An npm package vendored in the repository, so the test needs no network.
+    await mkdir(join(f.clone, 'vendor', 'leaf'), { recursive: true });
+    await writeFile(join(f.clone, 'vendor', 'leaf', 'package.json'), JSON.stringify({ name: 'leaf', version: '1.0.0', main: 'index.js' }));
+    await writeFile(join(f.clone, 'vendor', 'leaf', 'index.js'), 'module.exports = 1;');
+    await pkg({ leaf: 'file:./vendor/leaf' });
+    git(f.clone, 'add', '-A'); git(f.clone, 'commit', '-qm', 'add leaf');
+    await expect(f.ctx.fns.plugins.release({ name: 'demo' })).rejects.toThrow('bun.lock is not committed');
+
+    // After `bun install` the new bun.lock is uncommitted work, like any other file of the author.
+    bun('install');
+    await expect(f.ctx.fns.plugins.release({ name: 'demo' })).rejects.toThrow('uncommitted changes — commit them first: bun.lock');
+    git(f.clone, 'add', 'bun.lock'); git(f.clone, 'commit', '-qm', 'lock');
+
+    await pkg({ leaf: 'file:./vendor/leaf', twig: 'file:./vendor/leaf' });
+    git(f.clone, 'commit', '-qam', 'add twig, forget the lock');
+    await expect(f.ctx.fns.plugins.release({ name: 'demo' })).rejects.toThrow('bun.lock of demo does not match package.json');
+    expect(git(f.bare, 'tag', '--list')).toBe('v1.0.0');
+
+    bun('install');
+    git(f.clone, 'commit', '-qam', 'lock twig');
+    const r = await f.ctx.fns.plugins.release({ name: 'demo' });
+    expect(r.tag).toBe('v1.0.1');
+    expect(git(f.bare, 'ls-tree', '--name-only', 'v1.0.1')).toContain('bun.lock');
+    // What was released installs: the same clone moves to the tag with its dependencies from that bun.lock.
+    expect(await f.lock()).toMatchObject({ tag: 'v1.0.1' });
+}, 120_000);

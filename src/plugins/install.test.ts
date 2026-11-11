@@ -1,5 +1,5 @@
 import { test, expect, afterEach } from 'bun:test';
-import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import gitInstall from './gitInstall';
@@ -25,22 +25,38 @@ function git(cwd: string, ...args: string[]) {
 }
 
 /** Local git repos (base; chart requires base; lonely requires missing), a file:// listing and an empty USER_PLUGINS. */
-async function world() {
+async function world(extra: Array<'ranges' | 'scripts'> = []) {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'plugins-install-')));
     roots.push(root);
-    const repo = async (name: string, releases: string[], requires: string[] = []) => {
+    const repo = async (name: string, releases: string[], requires: string[] | Record<string, string> = [], more: { pkg?: Record<string, unknown>; files?: Record<string, string>; lock?: boolean } = {}) => {
         const dir = join(root, 'repos', name);
         await mkdir(join(dir, 'src', name), { recursive: true });
         git(dir, 'init', '-q');
         for (const v of releases) {
-            await writeFile(join(dir, 'package.json'), JSON.stringify({ name, version: v, procs: { requires } }));
+            await writeFile(join(dir, 'package.json'), JSON.stringify({ name, version: v, procs: { requires }, ...more.pkg }));
             await writeFile(join(dir, 'src', name, 'version.ts'), `export default async () => ${JSON.stringify(v)};`);
+            for (const [f, c] of Object.entries(more.files ?? {})) { await mkdir(join(dir, f, '..'), { recursive: true }); await writeFile(join(dir, f), c); }
+            // The author's `bun install`: bun.lock is committed, node_modules is not.
+            if (more.lock) {
+                const p = Bun.spawnSync([process.execPath, 'install', '--ignore-scripts'], { cwd: dir, env: { ...process.env, BUN_BE_BUN: '1' } });
+                if (p.exitCode) throw new Error(p.stderr.toString());
+                await rm(join(dir, 'node_modules'), { recursive: true, force: true });
+            }
             git(dir, 'add', '-A'); git(dir, 'commit', '-qm', v); git(dir, 'tag', 'v' + v);
         }
         git(dir, 'tag', 'nightly');
         return { name, label: name, description: `the ${name} plugin`, source: `git+file://${dir}` };
     };
-    const entries = [await repo('base', ['1.0.0', '1.2.0', '1.10.0']), await repo('chart', ['2.0.0'], ['base']), await repo('lonely', ['1.0.0'], ['missing'])];
+    const entries = [
+        await repo('base', ['1.0.0', '1.2.0', '1.10.0']), await repo('chart', ['2.0.0'], ['base']), await repo('lonely', ['1.0.0'], ['missing']),
+        // Version ranges: tilde wants base 1.2.x, future a base 3 that does not exist.
+        ...(extra.includes('ranges') ? [await repo('tilde', ['1.0.0'], { base: '~1.2' }), await repo('future', ['1.0.0'], { base: '^3' })] : []),
+        // An npm package vendored in the repository (no network) whose postinstall the plugin trusts.
+        ...(extra.includes('scripts') ? [await repo('builder', ['1.0.0'], [], {
+            pkg: { dependencies: { leaf: 'file:./vendor/leaf' }, trustedDependencies: ['leaf'] }, lock: true,
+            files: { 'vendor/leaf/package.json': JSON.stringify({ name: 'leaf', version: '1.0.0', main: 'index.js', scripts: { postinstall: 'echo built > built.txt' } }), 'vendor/leaf/index.js': 'module.exports = 1;' },
+        })] : []),
+    ];
     const index = join(root, 'index.json');
     await writeFile(index, JSON.stringify({ format: 2, plugins: entries }));
     const user = join(root, 'hyper', 'user');
@@ -195,4 +211,49 @@ test('dev mode through install: follow a branch, see "+N new" in the catalog, up
     const rel = await ctx.fns.plugins.install({ name: 'base', version: '1.10.0' });
     await ctx.fns.plugins.install({ name: 'base', version: '1.10.0', confirmed: true, expectedDigest: rel.digest });
     expect((await w.deps()).base).toMatchObject({ tag: 'v1.10.0', previous: [{ branch }, { branch }, { commit: v12 }] });
+});
+
+test('a version range in procs.requires picks the newest matching release, guards updates, and is shown', async () => {
+    const w = await world(['ranges']);
+    const ctx = w.ctx;
+    await expect(ctx.fns.plugins.install({ name: 'future' })).rejects.toThrow('future requires base ^3, but base has only 1.10.0, 1.2.0, 1.0.0');
+
+    const preview = await ctx.fns.plugins.install({ name: 'tilde' });
+    expect(preview.companions?.map((c: any) => [c.name, c.version])).toEqual([['base', '1.2.0']]);
+    expect(preview.plugin.requiresRanges).toEqual({ base: '~1.2' });
+    expect(await ctx.fns.plugins.listingPage({ change: preview })).toContain('<code>base ~1.2</code>');
+    await ctx.fns.plugins.install({ name: 'tilde', confirmed: true, expectedDigest: preview.digest });
+    expect((await w.deps()).base.tag).toBe('v1.2.0');
+    const cat = await ctx.fns.plugins.catalog({});
+    expect(cat.plugins.find((p: any) => p.name === 'tilde').requires).toEqual(['base ~1.2']);
+    expect(cat.plugins.find((p: any) => p.name === 'base')).toMatchObject({ installed: '1.2.0', latest: '1.10.0', update: true });
+
+    // The catalog offers base 1.10.0, but tilde's range forbids it; inside the range nothing is in the way.
+    await expect(ctx.fns.plugins.install({ name: 'base' })).rejects.toThrow('tilde requires base ~1.2; base 1.10.0 does not satisfy it');
+    expect((await w.deps()).base.tag).toBe('v1.2.0');
+    expect((await ctx.fns.plugins.install({ name: 'base', version: '1.2.0' })).status).toBe('preview');
+});
+
+test('a required plugin that is already installed outside the range is not moved: the preview says to switch it', async () => {
+    const w = await world(['ranges']);
+    const ctx = w.ctx;
+    const base = await ctx.fns.plugins.install({ name: 'base' });
+    await ctx.fns.plugins.install({ name: 'base', confirmed: true, expectedDigest: base.digest });
+    w.ctx.state.procs.modules.push({ name: 'base', dir: join(w.user, 'base', 'src'), namespaces: ['base'] });
+    await expect(ctx.fns.plugins.install({ name: 'tilde' })).rejects.toThrow('tilde requires base ~1.2, but base 1.10.0 is installed — switch base to a matching version first');
+    expect(Object.keys(await w.deps())).toEqual(['base']);
+});
+
+test('trusted npm install scripts: the review names them before confirm, and only confirm runs them', async () => {
+    const w = await world(['scripts']);
+    const ctx = w.ctx;
+    const preview = await ctx.fns.plugins.install({ name: 'builder' });
+    expect(preview.installScripts).toEqual([{ plugin: 'builder', package: 'leaf', scripts: ['postinstall: echo built > built.txt'] }]);
+    const review = await ctx.fns.plugins.listingPage({ change: preview });
+    expect(review).toContain('data-install-scripts');
+    expect(review).toContain('Confirming runs the install scripts of this npm package');
+    expect(review).toContain('<code>postinstall: echo built &gt; built.txt</code>');
+    const done = await ctx.fns.plugins.install({ name: 'builder', confirmed: true, expectedDigest: preview.digest });
+    expect(await readdir(join(w.user, 'builder', 'node_modules', 'leaf'))).toContain('built.txt');
+    expect(await ctx.fns.plugins.listingPage({ change: done })).toContain('Ran the install scripts of this npm package');
 });

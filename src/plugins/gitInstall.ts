@@ -5,10 +5,15 @@
  * commit: give exactly one of tag, branch or commit. A branch clone is checked out ON the branch tracking origin;
  * a commit clone sits detached at that SHA (a short SHA is resolved; one no branch or tag of origin reaches is
  * refused). The first call is a preview and leaves
- * USER_PLUGINS untouched: install clones the tag into a staging folder beside USER_PLUGINS, runs `bun install
- * --ignore-scripts` there, checks the tree with plugins.inspectPackage, checks its namespaces against every other
- * mounted module and its procs.requires against what is mounted or cloned in the same step (opts.with), and returns
- * the files, new npm packages and a digest of operation, repo, commit SHA, tree SHA and content. Update fetches the
+ * USER_PLUGINS untouched: install clones the tag into a staging folder beside USER_PLUGINS, checks the tree with
+ * plugins.inspectPackage, installs its npm dependencies there exactly as the committed bun.lock says (`bun install
+ * --frozen-lockfile --ignore-scripts`; dependencies without a bun.lock, or a bun.lock that no longer matches
+ * package.json, are refused), checks its namespaces against every other mounted module and its procs.requires —
+ * names, or `{ name: range }` with a semver range — against what is mounted or cloned in the same step (opts.with),
+ * and returns the files, new npm packages, `installScripts` and a digest of operation, repo, commit SHA, tree SHA
+ * and content. npm install scripts never run in a preview; confirming runs them only for the packages the plugin
+ * lists in package.json `trustedDependencies`, which the preview shows in `installScripts`. An update or rollback
+ * is refused when the new version leaves the range of an installed plugin that requires this one. Update fetches the
  * repository's tags into the clone and previews the new tag with a diff against the current commit; rollback does
  * the same for the last `previous` entry of the lock. Both refuse while the clone has uncommitted or unpushed work
  * and list it. Update without a ref on a branch clone fetches and previews the fast-forward to the new branch head
@@ -25,8 +30,6 @@
  * @param opts.branch Branch of the repository to install on or switch to and follow (dev mode), e.g. main or feature/x.
  * @param opts.commit Alone: the exact commit (7–40 hex) to pin the clone to. With tag or branch: the expected SHA it points at; the preview fails otherwise.
  * @param opts.with Other plugins to clone in the same step, name → { repo, tag }: the plugins this one requires (plugins.install fills it).
- * @param opts.replaces Absolute folder of an older copy of the same plugin this clone replaces (plugins.migrateToGit): modules mounted from it are not a namespace collision.
- * @param opts.reload Remount plugins after applying; plugins.migrateToGit remounts once at the end. @default true
  * @param opts.force Remove a clone even though it has uncommitted or unpushed work. @default false
  * @param opts.confirmed Apply the previewed change. @default false
  * @param opts.expectedDigest Digest returned by the preview being confirmed.
@@ -46,10 +49,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     commit?: string;
     /** Other plugins to clone in the same step, name → { repo, tag }: the plugins this one requires. */
     with?: Record<string, { repo: string; tag: string }>;
-    /** Absolute folder of an older copy of the same plugin this clone replaces: modules mounted from it are not a namespace collision. */
-    replaces?: string;
-    /** Remount plugins after applying; plugins.migrateToGit remounts once at the end. @default true */
-    reload?: boolean;
     /** Remove a clone even though it has uncommitted or unpushed work. @default false */
     force?: boolean;
     /** Apply the previewed change. @default false */
@@ -97,15 +96,43 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         return code ? '' : out.trim();
     };
     const ok = async (cwd: string, args: string[]) => (await Bun.spawn(['git', ...args], { cwd, stdout: 'ignore', stderr: 'ignore', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }).exited) === 0;
-    const npmInstall = async (cwd: string) => {
+    // npm packages come exactly from the bun.lock the author committed (--frozen-lockfile; --no-save writes nothing back).
+    // Install scripts stay off — except, on the confirmed run only, for the packages the plugin names in
+    // trustedDependencies: naming any makes bun ignore its built-in allowlist, so nothing else runs. A preview never runs one.
+    const npmInstall = async (cwd: string, p: types.plugins.PackageInspection, scripts = false) => {
         const pkg = JSON.parse(await fs.readFile(path.join(cwd, 'package.json'), 'utf8').catch(() => '{}'));
         if (!Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).length) return '';
-        const p = Bun.spawn([process.execPath, 'install', '--ignore-scripts', '--production', '--no-save'], { cwd, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, BUN_BE_BUN: '1' } });
-        const [out, err, code] = [await new Response(p.stdout).text(), await new Response(p.stderr).text(), await p.exited];
+        if (!await exists(path.join(cwd, 'bun.lock')) && !await exists(path.join(cwd, 'bun.lockb')))
+            throw new Error(`${p.name} declares npm dependencies but its repository has no bun.lock — its author runs \`bun install\` and commits bun.lock`);
+        const run = scripts && p.trustedDependencies.length > 0;
+        const proc = Bun.spawn([process.execPath, 'install', '--frozen-lockfile', '--production', '--no-save', ...(run ? [] : ['--ignore-scripts'])],
+            { cwd, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, BUN_BE_BUN: '1' } });
+        const timer = setTimeout(() => proc.kill(), 600_000);
+        const [out, err, code] = [await new Response(proc.stdout).text(), await new Response(proc.stderr).text(), await proc.exited];
+        clearTimeout(timer);
+        if (code && /lockfile/i.test(err) && /frozen/i.test(err)) {
+            const note = /note: (dependencies in package\.json changed[^\n]*)/.exec(err)?.[1];
+            throw new Error(`${p.name}: bun.lock does not match package.json${note ? ` (${note.slice(0, 200)})` : ''} — its author runs \`bun install\` and commits bun.lock`);
+        }
         if (code) throw new Error(`bun install failed: ${(err.trim().split('\n').at(-1) ?? '').slice(0, 300)}`);
         return out + err;
     };
-    // node_modules is the installer's (bun runs with --no-save, so no bun.lock appears), not the plugin author's: keep them out of `git status`.
+    // What confirming will run: the install scripts of the trusted packages, read from the script-less preview install.
+    const scriptsOf = async (cwd: string, p: types.plugins.PackageInspection) => {
+        const out: Array<{ plugin: string; package: string; scripts: string[] }> = [];
+        for (const n of p.trustedDependencies) {
+            const dep = JSON.parse(await fs.readFile(path.join(cwd, 'node_modules', n, 'package.json'), 'utf8').catch(() => 'null'));
+            out.push({ plugin: p.name, package: n, scripts: ['preinstall', 'install', 'postinstall'].filter(k => typeof dep?.scripts?.[k] === 'string').map(k => `${k}: ${String(dep.scripts[k]).slice(0, 200)}`) });
+        }
+        return out;
+    };
+    // procs.requires of a package.json as name → range: ["demo"] means any version, { "demo": "^1.2" } a range.
+    const rangesOf = (pkg: any): Record<string, string> => {
+        const r = pkg?.procs?.requires;
+        if (Array.isArray(r)) return Object.fromEntries(r.map((n: unknown) => [String(n), '*']));
+        return r && typeof r === 'object' ? Object.fromEntries(Object.entries(r).map(([n, v]) => [n, String(v).trim()])) : {};
+    };
+    // node_modules is the installer's, not the plugin author's: keep it out of `git status`. bun.lock is the author's and stays tracked.
     const exclude = async (dir: string) => {
         const file = path.join(dir, '.git', 'info', 'exclude');
         const text = await fs.readFile(file, 'utf8').catch(() => '');
@@ -169,7 +196,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const dependents: string[] = [];
             for (const other of (await fs.readdir(mount)).filter(n => n !== name && !n.startsWith('.'))) {
                 const pkg = JSON.parse(await fs.readFile(path.join(mount, other, 'package.json'), 'utf8').catch(() => '{}'));
-                if (Array.isArray(pkg?.procs?.requires) && pkg.procs.requires.includes(name)) dependents.push(other);
+                if (name in rangesOf(pkg)) dependents.push(other);
             }
             if (dependents.length) throw new Error(`${name} is required by ${dependents.join(', ')}: remove ${dependents.length === 1 ? 'it' : 'them'} first`);
             const old = await ctx.fns.plugins.inspectPackage({ dir: target }).catch(() => undefined);
@@ -280,9 +307,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         await git(staged, ['checkout', '-q', '--detach', commit]);
         const tree = await git(staged, ['rev-parse', `${commit}^{tree}`]);
         await exclude(staged);
-        let log = await npmInstall(staged);
+        // Inspect before installing: a tree the checks refuse never reaches bun.
         const plugin = await ctx.fns.plugins.inspectPackage({ dir: staged });
         if (plugin.name !== name) throw new Error(`Package is ${plugin.name}, not ${name}`);
+        let log = await npmInstall(staged, plugin);
 
         const companions: Array<{ name: string; repo: string; tag: string; commit: string; tree: string; plugin: types.plugins.PackageInspection; dir: string }> = [];
         for (const [n, w] of extra) {
@@ -292,15 +320,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const c = await tagCommit(dir, w.tag);
             await git(dir, ['checkout', '-q', '--detach', c]);
             await exclude(dir);
-            log += await npmInstall(dir);
             const p = await ctx.fns.plugins.inspectPackage({ dir });
             if (p.name !== n) throw new Error(`Package is ${p.name}, not ${n}`);
+            log += await npmInstall(dir, p);
             companions.push({ name: n, repo: w.repo, tag: w.tag, commit: c, tree: await git(dir, ['rev-parse', `${c}^{tree}`]), plugin: p, dir });
         }
 
         // Namespaces are global: one owned by any other mounted module stays theirs — no silent override.
         const all = [{ name, plugin }, ...companions.map(c => ({ name: c.name, plugin: c.plugin }))];
-        const replaced = opts.replaces ? await fs.realpath(opts.replaces).catch(() => opts.replaces!) : null;
         for (const p of all) {
             const own = await fs.realpath(dirOf(p.name)).catch(() => dirOf(p.name));
             const claimed = all.filter(o => o !== p).flatMap(o => o.plugin.namespaces);
@@ -308,7 +335,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 if (claimed.includes(ns)) throw new Error(`Namespace collision: ${ns} is shipped by more than one plugin of this change`);
                 for (const m of modules().filter(m => m.namespaces.includes(ns))) {
                     const owner = await fs.realpath(m.dir).catch(() => m.dir);
-                    if (replaced && p.name === name && (owner === replaced || owner.startsWith(replaced + '/'))) continue;
                     if (owner !== own && !owner.startsWith(own + '/')) throw new Error(`Namespace collision: ${ns} is provided by ${m.name}`);
                 }
             }
@@ -318,6 +344,32 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const missing = p.plugin.requires.filter(n => !provided(n));
             if (missing.length) throw new Error(`${p.name} requires ${missing.join(', ')}: install ${missing.length === 1 ? 'it' : 'them'} first`);
         }
+        // A range in procs.requires ({ "demo": "^1.2" }) is checked against the version that will be there after this change.
+        const versionOf = async (n: string) => {
+            const here = all.find(p => p.name === n);
+            if (here) return here.plugin.version;
+            const m = modules().find(m => m.name === n || m.namespaces.includes(n));
+            for (const dir of [dirOf(n), ...(m ? [m.dir, path.dirname(m.dir)] : [])]) {
+                const v = JSON.parse(await fs.readFile(path.join(dir, 'package.json'), 'utf8').catch(() => 'null'))?.version;
+                if (typeof v === 'string') return v;
+            }
+            return undefined;
+        };
+        for (const p of all)
+            for (const [n, range] of Object.entries(p.plugin.requiresRanges)) {
+                if (range === '*') continue;
+                const v = await versionOf(n);
+                if (!v || !Bun.semver.satisfies(v, range))
+                    throw new Error(`${p.name} requires ${n} ${range}, but ${!v ? `${n} has no version in its package.json` : all.some(o => o.name === n) ? `this change brings ${n} ${v}` : `${n} ${v} is installed — switch ${n} to a matching version first`}`);
+            }
+        // The other way round: a plugin already installed that requires this one keeps its range satisfied.
+        for (const other of (await fs.readdir(mount)).filter(n => !n.startsWith('.') && !all.some(p => p.name === n))) {
+            const range = rangesOf(JSON.parse(await fs.readFile(path.join(mount, other, 'package.json'), 'utf8').catch(() => 'null')))[name];
+            if (!range || range === '*') continue;
+            if (!plugin.version || !Bun.semver.satisfies(plugin.version, range))
+                throw new Error(`${other} requires ${name} ${range}; ${plugin.version ? `${name} ${plugin.version}` : 'a copy without a version'} does not satisfy it — update ${other} first or choose another version`);
+        }
+        const installScripts = [...await scriptsOf(staged, plugin), ...(await Promise.all(companions.map(c => scriptsOf(c.dir, c.plugin)))).flat()];
 
         const old = installed ? await ctx.fns.plugins.inspectPackage({ dir: target }).catch(() => undefined) : undefined;
         const files = await diffFiles(installed ? target : null, plugin, staged, old);
@@ -334,6 +386,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             ...(diffStat ? { diffStat: diffStat.slice(0, 4000) } : {}),
             ...(companions.length ? { companions: companions.map(c => ({ name: c.name, repo: c.repo, tag: c.tag, commit: c.commit, ...(c.plugin.version ? { version: c.plugin.version } : {}), namespaces: c.plugin.namespaces })) } : {}),
             newPackages: [...has].filter(n => !had.has(n)).sort(),
+            ...(installScripts.length ? { installScripts } : {}),
             ...(/Blocked \d+ postinstalls?/.test(log) ? { blockedScripts: log.match(/Blocked \d+ postinstalls?/)![0] } : {}),
             digest: createHash('sha256').update(JSON.stringify({
                 operation, name, repo, tag, branch, commit, tree, content: plugin.digest, from: from?.commit ?? null,
@@ -343,6 +396,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         };
         if (!opts.confirmed) return result;
         if (opts.expectedDigest !== result.digest) throw new Error('Preview digest mismatch: preview again');
+        // Confirmed, and the digest binds package.json and bun.lock: now the trusted packages' install scripts may run.
+        for (const c of [{ dir: staged, plugin }, ...companions]) {
+            if (!c.plugin.trustedDependencies.length) continue;
+            await fs.rm(path.join(c.dir, 'node_modules'), { recursive: true, force: true });
+            await npmInstall(c.dir, c.plugin, true);
+        }
 
         // ── apply ─────────────────────────────────────────────────────────────
         if (operation === 'install') {
@@ -372,7 +431,6 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         }
         for (const c of companions) lock.plugins[c.name] = { repo: c.repo, tag: c.tag, commit: c.commit, previous: [] };
         await ctx.fns.plugins.lockFile({ lock });
-        if (opts.reload === false) return { ...result, status: 'applied' };
         try {
             await ctx.fns.procs.modules.reload({});
             return { ...result, status: 'applied' };

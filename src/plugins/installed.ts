@@ -5,7 +5,9 @@
  * A git clone (what plugins.install puts there) carries `git`: ref mode (tag, branch, commit) with the lock tag or
  * followed branch and, for a branch, the new commits origin had at the last fetch; HEAD tag, commit, branch, uncommitted
  * files, unpushed commits, ahead/behind and whether origin is a fork of the installed repository; its status is
- * `clone` (clean, at a tag), `branch` (on a branch or ahead of its tag) or `edited` (local work not on a remote).
+ * `clone` (clean, at a tag), `branch` (on a branch or ahead of its tag), `edited` (local work not on a remote) or
+ * `local` (a private plugin in a git repository without a remote, see plugins.gitInit; `edited` when it has uncommitted files).
+ * A folder that is not a git repository is `unmanaged`: plugins.gitInit turns it into a local one.
  */
 export default async function (ctx: Context, session: Session | null, opts: {}): Promise<{
     plugins: Array<{
@@ -66,7 +68,7 @@ export default async function (ctx: Context, session: Session | null, opts: {}):
         // Branch mode counts what origin/<branch> had at the last fetch (offline); plugins.branchUpdates asks origin.
         const mode = !lock ? undefined : lock.branch ? 'branch' as const : lock.tag ? 'tag' as const : 'commit' as const;
         return { ...rest, commit: st.commit, ...(lock?.tag ? { lockedTag: lock.tag } : {}), ...(lock?.branch ? { lockedBranch: lock.branch } : {}), ...(mode ? { mode } : {}),
-            ...(mode === 'branch' && st.branch === lock!.branch ? { newCommits: st.behind } : {}), fork: !!(st.upstream || (lock && st.origin && !same(st.origin, lock.repo))) };
+            ...(mode === 'branch' && st.branch === lock!.branch ? { newCommits: st.behind } : {}), ...(!st.origin && !st.upstream ? { local: true } : {}), fork: !!(st.upstream || (lock && st.origin && !same(st.origin, lock.repo))) };
     };
     for (const entry of entries) {
         const name = entry.name;
@@ -105,7 +107,8 @@ export default async function (ctx: Context, session: Session | null, opts: {}):
             const version = typeof pkg.version === 'string' ? pkg.version : undefined;
             if (!lock) {
                 const git = await gitOf(name, dir);
-                const status = !git ? 'unmanaged' : git.dirty.length || git.unpushed.length ? 'edited' : git.branch || git.ahead ? 'branch' : 'clone';
+                // No remote: a private plugin in a local repository — its commits cannot be "unpushed".
+                const status = !git ? 'unmanaged' : git.local ? (git.dirty.length ? 'edited' : 'local') : git.dirty.length || git.unpushed.length ? 'edited' : git.branch || git.ahead ? 'branch' : 'clone';
                 plugins.push({ name, ...metadata, version, managed: false, status, ...(git ? { git } : {}) });
                 continue;
             }

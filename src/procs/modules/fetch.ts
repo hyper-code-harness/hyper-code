@@ -1,48 +1,17 @@
-// Bring in the externals workspace.json declared but that are not on disk yet:
-// a shallow clone per repo into WORKDIR/.claude/skills/<namespace> — the same
-// directory the coding agent reads skills from, so a fetched module is a skill
-// the moment it lands. The clone keeps its own .git and is excluded from the
-// project's, so it stays updatable without ever entering the user's commits: a
-// fresh checkout gets its modules back from the manifest alone.
-import { appendFile, readFile } from "node:fs/promises";
+// hyper-code2: this used to shallow-clone every `git` module of workspace.json into
+// WORKDIR/.claude/skills/<namespace> and run `bun install` there — at boot and on every
+// reload, with no preview, no pinned commit and no lock. Plugins now arrive one way only:
+// plugins.install puts a reviewed git clone into USER_PLUGINS and records it in the plugin
+// lock. The function stays because boot ($main.ts) and modules.reload call it; it clones nothing.
+// A folder an older version already cloned into .claude/skills keeps mounting (discover).
 /**
- * Fetch the modules subsystem operation.
- * @param opts.name The target name.
+ * Reports that nothing was fetched: modules are no longer cloned from workspace.json `git` entries
+ *
+ * Kept for boot and procs.modules.reload, which call it before mounting. It reads nothing, clones nothing and
+ * installs nothing. To install a plugin from a git repository use plugins.install (a reviewed clone in
+ * USER_PLUGINS, recorded in the plugin lock).
+ * @param opts.name Ignored; kept for callers of the former fetch.
  */
-export default async function (ctx: Context, _session: Session | null, opts?: { name?: string }) {
-    // Registry entries are installed folders, never instructions to clone/install.
-    if (await ctx.fns.procs.modules.readPluginRegistry({})) return { fetched: [] as string[] };
-    const workdir = ctx.fns.procs.project.workdir({});
-    const declared = await ctx.fns.procs.modules.readDeclared({ workdir });
-    const fetched: string[] = [];
-
-    for (const [namespace, config] of Object.entries(declared)) {
-        if (config === false) continue;                                 // excluded: not ours to fetch
-        if (opts?.name && opts.name !== namespace) continue;
-        if (!config.git || config.path) continue;                       // nothing to clone
-        const dir = `${workdir}/.claude/skills/${namespace}`;
-        if (await declaresItself(dir)) continue;                        // already here
-        const url = config.git.startsWith("github:") ? `https://github.com/${config.git.slice("github:".length)}` : config.git;
-        await Bun.$`git clone --depth 1 ${url} ${dir}`.quiet();
-        // A module may have dependencies of its own; Bun resolves them next to it.
-        if (await Bun.file(dir + "/package.json").exists()) await Bun.$`bun install`.cwd(dir).quiet();
-        await exclude(workdir, `.claude/skills/${namespace}/`);
-        fetched.push(namespace);
-    }
-    return { fetched };
-}
-
-async function exclude(workdir: string, path: string): Promise<void> {
-    const file = `${workdir}/.git/info/exclude`;
-    const existing = await readFile(file, "utf8").catch(() => null);
-    if (existing === null || existing.includes(path)) return;
-    await appendFile(file, `\n# module fetched by the workspace\n${path}\n`);
-}
-
-// A module declares itself in the `procs` block of its own package.json
-// (`atomic-workspace.json` is the older spelling, still read).
-async function declaresItself(dir: string): Promise<boolean> {
-    const pkg = await Bun.file(dir + "/package.json").json().catch(() => null);
-    if (pkg?.procs ?? pkg?.proc) return true;
-    return await Bun.file(dir + "/atomic-workspace.json").exists();
+export default async function (_ctx: Context, _session: Session | null, _opts?: { name?: string }) {
+    return { fetched: [] as string[] };
 }

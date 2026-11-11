@@ -18,7 +18,7 @@ export type CatalogEntry = types.plugins.ListingEntry & {
     update: boolean;
     /** Mounted from somewhere else (an official plugin or a folder in USER_PLUGINS not installed from the listing) — installing would collide. */
     providedBy?: string;
-    /** Plugins it needs (procs.requires of the installed copy); unknown until installed or previewed. */
+    /** Plugins it needs (procs.requires of the installed copy), `name` or `name range` such as `mermaid ^1.0`; unknown until installed or previewed. */
     requires?: string[];
     /** Git state of the installed clone (badges: release, edited, branch +N, fork). */
     git?: types.plugins.CloneGit;

@@ -4,7 +4,9 @@
  * Use after editing a plugin in USER_PLUGINS/<name> on a branch (plugins.edit) to publish the change as a new
  * release that plugins.install and other machines can pick up. Refuses on a detached HEAD, with uncommitted
  * changes, when the tag already exists, and when origin does not accept a push (checked with `git push --dry-run`
- * before anything else) — then fork the repository with plugins.fork and release to the fork. Runs the plugin's
+ * before anything else) — then fork the repository with plugins.fork and release to the fork. A plugin with npm
+ * dependencies must have its bun.lock committed and matching package.json (`bun install --frozen-lockfile
+ * --dry-run`), because plugins.install installs exactly from it and would refuse the release. Runs the plugin's
  * tests through Hyper's script/plugin-test.ts when it has *.test.ts files; a failure stops the release. Sets
  * package.json version (default: patch + 1), commits "Release vX.Y.Z", tags it, pushes the branch and the tag to
  * origin and moves the plugin lock to the new tag, keeping the previous one for rollback.
@@ -42,6 +44,14 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!probe.ok)
         throw new Error(`No push rights to ${st.origin}: ${(probe.stderr.split('\n').at(-1) ?? '').slice(0, 200)}. Fork it with plugins.fork({ name: "${opts.name}" }) and release to your fork.`);
 
+    // What plugins.install will demand of this release: npm dependencies come from a committed, current bun.lock.
+    if (Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).length) {
+        if (!(await git(['ls-files', '--error-unmatch', 'bun.lock'], true)).ok)
+            throw new Error(`${opts.name} has npm dependencies but bun.lock is not committed: run \`bun install\` in the clone and commit bun.lock; nothing released`);
+        const frozen = Bun.spawn([process.execPath, 'install', '--frozen-lockfile', '--dry-run'], { cwd: dir, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, BUN_BE_BUN: '1' } });
+        const [err, code] = [await new Response(frozen.stderr).text(), await frozen.exited];
+        if (code) throw new Error(`bun.lock of ${opts.name} does not match package.json${/note: (dependencies[^\n]*)/.exec(err)?.[1] ? ` (${/note: (dependencies[^\n]*)/.exec(err)![1]!.slice(0, 200)})` : ''}: run \`bun install\` in the clone and commit bun.lock; nothing released`);
+    }
     const tests: { ran: boolean; output: string } = { ran: false, output: '' };
     const hasTests = (await git(['ls-files', '*.test.ts', '**/*.test.ts'])).stdout.length > 0;
     if (hasTests) {

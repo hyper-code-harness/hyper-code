@@ -1,16 +1,14 @@
-// Ask for a module: write it into WORKDIR/workspace.json, fetch it if it comes
-// from a repo, and remount. Installing is a manifest edit — that is the whole
+// Ask for a module: write it into WORKDIR/workspace.json and remount. Installing is a manifest edit — that is the whole
 // design, so the project carries its own tools and a fresh checkout comes up
 // with them.
 //
 //   modules.add({ name: "fhir-viewer" })                                  // platform, by name
-//   modules.add({ name: "billing", git: "https://github.com/acme/x" })    // external repo
 //   modules.add({ name: "labs", path: "./tools/labs" })                   // shipped by the project
 //   modules.add({ name: "aidbox", config: { license: "…" } })             // configure a mounted one
 /**
  * Add the modules subsystem operation.
  * @param opts.name The target name.
- * @param opts.git The Git repository URL.
+ * @param opts.git Refused: a plugin from a git repository is installed with plugins.install.
  * @param opts.path The filesystem or route path.
  * @param opts.config Configuration values to apply.
  */
@@ -18,6 +16,8 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
     if (ctx.fns.procs.env.mode() === "prod") throw new Error("modules.add is dev-only (it loads third-party code)");
     const name = opts.name.trim();
     if (!name) throw new Error("modules.add: name is required");
+    // hyper-code2: no clone behind a manifest edit — a git plugin is a reviewed clone in USER_PLUGINS.
+    if (opts.git) throw new Error(`modules.add no longer clones git repositories: install ${name} with plugins.install({ name: "${name}" }) from the plugin catalog`);
 
     const file = `${ctx.fns.procs.project.workdir({})}/workspace.json`;
     const manifest = await Bun.file(file).json().catch(() => ({} as any));
@@ -26,11 +26,11 @@ export default async function (ctx: Context, _session: Session | null, opts: { n
     // still READS the old key, nothing writes it any more.
     if (manifest.plugins) { manifest.modules = { ...manifest.plugins, ...manifest.modules }; delete manifest.plugins; }
     manifest.modules ??= {};
-    manifest.modules[name] = { ...manifest.modules[name], ...opts.config, ...(opts.git ? { git: opts.git } : {}), ...(opts.path ? { path: opts.path } : {}) };
+    manifest.modules[name] = { ...manifest.modules[name], ...opts.config, ...(opts.path ? { path: opts.path } : {}) };
     await Bun.write(file, JSON.stringify(manifest, null, 2) + "\n");
 
     const mounted = (await ctx.fns.procs.modules.reload({})).find((m: any) => m.name === name);
-    if (!mounted) throw new Error(`"${name}" is declared but did not mount — no module by that name in the catalogue, and no git/path to fetch it from`);
+    if (!mounted) throw new Error(`"${name}" is declared but did not mount — no module by that name in the catalogue, and no path to mount it from`);
     // A module and a skill are one directory read by two readers. Turning it on
     // for a project hands it to both: the host mounts it, and the agent working
     // in that project finds its SKILL.md under `.claude/skills`.

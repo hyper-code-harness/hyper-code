@@ -27,6 +27,8 @@ export type GitChange = {
     companions?: Array<{ name: string; repo: string; tag: string; commit: string; version?: string; namespaces: string[] }>;
     /** npm packages the clone's node_modules has after the change that it did not have before. */
     newPackages: string[];
+    /** npm install scripts that confirming will run: one entry per package the plugin trusts (package.json trustedDependencies), with the script lines found in it. A preview runs none. */
+    installScripts?: Array<{ plugin: string; package: string; scripts: string[] }>;
     /** bun's note about install scripts it refused to run, if any. */
     blockedScripts?: string;
     /** Uncommitted paths in the current clone (`git status --porcelain`), for remove. */

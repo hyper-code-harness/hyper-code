@@ -26,7 +26,10 @@ async function manifest(dir: string): Promise<{ name: string; requires: string[]
         const dev = await readFile(join(dir, "node_modules", name, "package.json"), "utf8").then(JSON.parse, () => null);
         if (dev?.procs) devPlugins.push(name);
     }
-    return { name: String(pkg.name), requires: Array.isArray(pkg.procs.requires) ? pkg.procs.requires.map(String) : [], devPlugins };
+    // procs.requires is a list of names, or { name: range } when the plugin asks for a version: the names are what gets mounted.
+    const r = pkg.procs.requires;
+    const requires = Array.isArray(r) ? r.map(String) : r && typeof r === "object" ? Object.keys(r) : [];
+    return { name: String(pkg.name), requires, devPlugins };
 }
 
 /** Builds a throwaway USER_PLUGINS folder linking the plugin, its plugin devDependencies and, transitively, every plugin they require. */

@@ -2,9 +2,11 @@
  * Reads a plugin package that bun installed and checks it is a single safe Hyper plugin
  *
  * Use on node_modules/<name> of a staged plugin host before activation. Checks the manifest (lowercase unscoped name,
- * procs block, safe procs.src, no install lifecycle scripts, procs.requires naming other plugins), refuses symlinks, special files, credential-like files and
- * excessive trees, and returns namespaces, files and a content SHA-256. npm dependencies are allowed — bun installs
- * them beside the plugin with scripts disabled — so node_modules, .git and bun's .bun-tag marker are not read.
+ * procs block, safe procs.src, no install lifecycle scripts of its own, procs.requires naming other plugins — a list of names or
+ * `{ name: range }` with a semver range such as `^1.2`, `~1.2.0`, `>=1.2 <3` or `*` —, trustedDependencies naming npm packages), refuses
+ * symlinks, special files, credential-like files and excessive trees, and returns namespaces, files and a content SHA-256. npm
+ * dependencies are allowed — bun installs them beside the plugin from the committed bun.lock, with install scripts off except for
+ * the packages in trustedDependencies — so node_modules, .git and bun's .bun-tag marker are not read.
  * Structural only: it is not a sandbox and does not audit code.
  * @param opts.dir Absolute directory of the installed package.
  */
@@ -56,9 +58,20 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const lifecycle = ['preinstall', 'install', 'postinstall', 'prepare', 'preprepare', 'postprepare', 'prepack', 'postpack', 'prepublish'];
     if (Object.keys(pkg.scripts ?? {}).some(k => lifecycle.includes(k)))
         throw new Error('Install lifecycle scripts are not allowed');
-    const requires = procs.requires ?? [];
-    if (!Array.isArray(requires) || requires.some((r: unknown) => typeof r !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(r) || r === pkg.name))
-        throw new Error('procs.requires must list other plugin names');
+    // procs.requires: ["mermaid"] (any version) or { "mermaid": "^1.0" }. The range grammar is checked here because
+    // Bun.semver.satisfies answers true for text it cannot parse.
+    const RANGE = /^(\*|(?:\^|~|>=|<=|>|<|=)?\d+(?:\.(?:\d+|x|\*)){0,2}(?:\s+(?:\|\|\s+)?(?:\^|~|>=|<=|>|<|=)?\d+(?:\.(?:\d+|x|\*)){0,2})*)$/;
+    const declared = procs.requires ?? [];
+    if (!declared || typeof declared !== 'object') throw new Error('procs.requires must list other plugin names');
+    const requiresRanges: Record<string, string> = {};
+    for (const [n, range] of Array.isArray(declared) ? declared.map((n: unknown) => [n, '*'] as const) : Object.entries(declared)) {
+        if (typeof n !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(n) || n === pkg.name) throw new Error('procs.requires must list other plugin names');
+        if (typeof range !== 'string' || !RANGE.test(range.trim())) throw new Error(`procs.requires: ${n} needs a version range such as ^1.2, ~1.2.0, >=1.2 <3 or *`);
+        requiresRanges[n] = range.trim();
+    }
+    const trusted = pkg.trustedDependencies ?? [];
+    if (!Array.isArray(trusted) || trusted.some((t: unknown) => typeof t !== 'string' || !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(t)))
+        throw new Error('trustedDependencies must list npm package names');
     const src = procs.src ?? 'src';
     if (typeof src !== 'string' || !/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(src))
         throw new Error('Unsafe procs.src');
@@ -73,6 +86,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
     return {
         name: pkg.name,
         ...(typeof pkg.version === 'string' ? { version: pkg.version } : {}),
-        src, namespaces: unique, files, dependencies, requires: [...new Set(requires as string[])].sort(), digest: hash.digest('hex'),
+        src, namespaces: unique, files, dependencies, trustedDependencies: [...new Set(trusted as string[])].sort(),
+        requires: Object.keys(requiresRanges).sort(), requiresRanges, digest: hash.digest('hex'),
     };
 }

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareHost } from "./plugin-test";
 
-async function plugin(dir: string, name: string, requires: string[] = [], devDependencies: Record<string, string> = {}) {
+async function plugin(dir: string, name: string, requires: string[] | Record<string, string> = [], devDependencies: Record<string, string> = {}) {
     await mkdir(join(dir, "src", name), { recursive: true });
     await writeFile(join(dir, "package.json"), JSON.stringify({ name, procs: { requires }, devDependencies }));
 }
@@ -25,6 +25,22 @@ test("mounts the plugin and what it requires, plus plugin devDependencies, trans
         expect((await readdir(host)).sort()).toEqual(["chartkit", "duckdb", "pg", "vegalite"]);
         await rm(host, { recursive: true, force: true });
         await expect(prepareHost(me, {})).rejects.toThrow("duckdb requires pg");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("procs.requires with version ranges ({ name: range }) mounts the same plugins as the list form", async () => {
+    const root = await mkdtemp(join(tmpdir(), "plugin-test-"));
+    try {
+        const me = join(root, "me"), machine = join(root, "machine");
+        await plugin(me, "report", { chart: "^1.2" });
+        await plugin(join(machine, "chart"), "chart", { base: "*" });
+        await plugin(join(machine, "base"), "base");
+        const { host, plugins } = await prepareHost(me, { USER_PLUGINS: machine });
+        expect(Object.keys(plugins).sort()).toEqual(["base", "chart", "report"]);
+        await rm(host, { recursive: true, force: true });
+        await expect(prepareHost(me, {})).rejects.toThrow("report requires chart");
     } finally {
         await rm(root, { recursive: true, force: true });
     }

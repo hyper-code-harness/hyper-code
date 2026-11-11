@@ -93,7 +93,7 @@ const CASES: types.runtime.docs.RagCase[] = [
     { query: "Сколько он потянул за последний раз крон", expected: ["cron.runs"], source: "transcript" },
     { query: "А синки новостей живые в cron?", expected: ["cron.list"], relevant: ["cron.runs"], source: "transcript" },
     { query: "Как можно для hyper использовать? Может functions инжектить?", expected: ["runtime.docs.search"], relevant: ["runtime.docs.get"], source: "transcript" },
-    { query: "давай залинкуемся в .hyper/user plugins", expected: ["plugins.load", "plugins.add"], relevant: ["plugins.list"], source: "transcript" },
+    { query: "давай залинкуемся в .hyper/user plugins", expected: ["plugins.load"], relevant: ["plugins.list"], source: "transcript" },
     { query: "Найди тогда pubmed и nlm плагины", expected: ["plugins.search"], source: "transcript" },
     { query: "давай залогинелся в лузиадаш", expected: ["lusiadas.ensureLogin"], source: "transcript" },
     { query: "обнови codex проверь", expected: ["llm.refreshCodex"], source: "transcript" },

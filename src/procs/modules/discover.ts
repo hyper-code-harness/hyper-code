@@ -209,8 +209,9 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
         }
     }
 
-    // External: a repo modules.fetch cloned into WORKDIR/.claude/skills, or a
-    // folder the project ships somewhere else.
+    // External: a folder the project ships somewhere else (`path`), or a repo an
+    // older version cloned into WORKDIR/.claude/skills (`git`; nothing clones
+    // there any more — hyper-code2: plugins.install is the one way in).
     // Naming a folder that the scan above already found is not a second module,
     // it is the same one said twice — and saying it twice used to produce two
     // records, which the boot-time collision guard then read as a plugin
@@ -224,7 +225,7 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
         const real = await realpath(dir).catch(() => dir);
         if (seen.has(real)) continue;
         const manifest = await readManifest(dir);
-        if (!manifest) { console.warn(`[modules] ${namespace}: not fetched yet (${from}) — ctx.fns.procs.modules.fetch({})`); continue; }
+        if (!manifest) { console.warn(`[modules] ${namespace}: not on disk (${from}) — ${config.git ? `install it with ctx.fns.plugins.install({ name: "${namespace}" })` : "check the path"}`); continue; }
         seen.add(real);
         out.push({
             ...await describe(ctx, session, { dir, name: namespace, manifest }),

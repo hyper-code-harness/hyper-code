@@ -41,3 +41,20 @@ test("remove drops a module declared under the old key, and leaves one list", as
     await expect(ctx.fns.procs.modules.remove({ name: "labs" })).rejects.toThrow(/not declared/);
     rmSync(join(file, ".."), { recursive: true, force: true });
 });
+
+test("add refuses a git URL and leaves workspace.json alone: git plugins come through plugins.install", async () => {
+    const { ctx, file } = await workspace({ modules: { greeter: {} } });
+    const before = readFileSync(file, "utf8");
+    await expect(ctx.fns.procs.modules.add({ name: "billing", git: "https://github.com/acme/x" }))
+        .rejects.toThrow('install billing with plugins.install({ name: "billing" })');
+    expect(readFileSync(file, "utf8")).toBe(before);
+    rmSync(join(file, ".."), { recursive: true, force: true });
+});
+
+test("fetch clones nothing, whatever workspace.json declares", async () => {
+    const { ctx, file } = await workspace({ modules: { billing: { git: "https://example.invalid/acme/x" } } });
+    expect(await ctx.fns.procs.modules.fetch({})).toEqual({ fetched: [] });
+    expect(await ctx.fns.procs.modules.fetch({ name: "billing" })).toEqual({ fetched: [] });
+    expect(require("node:fs").existsSync(join(file, "..", ".claude"))).toBe(false);
+    rmSync(join(file, ".."), { recursive: true, force: true });
+});

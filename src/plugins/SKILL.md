@@ -11,7 +11,7 @@ For runtime ownership, current lifecycle limitations, and the proposed opt-in lo
 
 ## Choose the right home
 
-- Put substantial private integrations in a direct child of the configured external `USER_PLUGINS` directory, not the repository's official `plugins/` tree. Resolve the configured directory instead of assuming a particular home path. Valid user children are mounted automatically by discovery; adding or changing runtime files still requires loading/reloading.
+- Put substantial private integrations in a direct child of the configured external `USER_PLUGINS` directory, not the repository's official `plugins/` tree. Resolve the configured directory instead of assuming a particular home path. Valid user children are mounted automatically by discovery; adding or changing runtime files still requires loading/reloading. Keep such a folder under git too: `plugins.gitInit({ name })` makes it a local repository with no remote (one commit, `node_modules` left out), shown with the `local` badge — nothing is published.
 - Plugins meant for others are published as their own repository and installed from the catalog (see Publishing below). The repository's `plugins/<name>/` folders are being moved out that way.
 - Use `.hyper/<namespace>/<function>.ts` for small project-local procedures. It is an additional runtime root, not a full plugin package.
 - Mounted plugins execute trusted server code with the host's authority. Metadata validation and managed-copy checks are not a sandbox. Review code before loading it.
@@ -268,24 +268,49 @@ A plugin others install lives in its own Git repository, package at the root:
 ```
 
 - **Release** = a semver tag `vX.Y.Z` equal to `version` in package.json. Bump, commit, `git tag v1.2.0`, push the tag. Nothing else changes anywhere.
-- **Plugins it needs** go to `procs.requires: ["duckdb"]`. Installing it installs them too (newest release from the catalog); removing one that another installed plugin requires is refused. A plugin it only *uses when present* is not a requirement: call it optionally (`(ctx.fns as any).duckdb?.query`) and say so in SKILL.md.
-- **npm libraries** go to `dependencies` as usual; bun installs them beside the plugin. Install lifecycle scripts (`preinstall`, `install`, `postinstall`, `prepare`) are refused and never run; a `test` script is fine.
+- **Plugins it needs** go to `procs.requires` — `["duckdb"]` for any version, `{ "duckdb": "^1.2" }` when it needs a range. Installing it installs them too; removing one that another installed plugin requires is refused. A plugin it only *uses when present* is not a requirement: call it optionally (`(ctx.fns as any).duckdb?.query`) and say so in SKILL.md.
+- **npm libraries** go to `dependencies` as usual, **with `bun.lock` committed**: bun installs them beside the plugin exactly as the lock says. The plugin's own install lifecycle scripts (`preinstall`, `install`, `postinstall`, `prepare`) are refused; a `test` script is fine.
+- Both are spelled out in [Dependencies](#dependencies-npm-packages-and-other-plugins) below.
 - **Tests** run against Hyper without being inside it: `import { testCtx } from "hyper:test"` in a `*.test.ts`, then `bun <hyper-code>/script/plugin-test.ts .`. That mounts the plugin, what it requires and the plugins among its devDependencies (put e.g. `"duckdb": "github:hyper-code-harness/duckdb#v1.0.0"` there to test an optional integration).
 - **Listings.** A listing is an `index.json` (format 2) built from one `plugins/<name>.json` per plugin: `name, label, icon, description, source: "github:owner/repo"` — no version. The public one is `hyper-code-harness/plugins`; add a plugin there by pull request once, its releases are found from its tags. The setting `plugins.listings` (env `PLUGIN_LISTINGS`, comma-separated) is an ordered list, so a team or a person adds its own listing next to the public one. A name in several listings keeps the first listing's entry and the clash is shown, never silently replaced.
+
+## Dependencies: npm packages and other plugins
+
+A plugin has two kinds of dependencies, and each is pinned differently.
+
+**npm packages** — `dependencies` in package.json plus the committed `bun.lock`.
+
+- The author runs `bun install` and commits `bun.lock`. `node_modules` is never committed.
+- Install runs `bun install --frozen-lockfile --production` in the clone: the versions are exactly the lock's, `devDependencies` are skipped, nothing is written back. Dependencies without a `bun.lock`, or a `bun.lock` that no longer matches package.json, are **refused** — at install and already at `plugins.release`, which checks the same thing before it tags.
+- **Install scripts are off.** A package that must build itself at install (a native addon, a downloaded binary) is named in `trustedDependencies`, bun's standard field:
+
+  ```json
+  { "dependencies": { "sharp": "^0.33.0" }, "trustedDependencies": ["sharp"] }
+  ```
+
+  Only those packages run their `preinstall` / `install` / `postinstall`, and only when the install is **confirmed**: the preview runs none and lists them in `installScripts` (the page shows "Confirming runs the install scripts of …" with the script lines), so the person approves them with the rest of the review. Listing any package there also turns off bun's built-in allowlist — nothing unnamed runs. Prefer a package that ships prebuilt binaries and needs no script.
+
+**Other plugins** — `procs.requires`.
+
+- `"requires": ["duckdb"]` — duckdb must be mounted, any version. `"requires": { "duckdb": "^1.2", "mermaid": "*" }` — with a semver range per plugin: `^1.2`, `~1.2.0`, `1.x`, `>=1.2 <3`, `^1 || ^2`, an exact `1.2.3`, or `*`. Pre-release tags are not ranges.
+- A required plugin that is **missing** is cloned in the same step at the newest release inside the range (`companions` in the preview). No release in the range: the install is refused and names the versions that exist.
+- A required plugin that is **already installed** is never moved for you. If its version is outside the range the preview fails and says to switch it first.
+- **Updating a plugin others depend on** is refused when the new version leaves the range of an installed plugin that requires it ("tilde requires base ~1.2; base 1.10.0 does not satisfy it") — update the dependent first, or pick a version inside the range. Removing it is refused while a dependent is installed.
+- A range needs a `version` in the required plugin's package.json; releases have one (the tag equals it).
 
 ## Installing from the catalog
 
 ![Hyper plugins as git clones: listing and plugin repositories on GitHub; catalog, install with preview, clones in ~/.hyper/user with plugins.lock.json, hot reload, modules.discover; develop, release and fork back to GitHub](plugins-architecture.svg)
 
 
-An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag | branch, commit, previous[] }` (no tag and no branch: pinned to the commit). npm dependencies are installed into the clone's own `node_modules` with scripts disabled.
+An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag | branch, commit, previous[] }` (no tag and no branch: pinned to the commit). npm dependencies are installed into the clone's own `node_modules`, exactly from the plugin's committed `bun.lock`, with install scripts off unless the plugin names the package in `trustedDependencies` (see [Dependencies](#dependencies-npm-packages-and-other-plugins)). A git clone in `USER_PLUGINS` is the only way a plugin is installed: nothing is installed from npm, and `workspace.json` entries with `git` are no longer cloned.
 
 - `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `mode` (`tag`, `branch`, `commit`) with `tag` / `branch` / `commit`, `update` (a newer release, or for a branch `newCommits` upstream), `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.
-- `plugins.install({ name, version? })` — preview: repo, tag, commit, the plugins it requires that are missing (`companions`), files, packages, conflicts and a `digest` (commit + tree + content). Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it (`git fetch --tags` + checkout, diff in the preview).
+- `plugins.install({ name, version? })` — preview: repo, tag, commit, the plugins it requires that are missing (`companions`), files, packages, the npm install scripts confirming would run (`installScripts`), conflicts and a `digest` (commit + tree + content). Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it (`git fetch --tags` + checkout, diff in the preview).
 - **Dev mode** — follow a branch or pin a commit instead of a release: `plugins.install({ name, branch: "main" })` (or `feature/x`) puts the clone ON that branch, tracking `origin/<branch>`; `plugins.install({ name, commit: "abc1234" })` pins it detached at that commit (a short SHA is resolved; one no branch or tag of origin reaches is refused). Give one of `version`, `branch`, `commit`. On an installed plugin the same call switches mode with a preview; `plugins.install({ name })` then keeps the mode: on a branch it previews the fast-forward to the new head (the new `commits` and the diff) and refuses a rewritten branch, on a pinned commit there is nothing to update, and `version` goes back to a release. Nothing pulls in the background — the preview is the review. `plugins.branchUpdates({ name })` counts the new upstream commits (`git ls-remote`, cached five minutes; fetches only `origin/<branch>`, never moves the checkout).
 - `plugins.uninstall({ name, force? })` — preview, then confirm the same way; a clone with uncommitted or unpushed work also needs `force: true`.
 - `plugins.gitInstall({ operation: "rollback", name })` — back to the previous ref of the lock, of any kind (tag, branch or commit). Update and rollback refuse while the clone has local work and list it.
-- `plugins.installed({})` — per clone: lock tag, HEAD tag, commit, branch, dirty files, unpushed commits, ahead/behind, `fork`.
+- `plugins.installed({})` — per clone: lock tag, HEAD tag, commit, branch, dirty files, unpushed commits, ahead/behind, `fork`, `local` (a repository without a remote). A folder that is not a git repository is `unmanaged`.
 - People do the same on `/plugins/listing` (the Catalog tab). Ask the person before confirming an install for them: plugin code runs in this process with full authority.
 
 ## Changing an installed plugin
@@ -303,17 +328,18 @@ The clone is a working copy, so a plugin is fixed where it runs. Saves under `US
 
 | Step | Call | What happens in the clone | Refused when |
 |---|---|---|---|
-| Install | `plugins.install({ name })` → `confirmed` | `git clone` at the newest `vX.Y.Z`, detached HEAD; own `bun install --ignore-scripts`; lock entry | name or namespace already mounted; a required plugin is not in the listing |
-| Update | `plugins.install({ name, version? })` on an installed plugin | `git fetch --tags`, checkout of the new tag; the previous tag goes to `previous[]` | uncommitted or unpushed work |
+| Install | `plugins.install({ name })` → `confirmed` | `git clone` at the newest `vX.Y.Z`, detached HEAD; `bun install --frozen-lockfile` from the committed `bun.lock`, scripts only for `trustedDependencies` and only on confirm; lock entry | name or namespace already mounted; a required plugin is not in the listing or has no release in the range; npm dependencies without a matching `bun.lock` |
+| Update | `plugins.install({ name, version? })` on an installed plugin | `git fetch --tags`, checkout of the new tag; the previous tag goes to `previous[]` | uncommitted or unpushed work; the new version leaves the `requires` range of an installed plugin |
 | Follow a branch | `plugins.install({ name, branch })` → `confirmed` | clone (or switch) onto the branch, tracking `origin/<branch>`; lock `{ branch, commit }` | no such branch on origin; local work |
 | Update a branch | `plugins.install({ name })` on a branch clone | fetch, preview the new commits + diff, fast-forward on confirm | rewritten (non-fast-forward) branch; local work |
 | Pin a commit | `plugins.install({ name, commit })` → `confirmed` | detached at that SHA (short SHA resolved); later updates only with a new ref | commit not reachable from origin; local work |
 | Back to a release | `plugins.install({ name, version })` | checkout of the tag; the old branch/commit goes to `previous[]` | uncommitted or unpushed work |
 | Rollback | `plugins.gitInstall({ operation: "rollback", name })` | checkout of the last `previous[]` ref (tag, branch or commit) | uncommitted or unpushed work |
 | Edit | `plugins.edit({ name })` | `git switch main` (or a new branch); saves hot-reload | — |
-| Release | `plugins.release({ name })` | tests → bump `version` → commit → tag → push; lock moves to the new tag (also from branch mode) | failing tests; no push rights (fork first) |
+| Release | `plugins.release({ name })` | `bun.lock` check → tests → bump `version` → commit → tag → push; lock moves to the new tag (also from branch mode) | npm dependencies without a committed, matching `bun.lock`; failing tests; no push rights (fork first) |
 | Fork | `plugins.fork({ name })` | `gh repo fork`; `origin` = your fork, `upstream` = the original | no `gh` login |
 | Sync | `plugins.syncUpstream({ name, merge? })` | fetch upstream, ahead/behind; merge on request | merge conflict (aborted, files listed) |
+| Local plugin | `plugins.gitInit({ name })` | `git init` + one commit in a plain folder of `USER_PLUGINS`; no remote, badge `local` | already a git repository; a tree the package check rejects |
 | Remove | `plugins.uninstall({ name })` → `confirmed` | the clone is deleted, lock entry dropped | a plugin that requires it is installed; local work without `force` |
 
 Every step that changes the clone is a preview first and applies only with `confirmed: true` and the preview's `digest`. A preview is bound to the commit and the tree, so a tag moved between preview and confirm is refused.
@@ -322,6 +348,9 @@ Every step that changes the clone is a preview first and applies only with `conf
 
 - **A save does not go live.** The clone watcher starts at boot (`plugins.watchClones({})` returns `already` when it runs). A server started before it existed needs a restart, or call `plugins.reload({})` after the save. Some machines deliver no file events at all (a network or security extension on macOS); there `plugins.reload({})` is the way.
 - **Update refused with "local work".** The message lists uncommitted files and unpushed commits. Commit and `plugins.release`, push to a branch, or discard them with git in the clone; nothing is overwritten for you.
+- **"declares npm dependencies but its repository has no bun.lock" / "bun.lock does not match package.json".** The release was tagged without a current lock. In the plugin's repository: `bun install`, commit `bun.lock`, release again. `plugins.release` now stops this before the tag.
+- **A package needs its install script** (the preview says `Blocked N postinstall` and the plugin fails at run time on a missing binary). The author adds the package to `trustedDependencies` and releases; the next preview lists the script for approval.
+- **"X requires Y ^1.2, but Y 2.0.0 is installed" / "X requires Y ~1.2; Y 1.10.0 does not satisfy it".** Version ranges of `procs.requires`. Switch Y to a version in the range (`plugins.install({ name: "Y", version })`), or update X to a release whose range allows it.
 - **Two copies of one plugin.** A plugin is mounted from one place: a name both in `USER_PLUGINS` and among the official `plugins/` stops the boot with a collision. Remove one of them.
 - **Lock file.** `~/.hyper/plugins.lock.json`: `{ "<name>": { repo, tag?, branch?, commit, previous: [{ tag?, branch?, commit }] } }` — `branch` set: follows it; `tag`: a release; neither: pinned commit. Older files with only `tag` read unchanged. It is written by the plugin calls; edit it by hand only to repair it.
 
@@ -329,4 +358,4 @@ Every step that changes the clone is a preview first and applies only with `conf
 
 A plugin can be discoverable or available from a provider without being mounted. Use the plugin lifecycle APIs and their review/confirmation workflow to install, activate, replace or remove plugins; do not treat a search result, domain match, or configuration declaration as permission. Publishing is a separate outward action requiring its own explicit authorization.
 
-Catalog installs are checked by `plugins.inspectPackage`: an unscoped lowercase name, a `procs` block with `procs.src` inside the package, a nonempty source tree, no symlinks or likely credential files, no install lifecycle scripts, bounded file counts and sizes. Host/multi-plugin manifests are not installable as a plugin. These checks are structural, not runtime isolation: review the code (the preview lists every file) before confirming.
+Catalog installs are checked by `plugins.inspectPackage`: an unscoped lowercase name, a `procs` block with `procs.src` inside the package, a nonempty source tree, no symlinks or likely credential files, no install lifecycle scripts of its own, well-formed `procs.requires` ranges and `trustedDependencies` names, bounded file counts and sizes. Host/multi-plugin manifests are not installable as a plugin. These checks are structural, not runtime isolation: review the code (the preview lists every file) before confirming.

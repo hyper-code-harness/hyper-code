@@ -149,3 +149,18 @@ test('branch mode on the page: "+N new" and Update (+N new); Switch to previews 
     f.ctx.fns.plugins.install = async () => { throw new Error('No branch nope on origin'); };
     expect(((await f.post({ _csrf: 'tok', operation: 'switch', kind: 'branch', ref: 'nope' })) as any).main).toContain('No branch nope on origin');
 });
+
+test('a local plugin (git repository without a remote) shows the local badge, no Release, no Unpushed row', async () => {
+    const f = await fixture();
+    const dir = join(f.root, 'user', 'notes');
+    await mkdir(join(dir, 'src', 'notes'), { recursive: true });
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'notes', procs: {} }));
+    await writeFile(join(dir, 'src', 'notes', 'a.ts'), 'export default () => 1;');
+    git(dir, 'init', '-q', '-b', 'main'); git(dir, 'add', '-A'); git(dir, 'commit', '-qm', 'one');
+    const html = await f.ctx.fns.plugins.clonePanel({ name: 'notes', req: new Request('http://x/plugins/notes') });
+    expect(html).toContain('data-badge="local">local<');
+    expect(html).toContain('a local plugin: versioned here, published nowhere');
+    expect(html).not.toContain('Unpushed');
+    expect(html).not.toContain('value="release"');
+    expect(html).not.toContain('data-git-switch');
+});

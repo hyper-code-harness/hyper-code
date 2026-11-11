@@ -48,7 +48,7 @@ Discovery не сводится к workspace paths: есть собственн�
 
 ### 2.2. Load и remove пока не образуют полный lifecycle
 
-`plugins.load` проверяет локальный manifest и вызывает `procs.modules.add`. `plugins.reload` вызывает общий reload: параметр `name` сейчас не означает изолированную перезагрузку одного плагина.
+`plugins.load` и форма «Load from folder» удалены, `procs.modules.add` отказывает на `path` и `git`, а запись `"npm"` в `workspace.json` больше не монтируется (предупреждение при загрузке): плагин ставится только через `plugins.install`, личный плагин — папка в `USER_PLUGINS`. `plugins.reload` вызывает общий reload: параметр `name` сейчас не означает изолированную перезагрузку одного плагина.
 
 `procs.modules.reload` **сначала вызывает `fetch`**, затем boot load, lint, генерацию типов и перестройку routes. Индексы документации обновляются отдельно. Значит нынешний reload нельзя считать чистой операцией чтения локальных исходников. `procs.modules.fetch` оставлен как пустой вызов (возвращает `{ fetched: [] }`): clone и `bun install` из него убраны, так что reload снова только читает локальные исходники.
 

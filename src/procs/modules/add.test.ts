@@ -3,7 +3,7 @@
 // else's job, so `reload` is stubbed: a stub is one assignment into the registry
 // here, exactly like a hot-swap.
 import { test, expect } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { testCtx } from "../../$test";
@@ -25,10 +25,10 @@ test("add writes `modules`, and folds a pre-rename `plugins` into it", async () 
     // written before the rename kept growing a `plugins` list that everything
     // reading `modules` ignored — mounting a module never started its service.
     const { ctx, file } = await workspace({ plugins: { greeter: {} } });
-    await ctx.fns.procs.modules.add({ name: "labs", path: "./tools/labs" });
+    await ctx.fns.procs.modules.add({ name: "labs", config: { license: "x" } });
 
     const written = JSON.parse(readFileSync(file, "utf8"));
-    expect(written).toEqual({ modules: { greeter: {}, labs: { path: "./tools/labs" } } });
+    expect(written).toEqual({ modules: { greeter: {}, labs: { license: "x" } } });
     expect(written.plugins).toBeUndefined();
     rmSync(join(file, ".."), { recursive: true, force: true });
 });
@@ -57,4 +57,35 @@ test("fetch clones nothing, whatever workspace.json declares", async () => {
     expect(await ctx.fns.procs.modules.fetch({ name: "billing" })).toEqual({ fetched: [] });
     expect(require("node:fs").existsSync(join(file, "..", ".claude"))).toBe(false);
     rmSync(join(file, ".."), { recursive: true, force: true });
+});
+
+test("add refuses a folder path and leaves workspace.json alone: a private plugin is a folder in USER_PLUGINS", async () => {
+    const { ctx, file } = await workspace({ modules: { greeter: {} } });
+    const before = readFileSync(file, "utf8");
+    await expect(ctx.fns.procs.modules.add({ name: "labs", path: "./tools/labs" }))
+        .rejects.toThrow("modules.add no longer mounts a folder by path: put the labs folder into USER_PLUGINS");
+    expect(readFileSync(file, "utf8")).toBe(before);
+    rmSync(join(file, ".."), { recursive: true, force: true });
+});
+
+test("an npm package declared in workspace.json is not mounted: it is named in a warning and skipped", async () => {
+    // A complete plugin package on disk, declared the way `"npm"` mounts used to be resolved.
+    const dir = mkdtempSync(join(tmpdir(), "modules-npm-"));
+    const pkg = join(dir, "pkg");
+    mkdirSync(join(pkg, "src", "vitalsns"), { recursive: true });
+    writeFileSync(join(pkg, "package.json"), JSON.stringify({ name: "measures", procs: { src: "src", plugin: true } }));
+    writeFileSync(join(pkg, "src", "vitalsns", "ping.ts"), "export default async function () { return 'pong'; }\n");
+    writeFileSync(join(dir, "workspace.json"), JSON.stringify({ modules: { vitals: { npm: pkg } } }));
+    const warnings: string[] = [];
+    const warn = console.warn;
+    console.warn = (...args: any[]) => { warnings.push(args.join(" ")); };
+    try {
+        const ctx = await testCtx({ root: ROOT, workdir: dir, env: { PROCS_PATH: "./modules" } });
+        expect(ctx.fns.procs.modules.list({}).some((m: any) => m.name === "vitals")).toBe(false);
+        expect((ctx.fns as any).vitalsns).toBeUndefined();
+        expect(warnings.some(w => w.includes("vitals: npm packages are not mounted any more") && w.includes('plugins.install({ name: "vitals" })'))).toBe(true);
+    } finally {
+        console.warn = warn;
+        rmSync(dir, { recursive: true, force: true });
+    }
 });

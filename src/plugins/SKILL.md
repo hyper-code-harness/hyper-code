@@ -303,7 +303,17 @@ A plugin has two kinds of dependencies, and each is pinned differently.
 ![Hyper plugins as git clones: listing and plugin repositories on GitHub; catalog, install with preview, clones in ~/.hyper/user with plugins.lock.json, hot reload, modules.discover; develop, release and fork back to GitHub](plugins-architecture.svg)
 
 
-An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag | branch, commit, previous[] }` (no tag and no branch: pinned to the commit). npm dependencies are installed into the clone's own `node_modules`, exactly from the plugin's committed `bun.lock`, with install scripts off unless the plugin names the package in `trustedDependencies` (see [Dependencies](#dependencies-npm-packages-and-other-plugins)). A git clone in `USER_PLUGINS` is the only way a plugin is installed: nothing is installed from npm, and `workspace.json` entries with `git` are no longer cloned.
+An installed plugin is a **git clone** of its repository at a release tag, in `USER_PLUGINS/<name>` (e.g. `~/.hyper/user/<name>`), mounted as a user plugin. `~/.hyper/plugins.lock.json` (next to `USER_PLUGINS`; env `PLUGINS_LOCK` overrides) records `name → { repo, tag | branch, commit, previous[] }` (no tag and no branch: pinned to the commit). npm dependencies are installed into the clone's own `node_modules`, exactly from the plugin's committed `bun.lock`, with install scripts off unless the plugin names the package in `trustedDependencies` (see [Dependencies](#dependencies-npm-packages-and-other-plugins)). A git clone in `USER_PLUGINS` is the only way a plugin is installed.
+
+What is **not** a way to install any more — each of these used to mount code without a review, a pinned commit or a lock entry:
+
+| Was | Now |
+|---|---|
+| `plugins.add({ name, npm })`, `"npm"` in `workspace.json` | removed; a leftover `"npm"` entry is named in a boot warning and skipped |
+| `plugins.add({ name, git })`, `"git"` in `workspace.json` (a shallow clone into `.claude/skills`) | removed; `procs.modules.add` refuses a git URL, `procs.modules.fetch` clones nothing |
+| `plugins.load({ path })`, the "Load from folder" form, `procs.modules.add({ path })` | removed; a private plugin is a folder in `USER_PLUGINS` — mounted from there, picked up by `plugins.reload({})`, kept under git with `plugins.gitInit` |
+
+`path` entries that already exist — the repository's own `plugins/<name>` in package.json — are still read: that is how the official plugins are mounted, not an install.
 
 - `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `mode` (`tag`, `branch`, `commit`) with `tag` / `branch` / `commit`, `update` (a newer release, or for a branch `newCommits` upstream), `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.
 - `plugins.install({ name, version? })` — preview: repo, tag, commit, the plugins it requires that are missing (`companions`), files, packages, the npm install scripts confirming would run (`installScripts`), conflicts and a `digest` (commit + tree + content). Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it (`git fetch --tags` + checkout, diff in the preview).

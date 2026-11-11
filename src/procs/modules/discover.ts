@@ -1,4 +1,4 @@
-import { resolve, dirname, join } from "node:path";
+import { resolve, join } from "node:path";
 import { homedir } from "node:os";
 import { readdir, realpath } from "node:fs/promises";
 // Bootstrap path: this runs before the registry exists, so these are imported
@@ -110,19 +110,12 @@ export default async function (ctx: Context, session: Session | null, _opts?: {}
     // and, for a supervised project, WORKDIR/workspace.json `modules` on top.
     const declared = await readDeclared(ctx, session, { workdir });
 
-    // "vitals": { "npm": "@test/measures" } — an installed package mounted under
-    // the name the APP gave the container; the names of what it ships come from
-    // suggestion, so two packages that both want `ui` are a rename, not a wall.
+    // hyper-code2: an npm package is no longer a way to mount a plugin. The one way in is a
+    // reviewed git clone (plugins.install); a leftover `"npm"` declaration is named and
+    // skipped — nothing is resolved from node_modules.
     for (const [namespace, config] of Object.entries(declared)) {
         if (config === false || !config.npm) continue;
-        const dir = resolveModuleDir(config.npm, projectRoot);
-        if (!dir) { console.warn(`[modules] ${namespace}: cannot resolve "${config.npm}" — run bun add first?`); continue; }
-        const manifest = await readManifest(dir);
-        if (!manifest) { console.warn(`[modules] ${namespace}: ${config.npm} has no procs block`); continue; }
-        out.push({
-            ...await describe(ctx, session, { dir, name: namespace, manifest }),
-            name: namespace, dir: resolve(dir, manifest.src ?? "src"), folder: dir, source: "external", from: config.npm, config,
-        });
+        console.warn(`[modules] ${namespace}: npm packages are not mounted any more ("${config.npm}") — install it with ctx.fns.plugins.install({ name: "${namespace}" })`);
     }
     // Through realpath, because modulePaths resolves symlinks: a host that
     // shares one library directory (EHR/modules → workspace/modules) still owns
@@ -299,12 +292,6 @@ async function readManifest(dir: string, project = false): Promise<any | null> {
 function identifier(name: string): string {
     const out = name.replace(/[^A-Za-z0-9_$]/g, "_");
     return /^[0-9]/.test(out) ? "_" + out : out;
-}
-
-function resolveModuleDir(from: string, projectRoot: string): string | null {
-    let f = from.startsWith("file:") ? from.slice(5) : from;
-    if (f.startsWith(".") || f.startsWith("/")) return resolve(projectRoot, f);
-    try { return dirname(Bun.resolveSync(f + "/package.json", projectRoot)); } catch { return null; }
 }
 
 // What this host calls itself: its package name, or the folder it lives in.

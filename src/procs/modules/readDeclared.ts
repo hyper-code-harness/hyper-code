@@ -18,9 +18,9 @@ import projectRootFn from "../project/projectRoot";
 //
 //   "modules": {
 //     "billing":  {},                                 // a folder found on PROCS_PATH
-//     "vitals":   { "npm": "@hs/measures" },           // an installed package
+//     "vitals":   { "npm": "@hs/measures" },           // hyper-code2: no longer mounted (named in a warning)
 //     "labs":     { "path": "./tools/labs" },          // a folder in the project
-//     "reports":  { "git": "https://…/reports" },      // a repo, cloned on fetch
+//     "reports":  { "git": "https://…/reports" },      // hyper-code2: no longer cloned — plugins.install
 //     "aidbox":   { "license": "…" },                  // found, and configured
 //     "agent":    false,                               // excluded — never mounted
 //     "*":        {}                                   // mount the whole library

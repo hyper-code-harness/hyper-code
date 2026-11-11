@@ -232,7 +232,8 @@ export default async function (ctx: Context, session: Session | null, opts: {
                 throw cause;
             }
             try {
-                await ctx.fns.plugins.load({ path: destination, name });
+                // The copy sits in USER_PLUGINS, which discovery mounts by itself: remount, as plugins.gitInstall does.
+                await ctx.fns.procs.modules.reload({});
             }
             catch (cause) {
                 loadError = 'Plugin files installed but runtime loading failed; runtime and external side effects may be partial. ' + (cause instanceof Error ? cause.name : 'Error');

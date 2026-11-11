@@ -104,3 +104,33 @@ test('a commit that fails (here: a pre-commit hook says no) removes the half-mad
     // Once the obstacle is gone the same call works.
     expect((await f.ctx.fns.plugins.gitInit({ name: 'notes' })).branch).toBe('main');
 });
+
+/** Runs fn as on a machine where git knows no user: no global or system config, no identity in the environment. */
+async function withoutIdentity<T>(root: string, fn: () => Promise<T>): Promise<T> {
+    const env: Record<string, string | undefined> = {
+        GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', HOME: root, XDG_CONFIG_HOME: join(root, 'xdg'),
+        GIT_AUTHOR_NAME: undefined, GIT_AUTHOR_EMAIL: undefined, GIT_COMMITTER_NAME: undefined, GIT_COMMITTER_EMAIL: undefined, EMAIL: undefined,
+    };
+    const saved = Object.fromEntries(Object.keys(env).map(k => [k, process.env[k]]));
+    for (const [k, v] of Object.entries(env)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    try { return await fn(); } finally {
+        for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+}
+
+test('a machine without a git identity: the commit is authored by Hyper, and a failure still names the git command', async () => {
+    const f = await fixture();
+    const hooks = join(f.root, 'hooks');
+    await mkdir(hooks);
+    await writeFile(join(hooks, 'pre-commit'), '#!/bin/sh\necho "hook says no" >&2\nexit 1\n');
+    await chmod(join(hooks, 'pre-commit'), 0o755);
+    await withoutIdentity(f.root, async () => {
+        Object.assign(process.env, { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.hooksPath', GIT_CONFIG_VALUE_0: hooks });
+        try {
+            await expect(f.ctx.fns.plugins.gitInit({ name: 'notes' })).rejects.toThrow('git commit failed: hook says no');
+        } finally { for (const k of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) delete process.env[k]; }
+        expect(await readdir(f.dir)).not.toContain('.git');
+        await f.ctx.fns.plugins.gitInit({ name: 'notes' });
+    });
+    expect(git(f.dir, 'log', '--format=%an <%ae> / %cn <%ce>')).toBe('Hyper <hyper@localhost> / Hyper <hyper@localhost>');
+});

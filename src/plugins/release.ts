@@ -12,13 +12,16 @@
  * origin and moves the plugin lock to the new tag, keeping the previous one for rollback.
  * @param opts.name Installed plugin name.
  * @param opts.version Version to release, X.Y.Z; defaults to the package.json version with patch + 1.
+ * @param opts.keepBranch Stay on the branch after the release instead of moving the clone to the released tag. @default false
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Installed plugin name. */
     name: string;
     /** Version to release, X.Y.Z; defaults to the package.json version with patch + 1. */
     version?: string;
-}): Promise<{ name: string; version: string; tag: string; commit: string; branch: string; pushed: string; tests: { ran: boolean; output: string } }> {
+    /** Stay on the branch after the release instead of moving the clone to the released tag. @default false */
+    keepBranch?: boolean;
+}): Promise<{ name: string; version: string; tag: string; commit: string; branch: string; at: 'tag' | 'branch'; pushed: string; tests: { ran: boolean; output: string } }> {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const git = (args: string[], allowFailure = false) => ctx.fns.plugins.cloneDir({ name: opts.name, args, allowFailure, timeoutMs: 300_000 });
@@ -39,31 +42,13 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Version must be X.Y.Z');
     const tag = 'v' + version;
     if ((await git(['rev-parse', '--verify', '--quiet', `refs/tags/${tag}`], true)).ok) throw new Error(`Tag ${tag} already exists`);
-    if (!st.origin) throw new Error(`${opts.name} has no origin remote`);
+    if (!st.origin) throw new Error(`${opts.name} has no origin remote: it was never published — the first release goes through plugins.publish({ name: "${opts.name}", repo })`);
     const probe = await git(['push', '--dry-run', '--porcelain', 'origin', `HEAD:refs/heads/${st.branch}`], true);
     if (!probe.ok)
         throw new Error(`No push rights to ${st.origin}: ${(probe.stderr.split('\n').at(-1) ?? '').slice(0, 200)}. Fork it with plugins.fork({ name: "${opts.name}" }) and release to your fork.`);
 
-    // What plugins.install will demand of this release: npm dependencies come from a committed, current bun.lock.
-    if (Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).length) {
-        if (!(await git(['ls-files', '--error-unmatch', 'bun.lock'], true)).ok)
-            throw new Error(`${opts.name} has npm dependencies but bun.lock is not committed: run \`bun install\` in the clone and commit bun.lock; nothing released`);
-        const frozen = Bun.spawn([process.execPath, 'install', '--frozen-lockfile', '--dry-run'], { cwd: dir, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, BUN_BE_BUN: '1' } });
-        const [err, code] = [await new Response(frozen.stderr).text(), await frozen.exited];
-        if (code) throw new Error(`bun.lock of ${opts.name} does not match package.json${/note: (dependencies[^\n]*)/.exec(err)?.[1] ? ` (${/note: (dependencies[^\n]*)/.exec(err)![1]!.slice(0, 200)})` : ''}: run \`bun install\` in the clone and commit bun.lock; nothing released`);
-    }
-    const tests: { ran: boolean; output: string } = { ran: false, output: '' };
-    const hasTests = (await git(['ls-files', '*.test.ts', '**/*.test.ts'])).stdout.length > 0;
-    if (hasTests) {
-        const script = path.join(ctx.fns.procs.project.projectRoot({}), 'script', 'plugin-test.ts');
-        const p = Bun.spawn([process.execPath, script, dir], { cwd: dir, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, BUN_BE_BUN: '1' } });
-        const timer = setTimeout(() => p.kill(), 600_000);
-        const [out, err, code] = [await new Response(p.stdout).text(), await new Response(p.stderr).text(), await p.exited];
-        clearTimeout(timer);
-        tests.ran = true;
-        tests.output = (out + err).trim().split('\n').slice(-15).join('\n').slice(0, 3000);
-        if (code) throw new Error(`Tests of ${opts.name} failed; nothing released.\n${tests.output}`);
-    }
+    // The checks every release passes, the first one (plugins.publish) included: package checks of an install, bun.lock, tests.
+    const { tests } = await ctx.fns.plugins.releaseCheck({ name: opts.name });
     const bumped = /"version"\s*:\s*"[^"]*"/.test(text)
         ? text.replace(/"version"\s*:\s*"[^"]*"/, `"version": "${version}"`)
         : JSON.stringify({ ...pkg, version }, null, 2) + '\n';
@@ -86,5 +71,15 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         lock.plugins[opts.name] = { repo: entry.repo, tag, commit, previous: [...entry.previous, { ...was, commit: entry.commit }].slice(-20) };
         await ctx.fns.plugins.lockFile({ lock });
     }
-    return { name: opts.name, version, tag, commit, branch: st.branch, pushed: st.origin, tests };
+    // A released clone is an installed one: detached at its tag, as plugins.install leaves it, so the catalog shows
+    // the release and the next update is not refused for "being on a branch". keepBranch stays for more edits.
+    let at: 'tag' | 'branch' = 'branch';
+    if (!opts.keepBranch) {
+        await git(['checkout', '-q', '--detach', `refs/tags/${tag}`]);
+        at = 'tag';
+    }
+    // This server just made a release: the few-minute cache of tags (plugins.versions) is out of date by definition.
+    (ctx.state as { pluginVersions?: Map<string, unknown> }).pluginVersions?.clear();
+    await ctx.fns.procs.modules.reload({}).catch(() => undefined);
+    return { name: opts.name, version, tag, commit, branch: st.branch, at, pushed: st.origin, tests };
 }

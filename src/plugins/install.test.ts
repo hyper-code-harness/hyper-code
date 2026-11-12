@@ -15,6 +15,8 @@ import branchUpdates from './branchUpdates';
 import cloneDir from './cloneDir';
 import listingPage from './listingPage';
 import cloneBadge from './cloneBadge';
+import repoUrl from './repoUrl';
+import remotePackage from './remotePackage';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
@@ -69,7 +71,7 @@ async function world(extra: Array<'ranges' | 'scripts'> = []) {
             plugins: {},
         },
     };
-    for (const [k, f] of Object.entries({ gitInstall, lockFile, cloneStatus, inspectPackage, listing, versions, catalog, install, uninstall, branchUpdates, cloneDir, listingPage, cloneBadge }))
+    for (const [k, f] of Object.entries({ gitInstall, lockFile, cloneStatus, inspectPackage, listing, versions, catalog, install, uninstall, branchUpdates, cloneDir, listingPage, cloneBadge, repoUrl, remotePackage }))
         ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
     const deps = async () => JSON.parse(await readFile(join(root, 'hyper', 'plugins.lock.json'), 'utf8').catch(() => '{"plugins":{}}')).plugins;
     return { ctx, user, deps, root };
@@ -82,7 +84,8 @@ test('versions: semver tags only, newest first by number', async () => {
     const list = await ctx.fns.plugins.versions({ source: plugins[0].source });
     expect(list.map((t: any) => t.version)).toEqual(['1.10.0', '1.2.0', '1.0.0']);
     expect(list[0].commit).toMatch(/^[0-9a-f]{40}$/);
-    await expect(ctx.fns.plugins.versions({ source: 'https://example.org/x' })).rejects.toThrow('Unsupported');
+    await expect(ctx.fns.plugins.versions({ source: 'npm:x' })).rejects.toThrow('Unsupported plugin repository');
+    await expect(ctx.fns.plugins.versions({ source: 'http://example.org/x' })).rejects.toThrow('Unsupported plugin repository');
 });
 
 test('install pulls in required plugins from the listing; catalog shows state; uninstall guards dependents', async () => {
@@ -256,4 +259,98 @@ test('trusted npm install scripts: the review names them before confirm, and onl
     const done = await ctx.fns.plugins.install({ name: 'builder', confirmed: true, expectedDigest: preview.digest });
     expect(await readdir(join(w.user, 'builder', 'node_modules', 'leaf'))).toContain('built.txt');
     expect(await ctx.fns.plugins.listingPage({ change: done })).toContain('Ran the install scripts of this npm package');
+});
+
+/** Makes git resolve https://git.example.test/<path> to local repositories for the duration of fn — a stand-in for a company git server, no network. */
+async function withServer<T>(reposDir: string, fn: () => Promise<T>): Promise<T> {
+    const env = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `url.${reposDir}/.insteadOf`, GIT_CONFIG_VALUE_0: 'https://git.example.test/' };
+    const saved = Object.fromEntries(Object.keys(env).map(k => [k, process.env[k]]));
+    Object.assign(process.env, env);
+    try { return await fn(); } finally {
+        for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+}
+
+test('a plugin on a git server that is not GitHub: listed by its https address, installed with what it requires, updated and rolled back', async () => {
+    const w = await world();
+    const ctx = w.ctx;
+    // The same repositories, listed the way a company server would publish them (no github: anywhere).
+    const index = join(w.root, 'company.json');
+    const entry = (name: string) => ({ name, label: name, description: `the ${name} plugin`, source: `https://git.example.test/${name}` });
+    await writeFile(index, JSON.stringify({ format: 2, plugins: [entry('base'), entry('chart'), { ...entry('scp'), source: 'git@git.example.test:team/scp.git' }, { ...entry('creds'), source: 'https://user:secret@git.example.test/creds' }, { ...entry('here'), source: 'git+file:///tmp/here' }] }));
+    ctx.fns.settings.get = async () => ['https://listing.example.test/index.json'];
+    // A remote listing is read with fetch; serve this one from the file.
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (u: any) => String(u) === 'https://listing.example.test/index.json' ? new Response(await readFile(index, 'utf8')) : new Response('', { status: 404 })) as typeof fetch;
+    try {
+        await withServer(join(w.root, 'repos'), async () => {
+            const listing = await ctx.fns.plugins.listing({});
+            expect(listing.plugins.map((p: any) => [p.name, p.source])).toEqual([
+                ['base', 'https://git.example.test/base'], ['chart', 'https://git.example.test/chart'], ['scp', 'git@git.example.test:team/scp.git'],
+            ]);
+            // Credentials in an address and a local path in a remote listing are refused, each named.
+            expect(listing.errors).toEqual(['creds: invalid entry in https://listing.example.test/index.json', 'here: invalid entry in https://listing.example.test/index.json']);
+
+            expect((await ctx.fns.plugins.versions({ source: 'https://git.example.test/base' })).map((t: any) => t.version)).toEqual(['1.10.0', '1.2.0', '1.0.0']);
+            const preview = await ctx.fns.plugins.install({ name: 'chart' });
+            expect(preview.repo).toBe('https://git.example.test/chart');
+            expect(preview.companions?.map((c: any) => [c.name, c.repo, c.version])).toEqual([['base', 'https://git.example.test/base', '1.10.0']]);
+            await ctx.fns.plugins.install({ name: 'chart', confirmed: true, expectedDigest: preview.digest });
+            expect(await w.deps()).toMatchObject({ chart: { repo: 'https://git.example.test/chart', tag: 'v2.0.0' }, base: { repo: 'https://git.example.test/base', tag: 'v1.10.0' } });
+
+            // origin of the clone is that server; it is not taken for a fork of itself, whatever the spelling.
+            const cat = await ctx.fns.plugins.catalog({});
+            const base = cat.plugins.find((p: any) => p.name === 'base');
+            expect([base.installed, base.latest, base.update, base.git.fork]).toEqual(['1.10.0', '1.10.0', false, false]);
+
+            const old = await ctx.fns.plugins.gitInstall({ operation: 'update', name: 'base', tag: 'v1.2.0' });
+            await ctx.fns.plugins.gitInstall({ operation: 'update', name: 'base', tag: 'v1.2.0', confirmed: true, expectedDigest: old.digest });
+            expect((await ctx.fns.plugins.catalog({ q: 'base' })).plugins[0]).toMatchObject({ installed: '1.2.0', update: true });
+            const back = await ctx.fns.plugins.gitInstall({ operation: 'rollback', name: 'base' });
+            await ctx.fns.plugins.gitInstall({ operation: 'rollback', name: 'base', confirmed: true, expectedDigest: back.digest });
+            expect((await w.deps()).base.tag).toBe('v1.10.0');
+        });
+    } finally { globalThis.fetch = realFetch; }
+});
+
+test('remotePackage reads package.json at a tag, a branch and a commit with one shallow fetch; a missing ref or file is told apart', async () => {
+    const w = await world();
+    const ctx = w.ctx;
+    const repo = 'git+file://' + join(w.root, 'repos', 'chart');
+    const at = await ctx.fns.plugins.remotePackage({ repo, ref: 'refs/tags/v2.0.0' });
+    expect(at.package).toMatchObject({ name: 'chart', version: '2.0.0', procs: { requires: ['base'] } });
+    expect(at.commit).toMatch(/^[0-9a-f]{40}$/);
+    expect((await ctx.fns.plugins.remotePackage({ repo, ref: at.commit })).package?.version).toBe('2.0.0');
+    const branch = Bun.spawnSync(['git', 'symbolic-ref', '--short', 'HEAD'], { cwd: join(w.root, 'repos', 'chart') }).stdout.toString().trim();
+    expect((await ctx.fns.plugins.remotePackage({ repo, ref: `refs/heads/${branch}` })).commit).toBe(at.commit);
+    await expect(ctx.fns.plugins.remotePackage({ repo, ref: 'refs/tags/v9.9.9' })).rejects.toThrow('Could not read refs/tags/v9.9.9');
+    await expect(ctx.fns.plugins.remotePackage({ repo, ref: 'v2.0.0' })).rejects.toThrow('Ref must be');
+    await expect(ctx.fns.plugins.remotePackage({ repo, ref: 'refs/tags/../../x' })).rejects.toThrow('Ref must be');
+    // A repository without package.json at that ref: the ref is fine, the file is not there.
+    const bare = join(w.root, 'repos', 'empty');
+    await mkdir(bare, { recursive: true }); git(bare, 'init', '-q');
+    await writeFile(join(bare, 'README.md'), 'x'); git(bare, 'add', '-A'); git(bare, 'commit', '-qm', 'x'); git(bare, 'tag', 'v1.0.0');
+    expect((await ctx.fns.plugins.remotePackage({ repo: 'git+file://' + bare, ref: 'refs/tags/v1.0.0' })).package).toBeNull();
+});
+
+test('a plugin that is in no listing is updated by name through the repository its lock records', async () => {
+    const w = await world();
+    const ctx = w.ctx;
+    // A repository nobody listed, installed by its address.
+    const dir = join(w.root, 'repos', 'solo');
+    await mkdir(join(dir, 'src', 'solo'), { recursive: true }); git(dir, 'init', '-q');
+    for (const v of ['1.0.0', '1.1.0']) {
+        await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'solo', version: v, procs: {} }));
+        await writeFile(join(dir, 'src', 'solo', 'version.ts'), `export default async () => ${JSON.stringify(v)};`);
+        git(dir, 'add', '-A'); git(dir, 'commit', '-qm', v); git(dir, 'tag', 'v' + v);
+    }
+    await expect(ctx.fns.plugins.install({ name: 'solo' })).rejects.toThrow('solo is not in the plugin listing: install it from its repository with plugins.gitInstall');
+    const first = await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'solo', repo: 'git+file://' + dir, tag: 'v1.0.0' });
+    await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'solo', repo: 'git+file://' + dir, tag: 'v1.0.0', confirmed: true, expectedDigest: first.digest });
+    const up = await ctx.fns.plugins.install({ name: 'solo' });
+    expect(up).toMatchObject({ operation: 'update', tag: 'v1.1.0', repo: 'git+file://' + dir });
+    await ctx.fns.plugins.install({ name: 'solo', confirmed: true, expectedDigest: up.digest });
+    expect((await w.deps()).solo).toMatchObject({ tag: 'v1.1.0', previous: [{ tag: 'v1.0.0' }] });
+    // Still not something a stranger can install by name.
+    expect((await ctx.fns.plugins.catalog({})).plugins.some((p: any) => p.name === 'solo')).toBe(false);
 });

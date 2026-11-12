@@ -6,7 +6,7 @@ export type ListingEntry = {
     description: string;
     /** Phosphor icon class, `ph-*`. */
     icon?: string;
-    /** GitHub repository, `github:owner/repo`; releases are its `vX.Y.Z` tags. */
+    /** The plugin's git repository in canonical form (plugins.repoUrl): `github:owner/repo`, an https or ssh address on any git server, or `git+file:///path` in a listing on this machine. Releases are its `vX.Y.Z` tags. */
     source: string;
     /** Address of the listing this entry came from. */
     listing: string;

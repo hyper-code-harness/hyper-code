@@ -11,6 +11,8 @@ import edit from './edit';
 import release from './release';
 import fork from './fork';
 import syncUpstream from './syncUpstream';
+import repoUrl from './repoUrl';
+import releaseCheck from './releaseCheck';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) { await chmod(r, 0o755).catch(() => {}); await rm(r, { recursive: true, force: true }); } });
@@ -57,7 +59,7 @@ async function fixture() {
             procs: { modules: { reload: async () => { reloads++; } }, project: { projectRoot: () => join(import.meta.dir, '..', '..') } },
         },
     };
-    for (const [k, f] of Object.entries({ gitInstall, inspectPackage, lockFile, cloneStatus, cloneDir, edit, release, fork, syncUpstream }))
+    for (const [k, f] of Object.entries({ gitInstall, inspectPackage, lockFile, cloneStatus, cloneDir, edit, release, fork, syncUpstream, repoUrl, releaseCheck }))
         ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
     const p = await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + bare, tag: 'v1.0.0' });
     await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + bare, tag: 'v1.0.0', confirmed: true, expectedDigest: p.digest });
@@ -76,14 +78,26 @@ test('edit switches to main, release bumps, tags, pushes and moves the lock', as
     await expect(f.ctx.fns.plugins.release({ name: 'demo' })).rejects.toThrow('uncommitted');
     git(f.clone, 'commit', '-qam', 'fix');
     const r = await f.ctx.fns.plugins.release({ name: 'demo' });
-    expect(r).toMatchObject({ version: '1.0.1', tag: 'v1.0.1', branch: 'main', tests: { ran: false } });
+    expect(r).toMatchObject({ version: '1.0.1', tag: 'v1.0.1', branch: 'main', at: 'tag', tests: { ran: false } });
+    // The released clone is an installed one: detached at the new tag, clean, one more remount.
+    expect(git(f.clone, 'describe', '--tags', '--exact-match')).toBe('v1.0.1');
+    expect(Bun.spawnSync(['git', 'symbolic-ref', '-q', 'HEAD'], { cwd: f.clone }).exitCode).not.toBe(0);
+    expect(git(f.clone, 'status', '--porcelain')).toBe('');
     expect(git(f.bare, 'rev-parse', 'refs/tags/v1.0.1^{commit}')).toBe(r.commit);
     expect(git(f.bare, 'rev-parse', 'refs/heads/main')).toBe(r.commit);
     expect(JSON.parse(git(f.bare, 'show', 'v1.0.1:package.json')).version).toBe('1.0.1');
     expect(await f.lock()).toMatchObject({ tag: 'v1.0.1', commit: r.commit, previous: [{ tag: 'v1.0.0' }] });
+    // At a tag there is nothing to release until the next plugins.edit; then the same version is refused.
+    await expect(f.ctx.fns.plugins.release({ name: 'demo', version: '1.0.1' })).rejects.toThrow('plugins.edit');
+    await f.ctx.fns.plugins.edit({ name: 'demo' });
     await expect(f.ctx.fns.plugins.release({ name: 'demo', version: '1.0.1' })).rejects.toThrow('already exists');
+    // keepBranch: stay on the branch for more work; the tag and the lock still move.
+    const k = await f.ctx.fns.plugins.release({ name: 'demo', keepBranch: true });
+    expect(k).toMatchObject({ version: '1.0.2', at: 'branch' });
+    expect(git(f.clone, 'symbolic-ref', '--short', 'HEAD')).toBe('main');
+    expect((await f.lock()).tag).toBe('v1.0.2');
     // A new branch starts at HEAD.
-    expect(await f.ctx.fns.plugins.edit({ name: 'demo', branch: 'feature/x' })).toMatchObject({ branch: 'feature/x', created: true, commit: r.commit });
+    expect(await f.ctx.fns.plugins.edit({ name: 'demo', branch: 'feature/x' })).toMatchObject({ branch: 'feature/x', created: true, commit: k.commit });
 });
 
 test('release from a branch-mode clone tags it and moves the lock back to that tag', async () => {

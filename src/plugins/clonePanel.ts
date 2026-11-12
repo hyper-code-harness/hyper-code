@@ -34,7 +34,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     try { lock = (await ctx.fns.plugins.lockFile({})).lock.plugins[opts.name]; } catch { lock = undefined; }
     // Branch mode: ask origin (cached) how far the branch moved — shown as "+N new" and on the Update button.
     const updates = lock?.branch ? await ctx.fns.plugins.branchUpdates({ name: opts.name }).catch(() => null) : null;
-    const norm = (u: string) => u.replace(/^git\+/, '').replace(/^github:/, 'https://github.com/').replace(/^git@github\.com:/, 'https://github.com/').replace(/^file:\/\//, '').replace(/\.git$/, '').replace(/\/$/, '').toLowerCase();
+    const same = async (a: string, b: string) => {
+        const key = async (u: string) => { try { return (await ctx.fns.plugins.repoUrl({ repo: u })).key; } catch { return u.replace(/\.git$/, '').replace(/\/$/, '').toLowerCase(); } };
+        return await key(a) === await key(b);
+    };
     const git: types.plugins.CloneGit = {
         ...(lock?.tag ? { lockedTag: lock.tag } : {}), ...(lock?.branch ? { lockedBranch: lock.branch } : {}),
         ...(lock ? { mode: lock.branch ? 'branch' as const : lock.tag ? 'tag' as const : 'commit' as const } : {}),
@@ -44,7 +47,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         sinceTag: st.sinceTag, dirty: st.dirty, unpushed: st.unpushed, ahead: st.ahead, behind: st.behind,
         ...(st.origin ? { origin: st.origin } : {}), ...(st.upstream ? { upstream: st.upstream } : {}),
         ...(!st.origin && !st.upstream ? { local: true } : {}),
-        fork: !!(st.upstream || (lock && st.origin && norm(st.origin) !== norm(lock.repo))),
+        fork: !!(st.upstream || (lock && st.origin && !await same(st.origin, lock.repo))),
     };
     const esc = (v: unknown) => Bun.escapeHTML(String(v ?? ''));
     const csrf = await ctx.fns.auth.csrfField({ req: opts.req });
@@ -60,7 +63,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         ...(updates?.behind ? [['Upstream', `${updates.behind} new commit${updates.behind === 1 ? '' : 's'} on <code>origin/${esc(updates.branch)}</code>:<br>${updates.commits.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')}`] as [string, string]] : []),
         ...(updates?.error ? [['Upstream', esc(updates.error)] as [string, string]] : []),
         ...(git.origin ? [['Origin', `<code>${esc(git.origin)}</code>`] as [string, string]] : []),
-        ...(git.local ? [['Origin', 'none — a local plugin: versioned here, published nowhere. Add a remote with git to release it.'] as [string, string]] : []),
+        ...(git.local ? [['Origin', 'none — a local plugin: versioned here, published nowhere. Publish it with <code>plugins.publish({ name, repo })</code>.'] as [string, string]] : []),
         ...(git.upstream ? [['Upstream', `<code>${esc(git.upstream)}</code>`] as [string, string]] : []),
         ...(git.dirty.length ? [['Uncommitted', git.dirty.slice(0, 20).map(f => `<code>${esc(f)}</code>`).join(' ')] as [string, string]] : []),
         ...(git.unpushed.length && !git.local ? [['Unpushed', git.unpushed.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')] as [string, string]] : []),

@@ -1,7 +1,8 @@
 /**
  * Installs or updates a plugin from the listing by name, together with the plugins it requires
  *
- * Use when an agent or the UI wants a listed plugin: give its name (and optionally a version), get a preview of the
+ * Use when an agent or the UI wants a listed plugin, or wants to update an installed one (listed or not — an
+ * installed plugin is found by the repository its lock entry records): give its name (and optionally a version), get a preview of the
  * git clone plugins.gitInstall will put in USER_PLUGINS — the plugin, every plugin it needs through procs.requires
  * that is not mounted yet (resolved from the listing, transitively: the newest release, or the newest one inside
  * the range when procs.requires gives `{ name: range }`), commit, files, packages, the npm install scripts that
@@ -35,8 +36,13 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     expectedDigest?: string;
 }): Promise<types.plugins.GitChange> {
     const { plugins } = await ctx.fns.plugins.listing({});
+    const { lock } = await ctx.fns.plugins.lockFile({});
+    // Where a plugin lives: its listing entry, or — for one installed straight from a repository or published
+    // without a listing — the repository the lock recorded.
+    const find = (name: string) => plugins.find(p => p.name === name)
+        ?? (lock.plugins[name] ? { name, label: name, description: '', source: lock.plugins[name]!.repo, listing: 'plugins.lock.json' } : undefined);
     const release = async (name: string, version?: string) => {
-        const entry = plugins.find(p => p.name === name);
+        const entry = find(name);
         if (!entry) throw new Error(`${name} is not in the plugin listing`);
         const tags = await ctx.fns.plugins.versions({ source: entry.source });
         const tag = version ? tags.find(t => t.version === version.replace(/^v/, '')) : tags[0];
@@ -44,10 +50,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         return { entry, tag };
     };
     if ([opts.version, opts.branch, opts.commit].filter(v => v !== undefined && v !== '').length > 1) throw new Error('Give one of version, branch or commit');
-    const { lock } = await ctx.fns.plugins.lockFile({});
     const current = lock.plugins[opts.name];
-    const entry = plugins.find(p => p.name === opts.name);
-    if (!entry) throw new Error(`${opts.name} is not in the plugin listing`);
+    const entry = find(opts.name);
+    if (!entry) throw new Error(`${opts.name} is not in the plugin listing: install it from its repository with plugins.gitInstall({ operation: "install", name: "${opts.name}", repo, tag })`);
     // The ref to go to: a release tag (given, or newest), a branch or a commit. An installed clone without a ref
     // keeps its mode: branch → follow it, commit → gitInstall says there is nothing to update.
     const noRef = !opts.version && !opts.branch && !opts.commit;
@@ -55,18 +60,11 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const keep = noRef && !!current && !current.tag && !current.branch;
     const main = branch || opts.commit || keep ? { entry, tag: null } : await release(opts.name, opts.version);
 
-    // procs.requires of the release, read from its package.json at that tag, without installing anything.
-    // `ref` is a tag, branch or commit: GitHub's raw files and `git show` take each of them.
+    // procs.requires of the release, read from its package.json at that ref without installing anything
+    // (plugins.remotePackage: one commit fetched with git, so any git server works).
     const requiresOf = async (source: string, ref: string): Promise<Array<[string, string]>> => {
-        let pkg: any = null;
-        if (source.startsWith('github:')) {
-            const res = await fetch(`https://raw.githubusercontent.com/${source.slice(7)}/${ref}/package.json`, { signal: AbortSignal.timeout(15000) });
-            if (res.ok) pkg = await res.json();
-        } else {
-            const p = Bun.spawnSync(['git', 'show', `${ref}:package.json`], { cwd: new URL(source.slice(4)).pathname });
-            if (!p.exitCode) pkg = JSON.parse(p.stdout.toString());
-        }
-        if (!pkg) throw new Error(`Could not read package.json of ${source}#${ref}`);
+        const { package: pkg } = await ctx.fns.plugins.remotePackage({ repo: source, ref });
+        if (!pkg) throw new Error(`Could not read package.json of ${source} at ${ref}`);
         // ["demo"] — any version; { "demo": "^1.2" } — a semver range (plugins.inspectPackage checks the grammar on the clone).
         const r = pkg.procs?.requires;
         if (Array.isArray(r)) return r.map((n: unknown) => [String(n), '*']);
@@ -76,7 +74,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const companions: Record<string, { repo: string; tag: string }> = {};
     // For a branch or a commit the requires are best-effort here (a short SHA may not resolve remotely); gitInstall checks them again on the clone.
     const queue = keep ? [] : main.tag ? await requiresOf(main.entry.source, main.tag.commit)
-        : await requiresOf(main.entry.source, (branch || opts.commit)!).catch(() => [] as Array<[string, string]>);
+        : await requiresOf(main.entry.source, branch ? `refs/heads/${branch}` : opts.commit!).catch(() => [] as Array<[string, string]>);
     // A missing plugin is cloned at its newest release inside every range asked of it. One already installed is
     // left as it is: gitInstall refuses the change when its version is outside the range.
     const wanted: Record<string, string[]> = {};

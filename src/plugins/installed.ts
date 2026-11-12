@@ -55,9 +55,10 @@ export default async function (ctx: Context, session: Session | null, opts: {}):
     // Git state is an addition to the inventory: without a readable lock or git it is just absent.
     let locked: types.plugins.PluginLock['plugins'] = {};
     try { locked = (await ctx.fns.plugins.lockFile({})).lock.plugins; } catch { locked = {}; }
-    const same = (a: string, b: string) => {
-        const norm = (u: string) => u.replace(/^git\+/, '').replace(/^github:/, 'https://github.com/').replace(/^git@github\.com:/, 'https://github.com/').replace(/^file:\/\//, '').replace(/\.git$/, '').replace(/\/$/, '').toLowerCase();
-        return norm(a) === norm(b);
+    // Two spellings of one repository (github:o/r, https://github.com/o/r.git, git@github.com:o/r) are the same origin.
+    const same = async (a: string, b: string) => {
+        const key = async (u: string) => { try { return (await ctx.fns.plugins.repoUrl({ repo: u })).key; } catch { return u.replace(/\.git$/, '').replace(/\/$/, '').toLowerCase(); } };
+        return await key(a) === await key(b);
     };
     const gitOf = async (name: string, dir: string) => {
         let st: Awaited<ReturnType<typeof ctx.fns.plugins.cloneStatus>> | null = null;
@@ -68,7 +69,7 @@ export default async function (ctx: Context, session: Session | null, opts: {}):
         // Branch mode counts what origin/<branch> had at the last fetch (offline); plugins.branchUpdates asks origin.
         const mode = !lock ? undefined : lock.branch ? 'branch' as const : lock.tag ? 'tag' as const : 'commit' as const;
         return { ...rest, commit: st.commit, ...(lock?.tag ? { lockedTag: lock.tag } : {}), ...(lock?.branch ? { lockedBranch: lock.branch } : {}), ...(mode ? { mode } : {}),
-            ...(mode === 'branch' && st.branch === lock!.branch ? { newCommits: st.behind } : {}), ...(!st.origin && !st.upstream ? { local: true } : {}), fork: !!(st.upstream || (lock && st.origin && !same(st.origin, lock.repo))) };
+            ...(mode === 'branch' && st.branch === lock!.branch ? { newCommits: st.behind } : {}), ...(!st.origin && !st.upstream ? { local: true } : {}), fork: !!(st.upstream || (lock && st.origin && !await same(st.origin, lock.repo))) };
     };
     for (const entry of entries) {
         const name = entry.name;

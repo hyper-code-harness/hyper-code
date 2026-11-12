@@ -12,6 +12,8 @@ import clonePanel from './clonePanel';
 import edit from './edit';
 import branchUpdates from './branchUpdates';
 import route from './$route_$name_git_POST';
+import repoUrl from './repoUrl';
+import remotePackage from './remotePackage';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
@@ -49,7 +51,7 @@ async function fixture() {
             },
         },
     };
-    for (const [k, f] of Object.entries({ gitInstall, inspectPackage, lockFile, cloneStatus, cloneDir, cloneBadge, clonePanel, edit, branchUpdates }))
+    for (const [k, f] of Object.entries({ gitInstall, inspectPackage, lockFile, cloneStatus, cloneDir, cloneBadge, clonePanel, edit, branchUpdates, repoUrl, remotePackage }))
         ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
     const p = await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + bare, tag: 'v1.0.1' });
     await ctx.fns.plugins.gitInstall({ operation: 'install', name: 'demo', repo: 'git+file://' + bare, tag: 'v1.0.1', confirmed: true, expectedDigest: p.digest });
@@ -160,6 +162,7 @@ test('a local plugin (git repository without a remote) shows the local badge, no
     const html = await f.ctx.fns.plugins.clonePanel({ name: 'notes', req: new Request('http://x/plugins/notes') });
     expect(html).toContain('data-badge="local">local<');
     expect(html).toContain('a local plugin: versioned here, published nowhere');
+    expect(html).toContain('plugins.publish({ name, repo })');
     expect(html).not.toContain('Unpushed');
     expect(html).not.toContain('value="release"');
     expect(html).not.toContain('data-git-switch');

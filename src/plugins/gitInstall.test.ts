@@ -9,6 +9,7 @@ import cloneStatus from './cloneStatus';
 import installed from './installed';
 import readMetadata from './readMetadata';
 import validateTree from './validateTree';
+import repoUrl from './repoUrl';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
@@ -54,7 +55,7 @@ async function fixture() {
         state: { procs: { modules: [{ name: 'core', dir: '/core/src', namespaces: ['agent', 'plugins'] }] } },
         fns: { plugins: {}, procs: { modules: { reload: async () => { reloads++; } } } },
     };
-    for (const [k, f] of Object.entries({ inspectPackage, lockFile, cloneStatus, installed, readMetadata, validateTree })) ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
+    for (const [k, f] of Object.entries({ inspectPackage, lockFile, cloneStatus, installed, readMetadata, validateTree, repoUrl })) ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
     const call = (o: any) => gitInstall(ctx, null, o);
     const confirm = async (o: any) => call({ ...o, confirmed: true, expectedDigest: (await call(o)).digest });
     const hello = async (n = 'demo') => (await import(join(user, n, 'src', n, 'hello.ts') + '?t=' + Math.random())).default();

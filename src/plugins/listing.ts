@@ -6,8 +6,9 @@
  * Each entry says which listing it came from. A name found in several listings keeps the first one's entry and the
  * others are reported in errors — never silently replaced. A listing that cannot be read or is malformed is reported
  * in errors too and the others still count. Format 2: each entry has a lowercase name, label, description, optional
- * ph-* icon and a `github:owner/repo` source (a file:// listing may also use `git+file:///path` repositories) — no
- * version; releases are the repository's vX.Y.Z tags (plugins.versions).
+ * ph-* icon and a `source` — the plugin's git repository on any server: `github:owner/repo`, `https://host/path`,
+ * `ssh://git@host/path` or `git@host:path` (plugins.repoUrl; a file:// listing may also use `git+file:///path`
+ * repositories on this machine) — and no version; releases are the repository's vX.Y.Z tags (plugins.versions).
  * @param opts.urls Listing addresses to read instead of the plugins.listings setting.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
@@ -20,7 +21,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const errors: string[] = [];
     for (const url of urls) {
         try {
-            for (const entry of await readOne(url, errors)) {
+            for (const entry of await readOne(ctx, url, errors)) {
                 const first = plugins.find(p => p.name === entry.name);
                 if (first) errors.push(`${entry.name}: also in ${url}; the entry of ${first.listing} is used`);
                 else plugins.push(entry);
@@ -31,7 +32,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }
 
 /** One listing: fetched, checked as format 2, malformed entries reported in errors. */
-async function readOne(url: string, errors: string[]): Promise<types.plugins.ListingEntry[]> {
+async function readOne(ctx: Context, url: string, errors: string[]): Promise<types.plugins.ListingEntry[]> {
     if (!/^(https|file):\/\//.test(url)) throw new Error('Listing URL must be https:// or file://');
     let raw: unknown;
     if (url.startsWith('file://')) raw = JSON.parse(await (await import('node:fs/promises')).readFile(new URL(url), 'utf8'));
@@ -44,15 +45,21 @@ async function readOne(url: string, errors: string[]): Promise<types.plugins.Lis
     }
     const index = raw as { format?: unknown; plugins?: unknown };
     if (!index || index.format !== 2 || !Array.isArray(index.plugins)) throw new Error('Listing must be { format: 2, plugins: [...] }');
-    // A listing on this machine (file://) may point at local git repositories too; a remote one only at GitHub.
+    // A source is a git repository on any server (plugins.repoUrl). Only a listing on this machine (file://) may
+    // point at repositories on this machine: a remote listing must not make this server read local paths.
     const local = url.startsWith('file://');
+    const source = async (v: unknown) => {
+        try { const r = await ctx.fns.plugins.repoUrl({ repo: String(v ?? '') }); return r.kind === 'file' && !local ? null : r.source; }
+        catch { return null; }
+    };
     const plugins: types.plugins.ListingEntry[] = [];
     const text = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max;
     for (const item of index.plugins.slice(0, 500) as Array<Record<string, unknown>>) {
         const name = String(item?.name ?? '?');
+        let src: string | null = null;
         if (!item || typeof item !== 'object'
             || !/^[a-z][a-z0-9-]{0,63}$/.test(name)
-            || !(/^github:[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(String(item.source)) || (local && /^git\+file:\/\/\/[^\s]+$/.test(String(item.source))))
+            || !(src = await source(item.source))
             || !text(item.label, 200) || !text(item.description, 2000)
             || (item.icon !== undefined && !/^ph-[a-z0-9-]+$/.test(String(item.icon)))) {
             errors.push(`${name}: invalid entry in ${url}`);
@@ -62,7 +69,7 @@ async function readOne(url: string, errors: string[]): Promise<types.plugins.Lis
         plugins.push({
             name, label: String(item.label), description: String(item.description),
             ...(item.icon ? { icon: String(item.icon) } : {}),
-            source: String(item.source),
+            source: src,
             listing: url,
         });
     }

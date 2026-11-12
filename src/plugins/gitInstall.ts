@@ -25,7 +25,7 @@
  * history in the lock file (plugins.lockFile) and remounts plugins with procs.modules.reload.
  * @param opts.operation install, update, rollback or remove.
  * @param opts.name Plugin name: the folder under USER_PLUGINS and the package.json name.
- * @param opts.repo Repository for install (`github:owner/repo`, `git+file:///…` or a git URL); update defaults to the lock's.
+ * @param opts.repo Repository for install — GitHub or another git server (plugins.repoUrl: `github:owner/repo`, https, ssh, a local path); update defaults to the lock's.
  * @param opts.tag Release tag (vX.Y.Z) for install and update.
  * @param opts.branch Branch of the repository to install on or switch to and follow (dev mode), e.g. main or feature/x.
  * @param opts.commit Alone: the exact commit (7–40 hex) to pin the clone to. With tag or branch: the expected SHA it points at; the preview fails otherwise.
@@ -39,7 +39,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     operation: 'install' | 'update' | 'rollback' | 'remove';
     /** Plugin name: the folder under USER_PLUGINS and the package.json name. */
     name: string;
-    /** Repository for install (`github:owner/repo`, `git+file:///…` or a git URL); update defaults to the lock's. */
+    /** Repository for install — GitHub or another git server (plugins.repoUrl: `github:owner/repo`, https, ssh, a local path); update defaults to the lock's. */
     repo?: string;
     /** Release tag (vX.Y.Z) for install and update. */
     tag?: string;
@@ -81,12 +81,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     if (!configured) throw new Error('USER_PLUGINS is not configured');
     const mount = path.resolve(configured.replace(/^~(?=\/)/, String(ctx.env.HOME || os.homedir())));
     const exists = (p: string) => fs.lstat(p).then(() => true, () => false);
-    const gitUrl = (repo: string) => {
-        if (/^github:[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(repo)) return `https://github.com/${repo.slice(7)}.git`;
-        if (/^git\+(file|https):\/\/\S+$/.test(repo)) return repo.slice(4);
-        if (/^(https|file):\/\/\S+$/.test(repo) || (path.isAbsolute(repo) && !/\s/.test(repo))) return repo;
-        throw new Error('Unsupported plugin repository: ' + repo);
-    };
+    // Any git server: github:owner/repo, https, ssh, a local path (plugins.repoUrl).
+    const gitUrl = async (repo: string) => (await ctx.fns.plugins.repoUrl({ repo })).url;
     const git = async (cwd: string, args: string[], allowFail = false) => {
         const p = Bun.spawn(['git', '-c', 'advice.detachedHead=false', ...args], { cwd, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
         const timer = setTimeout(() => p.kill(), 120_000);
@@ -260,7 +256,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (operation === 'install') {
             if (!opts.repo || !refKind) throw new Error('install needs repo and one of tag, branch or commit');
             repo = opts.repo;
-            await git(stage, ['clone', '-q', '--no-checkout', gitUrl(repo), staged]);
+            await git(stage, ['clone', '-q', '--no-checkout', await gitUrl(repo), staged]);
             if (refKind === 'tag') { tag = opts.tag!; commit = await tagCommit(staged, tag); }
             else if (refKind === 'branch') { branch = opts.branch!; commit = await branchHead(staged, branch); }
             else commit = await resolveCommit(staged, opts.commit!);
@@ -276,7 +272,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
                 const kind = refKind ?? (entry!.branch ? 'branch' : entry!.tag ? 'tag' : null);
                 if (!kind) throw new Error(`${name} is pinned to commit ${entry!.commit.slice(0, 7)}: nothing to update — give a tag, branch or commit`);
                 if (kind === 'tag' && !opts.tag) throw new Error('update needs a tag');
-                await git(target, ['fetch', '-q', gitUrl(repo), 'refs/tags/*:refs/tags/*']);
+                await git(target, ['fetch', '-q', await gitUrl(repo), 'refs/tags/*:refs/tags/*']);
                 if (kind === 'tag') { tag = opts.tag!; commit = await tagCommit(target, tag); }
                 else {
                     await git(target, ['fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
@@ -316,7 +312,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         for (const [n, w] of extra) {
             if (await exists(dirOf(n))) throw new Error(`${n} is already installed`);
             const dir = path.join(stage, n);
-            await git(stage, ['clone', '-q', '--no-checkout', gitUrl(w.repo), dir]);
+            await git(stage, ['clone', '-q', '--no-checkout', await gitUrl(w.repo), dir]);
             const c = await tagCommit(dir, w.tag);
             await git(dir, ['checkout', '-q', '--detach', c]);
             await exclude(dir);

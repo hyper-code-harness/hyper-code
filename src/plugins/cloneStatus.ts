@@ -50,7 +50,9 @@ export default async function (_ctx: Context, _session: Session | null, opts: {
         ahead = counts[0] || 0; behind = counts[1] || 0;
     }
     const sinceTag = baseTag.ok && baseTag.out ? Number(run('rev-list', '--count', `${baseTag.out}..HEAD`).out) || 0 : 0;
-    const remote = (n: string) => { const r = run('remote', 'get-url', n); return r.ok && r.out ? r.out : undefined; };
+    // The address as configured, not as git would rewrite it (url.<base>.insteadOf): "is origin still the repository
+    // it was installed from" is a question about what the remote was set to.
+    const remote = (n: string) => { const r = run('config', '--get', `remote.${n}.url`); return r.ok && r.out ? r.out : undefined; };
     const origin = remote('origin'), upstream = remote('upstream');
     return {
         git: true, commit,

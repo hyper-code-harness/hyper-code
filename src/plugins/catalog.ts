@@ -59,9 +59,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             const st = await ctx.fns.plugins.cloneStatus({ dir: path.join(mount, p.name) }).catch(() => null);
             if (st?.git && st.commit) {
                 const { git: _g, ...rest } = st;
-                const norm = (u: string) => u.replace(/^git\+/, '').replace(/^github:/, 'https://github.com/').replace(/^file:\/\//, '').replace(/\.git$/, '').toLowerCase();
+                const same = async (a: string, b: string) => {
+                    const key = async (u: string) => { try { return (await ctx.fns.plugins.repoUrl({ repo: u })).key; } catch { return u.replace(/\.git$/, '').replace(/\/$/, '').toLowerCase(); } };
+                    return await key(a) === await key(b);
+                };
                 entry.git = { ...rest, commit: st.commit, ...(locked.tag ? { lockedTag: locked.tag } : {}), ...(locked.branch ? { lockedBranch: locked.branch } : {}), mode: entry.mode,
-                    ...(entry.newCommits !== undefined ? { newCommits: entry.newCommits } : {}), fork: !!(st.upstream || (st.origin && norm(st.origin) !== norm(lock[p.name]!.repo))) };
+                    ...(entry.newCommits !== undefined ? { newCommits: entry.newCommits } : {}), fork: !!(st.upstream || (st.origin && !await same(st.origin, lock[p.name]!.repo))) };
             }
         } else {
             const m = modules.find(m => m.name === p.name || m.namespaces.includes(p.name));

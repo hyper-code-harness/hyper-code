@@ -9,6 +9,18 @@ This is the canonical authoring guide for the core `plugins` module. Read it fro
 
 For runtime ownership, current lifecycle limitations, and the proposed opt-in local-path registry, see [Plugin runtime architecture](../../docs/plugin-runtime-architecture.md). It separates current behavior from the target design; it does not change the authoring workflow below.
 
+## The whole cycle in five calls
+
+| Step | Who | Call | Result |
+|---|---|---|---|
+| 1. Create | author | `plugins.create({ name, description })` | `USER_PLUGINS/<name>` with package.json, SKILL.md, a starter function and its test; local git; mounted |
+| 2. Publish | author | `plugins.publish({ name, repo, listing? })` → `confirmed` | pushed to an empty repository on a git server, tag `vX.Y.Z`, optionally an entry in a listing |
+| 3. Install | anyone | `plugins.install({ name })` → `confirmed` | a git clone at the newest tag on their machine |
+| 4. New version | author | `plugins.edit` → edit, commit → `plugins.release({ name })` | checks, version bump, new tag pushed; the listing does not change |
+| 5. Update | anyone | `plugins.checkUpdates({})` (daily by itself) → `plugins.install({ name })` → `confirmed` | the Dock shows a badge; the update is previewed, applied, and can be rolled back |
+
+Steps 2, 3 and 5 are a preview first and apply only with `confirmed: true` and the preview's `digest`. Each step is described below.
+
 ## Choose the right home
 
 - Put substantial private integrations in a direct child of the configured external `USER_PLUGINS` directory, not the repository's official `plugins/` tree. Resolve the configured directory instead of assuming a particular home path. Valid user children are mounted automatically by discovery; adding or changing runtime files still requires loading/reloading. Keep such a folder under git too: `plugins.gitInit({ name })` makes it a local repository with no remote (one commit, `node_modules` left out), shown with the `local` badge — nothing is published.
@@ -256,7 +268,48 @@ Legacy `$setting_*` declarations with `type: "secret"` remain read-only in this 
 
 A configuration widget must be a mounted runtime function owned by the plugin, callable with `{}` and returning `Promise<string>` containing an HTML fragment. Keep GET rendering read-only: no sends, writes, account changes or other outward actions merely from visiting the page. Its HTML is trusted mounted-plugin code, not untrusted content made safe by a sandbox; escape external text. Any custom buttons/forms must target the plugin's own endpoints, whose authentication, authorization, CSRF defenses, input validation and explicit confirmation requirements remain the plugin author's responsibility. The generic settings whitelist does not authorize custom actions.
 
+## Creating a plugin
+
+`plugins.create({ name, description, label?, icon?, namespace? })` writes the starter into `USER_PLUGINS/<name>`:
+
+```text
+<USER_PLUGINS>/<name>/
+  package.json                    # name, version 0.1.0, procs { src, label, icon, optional, description }
+  SKILL.md                        # frontmatter + a page to fill in
+  .gitignore                      # node_modules
+  src/<namespace>/hello.ts        # one documented function: ctx.fns.<namespace>.hello({ to? })
+  src/<namespace>/hello.test.ts   # its test
+```
+
+It then commits that as a local git repository (no remote — nothing is published) and remounts, so the function is callable at once and a save under `src/` goes live. The namespace defaults to the name in camelCase (`team-notes` → `teamNotes`). Refused: a name already in `USER_PLUGINS`, a name or namespace a mounted module owns, a name the catalog already lists. Add functions with `procs.dev.createFunction({ root: "plugin:<name>", module: "<namespace>", … })`, replace `hello`, and write SKILL.md before publishing.
+
 ## Publishing: one plugin, one repository, releases are tags
+
+`plugins.publish({ name, repo, version?, listing?, createRepo?, visibility? })` is the first release — once per plugin, a preview first:
+
+- **Preview** (changes nothing): runs `plugins.releaseCheck` (the package checks of an install, `bun.lock`, the plugin's tests), checks that `repo` is reachable and **empty** and that the catalog does not give this name to another repository, and returns the version and tag, what package.json gets (`version`, `repository`), the files, the listing `entry` and a `digest`.
+- **Confirm** (`confirmed: true, expectedDigest`): commits the package.json change, tags `vX.Y.Z`, adds `origin`, pushes the branch and the tag, records the plugin in the lock and leaves the clone at the released tag — the author's copy is then an installed plugin like anyone else's. If the push fails, the tag, the remote and the release commit are undone: nothing is published.
+- **The repository** must exist and be empty. Only for GitHub can it be created for you: `createRepo: true` (private unless `visibility: "public"`), on confirm, through `gh`. On other servers create an empty repository first.
+- **The listing** is optional. With `listing: "<address of a listing repository>"` the entry is committed there as `plugins/<name>.json` and `index.json` is regenerated — one commit, pushed. Without push rights the plugin is still published, the result says `push-refused`, and you open a pull request with `entry`. A private repository can be listed, and the preview says so: only people with access to it can install it — keep such plugins in a team listing, not the public one. Without `listing` nothing is listed: others install it by address (`plugins.gitInstall({ operation: "install", name, repo, tag })`) or you add `entry` to a listing later.
+- Publishing is outward-facing: ask the person before confirming, and say whether the repository is public.
+
+### Any git server
+
+Nothing in the cycle needs GitHub. A repository is named by its address (`plugins.repoUrl` is the one parser):
+
+| Address | Example |
+|---|---|
+| GitHub, short | `github:owner/repo` |
+| https | `https://gitlab.com/group/plugin.git`, `https://git.company.example/team/plugin` |
+| ssh | `git@gitlab.com:group/plugin.git`, `ssh://git@git.company.example:2222/team/plugin.git` |
+| this machine | `/srv/git/plugin.git`, `file:///srv/git/plugin.git` (only in a `file://` listing) |
+
+- A listing entry's `source`, the lock's `repo` and `plugins.publish`'s `repo` all take these forms. Two spellings of one repository (`https://github.com/o/r.git`, `git@github.com:o/r`) count as the same one, so a clone is not mistaken for a fork.
+- **Access** is whatever git on this machine has: a credential helper for https, an ssh key for ssh. Hyper never asks for a password and refuses an address with a user or password in it (it would end up in the lock file and on pages).
+- Tags, branch heads and the `package.json` of a release are read with plain git (`git ls-remote`, a one-commit fetch — `plugins.remotePackage`), not through a hosting API.
+- GitHub-only extras: `createRepo` in `plugins.publish`, `plugins.fork` and the Fork button (`gh`).
+
+### What a published repository looks like
 
 A plugin others install lives in its own Git repository, package at the root:
 
@@ -267,12 +320,12 @@ A plugin others install lives in its own Git repository, package at the root:
   src/<namespace>/…
 ```
 
-- **Release** = a semver tag `vX.Y.Z` equal to `version` in package.json. Bump, commit, `git tag v1.2.0`, push the tag. Nothing else changes anywhere.
+- **Release** = a semver tag `vX.Y.Z` equal to `version` in package.json. `plugins.publish` makes the first one and `plugins.release` every later one (by hand: bump, commit, `git tag v1.2.0`, push the tag). Nothing else changes anywhere.
 - **Plugins it needs** go to `procs.requires` — `["duckdb"]` for any version, `{ "duckdb": "^1.2" }` when it needs a range. Installing it installs them too; removing one that another installed plugin requires is refused. A plugin it only *uses when present* is not a requirement: call it optionally (`(ctx.fns as any).duckdb?.query`) and say so in SKILL.md.
 - **npm libraries** go to `dependencies` as usual, **with `bun.lock` committed**: bun installs them beside the plugin exactly as the lock says. The plugin's own install lifecycle scripts (`preinstall`, `install`, `postinstall`, `prepare`) are refused; a `test` script is fine.
 - Both are spelled out in [Dependencies](#dependencies-npm-packages-and-other-plugins) below.
 - **Tests** run against Hyper without being inside it: `import { testCtx } from "hyper:test"` in a `*.test.ts`, then `bun <hyper-code>/script/plugin-test.ts .`. That mounts the plugin, what it requires and the plugins among its devDependencies (put e.g. `"duckdb": "github:hyper-code-harness/duckdb#v1.0.0"` there to test an optional integration).
-- **Listings.** A listing is an `index.json` (format 2) built from one `plugins/<name>.json` per plugin: `name, label, icon, description, source: "github:owner/repo"` — no version. The public one is `hyper-code-harness/plugins`; add a plugin there by pull request once, its releases are found from its tags. The setting `plugins.listings` (env `PLUGIN_LISTINGS`, comma-separated) is an ordered list, so a team or a person adds its own listing next to the public one. A name in several listings keeps the first listing's entry and the clash is shown, never silently replaced.
+- **Listings.** A listing is an `index.json` (format 2) built from one `plugins/<name>.json` per plugin: `name, label, icon, description, source` — the repository's address on any git server (`github:owner/repo`, an https or ssh address), and no version. The public one is `hyper-code-harness/plugins`; add a plugin there once (`plugins.publish` with `listing`, or a pull request with the entry), its releases are found from its tags. The setting `plugins.listings` (env `PLUGIN_LISTINGS`, comma-separated) is an ordered list, so a team or a person adds its own listing next to the public one. A name in several listings keeps the first listing's entry and the clash is shown, never silently replaced.
 
 ## Dependencies: npm packages and other plugins
 
@@ -315,11 +368,15 @@ What is **not** a way to install any more — each of these used to mount code w
 
 `path` entries that already exist — the repository's own `plugins/<name>` in package.json — are still read: that is how the official plugins are mounted, not an install.
 
+A plugin in no listing is installed by its address — `plugins.gitInstall({ operation: "install", name, repo, tag })`, preview then confirm — and from then on updated by name like any other.
+
 - `plugins.catalog({ q })` — search the catalog; each entry says `latest`, `installed`, `mode` (`tag`, `branch`, `commit`) with `tag` / `branch` / `commit`, `update` (a newer release, or for a branch `newCommits` upstream), `requires`, `git` (clone state), or `providedBy` when a module mounted from elsewhere already owns the name.
 - `plugins.install({ name, version? })` — preview: repo, tag, commit, the plugins it requires that are missing (`companions`), files, packages, the npm install scripts confirming would run (`installScripts`), conflicts and a `digest` (commit + tree + content). Repeat with `confirmed: true, expectedDigest` to apply; the same call on an installed plugin updates it (`git fetch --tags` + checkout, diff in the preview).
 - **Dev mode** — follow a branch or pin a commit instead of a release: `plugins.install({ name, branch: "main" })` (or `feature/x`) puts the clone ON that branch, tracking `origin/<branch>`; `plugins.install({ name, commit: "abc1234" })` pins it detached at that commit (a short SHA is resolved; one no branch or tag of origin reaches is refused). Give one of `version`, `branch`, `commit`. On an installed plugin the same call switches mode with a preview; `plugins.install({ name })` then keeps the mode: on a branch it previews the fast-forward to the new head (the new `commits` and the diff) and refuses a rewritten branch, on a pinned commit there is nothing to update, and `version` goes back to a release. Nothing pulls in the background — the preview is the review. `plugins.branchUpdates({ name })` counts the new upstream commits (`git ls-remote`, cached five minutes; fetches only `origin/<branch>`, never moves the checkout).
 - `plugins.uninstall({ name, force? })` — preview, then confirm the same way; a clone with uncommitted or unpushed work also needs `force: true`.
 - `plugins.gitInstall({ operation: "rollback", name })` — back to the previous ref of the lock, of any kind (tag, branch or commit). Update and rollback refuse while the clone has local work and list it.
+- `plugins.checkUpdates({ fresh? })` — asks the repository of every installed clone (by the lock, so unlisted plugins too) for a newer tag or, for a branch clone, new commits; records the answer in `~/.hyper/plugins.updates.json`. It runs once a day (`$cron_plugin-updates`) and **never installs**. `plugins.pendingUpdates({})` reads that record without the network and drops entries whose clone has moved since; the Dock entry "Plugin updates" shows their count and opens the catalog.
+- `plugins.install({ name })` also updates a plugin that is in no listing: an installed clone is found by the repository in its lock entry.
 - `plugins.installed({})` — per clone: lock tag, HEAD tag, commit, branch, dirty files, unpushed commits, ahead/behind, `fork`, `local` (a repository without a remote). A folder that is not a git repository is `unmanaged`.
 - People do the same on `/plugins/listing` (the Catalog tab). Ask the person before confirming an install for them: plugin code runs in this process with full authority.
 
@@ -328,7 +385,7 @@ What is **not** a way to install any more — each of these used to mount code w
 The clone is a working copy, so a plugin is fixed where it runs. Saves under `USER_PLUGINS/*/src` hot-reload in production too (`plugins.watchClones`, started at boot; `PLUGIN_WATCH=0` turns it off); a broken file goes to the error board and the old version keeps running.
 
 - `plugins.edit({ name, branch? })` — leave the detached release tag for `main` (or a new branch).
-- `plugins.release({ name, version? })` — run the plugin's tests, bump `version` (patch + 1 by default), commit, tag `vX.Y.Z`, push branch and tag, move the lock. Refuses without push rights to origin.
+- `plugins.release({ name, version?, keepBranch? })` — run `plugins.releaseCheck` (package checks, `bun.lock`, the plugin's tests), bump `version` (patch + 1 by default), commit, tag `vX.Y.Z`, push branch and tag, move the lock, and put the clone back **at the released tag**, as an install leaves it (`keepBranch: true` stays on the branch for more work). Refuses without push rights to origin, and on a plugin that was never published (no origin — use `plugins.publish`).
 - `plugins.fork({ name })` — fork on GitHub with `gh`; old origin becomes `upstream`, origin the fork. Then release to the fork.
 - `plugins.syncUpstream({ name, merge? })` — fetch upstream, report behind/ahead, merge on request; a conflict aborts the merge and lists the files.
 - `plugins.release` also works from a branch-mode clone: it tags the branch and moves the lock back to that release tag.
@@ -346,9 +403,12 @@ The clone is a working copy, so a plugin is fixed where it runs. Saves under `US
 | Back to a release | `plugins.install({ name, version })` | checkout of the tag; the old branch/commit goes to `previous[]` | uncommitted or unpushed work |
 | Rollback | `plugins.gitInstall({ operation: "rollback", name })` | checkout of the last `previous[]` ref (tag, branch or commit) | uncommitted or unpushed work |
 | Edit | `plugins.edit({ name })` | `git switch main` (or a new branch); saves hot-reload | — |
-| Release | `plugins.release({ name })` | `bun.lock` check → tests → bump `version` → commit → tag → push; lock moves to the new tag (also from branch mode) | npm dependencies without a committed, matching `bun.lock`; failing tests; no push rights (fork first) |
+| Release | `plugins.release({ name })` | package checks → `bun.lock` check → tests → bump `version` → commit → tag → push; lock moves to the new tag (also from branch mode); clone back at the tag | a tree an install would refuse; npm dependencies without a committed, matching `bun.lock`; failing tests; no push rights (fork first); never published |
 | Fork | `plugins.fork({ name })` | `gh repo fork`; `origin` = your fork, `upstream` = the original | no `gh` login |
 | Sync | `plugins.syncUpstream({ name, merge? })` | fetch upstream, ahead/behind; merge on request | merge conflict (aborted, files listed) |
+| Create | `plugins.create({ name, description })` | starter files, `git init`, one commit, mounted | name or namespace taken; name already in the catalog |
+| Publish | `plugins.publish({ name, repo })` → `confirmed` | package.json gets `version` and `repository`; tag; `origin` added; pushed; lock entry; clone at the tag | origin already set; uncommitted changes; target not empty or unreachable; failing checks or tests |
+| Check for updates | `plugins.checkUpdates({})` | nothing — it only records newer tags and moved branches | — (unreachable repositories are listed in `errors`) |
 | Local plugin | `plugins.gitInit({ name })` | `git init` + one commit in a plain folder of `USER_PLUGINS`; no remote, badge `local` | already a git repository; a tree the package check rejects |
 | Remove | `plugins.uninstall({ name })` → `confirmed` | the clone is deleted, lock entry dropped | a plugin that requires it is installed; local work without `force` |
 
@@ -361,6 +421,10 @@ Every step that changes the clone is a preview first and applies only with `conf
 - **"declares npm dependencies but its repository has no bun.lock" / "bun.lock does not match package.json".** The release was tagged without a current lock. In the plugin's repository: `bun install`, commit `bun.lock`, release again. `plugins.release` now stops this before the tag.
 - **A package needs its install script** (the preview says `Blocked N postinstall` and the plugin fails at run time on a missing binary). The author adds the package to `trustedDependencies` and releases; the next preview lists the script for approval.
 - **"X requires Y ^1.2, but Y 2.0.0 is installed" / "X requires Y ~1.2; Y 1.10.0 does not satisfy it".** Version ranges of `procs.requires`. Switch Y to a version in the range (`plugins.install({ name: "Y", version })`), or update X to a release whose range allows it.
+- **"X has no origin remote: it was never published".** `plugins.release` is for later versions; the first one is `plugins.publish({ name, repo })`.
+- **"… is not empty: the first publication needs an empty repository".** `plugins.publish` never pushes over existing history. Use a new repository, or — if this is the plugin's repository already — add it as `origin` with git and continue with `plugins.release`.
+- **"Cannot reach <address>" on a server that is not GitHub.** Hyper uses this machine's git access and never prompts. Check `git ls-remote <address>` in a terminal as the user Hyper runs as; set up a credential helper (https) or an ssh key (ssh).
+- **No update badge although a new version exists.** The check is daily; run `plugins.checkUpdates({})` now. A clone pinned to a commit is never offered an update, and one with local work is offered it but refuses to apply it until the work is committed.
 - **Two copies of one plugin.** A plugin is mounted from one place: a name both in `USER_PLUGINS` and among the official `plugins/` stops the boot with a collision. Remove one of them.
 - **Lock file.** `~/.hyper/plugins.lock.json`: `{ "<name>": { repo, tag?, branch?, commit, previous: [{ tag?, branch?, commit }] } }` — `branch` set: follows it; `tag`: a release; neither: pinned commit. Older files with only `tag` read unchanged. It is written by the plugin calls; edit it by hand only to repair it.
 

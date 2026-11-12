@@ -5,6 +5,22 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### Plugins: create, publish and update check; any git server
+- `plugins.create({ name, description })` writes a starter plugin into `USER_PLUGINS` (package.json, SKILL.md,
+  one documented function with its test), under local git and mounted at once.
+- `plugins.publish({ name, repo, listing? })` is the first release: preview, then on confirm it pushes the
+  plugin to an empty repository, tags `vX.Y.Z`, and can add the entry to a listing repository. On GitHub the
+  repository can be created for you (`createRepo: true`, private unless asked otherwise).
+- `plugins.release` now leaves the clone at the released tag, as an install does (`keepBranch: true` keeps the
+  old behaviour), and runs the same package checks as an install before tagging.
+- `plugins.checkUpdates` runs once a day and records newer releases of the installed plugins; a "Plugin updates"
+  entry appears in the Dock while there are any. Nothing is installed without the usual preview and confirm.
+- Plugin repositories no longer have to be on GitHub: a listing entry, the lock and `plugins.publish` accept
+  https and ssh addresses of any git server. Access is whatever git on the machine has; an address with a
+  password in it is refused.
+- `plugins.install({ name })` updates an installed plugin that is in no listing, using the repository its lock
+  entry records.
+
 ### tts, pipedrive and reladraw are installed from the plugin catalog
 - These three plugins left this repository for their own (`hyper-code-harness/tts`, `/pipedrive`,
   `/reladraw`), like telegram, mermaid, duckdb and vegalite before them. After pulling this change they are

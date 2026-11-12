@@ -2,22 +2,20 @@
  * Lists the releases of a plugin repository: its vX.Y.Z tags, newest first, with the commit each points at
  *
  * Use to find what can be installed or updated for a listing entry. Runs `git ls-remote --tags` against the
- * source (`github:owner/repo`, or any git URL such as git+file:// in tests); other tags and prereleases are ignored.
- * Results are cached in memory for a few minutes per source so a catalog page does not hit GitHub on every view.
- * @param opts.source Repository, `github:owner/repo` or a git URL.
+ * source — a repository on any git server (plugins.repoUrl: github:owner/repo, https, ssh, a local path); other tags
+ * and prereleases are ignored. Uses the git access this machine has. Results are cached in memory for a few minutes
+ * per source so a catalog page does not ask the server on every view.
+ * @param opts.source Repository address, as plugins.repoUrl accepts it.
  * @param opts.fresh Bypass the cache. @default false
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
-    /** Repository, `github:owner/repo` or a git URL. */
+    /** Repository address, as plugins.repoUrl accepts it. */
     source: string;
     /** Bypass the cache. @default false */
     fresh?: boolean;
 }): Promise<Array<{ tag: string; version: string; commit: string }>> {
     const source = String(opts.source ?? '');
-    const url = /^github:[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(source)
-        ? `https://github.com/${source.slice(7)}.git`
-        : /^git\+(file|https):\/\//.test(source) ? source.slice(4) : '';
-    if (!url) throw new Error('Unsupported plugin source: ' + source);
+    const { url } = await ctx.fns.plugins.repoUrl({ repo: source });
     const cache: Map<string, { at: number; list: Array<{ tag: string; version: string; commit: string }> }> =
         ((ctx.state as any).pluginVersions ??= new Map());
     const hit = cache.get(url);

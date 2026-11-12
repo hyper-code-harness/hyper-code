@@ -24,6 +24,18 @@ function rotate(path: string, incoming = 0): void {
 async function pump(stream: ReadableStream<Uint8Array>, path: string): Promise<void> {
     for await (const chunk of stream) { rotate(path, chunk.byteLength); appendFileSync(path, chunk); }
 }
+// Bun.sql reaches a Unix socket through `?path=/tmp/.s.PGSQL.<port>`; pg_dump/pg_restore (libpq) do not know that
+// parameter and refuse the URL, so the pre-update backup failed on every instance with a socket DATABASE_URL.
+// libpq names the socket DIRECTORY as `host`, and the port from the URL picks the file inside it.
+export function libpqUrl(url: string): string {
+    let u: URL; try { u = new URL(url); } catch { return url; }
+    const path = u.searchParams.get("path"); if (!path) return url;
+    u.searchParams.delete("path");
+    const m = /^(.*)\/\.s\.PGSQL\.(\d+)$/.exec(path);
+    u.searchParams.set("host", m ? m[1]! || "/" : path);
+    if (m && !u.port) u.port = m[2]!;
+    return u.toString();
+}
 function command(argv: string[]): { ok: boolean; output: string } {
     const r = Bun.spawnSync(argv, { cwd: root, env: process.env, stdout: "pipe", stderr: "pipe" });
     return { ok: r.exitCode === 0, output: `${r.stdout.toString()}${r.stderr.toString()}`.trim() };
@@ -37,7 +49,7 @@ function applyPending(): { old: string; target: string; migrationsChanged: boole
     command(["git", "update-ref", `refs/hyper-update-backups/${p.requestedAt}`, p.old]);
     if (p.migrationsChanged) {
         const dbUrl = process.env.DATABASE_URL; if (!dbUrl) throw new Error("DATABASE_URL is not set (see .env; script/install.sh writes it)");
-        const dump = command(["pg_dump", "--format=custom", "--no-owner", "--no-acl", "--file", backupPath, dbUrl]);
+        const dump = command(["pg_dump", "--format=custom", "--no-owner", "--no-acl", "--file", backupPath, libpqUrl(dbUrl)]);
         if (!dump.ok) throw new Error(dump.output || "database backup failed");
     }
     const reset = command(["git", "reset", "--hard", p.target]);
@@ -58,7 +70,7 @@ async function healthy(timeoutMs = 30_000): Promise<boolean> {
     return false;
 }
 function start() {
-    child = Bun.spawn([process.execPath, "src/$main.ts"], { cwd: root, env: process.env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    child = Bun.spawn([process.execPath, "src/$main.ts"], { cwd: root, env: { ...process.env, HYPER_UPDATE_SUPERVISOR: "run-service" }, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     void pump(child.stdout as ReadableStream<Uint8Array>, resolve(runtime, "server.log"));
     void pump(child.stderr as ReadableStream<Uint8Array>, resolve(runtime, "server.error.log"));
     return child;
@@ -70,35 +82,38 @@ async function rollback(update: { old: string; target: string; migrationsChanged
     let database = "not changed";
     if (update.migrationsChanged && existsSync(backupPath)) {
         const dbUrl = process.env.DATABASE_URL; if (!dbUrl) throw new Error("DATABASE_URL is not set (see .env; script/install.sh writes it)");
-        const restore = command(["pg_restore", "--clean", "--if-exists", "--no-owner", "--no-acl", "--dbname", dbUrl, backupPath]);
+        const restore = command(["pg_restore", "--clean", "--if-exists", "--no-owner", "--no-acl", "--dbname", libpqUrl(dbUrl), backupPath]);
         database = restore.ok ? "restored" : `restore failed: ${restore.output}`;
     }
     writeFileSync(receiptPath, JSON.stringify({ ok: false, ...update, reason, reset: reset.output, database, at: Date.now() }) + "\n", { mode: 0o600 });
     rmSync(pendingPath, { force: true });
     start();
 }
-for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, () => { stopping = true; child?.kill(signal); });
+// Imported by tests for libpqUrl; the supervisor itself runs only as the entry point.
+if (import.meta.main) {
+    for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, () => { stopping = true; child?.kill(signal); });
 
-let update: { old: string; target: string; migrationsChanged: boolean } | null = null;
-try { update = applyPending(); } catch (error) {
-    writeFileSync(receiptPath, JSON.stringify({ ok: false, reason: String(error), at: Date.now() }) + "\n", { mode: 0o600 });
-    rmSync(pendingPath, { force: true });
-    rmSync(backupPath, { force: true });
-}
-start();
-if (update) {
-    if (await healthy()) {
-        writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 });
+    let update: { old: string; target: string; migrationsChanged: boolean } | null = null;
+    try { update = applyPending(); } catch (error) {
+        writeFileSync(receiptPath, JSON.stringify({ ok: false, reason: String(error), at: Date.now() }) + "\n", { mode: 0o600 });
         rmSync(pendingPath, { force: true });
         rmSync(backupPath, { force: true });
-    } else await rollback(update, "new server failed health check");
+    }
+    start();
+    if (update) {
+        if (await healthy()) {
+            writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 });
+            rmSync(pendingPath, { force: true });
+            rmSync(backupPath, { force: true });
+        } else await rollback(update, "new server failed health check");
+    }
+    while (!stopping && child) {
+        const code = await child.exited;
+        if (stopping) break;
+        if (code === 75 && existsSync(pendingPath)) {
+            try { update = applyPending(); start(); if (update && await healthy()) { writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); rmSync(backupPath, { force: true }); } else if (update) await rollback(update, "new server failed health check"); }
+            catch (error) { writeFileSync(receiptPath, JSON.stringify({ ok: false, reason: String(error), at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); start(); }
+        } else break; // launchd restarts ordinary crashes, preserving its throttle policy.
+    }
+    process.exit(child?.exitCode ?? 1);
 }
-while (!stopping && child) {
-    const code = await child.exited;
-    if (stopping) break;
-    if (code === 75 && existsSync(pendingPath)) {
-        try { update = applyPending(); start(); if (update && await healthy()) { writeFileSync(receiptPath, JSON.stringify({ ok: true, ...update, at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); rmSync(backupPath, { force: true }); } else if (update) await rollback(update, "new server failed health check"); }
-        catch (error) { writeFileSync(receiptPath, JSON.stringify({ ok: false, reason: String(error), at: Date.now() }) + "\n", { mode: 0o600 }); rmSync(pendingPath, { force: true }); start(); }
-    } else break; // launchd restarts ordinary crashes, preserving its throttle policy.
-}
-process.exit(child?.exitCode ?? 1);

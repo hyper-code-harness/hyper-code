@@ -5,6 +5,10 @@ import { join } from "node:path";
 export default async function(ctx:Context,_session:Session|null,opts:{req:Request;params:Record<string,string>}) {
     const form=await opts.req.formData();
     if(!await ctx.fns.auth.verifyCsrf({req:opts.req,token:String(form.get("_csrf")??"")})) return new Response("Invalid CSRF token",{status:403});
+    // Only script/run-service.ts applies a staged update (it sets HYPER_UPDATE_SUPERVISOR for its child). Without it the
+    // exit below just stops Hyper and a plain supervisor (hyperd running src/$main.ts) restarts the OLD code: 2026-11-12
+    // the crm instance went down this way. Refuse instead of exiting.
+    if(!ctx.env.HYPER_UPDATE_SUPERVISOR) return new Response("Self-update is not available: this Hyper is not run by script/run-service.ts, so nothing would apply the update. Run the unit with cmd script/run-service.ts (see docs/hyperd.md).",{status:409,headers:{"content-type":"text/plain; charset=utf-8"}});
     const s=await ctx.fns.update.check({fetch:true});
     if(s.state!=="available"||!s.current||!s.target) return new Response(s.message,{status:409});
     const root=String((ctx.state as any).root??process.cwd());

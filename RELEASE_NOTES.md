@@ -5,6 +5,26 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### tts, pipedrive and reladraw are installed from the plugin catalog
+- These three plugins left this repository for their own (`hyper-code-harness/tts`, `/pipedrive`,
+  `/reladraw`), like telegram, mermaid, duckdb and vegalite before them. After pulling this change they are
+  **not mounted** until installed: open `/plugins/listing` and install them, or call
+  `plugins.install({ name })` and confirm the preview. Settings and secrets keep their names
+  (`pipedrive.apiToken`, `tts.engine`, the `tts` secrets), so nothing has to be entered again.
+- Until reladraw is installed a ```` ```reladraw ```` block in a chat answer stays a plain code block.
+
+### Plugins: one way to install, strict dependencies
+- A plugin is installed only as a reviewed git clone (`plugins.install`). Removed: `plugins.add`,
+  `plugins.load` and the "Load from folder" form, `plugins.migrateToGit`; `workspace.json` entries with `git`
+  are no longer cloned and entries with `npm` are no longer mounted (a boot warning names them). A private
+  plugin is a folder in `USER_PLUGINS`; `plugins.gitInit({ name })` puts it under git as a local repository.
+- npm dependencies of a plugin install exactly from its committed `bun.lock`; a plugin with dependencies and
+  no `bun.lock`, or a stale one, is refused at install and at `plugins.release`. Install scripts run only for
+  packages the plugin lists in `trustedDependencies`, only after the confirm, and the preview shows them.
+- `procs.requires` may give a version range per plugin (`{ "duckdb": "^1.2" }`); an update that would leave
+  the range of an installed dependent is refused.
+- Dev mode: `plugins.install({ name, branch })` follows a branch, `{ name, commit }` pins a commit.
+
 ### hyperd: process supervisor for services and background jobs
 - New `hyperd/` daemon: runs services, tasks and terminal sessions from unit files in `~/.hyper/units/`
   (YAML, JSON, TS), with readiness checks, `after` ordering, restart with backoff, logs by offset, an event

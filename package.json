@@ -80,14 +80,12 @@
       "youtube": {},
       "gplaces": {},
       "gcs": {},
-      "tts": {},
       "gh": {},
       "zulip": {},
       "tasks": {},
       "google": {},
       "research": {},
       "arxiv": {},
-      "pipedrive": {},
       "knowledge": {
         "path": "plugins/knowledge"
       },
@@ -111,9 +109,6 @@
       },
       "vision": {
         "path": "plugins/vision"
-      },
-      "reladraw": {
-        "path": "plugins/reladraw"
       },
       "marker": {
         "path": "plugins/marker"

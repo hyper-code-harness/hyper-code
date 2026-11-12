@@ -1,3 +1,0 @@
-/* Layout for inline reladraw diagrams from ```reladraw fences. */
-.reladraw-diagram { display: block; max-width: 100%; overflow-x: auto; }
-.reladraw-diagram svg { display: block; max-width: 100%; height: auto; }

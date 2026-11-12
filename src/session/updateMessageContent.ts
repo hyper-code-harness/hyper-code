@@ -32,6 +32,7 @@ export default async function (
             ? [content, opts.id, opts.idx]
             : [content, opts.result_ref == null ? null : JSON.stringify(opts.result_ref), opts.id, opts.idx],
     });
+    await ctx.fns.session.markChanged({ id: opts.id, messages: opts.idx });
     await ctx.fns.procs.db.run({
         sql: "UPDATE agents SET updated_at = ? WHERE id = ?",
         params: [opts.ts ?? Date.now(), opts.id],

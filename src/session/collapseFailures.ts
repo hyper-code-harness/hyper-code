@@ -19,6 +19,7 @@ export default async function (
         sql: `UPDATE messages SET excluded_from_llm = 1 WHERE agent_id = ? AND idx IN (${idxs.map(() => '?').join(',')})`,
         params: [opts.id, ...idxs],
     });
+    await ctx.fns.session.markChanged({ id: opts.id, messages: Math.min(...idxs) });
     const events = (await ctx.fns.procs.db.select({
         sql: 'SELECT idx, payload FROM events WHERE agent_id = ?',
         params: [opts.id],
@@ -32,6 +33,7 @@ export default async function (
                     sql: 'UPDATE events SET payload = ? WHERE agent_id = ? AND idx = ?',
                     params: [JSON.stringify(p), opts.id, e.idx],
                 });
+                await ctx.fns.session.markChanged({ id: opts.id, events: Number(e.idx) });
             }
         } catch { /* unparseable payload — leave it */ }
     }

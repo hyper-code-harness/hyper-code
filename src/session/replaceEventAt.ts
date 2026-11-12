@@ -15,5 +15,6 @@ export default async function (
         sql: "UPDATE events SET type=?, payload=?::jsonb WHERE agent_id=? AND idx=?",
         params: [opts.event.type, JSON.stringify(opts.event), opts.id, opts.idx],
     });
+    await ctx.fns.session.markChanged({ id: opts.id, events: opts.idx });
     return { updated: result.changes > 0 };
 }

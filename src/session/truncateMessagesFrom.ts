@@ -42,6 +42,7 @@ from: number }): Promise<{ ok: boolean; from?: number; reason?: string }> {
     const effectiveFrom = Number(rows[p].idx);
 
     await ctx.fns.procs.db.run({ sql: "DELETE FROM messages WHERE agent_id = ? AND idx >= ?", params: [id, effectiveFrom] });
+    await ctx.fns.session.markChanged({ id, messages: effectiveFrom });
 
     // Truncate events at the matching visual boundary: the earliest event that
     // belongs to a message >= effectiveFrom. Everything after it (later
@@ -59,6 +60,7 @@ from: number }): Promise<{ ok: boolean; from?: number; reason?: string }> {
     }
     if (boundaryEventIdx != null) {
         await ctx.fns.procs.db.run({ sql: "DELETE FROM events WHERE agent_id = ? AND idx >= ?", params: [id, boundaryEventIdx] });
+        await ctx.fns.session.markChanged({ id, events: boundaryEventIdx });
     }
 
     await ctx.fns.attachments.gc({});

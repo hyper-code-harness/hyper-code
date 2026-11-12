@@ -9,6 +9,7 @@ ts?: number }): Promise<{ count: number }> {
     const { id, events } = opts;
     const ts = opts.ts ?? Date.now();
     await ctx.fns.procs.db.run({ sql: 'DELETE FROM events WHERE agent_id = ?', params: [id] });
+    await ctx.fns.session.markChanged({ id, events: 0 });
     for (let i = 0; i < events.length; i++) {
         const e: any = events[i];
         await ctx.fns.procs.db.run({ sql: 'INSERT INTO events (agent_id, idx, type, payload, ts, actor) VALUES (?, ?, ?, ?, ?, ?)', params: [id, i, e.type, JSON.stringify(e), ts, e.actor ?? null] });

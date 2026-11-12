@@ -14,7 +14,8 @@ export default async function (
     if (!row) return [];
 
     const own = await ctx.fns.session.getMessages({ id, includeExcluded });
-    if (!row.parent_id) return own;
+    // A fork cut at 0 inherits nothing: do not read the parent's whole transcript to slice it to [].
+    if (!row.parent_id || (row.fork_offset != null && Number(row.fork_offset) === 0)) return own;
 
     const parent = await ctx.fns.session.getFullMessages({ id: row.parent_id, includeExcluded });
     const limited = row.fork_offset == null ? parent : parent.slice(0, row.fork_offset);

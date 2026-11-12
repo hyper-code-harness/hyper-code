@@ -33,6 +33,7 @@ idx: number }): Promise<{ ok: boolean; reason?: string }> {
     }
 
     await ctx.fns.procs.db.run({ sql: "DELETE FROM messages WHERE agent_id = ? AND idx = ?", params: [id, idx] });
+    await ctx.fns.session.markChanged({ id, messages: idx });
 
     // Remove the event(s) that render this exact message (user / assistant
     // bubbles carry messageIdx). Leaves surrounding events untouched.
@@ -45,6 +46,7 @@ idx: number }): Promise<{ ok: boolean; reason?: string }> {
         try { mi = JSON.parse(e.payload)?.messageIdx; } catch { mi = undefined; }
         if (mi != null && Number(mi) === idx) {
             await ctx.fns.procs.db.run({ sql: "DELETE FROM events WHERE agent_id = ? AND idx = ?", params: [id, Number(e.idx)] });
+            await ctx.fns.session.markChanged({ id, events: Number(e.idx) });
         }
     }
 

@@ -6,13 +6,15 @@ export default async function (
         /** Agent identifier. */
     id: string;
         /** Whether to include entries excluded from the processing cursor. */
-    includeExcluded?: boolean },
+    includeExcluded?: boolean;
+        /** First message idx to read; omit for the whole transcript. */
+    fromIdx?: number },
 ): Promise<types.session.Message[]> {
     const { id } = opts;
     const includeExcluded = opts.includeExcluded === true;
     const rows = (await ctx.fns.procs.db.select({
-        sql: 'SELECT * FROM messages WHERE agent_id = ? AND (? = 1 OR COALESCE(excluded_from_llm, 0) = 0) ORDER BY idx',
-        params: [id, includeExcluded ? 1 : 0],
+        sql: 'SELECT * FROM messages WHERE agent_id = ? AND idx >= ? AND (? = 1 OR COALESCE(excluded_from_llm, 0) = 0) ORDER BY idx',
+        params: [id, Math.max(0, Math.floor(Number(opts.fromIdx ?? 0)) || 0), includeExcluded ? 1 : 0],
     })) as any[];
 
     return rows.map((r: any) => {

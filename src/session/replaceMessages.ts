@@ -9,6 +9,7 @@ ts?: number }): Promise<{ count: number }> {
     const { id, messages } = opts;
     const ts = opts.ts ?? Date.now();
     await ctx.fns.procs.db.run({ sql: 'DELETE FROM messages WHERE agent_id = ?', params: [id] });
+    await ctx.fns.session.markChanged({ id, messages: 0 });
     for (let i = 0; i < messages.length; i++) {
         const m: any = messages[i];
         await ctx.fns.procs.db.run({

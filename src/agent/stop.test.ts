@@ -75,7 +75,7 @@ describe('agent.stop', () => {
     } };
     await stop(ctx, null, { agent });
     expect(committed.plan.pausedAt).toBe(1600);
-    expect(committed.plan.pauseReason).toBe('user');
+    expect(committed.plan.pausedBy).toBe('user');
     expect(committed.plan.tasks[0]).toMatchObject({ activeSince: null, elapsedMs: 650 });
   });
 

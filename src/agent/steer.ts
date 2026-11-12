@@ -54,6 +54,11 @@ export default async function (
             meta.summary = summary;
             await ctx.fns.session.updateScratchpad({ id: child.id, scratchpad: child.scratchpad });
         }
+        // Reporting blocked or failed IS the child's decision to stop: without the pause its next text reply
+        // would be answered with a plan reminder and the run would go on.
+        if (child.scratchpad.plan && !child.scratchpad.plan.pausedAt) {
+            await ctx.fns.session.pausePlan({ agent: child, by: "agent", reason: `${opts.event}: ${summary}` });
+        }
     }
     ctx.fns.events.refreshAgentMeta({ agentId: child.id, section: "plan", reason: "team-update" });
     return { delivered: true, parentId, messageIdx: message.messageIdx ?? undefined };

@@ -197,97 +197,170 @@ describe('transcript surgery keeps JSON pairs intact', () => {
     });
 
 
-    test('plan continuation is bounded and excluded from the user cursor', async () => {
+    // The mock's turn cursor lives on the in-memory scratchpad; plan functions reload the scratchpad from the
+    // database, so a stub that calls one keeps the cursor across the call.
+    const keepingCursor = async (agent: any, fn: () => Promise<any>) => {
+        const turn = agent.scratchpad.mockTurn;
+        const out = await fn();
+        agent.scratchpad.mockTurn = turn;
+        return out;
+    };
+    const planFeedback = async (ctx: any, id: string) =>
+        (await ctx.fns.session.getMessages({ id, includeExcluded: true })).filter((m: any) => m.message_type === 'plan_feedback');
+
+    test('issue #30: reports without a decision never stop the run — only session.done does', async () => {
         const ctx: any = await quietCtx();
-        const agent = await mkAgent(ctx, Array.from({ length: 4 }, () => ({ text: 'not finished' })));
+        let agent: any;
+        ctx.fns.files.read = async (_c: any, _s: any, o: any) => {
+            if (o.path === 'finish') await keepingCursor(agent, () => ctx.fns.session.done({ agent, id: 'work' }));
+            return `CONTENT OF ${o.path}`;
+        };
+        const report = (n: number) => ({ text: `intermediate report ${n}, still checking` });
+        // the ak scenario and worse: five text-only reports in a row, then work, then more reports
+        agent = await mkAgent(ctx, [
+            report(1), report(2), report(3), report(4), report(5),
+            { toolCalls: [{ name: 'read', args: { path: 'a.ts' } }] },
+            report(6), report(7),
+            { toolCalls: [{ name: 'read', args: { path: 'finish' } }] },
+            { text: 'all done' },
+        ]);
         await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work', instructions: 'Keep going' }] });
         const result = await ctx.fns.agent.run({ agent, userText: 'start' });
-        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
-        const feedback = msgs.filter((m: any) => m.message_type === 'plan_feedback');
-        expect(feedback).toHaveLength(2);
-        const cursorRows = await ctx.fns.procs.db.select({ sql: "SELECT idx, excluded_from_cursor FROM messages WHERE agent_id = ? AND message_type = 'plan_feedback' ORDER BY idx", params: [agent.id] });
+        expect(result.text).toBe('all done');
+        const feedback = await planFeedback(ctx, agent.id);
+        expect(feedback).toHaveLength(7);
+        expect(feedback[0].content).toContain('session.pausePlan');
+        expect(agent.scratchpad.plan.pausedAt).toBeNull();
+        const events = await ctx.fns.session.getEvents({ id: agent.id });
+        expect(events.some((e: any) => e.type === 'plan_paused')).toBe(false);
+        // reminders do not move the user cursor
+        const cursorRows = await ctx.fns.procs.db.select({ sql: "SELECT excluded_from_cursor FROM messages WHERE agent_id = ? AND message_type = 'plan_feedback'", params: [agent.id] });
         expect(cursorRows.every((row: any) => Number(row.excluded_from_cursor) === 1)).toBe(true);
         const ordinaryUser = (await ctx.fns.procs.db.select({ sql: "SELECT idx FROM messages WHERE agent_id = ? AND role = 'user' AND excluded_from_cursor = 0 ORDER BY idx", params: [agent.id] }))[0];
         expect(result.consumedUserIdx).toBe(Number(ordinaryUser.idx));
     });
 
-    test('issue #30: progress after two nudges keeps the plan task going', async () => {
+    test('issue #30: every reminder is stored as a message and shown in the chat', async () => {
         const ctx: any = await quietCtx();
         let agent: any;
-        ctx.fns.files.read = async (_c: any, _s: any, o: any) => {
-            if (o.path === 'finish') {
-                const turn = agent.scratchpad.mockTurn; // the mock's cursor is in-memory; done() reloads the scratchpad
-                await ctx.fns.session.done({ agent, id: 'work' });
-                agent.scratchpad.mockTurn = turn;
-            }
-            return `CONTENT OF ${o.path}`;
+        ctx.fns.files.read = async () => { await keepingCursor(agent, () => ctx.fns.session.done({ agent, id: 'work' })); return 'ok'; };
+        agent = await mkAgent(ctx, [{ text: 'report' }, { text: 'report again' }, { toolCalls: [{ name: 'read', args: { path: 'x' } }] }, { text: 'finished' }]);
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Ship it' }] });
+        await ctx.fns.agent.run({ agent, userText: 'start' });
+        const feedback = await planFeedback(ctx, agent.id);
+        const notes = (await ctx.fns.session.getEvents({ id: agent.id })).filter((e: any) => e.type === 'system_note');
+        expect(notes).toHaveLength(2);
+        expect(notes.map((e: any) => e.messageIdx)).toEqual(feedback.map((m: any) => m.idx));
+        expect(notes[0]).toMatchObject({ kind: 'plan_feedback', text: feedback[0].content });
+        const html = await ctx.fns.agent.renderEventHtml({ event: notes[0], agentId: agent.id });
+        expect(html).toContain('Reminder to the agent');
+        expect(html).toContain('Ship it');
+        expect(html).toContain('session.pausePlan');
+    });
+
+    test('issue #30: the agent pauses explicitly — the run ends, the chat shows why and what is left', async () => {
+        const ctx: any = await quietCtx();
+        let agent: any;
+        ctx.fns.files.read = async () => {
+            await keepingCursor(agent, () => ctx.fns.session.pausePlan({ agent, reason: 'Waiting for the API key from the user' }));
+            return 'paused';
         };
-        const report = (n: number) => ({ text: `intermediate report ${n}, still checking` });
-        const work = (n: number) => ({ toolCalls: [{ name: 'read', args: { path: `f${n}.ts` } }] });
         agent = await mkAgent(ctx, [
-            report(1), report(2),           // two idle replies -> two nudges
-            work(1), report(3),             // real progress resets the idle count
-            work(2), report(4),
-            { toolCalls: [{ name: 'read', args: { path: 'finish' } }] },
-            { text: 'all done' },
+            { toolCalls: [{ name: 'read', args: { path: 'pause' } }] },
+            { text: 'I need the API key to go on.' },
+            { text: 'continuing' }, { text: 'still continuing' },
         ]);
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'implement', title: 'Implement' }, { id: 'verify', title: 'Verify UI' }] });
+        const result = await ctx.fns.agent.run({ agent, userText: 'start' });
+        expect(result.text).toBe('I need the API key to go on.');
+        expect(await planFeedback(ctx, agent.id)).toHaveLength(0);
+        expect(agent.scratchpad.plan).toMatchObject({ pausedBy: 'agent', pauseReason: 'Waiting for the API key from the user' });
+        expect(agent.scratchpad.plan.tasks[0].activeSince).toBeNull();
+        const paused = (await ctx.fns.session.getEvents({ id: agent.id })).find((e: any) => e.type === 'plan_paused');
+        expect(paused.remaining.map((t: any) => t.id)).toEqual(['implement', 'verify']);
+        const html = await ctx.fns.agent.renderEventHtml({ event: paused, agentId: agent.id });
+        expect(html).toContain('Plan paused by the agent');
+        expect(html).toContain('Waiting for the API key');
+        expect(html).toContain('Verify UI');
+
+        // The person answers through the chat: the worker runs the agent with an EMPTY userText and the message
+        // already in the transcript. That must resume the plan (it did not before this fix).
+        await ctx.fns.session.appendUserMessage({ id: agent.id, text: 'here is the key' });
+        await ctx.fns.session.syncAgentState({ agent });
+        agent.scratchpad.mockLLM = { turns: [{ text: 'thanks, continuing' }, { toolCalls: [{ name: 'read', args: { path: 'pause' } }] }, { text: 'waiting again' }] };
+        agent.scratchpad.mockTurn = 0;
+        await ctx.fns.session.save({ agent }); // resuming reloads the scratchpad from the database
+        let resumedSeen = false;
+        ctx.fns.files.read = async () => {
+            resumedSeen = agent.scratchpad.plan.pausedAt === null;
+            await keepingCursor(agent, () => ctx.fns.session.pausePlan({ agent, reason: 'Waiting for review' }));
+            return 'paused';
+        };
+        await ctx.fns.agent.run({ agent, userText: '', userMessageAlreadyAppended: true });
+        expect(resumedSeen).toBe(true);
+        expect(await planFeedback(ctx, agent.id)).toHaveLength(1);
+        expect(agent.scratchpad.plan.pauseReason).toBe('Waiting for review');
+    });
+
+    test('issue #30: a plan the person stopped is not resumed by a job or a trigger, only by the person', async () => {
+        const ctx: any = await quietCtx();
+        const agent = await mkAgent(ctx, [{ text: 'noted' }, { text: 'again' }]);
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
+        await ctx.fns.session.pausePlan({ agent, by: 'user' });
+        await ctx.fns.session.appendMessage({ id: agent.id, message: { role: 'user', content: 'job finished', message_type: 'job' } });
+        await ctx.fns.session.syncAgentState({ agent });
+        await ctx.fns.agent.run({ agent, userText: '', userMessageAlreadyAppended: true });
+        expect(agent.scratchpad.plan.pausedBy).toBe('user');
+        expect(await planFeedback(ctx, agent.id)).toHaveLength(0);
+    });
+
+    test('continuePlan:false answers once and leaves the plan alone (agent.ask)', async () => {
+        const ctx: any = await quietCtx();
+        const agent = await mkAgent(ctx, [{ text: 'the answer' }, { text: 'must not be asked' }]);
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
+        await ctx.fns.session.pausePlan({ agent, reason: 'Waiting for the parent' });
+        const result = await ctx.fns.agent.run({ agent, userText: 'a follow-up question', continuePlan: false });
+        expect(result.text).toBe('the answer');
+        expect(agent.scratchpad.plan.pausedBy).toBe('agent');
+        await ctx.fns.session.resumePlan({ agent });
+        agent.scratchpad.mockLLM = { turns: [{ text: 'another answer' }, { text: 'must not be asked' }] };
+        agent.scratchpad.mockTurn = 0;
+        expect((await ctx.fns.agent.run({ agent, userText: 'one more', continuePlan: false })).text).toBe('another answer');
+        expect(await planFeedback(ctx, agent.id)).toHaveLength(0);
+    });
+
+    test('issue #30: an entirely empty reply with an open task is not a silent stop', async () => {
+        const ctx: any = await quietCtx();
+        let agent: any;
+        ctx.fns.files.read = async () => { await keepingCursor(agent, () => ctx.fns.session.done({ agent, id: 'work' })); return 'ok'; };
+        agent = await mkAgent(ctx, [{ text: '' }, { toolCalls: [{ name: 'read', args: { path: 'x' } }] }, { text: 'finished' }]);
         await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
         const result = await ctx.fns.agent.run({ agent, userText: 'start' });
-        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
-        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback').length).toBeGreaterThan(2);
-        expect(result.text).toBe('all done');
-        expect(agent.scratchpad.plan.pausedAt).toBeNull();
-        const events = await ctx.fns.session.getEvents({ id: agent.id });
-        expect(events.some((e: any) => e.type === 'plan_paused')).toBe(false);
+        expect(result.text).toBe('finished');
+        expect(await planFeedback(ctx, agent.id)).toHaveLength(1);
     });
 
-    test('issue #30: pure repetition still stops and the plan is visibly paused with remaining steps', async () => {
+    test('issue #30: the 300-cycle cap is the only stop the runtime makes, and it pauses the plan visibly', async () => {
         const ctx: any = await quietCtx();
-        const agent = await mkAgent(ctx, Array.from({ length: 6 }, () => ({ text: 'still checking…' })));
-        await ctx.fns.session.plan({ agent, tasks: [
-            { id: 'implement', title: 'Implement' },
-            { id: 'verify', title: 'Verify UI' },
-        ] });
+        const agent = await mkAgent(ctx, []);
+        agent.scratchpad.mockLLM = { turns: [], defaultText: 'still checking…' };
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'implement', title: 'Implement' }, { id: 'verify', title: 'Verify UI' }] });
         await ctx.fns.agent.run({ agent, userText: 'start' });
-        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
-        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(2);
-        const plan = agent.scratchpad.plan;
-        expect(plan.pausedAt).toBeGreaterThan(0);
-        expect(plan.pauseReason).toBe('limit');
-        expect(plan.tasks[0].activeSince).toBeNull();
+        expect(await planFeedback(ctx, agent.id)).toHaveLength(300);
+        expect(agent.scratchpad.plan).toMatchObject({ pausedBy: 'limit' });
         const events = await ctx.fns.session.getEvents({ id: agent.id });
         const paused = events.find((e: any) => e.type === 'plan_paused');
+        expect(paused).toMatchObject({ by: 'limit' });
         expect(paused.remaining.map((t: any) => t.id)).toEqual(['implement', 'verify']);
-        expect(paused.reason).toContain('no progress');
-        const html = await ctx.fns.agent.renderEventHtml({ event: paused, agentId: agent.id });
-        expect(html).toContain('Plan paused');
-        expect(html).toContain('Verify UI');
-        // the next user message resumes the paused plan: continuation starts again
-        const firstPause = plan.pausedAt;
-        await ctx.fns.agent.run({ agent, userText: 'go on' });
-        const after = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
-        expect(after.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(4);
-        expect(agent.scratchpad.plan.pausedAt).toBeGreaterThan(firstPause);
-    });
-
-    test('issue #30: the run-wide cap bounds continuations even when every reply makes progress', async () => {
-        const ctx: any = await quietCtx();
-        ctx.fns.files.read = async () => 'x';
-        const turns: any[] = [];
-        for (let i = 0; i < 30; i++) turns.push({ toolCalls: [{ name: 'read', args: { path: `f${i}.ts` } }] }, { text: `report ${i}` });
-        const agent = await mkAgent(ctx, turns);
-        await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
-        await ctx.fns.agent.run({ agent, userText: 'start' });
-        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
-        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(12);
-        expect(agent.scratchpad.plan.pauseReason).toBe('limit');
-        const events = await ctx.fns.session.getEvents({ id: agent.id });
-        expect(events.find((e: any) => e.type === 'plan_paused').reason).toContain('continuation limit');
-    });
+        expect(events.some((e: any) => e.type === 'system_note' && e.kind === 'turn_cap')).toBe(true);
+        expect(await ctx.fns.agent.renderEventHtml({ event: paused, agentId: agent.id })).toContain('Send a message to resume');
+    }, 120_000);
 
     test('goal continuation runs before plan continuation without conflict', async () => {
         const ctx: any = await quietCtx();
-        const agent = await mkAgent(ctx, [{ text: 'first' }, { text: 'second' }, { text: 'third' }, { text: 'fourth' }]);
+        let agent: any;
+        ctx.fns.files.read = async () => { await keepingCursor(agent, () => ctx.fns.session.done({ agent, id: 'work' })); return 'ok'; };
+        agent = await mkAgent(ctx, [{ text: 'first' }, { text: 'second' }, { toolCalls: [{ name: 'read', args: { path: 'x' } }] }, { text: 'fourth' }]);
         await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
         agent.goal = { enabled: true, statement: 'Goal', maxIterations: 1 };
         let checks = 0;
@@ -295,10 +368,13 @@ describe('transcript surgery keeps JSON pairs intact', () => {
             ? { status: 'continue', reason: 'continue once', nextStep: 'next' }
             : { status: 'achieved', reason: 'done' };
         await ctx.fns.session.save({ agent });
-        await ctx.fns.agent.run({ agent, userText: 'start' });
+        const result = await ctx.fns.agent.run({ agent, userText: 'start' });
+        expect(result.text).toBe('fourth');
         const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
+        // 'first' -> the goal says continue; 'second' -> goal achieved (which switches the goal off), then the open
+        // plan task asks for a decision; the task is closed; 'fourth' ends the run.
         expect(msgs.filter((m: any) => m.message_type === 'goal_feedback')).toHaveLength(2);
-        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(2);
+        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(1);
     });
 
 });

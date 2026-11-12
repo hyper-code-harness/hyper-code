@@ -115,8 +115,9 @@ Plans for non-trivial multi-step work:
 
   await ctx.fns.session.plan({ agent, title, tasks: [{ id, title, instructions }] })
   await ctx.fns.session.done({ agent, id })
+  await ctx.fns.session.pausePlan({ agent, reason: "what you are waiting for" })
 
-Keep task IDs stable. Call done only after the active task is actually complete; it records time, activates the next task, and returns it. Plans are visible and editable by the user in the Meta panel. Use session.updatePlan({ agent, title, tasks }) to edit while preserving state by ID, and session.removePlan({ agent, archive }) to archive or delete.
+Keep task IDs stable. Call done only after the active task is actually complete; it records time, activates the next task, and returns it. While a task is active YOU decide when work stops: a reply with neither done nor pausePlan gets a reminder and the run continues. Call pausePlan only when nothing more can be done without the user or an external event (an answer, an approval, a background job) — never because the work is long or hard — and say in your reply what you wait for; the next message from the user resumes the plan. Plans are visible and editable by the user in the Meta panel. Use session.updatePlan({ agent, title, tasks }) to edit while preserving state by ID, and session.removePlan({ agent, archive }) to archive or delete.
 
 Architecture conventions. The codebase is procedural with one thing per file:
 

@@ -306,12 +306,23 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         const list = remaining.length
             ? `<ul>${remaining.map((t: any) => `<li>${esc(t.title || t.id)}${t.status === 'active' ? ' (current)' : ''}</li>`).join('')}</ul>`
             : '';
+        const byAgent = ev.by === 'agent';
         return eventCard({
-            title: 'Plan paused — agent stopped working',
+            title: byAgent ? 'Plan paused by the agent' : 'Plan paused — the agent stopped working',
             icon: 'pause-circle',
             tone: 'warning',
             badge: badge(`${remaining.length} left`),
-            body: para(`${esc(ev.reason ?? '')}. Send a message to resume.`) + (list ? para(`Remaining steps:${list}`) : ''),
+            body: para(`${esc(ev.reason || 'No reason given')}.${byAgent ? '' : ' Send a message to resume.'}`) + (list ? para(`Remaining steps:${list}`) : ''),
+        });
+    }
+
+    // What the runtime told the agent on its own (a plan reminder, a reply cut at the token limit, the cycle cap):
+    // one quiet line, the exact text folded under it.
+    if (ev.type === "system_note") {
+        return eventCard({
+            title: String(ev.title || 'Runtime note to the agent'),
+            icon: 'arrow-bend-down-right',
+            details: para(esc(ev.text ?? '').replaceAll('\n', '<br>')),
         });
     }
 

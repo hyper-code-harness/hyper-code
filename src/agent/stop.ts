@@ -27,7 +27,7 @@ clearQueue?: boolean }) {
     // new user run or a new plan, never by automatic recovery.
     agent.scratchpad ??= {};
     if (agent.scratchpad.plan && !agent.scratchpad.plan.pausedAt) {
-        await ctx.fns.session.pausePlan({ agent, reason: 'user' });
+        await ctx.fns.session.pausePlan({ agent, by: 'user' });
     }
 
     await ctx.fns.procs.db.run({

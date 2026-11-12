@@ -15,6 +15,7 @@
  * @param opts.agent Live agent whose transcript and turn state are updated.
  * @param opts.userText User input to append unless already persisted by ingestion.
  * @param opts.userMessageAlreadyAppended Skip appending input for worker-claimed messages. @default false
+ * @param opts.continuePlan Keep the run going while a plan task is active and resume a paused plan on new input. Pass false for a one-off answer that must not restart plan work (agent.ask). @default true
  */
 export default async function (
     ctx: Context,
@@ -26,6 +27,8 @@ export default async function (
         userText: string;
         /** Skip appending input for worker-claimed messages. @default false */
         userMessageAlreadyAppended?: boolean;
+        /** Keep the run going while a plan task is active and resume a paused plan on new input. Pass false for a one-off answer that must not restart plan work (agent.ask). @default true */
+        continuePlan?: boolean;
     },
 ) {
     const { agent, userText } = opts;
@@ -53,20 +56,30 @@ export default async function (
     }
 
     agent.scratchpad ??= {};
-    if (agent.scratchpad.plan?.pausedAt && userText.trim()) {
-        const updated: any = await ctx.fns.session.mutateScratchpad({ id: agent.id, mutate: (scratchpad: Record<string, any>, now: number) => {
-            const plan = scratchpad.plan;
-            if (!plan?.pausedAt) return;
-            plan.pausedAt = null;
-            delete plan.pauseReason;
-            delete plan.pauseNote;
-            plan.updatedAt = now;
-            const active = Array.isArray(plan.tasks) ? plan.tasks.find((task: any) => task.status === 'active') : null;
-            if (active && !active.activeSince) active.activeSince = now;
-        } });
-        agent.scratchpad = updated.scratchpad;
-        ctx.fns.events.refreshAgentMeta({ agentId: agent.id, section: 'plan', reason: 'plan-resumed' });
-    }
+    // A paused plan resumes when what it waits for arrives. Chat messages reach this function through the worker
+    // with an empty userText, so the transcript is asked, not the argument. A pause the agent set itself ends on
+    // anything it may be waiting for; Stop and the cycle cap end only on a word from the person, so a cron or a
+    // finished job cannot restart work somebody stopped.
+    const continuePlan = opts.continuePlan !== false;
+    const resumePlanIfAnswered = async (direct: boolean) => {
+        const plan = agent.scratchpad?.plan;
+        if (!continuePlan || !plan?.pausedAt) return;
+        let answered = direct;
+        if (!answered) {
+            // The agent's own pause waits for anything that counts as input (a person, a peer, a team update, a
+            // finished job, a trigger); a compaction summary is not news.
+            const filter = plan.pausedBy === 'agent'
+                ? "message_type <> 'compaction_summary'"
+                : "message_type IN ('message', 'input')";
+            const rows = (await ctx.fns.procs.db.select({
+                sql: `SELECT idx FROM messages WHERE agent_id = ? AND role = 'user' AND excluded_from_cursor = 0 AND ts >= ? AND ${filter} LIMIT 1`,
+                params: [agent.id, Number(plan.pausedAt)],
+            })) as any[];
+            answered = rows.length > 0;
+        }
+        if (answered) await ctx.fns.session.resumePlan({ agent });
+    };
+    await resumePlanIfAnswered(!!userText.trim());
     agent.scratchpad.activeStatusLine = await ctx.fns.agent.statusLineForTurn({ agent });
     // The status line is persisted as a small cursor-excluded user row right
     // behind the message that started this run: the transcript then shows
@@ -144,38 +157,59 @@ export default async function (
     let goalIterations = 0;
     let lastGoalFeedback = "";
     const goalDeadline = Date.now() + 5 * 60_000;
-    // Plan continuation. A text-only reply while a plan task is active gets a
-    // plan_feedback nudge back instead of ending the run. Only replies with NO
-    // progress since the previous nudge count against the per-task limit:
-    // progress is a tool call that ran or a plan change (a task closed, added,
-    // reordered). Two idle nudges in a row stop a model that only restates its
-    // status (the original loop guard, see 4d57a146); the separate run-wide
-    // cap bounds the total even when every reply makes some progress. When
-    // either is spent with the task still open the plan is PAUSED with a
-    // visible note, never left looking busy (issue #30).
-    const MAX_IDLE_PLAN_NUDGES = 2;
-    const MAX_PLAN_CONTINUATIONS = 12;
-    const planIdle: Record<string, number> = {};
-    let totalPlanInjections = 0;
-    let runToolCalls = 0;
-    const planSignature = () => {
-        const p = agent.scratchpad?.plan;
-        return p ? JSON.stringify((Array.isArray(p.tasks) ? p.tasks : []).map((t: any) => [t.id, t.status, t.title, t.instructions ?? ''])) : '';
+    // Plan continuation. While a plan task is active the agent decides explicitly when to stop: session.done
+    // (task complete) or session.pausePlan with a reason (nothing more can be done without the person or an
+    // external event). A reply without either — a status report, or nothing at all — is answered with a
+    // plan_feedback reminder and the run goes on. The runtime does not guess from the shape of replies whether
+    // the agent is stuck; the only bound is MAX_TURNS, and reaching it pauses the plan visibly (issue #30).
+    const activePlanTask = () => {
+        const plan = agent.scratchpad?.plan;
+        if (!continuePlan || !plan || plan.pausedAt || !Array.isArray(plan.tasks)) return null;
+        return plan.tasks.find((task: any) => task.status === "active") ?? null;
     };
-    let planMark = { tools: 0, sig: planSignature() };
+    // A message the runtime writes to the agent (a reminder, a notice that a reply was cut off) is a transcript row
+    // AND a line in the chat: the person must be able to see what the agent was told and why it kept going.
+    const systemNote = async (note: { title: string; text: string; kind: string; messageType?: string }) => {
+        const row = await ctx.fns.session.appendMessage({ id: agent.id, message: {
+            role: "user",
+            content: note.text,
+            ...(note.messageType ? { message_type: note.messageType } : {}),
+            excluded_from_cursor: true,
+        } });
+        await ctx.fns.session.appendEvent({ id: agent.id, event: { type: "system_note", kind: note.kind, title: note.title, text: note.text, messageIdx: row.idx } });
+        await ctx.fns.session.syncAgentState({ agent });
+    };
+    const remindOfPlan = async (task: any) => systemNote({
+        kind: "plan_feedback",
+        messageType: "plan_feedback",
+        title: `Reminder to the agent: continue "${task.title}"`,
+        text: [
+            `Continue the active plan task.`,
+            `Task ID: ${task.id}`,
+            `Title: ${task.title}`,
+            task.instructions ? `Instructions:\n${task.instructions}` : "",
+            [
+                `Your reply ended without a decision about this task, so the run continues. Decide explicitly:`,
+                `- the task is complete: call session.done({ agent, id: ${JSON.stringify(task.id)} });`,
+                `- nothing more can be done without the user or an external event (an answer, an approval, a background job): call session.pausePlan({ agent, reason: "<what you are waiting for>" }) and tell the user;`,
+                `- otherwise take the next concrete action now. A status report is not a reason to stop, and the work being long or hard is not a reason to pause.`,
+            ].join("\n"),
+        ].filter(Boolean).join("\n\n"),
+    });
     while (true) {
         // Stop landed while a tool ran: the call ended "stopped by the user" and returned normally, so nothing
         // threw. Without this check the loop would ask the model once more and post its reply after the press.
         if (ac.signal.aborted) throw stoppedError();
         if (++turns > MAX_TURNS) {
             await ctx.fns.session.appendErrorEvent({ id: agent.id, error: `run hit the ${MAX_TURNS}-turn cap — closing; send a message to continue` });
-            await ctx.fns.session.appendMessage({ id: agent.id, message: {
-                role: 'user',
-                content: `This run exceeded ${MAX_TURNS} tool cycles and was closed. Summarize where you are; the user can send a message to continue.`,
-                excluded_from_cursor: true,
-            } });
-            await ctx.fns.session.syncAgentState({ agent });
-        delete agent.scratchpad.activeStatusLine;
+            await systemNote({
+                kind: "turn_cap",
+                title: `Run closed: ${MAX_TURNS} cycles without a pause`,
+                text: `This run exceeded ${MAX_TURNS} tool cycles and was closed. Summarize where you are; the user can send a message to continue.`,
+            });
+            // The one stop the runtime makes on its own: it must not leave an open task looking busy.
+            if (activePlanTask()) await ctx.fns.session.pausePlan({ agent, by: "limit", reason: `The run reached the limit of ${MAX_TURNS} cycles` });
+            delete agent.scratchpad.activeStatusLine;
 
             return { text: '', usage: null, consumedUserIdx };
         }
@@ -191,6 +225,7 @@ export default async function (
         if (turns > 1 && Number(seen?.i ?? -1) > consumedUserIdx) {
             await closeTurn('ok');
             await openTurn();
+            await resumePlanIfAnswered(false);
         }
         consumedUserIdx = Math.max(consumedUserIdx, Number(seen?.i ?? -1));
         await ctx.fns.session.syncAgentState({ agent });
@@ -247,14 +282,13 @@ export default async function (
         // NOTHING runs, and the model is told what actually happened.
         if (finishReason === 'length' && toolCalls.some((c: any) => c?.args?.__unparsed !== undefined)) {
             await ctx.fns.session.appendErrorEvent({ id: agent.id, error: 'reply truncated at token limit — tool calls not executed' });
-            await ctx.fns.session.appendMessage({ id: agent.id, message: {
-                role: 'user',
-                content: 'Your reply hit the token limit and was cut off mid-call, so NOTHING was executed. '
+            await systemNote({
+                kind: "token_limit",
+                title: 'Reply cut at the token limit — nothing ran, the agent was asked to retry',
+                text: 'Your reply hit the token limit and was cut off mid-call, so NOTHING was executed. '
                     + 'Re-issue the call with a smaller payload: split a large write into several calls, '
                     + 'or produce big content with eval instead of passing it as an argument.',
-                excluded_from_cursor: true,
-            } });
-            await ctx.fns.session.syncAgentState({ agent });
+            });
             continue;
         }
         // Cut off at the token limit before any tool call was formed (often a
@@ -266,13 +300,12 @@ export default async function (
             await ctx.fns.session.appendErrorEvent({ id: agent.id, error: `reply truncated at token limit (${cuts}/3)` + (cuts >= 3 ? ' — stopping' : ' — retrying') });
             if (cuts < 3) {
                 if (prose.trim()) await ctx.fns.session.appendMessage({ id: agent.id, message: { role: 'assistant', content: prose } });
-                await ctx.fns.session.appendMessage({ id: agent.id, message: {
-                    role: 'user',
-                    content: 'Your previous reply hit the output token limit and was cut off before any tool call, so nothing was executed. '
+                await systemNote({
+                    kind: "token_limit",
+                    title: 'Reply cut at the token limit — the agent was asked to continue',
+                    text: 'Your previous reply hit the output token limit and was cut off before any tool call, so nothing was executed. '
                         + 'Continue, but keep each reply shorter: split large files into several write calls.',
-                    excluded_from_cursor: true,
-                } });
-                await ctx.fns.session.syncAgentState({ agent });
+                });
                 continue;
             }
             delete agent.scratchpad.lengthCuts;
@@ -284,6 +317,9 @@ export default async function (
         // The assistant turn is ONE row, carrying both what it said and what it
         // called — that pairing is what the next request replays.
         if (!prose.trim() && toolCalls.length === 0) {
+            // Nothing at all came back. With a plan task open that is not a decision to stop either.
+            const openTask = activePlanTask();
+            if (openTask) { await remindOfPlan(openTask); continue; }
             return { text: prose, usage, consumedUserIdx };
         }
 
@@ -358,49 +394,8 @@ export default async function (
                 }
             }
 
-            const plan = agent.scratchpad?.plan;
-            const activeTask = Array.isArray(plan?.tasks) ? plan.tasks.find((task: any) => task.status === "active") : null;
-            if (activeTask && !plan.pausedAt) {
-                const sig = planSignature();
-                const progressed = runToolCalls > planMark.tools || sig !== planMark.sig;
-                const idle = planIdle[activeTask.id] = progressed ? 0 : Number(planIdle[activeTask.id] ?? 0) + 1;
-                planMark = { tools: runToolCalls, sig };
-                if (idle <= MAX_IDLE_PLAN_NUDGES && totalPlanInjections < MAX_PLAN_CONTINUATIONS) {
-                    totalPlanInjections++;
-                    const feedback = [
-                        `Continue the active plan task.`,
-                        `Task ID: ${activeTask.id}`,
-                        `Title: ${activeTask.title}`,
-                        activeTask.instructions ? `Instructions:\n${activeTask.instructions}` : "",
-                        idle > 1 ? `Your last replies made no progress (no tool call, no plan change). Take the next concrete action now, or ask the user if you are blocked.` : "",
-                        `Call session.done({ agent, id: ${JSON.stringify(activeTask.id)} }) only after the task is complete.`,
-                    ].filter(Boolean).join("\n\n");
-                    await ctx.fns.session.appendMessage({ id: agent.id, message: {
-                        role: "user",
-                        content: feedback,
-                        message_type: "plan_feedback",
-                        excluded_from_cursor: true,
-                    } });
-                    await ctx.fns.session.syncAgentState({ agent });
-                    continue;
-                }
-                // Budget spent with the task still open: pause, and say so where the person reads.
-                const why = idle > MAX_IDLE_PLAN_NUDGES
-                    ? `no progress after ${MAX_IDLE_PLAN_NUDGES} reminders`
-                    : `continuation limit (${MAX_PLAN_CONTINUATIONS}) reached`;
-                const paused = await ctx.fns.session.pausePlan({ agent, reason: "limit", note: `Agent stopped: ${why}.` });
-                if (paused.paused) {
-                    await ctx.fns.session.appendEvent({ id: agent.id, event: {
-                        type: "plan_paused",
-                        reason: why,
-                        activeTaskId: activeTask.id,
-                        remaining: paused.remaining,
-                        messageIdx: append.idx,
-                    } });
-                    await ctx.fns.session.syncAgentState({ agent });
-                }
-            }
-
+            const openTask = activePlanTask();
+            if (openTask) { await remindOfPlan(openTask); continue; }
 
             delete agent.scratchpad.activeStatusLine;
             observeCompletedTurn(append.idx);
@@ -439,7 +434,6 @@ export default async function (
             }
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
             totals.tools++;
-            runToolCalls++;
             if (r.isError) totals.errors++;
             const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
 

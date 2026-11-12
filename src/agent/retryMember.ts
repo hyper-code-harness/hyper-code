@@ -26,7 +26,7 @@ export default async function (
     const now = Date.now();
     const updated: any = await ctx.fns.session.mutateScratchpad({ id: member, mutate: (next: Record<string, any>) => {
       const delegation = next.delegation ?? next.delegateTask; delegation.status = "working"; delegation.summary = null; delegation.retriedAt = now;
-      const plan = next.plan; if (plan?.pausedAt) { plan.pausedAt = null; plan.updatedAt = now; const active = plan.tasks?.find((task: any) => task.status === "active"); if (active && !active.activeSince) active.activeSince = now; }
+      const plan = next.plan; if (plan?.pausedAt) { plan.pausedAt = null; delete plan.pauseReason; delete plan.pauseNote; plan.updatedAt = now; const active = plan.tasks?.find((task: any) => task.status === "active"); if (active && !active.activeSince) active.activeSince = now; }
     } });
     const child = (ctx.state as any).agent?.[member]; if (child) child.scratchpad = updated.scratchpad;
     await ctx.fns.session.appendUserMessage({ id: member, text: "Parent requested a retry. Resume the active plan task, address the previous stop or failure, and complete the remaining plan." });

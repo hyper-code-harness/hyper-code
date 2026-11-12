@@ -38,6 +38,8 @@ export default async function (
         }
         plan.updatedAt = now;
         plan.pausedAt = null;
+        delete plan.pauseReason;
+        delete plan.pauseNote;
         const done = plan.tasks.filter((item: any) => item.status === "done").length;
         return {
             alreadyDone,

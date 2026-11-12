@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import stop from './stop';
+import pausePlan from '../session/pausePlan';
 
 describe('agent.stop', () => {
   test('aborts run and clears next_run_at when clearQueue=true', async () => {
@@ -63,16 +64,18 @@ describe('agent.stop', () => {
       session: {
         mutateScratchpad: async ({ mutate }: any) => {
           const scratchpad = structuredClone(agent.scratchpad);
-          await mutate(scratchpad, 1600);
+          const result = await mutate(scratchpad, 1600);
           committed = scratchpad;
-          return { scratchpad };
+          return { scratchpad, result };
         },
         appendEventWithHtml: () => {}, syncAgentState: () => {},
+        pausePlan: (o: any) => pausePlan(ctx, null, o),
       },
       events: { refreshAgentMeta: () => {} },
     } };
     await stop(ctx, null, { agent });
     expect(committed.plan.pausedAt).toBe(1600);
+    expect(committed.plan.pauseReason).toBe('user');
     expect(committed.plan.tasks[0]).toMatchObject({ activeSince: null, elapsedMs: 650 });
   });
 

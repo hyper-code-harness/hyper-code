@@ -301,6 +301,20 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         return '';
     }
 
+    if (ev.type === "plan_paused") {
+        const remaining = Array.isArray(ev.remaining) ? ev.remaining : [];
+        const list = remaining.length
+            ? `<ul>${remaining.map((t: any) => `<li>${esc(t.title || t.id)}${t.status === 'active' ? ' (current)' : ''}</li>`).join('')}</ul>`
+            : '';
+        return eventCard({
+            title: 'Plan paused — agent stopped working',
+            icon: 'pause-circle',
+            tone: 'warning',
+            badge: badge(`${remaining.length} left`),
+            body: para(`${esc(ev.reason ?? '')}. Send a message to resume.`) + (list ? para(`Remaining steps:${list}`) : ''),
+        });
+    }
+
     if (ev.type === "stopped") {
         return ctx.fns.w.eventNote({ text: 'stopped by user', icon: 'stop-circle', ts });
     }

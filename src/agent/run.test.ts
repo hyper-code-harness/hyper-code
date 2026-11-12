@@ -211,6 +211,80 @@ describe('transcript surgery keeps JSON pairs intact', () => {
         expect(result.consumedUserIdx).toBe(Number(ordinaryUser.idx));
     });
 
+    test('issue #30: progress after two nudges keeps the plan task going', async () => {
+        const ctx: any = await quietCtx();
+        let agent: any;
+        ctx.fns.files.read = async (_c: any, _s: any, o: any) => {
+            if (o.path === 'finish') {
+                const turn = agent.scratchpad.mockTurn; // the mock's cursor is in-memory; done() reloads the scratchpad
+                await ctx.fns.session.done({ agent, id: 'work' });
+                agent.scratchpad.mockTurn = turn;
+            }
+            return `CONTENT OF ${o.path}`;
+        };
+        const report = (n: number) => ({ text: `intermediate report ${n}, still checking` });
+        const work = (n: number) => ({ toolCalls: [{ name: 'read', args: { path: `f${n}.ts` } }] });
+        agent = await mkAgent(ctx, [
+            report(1), report(2),           // two idle replies -> two nudges
+            work(1), report(3),             // real progress resets the idle count
+            work(2), report(4),
+            { toolCalls: [{ name: 'read', args: { path: 'finish' } }] },
+            { text: 'all done' },
+        ]);
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
+        const result = await ctx.fns.agent.run({ agent, userText: 'start' });
+        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
+        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback').length).toBeGreaterThan(2);
+        expect(result.text).toBe('all done');
+        expect(agent.scratchpad.plan.pausedAt).toBeNull();
+        const events = await ctx.fns.session.getEvents({ id: agent.id });
+        expect(events.some((e: any) => e.type === 'plan_paused')).toBe(false);
+    });
+
+    test('issue #30: pure repetition still stops and the plan is visibly paused with remaining steps', async () => {
+        const ctx: any = await quietCtx();
+        const agent = await mkAgent(ctx, Array.from({ length: 6 }, () => ({ text: 'still checking…' })));
+        await ctx.fns.session.plan({ agent, tasks: [
+            { id: 'implement', title: 'Implement' },
+            { id: 'verify', title: 'Verify UI' },
+        ] });
+        await ctx.fns.agent.run({ agent, userText: 'start' });
+        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
+        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(2);
+        const plan = agent.scratchpad.plan;
+        expect(plan.pausedAt).toBeGreaterThan(0);
+        expect(plan.pauseReason).toBe('limit');
+        expect(plan.tasks[0].activeSince).toBeNull();
+        const events = await ctx.fns.session.getEvents({ id: agent.id });
+        const paused = events.find((e: any) => e.type === 'plan_paused');
+        expect(paused.remaining.map((t: any) => t.id)).toEqual(['implement', 'verify']);
+        expect(paused.reason).toContain('no progress');
+        const html = await ctx.fns.agent.renderEventHtml({ event: paused, agentId: agent.id });
+        expect(html).toContain('Plan paused');
+        expect(html).toContain('Verify UI');
+        // the next user message resumes the paused plan: continuation starts again
+        const firstPause = plan.pausedAt;
+        await ctx.fns.agent.run({ agent, userText: 'go on' });
+        const after = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
+        expect(after.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(4);
+        expect(agent.scratchpad.plan.pausedAt).toBeGreaterThan(firstPause);
+    });
+
+    test('issue #30: the run-wide cap bounds continuations even when every reply makes progress', async () => {
+        const ctx: any = await quietCtx();
+        ctx.fns.files.read = async () => 'x';
+        const turns: any[] = [];
+        for (let i = 0; i < 30; i++) turns.push({ toolCalls: [{ name: 'read', args: { path: `f${i}.ts` } }] }, { text: `report ${i}` });
+        const agent = await mkAgent(ctx, turns);
+        await ctx.fns.session.plan({ agent, tasks: [{ id: 'work', title: 'Work' }] });
+        await ctx.fns.agent.run({ agent, userText: 'start' });
+        const msgs = await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true });
+        expect(msgs.filter((m: any) => m.message_type === 'plan_feedback')).toHaveLength(12);
+        expect(agent.scratchpad.plan.pauseReason).toBe('limit');
+        const events = await ctx.fns.session.getEvents({ id: agent.id });
+        expect(events.find((e: any) => e.type === 'plan_paused').reason).toContain('continuation limit');
+    });
+
     test('goal continuation runs before plan continuation without conflict', async () => {
         const ctx: any = await quietCtx();
         const agent = await mkAgent(ctx, [{ text: 'first' }, { text: 'second' }, { text: 'third' }, { text: 'fourth' }]);

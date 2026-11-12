@@ -58,6 +58,8 @@ export default async function (
             const plan = scratchpad.plan;
             if (!plan?.pausedAt) return;
             plan.pausedAt = null;
+            delete plan.pauseReason;
+            delete plan.pauseNote;
             plan.updatedAt = now;
             const active = Array.isArray(plan.tasks) ? plan.tasks.find((task: any) => task.status === 'active') : null;
             if (active && !active.activeSince) active.activeSince = now;
@@ -142,8 +144,25 @@ export default async function (
     let goalIterations = 0;
     let lastGoalFeedback = "";
     const goalDeadline = Date.now() + 5 * 60_000;
-    const planAttempts: Record<string, number> = {};
+    // Plan continuation. A text-only reply while a plan task is active gets a
+    // plan_feedback nudge back instead of ending the run. Only replies with NO
+    // progress since the previous nudge count against the per-task limit:
+    // progress is a tool call that ran or a plan change (a task closed, added,
+    // reordered). Two idle nudges in a row stop a model that only restates its
+    // status (the original loop guard, see 4d57a146); the separate run-wide
+    // cap bounds the total even when every reply makes some progress. When
+    // either is spent with the task still open the plan is PAUSED with a
+    // visible note, never left looking busy (issue #30).
+    const MAX_IDLE_PLAN_NUDGES = 2;
+    const MAX_PLAN_CONTINUATIONS = 12;
+    const planIdle: Record<string, number> = {};
     let totalPlanInjections = 0;
+    let runToolCalls = 0;
+    const planSignature = () => {
+        const p = agent.scratchpad?.plan;
+        return p ? JSON.stringify((Array.isArray(p.tasks) ? p.tasks : []).map((t: any) => [t.id, t.status, t.title, t.instructions ?? ''])) : '';
+    };
+    let planMark = { tools: 0, sig: planSignature() };
     while (true) {
         // Stop landed while a tool ran: the call ended "stopped by the user" and returned normally, so nothing
         // threw. Without this check the loop would ask the model once more and post its reply after the press.
@@ -341,25 +360,45 @@ export default async function (
 
             const plan = agent.scratchpad?.plan;
             const activeTask = Array.isArray(plan?.tasks) ? plan.tasks.find((task: any) => task.status === "active") : null;
-            const attempts = activeTask ? Number(planAttempts[activeTask.id] ?? 0) : 0;
-            if (activeTask && !plan.pausedAt && attempts < 2 && totalPlanInjections < 5) {
-                planAttempts[activeTask.id] = attempts + 1;
-                totalPlanInjections++;
-                const feedback = [
-                    `Continue the active plan task.`,
-                    `Task ID: ${activeTask.id}`,
-                    `Title: ${activeTask.title}`,
-                    activeTask.instructions ? `Instructions:\n${activeTask.instructions}` : "",
-                    `Call session.done({ agent, id: ${JSON.stringify(activeTask.id)} }) only after the task is complete.`,
-                ].filter(Boolean).join("\n\n");
-                await ctx.fns.session.appendMessage({ id: agent.id, message: {
-                    role: "user",
-                    content: feedback,
-                    message_type: "plan_feedback",
-                    excluded_from_cursor: true,
-                } });
-                await ctx.fns.session.syncAgentState({ agent });
-                continue;
+            if (activeTask && !plan.pausedAt) {
+                const sig = planSignature();
+                const progressed = runToolCalls > planMark.tools || sig !== planMark.sig;
+                const idle = planIdle[activeTask.id] = progressed ? 0 : Number(planIdle[activeTask.id] ?? 0) + 1;
+                planMark = { tools: runToolCalls, sig };
+                if (idle <= MAX_IDLE_PLAN_NUDGES && totalPlanInjections < MAX_PLAN_CONTINUATIONS) {
+                    totalPlanInjections++;
+                    const feedback = [
+                        `Continue the active plan task.`,
+                        `Task ID: ${activeTask.id}`,
+                        `Title: ${activeTask.title}`,
+                        activeTask.instructions ? `Instructions:\n${activeTask.instructions}` : "",
+                        idle > 1 ? `Your last replies made no progress (no tool call, no plan change). Take the next concrete action now, or ask the user if you are blocked.` : "",
+                        `Call session.done({ agent, id: ${JSON.stringify(activeTask.id)} }) only after the task is complete.`,
+                    ].filter(Boolean).join("\n\n");
+                    await ctx.fns.session.appendMessage({ id: agent.id, message: {
+                        role: "user",
+                        content: feedback,
+                        message_type: "plan_feedback",
+                        excluded_from_cursor: true,
+                    } });
+                    await ctx.fns.session.syncAgentState({ agent });
+                    continue;
+                }
+                // Budget spent with the task still open: pause, and say so where the person reads.
+                const why = idle > MAX_IDLE_PLAN_NUDGES
+                    ? `no progress after ${MAX_IDLE_PLAN_NUDGES} reminders`
+                    : `continuation limit (${MAX_PLAN_CONTINUATIONS}) reached`;
+                const paused = await ctx.fns.session.pausePlan({ agent, reason: "limit", note: `Agent stopped: ${why}.` });
+                if (paused.paused) {
+                    await ctx.fns.session.appendEvent({ id: agent.id, event: {
+                        type: "plan_paused",
+                        reason: why,
+                        activeTaskId: activeTask.id,
+                        remaining: paused.remaining,
+                        messageIdx: append.idx,
+                    } });
+                    await ctx.fns.session.syncAgentState({ agent });
+                }
             }
 
 
@@ -400,6 +439,7 @@ export default async function (
             }
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
             totals.tools++;
+            runToolCalls++;
             if (r.isError) totals.errors++;
             const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
 

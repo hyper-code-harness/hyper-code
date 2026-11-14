@@ -5,6 +5,13 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### Update: "Update and restart" always restarts
+- Fixed: after "Update and restart" an instance could stay down with its HTTP listener closed and the old process
+  still alive — a module's shutdown hook never returned, so the update exit never happened and the supervisor
+  kept waiting (crm, 2026-11-14). The exit now happens within ten seconds whatever shutdown does.
+- An instance that runs code older than this fix can still hang this way on its next update: if it answers 502
+  after the button, kill its `bun src/$main.ts` process — the supervisor then applies the staged update.
+
 ### Plugins: a catalog inside a private network
 - A listing can be a git repository: an address in `plugins.listings` (env `PLUGIN_LISTINGS`) that is https and
   ends in `.git` is read with git (`index.json` of its default branch), with the git access the machine has. A

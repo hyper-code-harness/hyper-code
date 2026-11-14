@@ -18,6 +18,13 @@ export default async function(ctx:Context,_session:Session|null,opts:{req:Reques
     const runtime=join(root,".runtime");
     await mkdir(runtime,{recursive:true});
     await writeFile(join(runtime,"update-pending.json"),JSON.stringify({version:1,old:s.current,target:s.target,upstream:s.upstream,requestedAt:Date.now(),lockChanged:files.includes("bun.lock")||files.includes("bun.lockb"),migrationsChanged})+"\n",{mode:0o600});
-    setTimeout(async()=>{try{await ctx.fns.procs.lifecycle.stop({});}finally{process.exit(75);}},100);
+    // The exit must happen whatever the $stop hooks do: 2026-11-14 crm stopped its HTTP listener, then a $stop hook
+    // never returned (h2 waits for server.close() while connections stay open) — the process lived on without a
+    // listener, the supervisor kept waiting for it to exit, and the instance answered 502 until someone killed it.
+    // Same rule as the signal handler in $main.ts: ten seconds, then exit anyway.
+    setTimeout(()=>{
+        setTimeout(()=>{console.error("[update] shutdown did not finish in 10s — forcing exit");process.exit(75);},10_000);
+        ctx.fns.procs.lifecycle.stop({}).catch((error:unknown)=>console.error("[update] shutdown failed:",error)).finally(()=>process.exit(75));
+    },100);
     return new Response("Update staged; Hyper is restarting…",{status:202,headers:{"content-type":"text/plain; charset=utf-8"}});
 }

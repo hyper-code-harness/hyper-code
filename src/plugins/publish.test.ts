@@ -23,6 +23,7 @@ import readMetadata from './readMetadata';
 import validateTree from './validateTree';
 import lockFile from './lockFile';
 import repoUrl from './repoUrl';
+import hyperGitRepo from './hyperGitRepo';
 import remotePackage from './remotePackage';
 import checkUpdates from './checkUpdates';
 import pendingUpdates from './pendingUpdates';
@@ -75,7 +76,7 @@ async function world() {
                 plugins: { ghRepo: async () => { throw new Error('gh must not be called for a non-GitHub server'); } },
             },
         };
-        for (const [k, f] of Object.entries({ create, publish, release, releaseCheck, edit, gitInit, gitInstall, install, catalog, listing, versions, branchUpdates, inspectPackage, cloneStatus, cloneDir, cloneBadge, installed, readMetadata, validateTree, lockFile, repoUrl, remotePackage, checkUpdates, pendingUpdates }))
+        for (const [k, f] of Object.entries({ hyperGitRepo, create, publish, release, releaseCheck, edit, gitInit, gitInstall, install, catalog, listing, versions, branchUpdates, inspectPackage, cloneStatus, cloneDir, cloneBadge, installed, readMetadata, validateTree, lockFile, repoUrl, remotePackage, checkUpdates, pendingUpdates }))
             ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
         // "Pull" the listing: copy index.json from the listing repository on the server.
         const pullListing = async () => { await mkdir(home, { recursive: true }); await writeFile(join(home, 'index.json'), git(listingBare, 'show', 'main:index.json') + '\n'); (ctx.state as any).pluginVersions?.clear(); };
@@ -107,6 +108,14 @@ test('create: a starter plugin under local git, mounted; taken names and namespa
     const dir = join(a.user, 'team-notes');
     expect(JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'))).toEqual({ name: 'team-notes', version: '0.1.0', type: 'module', procs: { src: 'src', label: 'Team Notes', icon: 'ph-puzzle-piece', optional: true, description: 'Keep short notes for the team.' } });
     expect(git(dir, 'log', '--format=%s')).toBe('team-notes: local plugin under git');
+    // The starter files start at column 0: a front matter the SKILL reader parses, code at the usual depth.
+    const skillText = await readFile(join(dir, 'SKILL.md'), 'utf8');
+    expect(skillText.startsWith('---\nname: team-notes\ndescription: "Keep short notes for the team."\n---\n\n# Team Notes\n')).toBe(true);
+    const starter = await readFile(join(dir, 'src', 'teamNotes', 'hello.ts'), 'utf8');
+    expect(starter.startsWith('/**\n * Says hello')).toBe(true);
+    expect(starter).toContain('\nexport default async function (_ctx: Context');
+    expect(starter).toContain('\n    const to = String(');
+    expect((await readFile(join(dir, 'src', 'teamNotes', 'hello.test.ts'), 'utf8')).startsWith('import { expect, test } from "bun:test";\nimport hello from "./hello";\n\ntest(')).toBe(true);
     expect(git(dir, 'status', '--porcelain')).toBe('');
     expect(git(dir, 'remote')).toBe('');
     // The starter function works and its own test passes through the same check a release runs.
@@ -265,6 +274,43 @@ test('the whole cycle on a server that is not GitHub: create → publish → ins
     });
 }, 180_000);
 
+test('a listing kept as a git repository (https address ending in .git) is read with git: publish adds to it, the other machine sees the entry after its cache minute and installs from it', async () => {
+    const w = await world();
+    const a = w.author, u = w.user;
+    // Both machines point their catalog at the listing repository itself: no index.json is served or copied anywhere.
+    for (const m of [a, u]) m.ctx.fns.settings.get = async () => [LISTING];
+    await online(w.server, async () => {
+        expect((await u.ctx.fns.plugins.listing({})).plugins.map((p: any) => [p.name, p.listing])).toEqual([['other', LISTING]]);
+        await a.ctx.fns.plugins.create({ name: 'notes', description: 'Keep short notes for the team.' });
+        const preview = await a.ctx.fns.plugins.publish({ name: 'notes', repo: REPO, listing: LISTING });
+        const done = await a.ctx.fns.plugins.publish({ name: 'notes', repo: REPO, listing: LISTING, confirmed: true, expectedDigest: preview.digest });
+        expect(done.listing).toMatchObject({ status: 'added', repo: LISTING });
+        // The author's own cache of the listing repository was dropped by the publication.
+        expect((await a.ctx.fns.plugins.listing({})).plugins.map((p: any) => p.name)).toEqual(['notes', 'other']);
+        // The other machine read the listing a moment ago: within the cache minute it still sees the old one…
+        expect((await u.ctx.fns.plugins.listing({})).plugins.map((p: any) => p.name)).toEqual(['other']);
+        // …and the new entry once the cache is gone.
+        (u.ctx.state as any).pluginListingRepos.clear();
+        const seen = await u.ctx.fns.plugins.listing({});
+        expect(seen.errors).toEqual([]);
+        expect(seen.plugins.find((p: any) => p.name === 'notes')).toMatchObject({ source: REPO, listing: LISTING, label: 'Notes' });
+        const plan = await u.ctx.fns.plugins.install({ name: 'notes' });
+        expect(plan).toMatchObject({ operation: 'install', tag: 'v0.1.0', status: 'preview' });
+        expect(await u.ctx.fns.plugins.install({ name: 'notes', confirmed: true, expectedDigest: plan.digest })).toMatchObject({ status: 'applied' });
+        expect((await u.lock()).notes).toMatchObject({ repo: REPO, tag: 'v0.1.0' });
+    });
+    // A listing repository that cannot be reached, or has no index.json, is an error of that listing only.
+    const broken = await u.ctx.fns.plugins.listing({ urls: ['https://git.example.test/team/missing.git', 'file://' + join(u.home, 'index.json')] });
+    expect(broken.plugins.map((p: any) => p.name)).toEqual(['other']);
+    expect(broken.errors).toHaveLength(1);
+    expect(broken.errors[0]).toContain('https://git.example.test/team/missing.git: Cannot read the listing repository');
+    await online(w.server, async () => {
+        const empty = await u.ctx.fns.plugins.listing({ urls: ['https://git.example.test/team/notes.git'] });
+        expect(empty.plugins).toEqual([]);
+        expect(empty.errors[0]).toContain('Cannot read the listing repository');
+    });
+});
+
 test('checkUpdates: an unreachable repository is reported and does not hide the others; no USER_PLUGINS means nothing to do', async () => {
     const w = await world();
     const u = w.user;
@@ -357,6 +403,80 @@ test('publish refuses what would not be a clean first release, and a failed push
         expect(git(w.listingBare, 'log', '--format=%s')).toBe('listing');
     });
 }, 180_000);
+
+test('hyper-git: a missing repository is created only on confirm and only when asked; no access is not "missing"', async () => {
+    const w = await world();
+    const a = w.author;
+    const calls: any[] = [];
+    let access = true;
+    // The mesh git address resolves to the local server folder; the server's two HTTP answers are replaced by a stub.
+    const MESH = 'https://git.example.test/git/team/plugins/notes.git';
+    const env = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `url.${w.server}/.insteadOf`, GIT_CONFIG_VALUE_0: 'https://git.example.test/git/' };
+    const was = Object.fromEntries(Object.keys(env).map(k => [k, process.env[k]]));
+    Object.assign(process.env, env);
+    try {
+        a.ctx.fns.plugins.hyperGitRepo = async (o: any) => {
+            calls.push(o);
+            const parsed = await hyperGitRepo(a.ctx, null, { repo: 'not-a-url' });
+            expect(parsed).toEqual({ match: false });
+            const id = String(o.repo).replace('https://git.example.test/git/', '').replace(/\.git$/, '');
+            const d = join(w.server, id + '.git');
+            const exists = await readdir(d).then(() => true, () => false);
+            if (!o.create) return { match: true, server: 'git.example.test', id, ...(access ? { exists } : {}) };
+            if (!exists) { await mkdir(d, { recursive: true }); git(d, 'init', '-q', '--bare', '-b', 'main'); }
+            return { match: true, server: 'git.example.test', id, exists: true, created: !exists };
+        };
+        await a.ctx.fns.plugins.create({ name: 'notes', description: 'Keep short notes for the team.' });
+        await expect(a.ctx.fns.plugins.publish({ name: 'notes', repo: MESH })).rejects.toThrow(`${MESH} does not exist: repeat with createRepo: true to have it created on git.example.test`);
+        // A server that will not say (403 for another team's prefix) is not a missing repository: nothing is offered.
+        access = false;
+        await expect(a.ctx.fns.plugins.publish({ name: 'notes', repo: MESH, createRepo: true })).rejects.toThrow(`Cannot reach ${MESH}`);
+        access = true;
+        const preview = await a.ctx.fns.plugins.publish({ name: 'notes', repo: MESH, createRepo: true });
+        expect(preview).toMatchObject({ remote: 'missing', creates: { repo: 'team/plugins/notes', server: 'git.example.test' }, repo: MESH, status: 'preview' });
+        expect(calls.every(c => !c.create)).toBe(true);
+        expect(await readdir(join(w.server, 'team')).then(l => l.includes('plugins'))).toBe(false);
+        // Without createRepo it is another publication than the one reviewed.
+        await expect(a.ctx.fns.plugins.publish({ name: 'notes', repo: MESH, confirmed: true, expectedDigest: preview.digest })).rejects.toThrow('does not exist');
+        const done = await a.ctx.fns.plugins.publish({ name: 'notes', repo: MESH, createRepo: true, confirmed: true, expectedDigest: preview.digest });
+        expect(done.status).toBe('published');
+        expect(calls.filter(c => c.create)).toEqual([{ repo: MESH, create: true }]);
+        expect(git(join(w.server, 'team/plugins/notes.git'), 'rev-parse', 'refs/tags/v0.1.0^{commit}')).toBe(done.commit);
+        expect((await a.lock()).notes).toMatchObject({ repo: MESH, tag: 'v0.1.0' });
+    } finally { for (const [k, v] of Object.entries(was)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
+});
+
+test('hyperGitRepo: only the hyper-git address shape matches; it looks with one GET and creates with one empty POST', async () => {
+    const seen: Array<{ url: string; method: string }> = [];
+    let reply: () => Response = () => new Response('Not Found', { status: 404 });
+    const realFetch = globalThis.fetch;
+    (globalThis as any).fetch = async (url: any, init: any) => { seen.push({ url: String(url), method: init?.method ?? 'GET' }); return reply(); };
+    try {
+        for (const repo of ['github:acme/notes', 'https://github.com/acme/notes.git', 'http://git.mesh.test/git/a/b.git', 'ssh://git@git.mesh.test/git/a/b.git', 'https://git.mesh.test/a/b.git',
+            'https://git.mesh.test/git/A/b.git', 'https://git.mesh.test/git/a/../b.git', 'https://git.mesh.test/git/a/b.git?x=1', 'https://user@git.mesh.test/git/a/b.git', ''])
+            expect(await hyperGitRepo({} as any, null, { repo, create: true })).toEqual({ match: false });
+        expect(seen).toEqual([]);
+        const REPO = 'https://git.mesh.test/git/team/plugins/notes.git';
+        expect(await hyperGitRepo({} as any, null, { repo: REPO })).toEqual({ match: true, server: 'git.mesh.test', id: 'team/plugins/notes', exists: false });
+        reply = () => new Response('001e# service=git-upload-pack\n', { status: 200 });
+        expect(await hyperGitRepo({} as any, null, { repo: REPO.replace(/\.git$/, '') })).toMatchObject({ exists: true });
+        reply = () => Response.json({ error: 'forbidden' }, { status: 403 });
+        expect(await hyperGitRepo({} as any, null, { repo: REPO })).toEqual({ match: true, server: 'git.mesh.test', id: 'team/plugins/notes' });
+        expect(seen.map(s => s.method + ' ' + s.url)).toEqual(Array(3).fill('GET https://git.mesh.test/git/team/plugins/notes.git/info/refs?service=git-upload-pack'));
+        seen.length = 0;
+        await expect(hyperGitRepo({} as any, null, { repo: REPO, create: true })).rejects.toThrow('git.mesh.test refused to create team/plugins/notes (HTTP 403)');
+        reply = () => Response.json({ id: 'team/plugins/notes', resource: 'repo:team/plugins/notes', created: true }, { status: 201 });
+        expect(await hyperGitRepo({} as any, null, { repo: REPO, create: true })).toEqual({ match: true, server: 'git.mesh.test', id: 'team/plugins/notes', exists: true, created: true });
+        reply = () => Response.json({ id: 'team/plugins/notes', created: false }, { status: 200 });
+        expect(await hyperGitRepo({} as any, null, { repo: REPO, create: true })).toMatchObject({ created: false });
+        expect(seen.map(s => s.method + ' ' + s.url)).toEqual(Array(3).fill('POST https://git.mesh.test/api/repos/team/plugins/notes'));
+        // Another kind of server under the same path shape: not hyper-git, nothing is assumed.
+        for (const other of [() => new Response('<html>ok</html>', { status: 200 }), () => Response.json({ id: 'something/else', created: true }, { status: 201 }), () => new Response('nope', { status: 404 })]) {
+            reply = other;
+            await expect(hyperGitRepo({} as any, null, { repo: REPO, create: true })).rejects.toThrow('did not answer as a hyper-git server');
+        }
+    } finally { globalThis.fetch = realFetch; }
+});
 
 test('GitHub: a missing repository is created only on confirm and only when asked; an existing one is never created over', async () => {
     const w = await world();

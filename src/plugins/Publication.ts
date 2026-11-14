@@ -12,10 +12,11 @@ export type Publication = {
     branch: string;
     /** Commit the tag points at; in a preview the current HEAD (confirming may add one "Release" commit on top). */
     commit: string;
-    /** State of the target repository as seen by the preview: `empty` — ready; `missing` — will be created on confirm (GitHub, createRepo). */
+    /** State of the target repository as seen by the preview: `empty` — ready; `missing` — will be created on confirm (createRepo, on GitHub or a hyper-git server). */
     remote: 'empty' | 'missing';
-    /** GitHub repository that confirming creates, with its visibility; absent when the repository exists. */
-    creates?: { repo: string; visibility: 'public' | 'private' };
+    /** Repository that confirming creates; absent when the repository exists. On GitHub: owner/repo with its visibility.
+     *  On a hyper-git server: the repository id with `server`, its host (no visibility — the network decides who reads). */
+    creates?: { repo: string; visibility?: 'public' | 'private'; server?: string };
     /** What confirming changes in package.json before tagging (version, repository). Empty when nothing changes. */
     packageChanges: string[];
     /** Files of the plugin that are published. */

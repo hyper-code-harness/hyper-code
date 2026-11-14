@@ -5,6 +5,18 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### Plugins: a catalog inside a private network
+- A listing can be a git repository: an address in `plugins.listings` (env `PLUGIN_LISTINGS`) that is https and
+  ends in `.git` is read with git (`index.json` of its default branch), with the git access the machine has. A
+  private git server needs no raw-file endpoint; whoever can clone the listing sees it. Refreshed once a minute.
+- `plugins.publish({ createRepo: true })` also creates the repository on a hyper-git server
+  (`https://<host>/git/<id>.git`), not only on GitHub. The preview says `remote: "missing"` and names what
+  confirming creates; a server that refuses access is never treated as a missing repository.
+- Fixed: `plugins.create` wrote the starter files indented by four spaces, so `SKILL.md` had no readable front
+  matter. Plugins created before this keep the indentation: remove it by hand.
+- To use a team catalog set `PLUGIN_LISTINGS` to the listing repository, then the public listing, e.g.
+  `PLUGIN_LISTINGS=https://git.example/git/shared/plugins-index.git,https://raw.githubusercontent.com/hyper-code-harness/plugins/main/index.json`.
+
 ### Plugins: create, publish and update check; any git server
 - `plugins.create({ name, description })` writes a starter plugin into `USER_PLUGINS` (package.json, SKILL.md,
   one documented function with its test), under local git and mounted at once.

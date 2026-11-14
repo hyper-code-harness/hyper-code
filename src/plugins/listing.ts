@@ -3,6 +3,9 @@
  *
  * Use to know what can be installed. The setting plugins.listings (env PLUGIN_LISTINGS) is an ordered list of
  * index.json addresses, https:// or file://; a company or a person can add their own listing next to the public one.
+ * An https address ending in .git is a listing kept as a git repository (plugins/<name>.json files and the generated
+ * index.json, what plugins.publish writes): its index.json is read with git, so a private git server needs no raw-file
+ * endpoint and the listing is visible to exactly those who can clone it.
  * Each entry says which listing it came from. A name found in several listings keeps the first one's entry and the
  * others are reported in errors — never silently replaced. A listing that cannot be read or is malformed is reported
  * in errors too and the others still count. Format 2: each entry has a lowercase name, label, description, optional
@@ -36,6 +39,7 @@ async function readOne(ctx: Context, url: string, errors: string[]): Promise<typ
     if (!/^(https|file):\/\//.test(url)) throw new Error('Listing URL must be https:// or file://');
     let raw: unknown;
     if (url.startsWith('file://')) raw = JSON.parse(await (await import('node:fs/promises')).readFile(new URL(url), 'utf8'));
+    else if (/\.git\/?$/.test(url)) raw = JSON.parse(await fromRepository(ctx, url));
     else {
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { accept: 'application/json' } });
         if (!res.ok) throw new Error(`Listing request failed: HTTP ${res.status}`);
@@ -74,4 +78,38 @@ async function readOne(ctx: Context, url: string, errors: string[]): Promise<typ
         });
     }
     return plugins;
+}
+
+/**
+ * index.json of a listing kept as a git repository (an https address ending in .git): a git server that serves
+ * repositories and no raw files — one inside a private network — is read with the git access this machine has,
+ * the same one that later clones the plugins. A shallow, blob-less fetch of the default branch into a temporary
+ * folder; nothing of the repository is run and nothing is kept. Cached for a minute, like the tags of a plugin.
+ */
+async function fromRepository(ctx: Context, url: string): Promise<string> {
+    const cache: Map<string, { at: number; text: string }> = ((ctx.state as { pluginListingRepos?: Map<string, { at: number; text: string }> }).pluginListingRepos ??= new Map());
+    const hit = cache.get(url);
+    if (hit && Date.now() - hit.at < 60_000) return hit.text;
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const os = await import('node:os');
+    const repo = await ctx.fns.plugins.repoUrl({ repo: url });
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'hyper-plugin-listing-'));
+    try {
+        const git = async (args: string[]) => {
+            const p = Bun.spawn(['git', ...args], { cwd: tmp, stdout: 'pipe', stderr: 'pipe', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+            const timer = setTimeout(() => p.kill(), 30_000);
+            const [out, err, code] = [await new Response(p.stdout).text(), await new Response(p.stderr).text(), await p.exited];
+            clearTimeout(timer);
+            if (code) throw new Error(`Cannot read the listing repository: ${(err.trim().split('\n').at(-1) ?? String(code)).slice(0, 200)}`);
+            return out;
+        };
+        await git(['clone', '-q', '--depth', '1', '--no-checkout', '--filter=blob:limit=1m', '--', repo.url, 'listing']);
+        const text = await git(['-C', 'listing', 'show', 'HEAD:index.json']);
+        if (text.length > 1_000_000) throw new Error('Listing too large');
+        cache.set(url, { at: Date.now(), text });
+        return text;
+    } finally {
+        await fs.rm(tmp, { recursive: true, force: true });
+    }
 }

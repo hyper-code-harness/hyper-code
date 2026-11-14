@@ -93,12 +93,15 @@ export default async function (
         expect((await hello({} as any, null, { to: " Ada " })).message).toBe("Hello, Ada!");
     });
     `;
+    // The templates above are indented with this function's body: the files start at column 0. Found in a live
+    // run: SKILL.md was written with an indented front matter (`    name: …`) and the code one level too deep.
+    const flush = (text: string) => text.replace(/^ {4}/gm, '');
     const files: Record<string, string> = {
         'package.json': JSON.stringify(pkg, null, 2) + '\n',
-        'SKILL.md': skill,
+        'SKILL.md': flush(skill),
         '.gitignore': 'node_modules\n',
-        [`src/${namespace}/hello.ts`]: hello,
-        [`src/${namespace}/hello.test.ts`]: test,
+        [`src/${namespace}/hello.ts`]: flush(hello),
+        [`src/${namespace}/hello.test.ts`]: flush(test),
     };
     await fs.mkdir(mount, { recursive: true });
     try {

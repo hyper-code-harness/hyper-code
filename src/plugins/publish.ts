@@ -1,12 +1,12 @@
 /**
  * Publishes a local plugin for the first time: pushes it to an empty git repository on any server, tags the first release and can add it to a plugin listing — after a preview bound by a digest
  *
- * Use once per plugin, after plugins.create or plugins.gitInit, to take it from this machine to a repository others can install from; later versions go through plugins.release. The first call is a preview and changes nothing: it runs plugins.releaseCheck (the package checks of an install, bun.lock, the plugin's tests), checks that the target repository is reachable and empty, that the catalog does not already give this name to another repository, and returns the version and tag, what package.json gets (version, repository), the files, the listing entry and a digest. Repeating with confirmed:true and that digest applies it: commits the package.json change, tags vX.Y.Z, adds `origin`, pushes the branch and the tag, records the plugin in the lock and leaves the clone at the released tag, like an install. Works with any git server (plugins.repoUrl) using the git access this machine has; only for GitHub can the repository be created for you (createRepo, private unless visibility says public) — elsewhere create an empty repository first. With `listing` (the address of a listing repository: plugins/<name>.json files and index.json) the entry is committed and pushed there too; without push rights the plugin is still published and the result says to open a pull request with `entry`. If the push of the plugin fails, the tag, the remote and the release commit are undone and nothing is published. Refuses a clone that already has an origin, uncommitted changes, a detached HEAD and a non-empty target. Publishing is outward-facing: confirm with the person first.
+ * Use once per plugin, after plugins.create or plugins.gitInit, to take it from this machine to a repository others can install from; later versions go through plugins.release. The first call is a preview and changes nothing: it runs plugins.releaseCheck (the package checks of an install, bun.lock, the plugin's tests), checks that the target repository is reachable and empty, that the catalog does not already give this name to another repository, and returns the version and tag, what package.json gets (version, repository), the files, the listing entry and a digest. Repeating with confirmed:true and that digest applies it: commits the package.json change, tags vX.Y.Z, adds `origin`, pushes the branch and the tag, records the plugin in the lock and leaves the clone at the released tag, like an install. Works with any git server (plugins.repoUrl) using the git access this machine has; with createRepo the repository is created for you on GitHub (private unless visibility says public) and on a hyper-git server, the git of a private Hyper network (https://<host>/git/<id>.git, plugins.hyperGitRepo) — elsewhere create an empty repository first. With `listing` (the address of a listing repository: plugins/<name>.json files and index.json) the entry is committed and pushed there too; without push rights the plugin is still published and the result says to open a pull request with `entry`. If the push of the plugin fails, the tag, the remote and the release commit are undone and nothing is published. Refuses a clone that already has an origin, uncommitted changes, a detached HEAD and a non-empty target. Publishing is outward-facing: confirm with the person first.
  * @param opts.name Plugin name: a git repository without a remote in USER_PLUGINS (plugins.create or plugins.gitInit made it).
  * @param opts.repo Where it is published: an empty repository on a git server (GitHub or another) — github:owner/repo, https://host/path, ssh://git@host/path, git@host:path.
  * @param opts.version First released version, X.Y.Z; defaults to the package.json version.
- * @param opts.createRepo Create the repository when it does not exist. GitHub only (gh). @default false
- * @param opts.visibility Visibility of a repository created by createRepo. @default private
+ * @param opts.createRepo Create the repository when it does not exist: on GitHub (gh) or on a hyper-git server (https://<host>/git/<id>.git). @default false
+ * @param opts.visibility Visibility of a GitHub repository created by createRepo. @default private
  * @param opts.listing Address of a listing repository to add the plugin to (plugins/<name>.json and index.json), e.g. github:hyper-code-harness/plugins.
  * @param opts.keepBranch Stay on the branch afterwards instead of moving the clone to the released tag. @default false
  * @param opts.confirmed Apply the previewed publication. @default false
@@ -22,9 +22,9 @@ export default async function (
         repo: string;
         /** First released version, X.Y.Z; defaults to the package.json version. */
         version?: string;
-        /** Create the repository when it does not exist. GitHub only (gh). @default false */
+        /** Create the repository when it does not exist: on GitHub (gh) or on a hyper-git server (https://<host>/git/<id>.git). @default false */
         createRepo?: boolean;
-        /** Visibility of a repository created by createRepo. @default private */
+        /** Visibility of a GitHub repository created by createRepo. @default private */
         visibility?: 'public' | 'private';
         /** Address of a listing repository to add the plugin to (plugins/<name>.json and index.json), e.g. github:hyper-code-harness/plugins. */
         listing?: string;
@@ -87,7 +87,7 @@ export default async function (
         return { ok: code === 0, out: out.trim(), err: (err.trim().split('\n').at(-1) ?? String(code)).slice(0, 300) };
     };
     let remote: 'empty' | 'missing' = 'empty';
-    let creates: { repo: string; visibility: 'public' | 'private' } | undefined;
+    let creates: { repo: string; visibility?: 'public' | 'private'; server?: string } | undefined;
     const seen = await run(dir, ['ls-remote', target.url]);
     if (seen.ok) {
         // HEAD is a pointer to a branch, not a ref of its own: count branches and tags.
@@ -100,7 +100,14 @@ export default async function (
         remote = 'missing';
         creates = { repo: target.github, visibility: opts.visibility === 'public' ? 'public' : 'private' };
     } else {
-        throw new Error(`Cannot reach ${target.source}: ${seen.err}. Create an empty repository on that server and make sure this machine has git access to it (credential helper or ssh key).`);
+        // A hyper-git server (the git of a private Hyper network) creates a repository with one request. Only a
+        // repository it says is not there is missing — no access or an unreachable server is not.
+        const mesh = target.kind === 'https' ? await ctx.fns.plugins.hyperGitRepo({ repo: target.url }) : { match: false as const };
+        if (!mesh.match || mesh.exists !== false)
+            throw new Error(`Cannot reach ${target.source}: ${seen.err}. Create an empty repository on that server and make sure this machine has git access to it (credential helper or ssh key).`);
+        if (!opts.createRepo) throw new Error(`${target.source} does not exist: repeat with createRepo: true to have it created on ${mesh.server}`);
+        remote = 'missing';
+        creates = { repo: mesh.id!, server: mesh.server! };
     }
     
     // package.json at the release: its version, and where the plugin lives.
@@ -150,7 +157,8 @@ export default async function (
         if (opts.expectedDigest !== result.digest) throw new Error('Preview digest mismatch: preview again');
     
         // ── apply ─────────────────────────────────────────────────────────────
-        if (creates) await ctx.fns.plugins.ghRepo({ repo: creates.repo, create: true, visibility: creates.visibility, description: `Hyper plugin: ${entry.description}`.slice(0, 300) });
+        if (creates?.server) await ctx.fns.plugins.hyperGitRepo({ repo: target.url, create: true });
+        else if (creates) await ctx.fns.plugins.ghRepo({ repo: creates.repo, create: true, visibility: creates.visibility, description: `Hyper plugin: ${entry.description}`.slice(0, 300) });
         // A machine without a git identity still gets its commits, authored by Hyper.
         const known = (await git(['config', 'user.name'], true)).stdout && (await git(['config', 'user.email'], true)).stdout;
         const who: Record<string, string> = known ? {} : { GIT_AUTHOR_NAME: 'Hyper', GIT_AUTHOR_EMAIL: 'hyper@localhost', GIT_COMMITTER_NAME: 'Hyper', GIT_COMMITTER_EMAIL: 'hyper@localhost' };
@@ -203,6 +211,7 @@ export default async function (
         }
         // The catalog caches tags and listings for a few minutes: forget what it knew about this repository.
         (ctx.state as { pluginVersions?: Map<string, unknown> }).pluginVersions?.clear();
+        (ctx.state as { pluginListingRepos?: Map<string, unknown> }).pluginListingRepos?.clear();
         await ctx.fns.procs.modules.reload({}).catch(() => undefined);
         return { ...result, commit, listing, at, status: 'published' };
     } finally {

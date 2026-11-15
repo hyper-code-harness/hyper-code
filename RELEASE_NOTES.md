@@ -5,6 +5,22 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### Plugins: an update of Hyper no longer takes plugins away silently; migrations run at install
+- Some plugins used to ship inside Hyper and now live in their own repositories (telegram, mermaid, reladraw,
+  pipedrive, tts, duckdb, vegalite). A Hyper updated across that move stopped mounting them without a word:
+  their functions, pages and Markdown blocks were simply gone. Now the update page (`/update`) lists the plugins
+  in use here that the update removes, before the button; after any update — the button, or `git pull` and a
+  restart from outside — the plugin catalog shows what went missing with an install button, the Dock shows a
+  mark until they are back, and the log has one `plugins.dropped` line. `plugins.dropped({})` answers the same
+  question for agents and scripts. Nothing is installed by itself: every install is still reviewed and confirmed.
+- Installing or updating a plugin now runs the database migrations it brings, right after mounting. Before, they
+  waited for the next start of Hyper and until then the plugin's tables did not exist. The preview lists them
+  (`migrations`), the applied change says which it ran (`migrated`); a migration that fails leaves the plugin
+  installed and reports `applied-migration-failed` with what to do.
+- An untracked `<hyper>/.hyper/telegram/replyAfter.ts` left from Hyper before 2026-09-25 holds the `telegram`
+  namespace and makes the install of the telegram plugin fail with "Namespace collision". The plugin has its
+  own `replyAfter`: move the old file away, then install.
+
 ### Update: "Update and restart" always restarts
 - Fixed: after "Update and restart" an instance could stay down with its HTTP listener closed and the old process
   still alive — a module's shutdown hook never returned, so the update exit never happened and the supervisor

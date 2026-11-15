@@ -35,6 +35,25 @@ test("migrate: up (in id order, idempotent) + status + down", async () => {
     expect((await c.fns.procs.migrate.status({})).find((m: any) => m.id === "002_b")!.applied).toBe(false);
 });
 
+// A plugin install runs the plugin's own migrations at once and nobody else's (plugins.gitInstall → up({ only })).
+test("migrate: up({ only }) runs just the named pending ids, in id order, and leaves the rest pending", async () => {
+    const c = await scratch();
+    const ran: string[] = [];
+    const mk = (id: string, table: string) => ({ id, up: async (x: Context) => { ran.push(id); await x.fns.procs.db.exec({ sql: `CREATE TABLE ${table} (x INTEGER)` }); } });
+    (c.state.procs as any).migrate = { list: [mk("003_plugin_b", "pb"), mk("001_core", "core_t"), mk("002_plugin_a", "pa"), mk("004_draft", "draft_t")] };
+    expect((await c.fns.procs.migrate.up({ only: ["003_plugin_b", "002_plugin_a", "999_not_there"] })).applied).toEqual(["002_plugin_a", "003_plugin_b"]);
+    expect(ran).toEqual(["002_plugin_a", "003_plugin_b"]);
+    const status = Object.fromEntries((await c.fns.procs.migrate.status({})).map((m: any) => [m.id, m.applied]));
+    expect(status).toEqual({ "001_core": false, "002_plugin_a": true, "003_plugin_b": true, "004_draft": false });
+    // The tables are really there, and the others are not.
+    await c.fns.procs.db.select({ sql: "SELECT x FROM pa" }); await c.fns.procs.db.select({ sql: "SELECT x FROM pb" });
+    await expect(c.fns.procs.db.select({ sql: "SELECT x FROM draft_t" })).rejects.toThrow();
+    // Asking again runs nothing; an empty list runs nothing; without `only` the rest runs as before.
+    expect((await c.fns.procs.migrate.up({ only: ["002_plugin_a"] })).applied).toEqual([]);
+    expect((await c.fns.procs.migrate.up({ only: [] })).applied).toEqual([]);
+    expect((await c.fns.procs.migrate.up({})).applied).toEqual(["001_core", "004_draft"]);
+});
+
 test("migrate: down on a fresh DB is a no-op (no missing-table error)", async () => {
     const fresh = await scratch(); // own empty schema, never migrated
     expect((await fresh.fns.procs.migrate.down({})).rolledBack).toEqual([]);

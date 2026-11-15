@@ -283,6 +283,23 @@ A configuration widget must be a mounted runtime function owned by the plugin, c
 
 It then commits that as a local git repository (no remote — nothing is published) and remounts, so the function is callable at once and a save under `src/` goes live. The namespace defaults to the name in camelCase (`team-notes` → `teamNotes`). Refused: a name already in `USER_PLUGINS`, a name or namespace a mounted module owns, a name the catalog already lists. Add functions with `procs.dev.createFunction({ root: "plugin:<name>", module: "<namespace>", … })`, replace `hello`, and write SKILL.md before publishing.
 
+## After a Hyper update: plugins that left the Hyper tree
+
+Plugins move from the Hyper repository (`plugins/<name>`) to their own repositories over time. A Hyper updated
+across such a move does not mount them any more until they are installed from the catalog.
+
+- `plugins.dropped({})` — what the last update removed: for each plugin whether this Hyper used it (`mounted`),
+  whether a clone provides it now (`installed`) and the catalog release that brings it back (`latest`);
+  `missing` is the list to install. `plugins.dropped({ from, to })` asks the same about two commits before
+  updating. `/update` shows it before the button, `/plugins/listing` and the Dock after.
+- The update is noticed at start (`plugins.noteUpdate`: the commit of the previous start against the running
+  one), so an update made with `git pull` and a restart counts like one made with the button.
+- To restore: `plugins.install({ name })` for each name in `missing` — preview, then confirm. It is never done
+  automatically.
+- A plugin's database migrations (`$migration_<id>.ts`) run when it is installed or updated, right after
+  mounting; the preview lists them. `applied-migration-failed` means the plugin is in place and a migration
+  threw: fix the cause and run `procs.migrate.up({})`.
+
 ## Publishing: one plugin, one repository, releases are tags
 
 `plugins.publish({ name, repo, version?, listing?, createRepo?, visibility? })` is the first release — once per plugin, a preview first:

@@ -39,6 +39,12 @@ export type GitChange = {
     needsForce?: boolean;
     /** Binds operation, repo, commit, tree and content of every clone; confirm must repeat it. */
     digest: string;
-    status: 'preview' | 'applied' | 'applied-load-failed';
+    /** Database migrations of the plugin (and of the plugins cloned with it) that confirming runs, by id: its `$migration_<id>.ts` files (install, update, rollback). */
+    migrations?: string[];
+    /** Migrations the confirmed change ran right after mounting — the ones among `migrations` this database did not have yet. */
+    migrated?: string[];
+    /** `applied-migration-failed`: the files are in place and mounted, a migration threw — `migrationError` says which; the rest run at the next start or with procs.migrate.up. */
+    status: 'preview' | 'applied' | 'applied-load-failed' | 'applied-migration-failed';
     loadError?: string;
+    migrationError?: string;
 };

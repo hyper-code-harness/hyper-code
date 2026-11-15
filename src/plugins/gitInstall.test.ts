@@ -101,6 +101,73 @@ test('install clones the tag after a preview bound to the commit; update, rollba
     await expect(f.call({ operation: 'rollback', name: 'demo' })).rejects.toThrow('Nothing to roll back');
 });
 
+// Found installing telegram on a machine that had never had it: the clone was mounted, its tables did not exist until
+// the next restart of Hyper. An install runs the migrations the clones bring, at once, and only those.
+test('database migrations of the installed clones run on confirm: listed in the preview, only theirs, a failure is reported', async () => {
+    const w = await fixture();
+    const mig = (table: string) => `export default { up: async (ctx: any) => ctx.fns.procs.db.exec({ sql: "CREATE TABLE ${table} (x INTEGER)" }) };`;
+    const tables = await w.repo('tables', [
+        { v: '1.0.0', body: 't1', extra: { 'src/tables/$migration_20300101000000_tables_a.ts': mig('ta') } },
+        { v: '1.1.0', body: 't2', extra: { 'src/tables/$migration_20300102000000_tables_b.ts': mig('tb') } },
+    ]);
+    const base = await w.repo('base', [{ v: '1.0.0', body: 'b', extra: { 'src/base/$migration_20300100000000_base.ts': mig('bt') } }]);
+    const needsBase = await w.repo('needsbase', [{ v: '1.0.0', body: 'n' }], ['base']);
+    // The database of this machine: what is applied, and what migrate.up was asked to run.
+    const applied = new Set<string>(['20290101000000_core']);
+    const asked: Array<string[] | undefined> = [];
+    let fail: string | null = null;
+    w.ctx.fns.procs.migrate = { up: async (o: { only?: string[] }) => {
+        asked.push(o?.only);
+        // Pending on this machine: somebody else's half-written migration, which an install must not touch.
+        const pending = ['20290909000000_someone_elses_draft', ...(o?.only ?? [])].filter(id => !applied.has(id)).sort();
+        const ran: string[] = [];
+        for (const id of pending) {
+            if (o?.only && !o.only.includes(id)) continue;
+            if (id === fail) throw new Error(`relation "${id}" already exists`);
+            applied.add(id); ran.push(id);
+        }
+        return { applied: ran };
+    } };
+
+    // Preview: names the migrations, runs nothing.
+    const plan = await w.call({ operation: 'install', name: 'tables', repo: tables, tag: 'v1.0.0' });
+    expect(plan).toMatchObject({ status: 'preview', migrations: ['20300101000000_tables_a'] });
+    expect(plan.migrated).toBeUndefined();
+    expect(asked).toEqual([]);
+    // Confirm: runs exactly them, after the remount.
+    const done = await w.call({ operation: 'install', name: 'tables', repo: tables, tag: 'v1.0.0', confirmed: true, expectedDigest: plan.digest });
+    expect(done).toMatchObject({ status: 'applied', migrations: ['20300101000000_tables_a'], migrated: ['20300101000000_tables_a'] });
+    expect(asked).toEqual([['20300101000000_tables_a']]);
+    expect(applied.has('20290909000000_someone_elses_draft')).toBe(false);
+    expect(w.reloads()).toBe(1);
+
+    // Update: the new release adds one; the old one is listed and not run again.
+    const up = await w.confirm({ operation: 'update', name: 'tables', tag: 'v1.1.0' });
+    expect(up).toMatchObject({ status: 'applied', migrations: ['20300101000000_tables_a', '20300102000000_tables_b'], migrated: ['20300102000000_tables_b'] });
+
+    // Plugins cloned alongside bring theirs too.
+    const withBase = await w.confirm({ operation: 'install', name: 'needsbase', repo: needsBase, tag: 'v1.0.0', with: { base: { repo: base, tag: 'v1.0.0' } } });
+    expect(withBase).toMatchObject({ status: 'applied', migrations: ['20300100000000_base'], migrated: ['20300100000000_base'] });
+
+    // A plugin without migrations does not touch the database at all.
+    asked.length = 0;
+    const plain = await w.confirm({ operation: 'install', name: 'demo', repo: w.demo, tag: 'v1.0.0' });
+    expect(plain.status).toBe('applied');
+    expect(plain.migrations).toBeUndefined();
+    expect(asked).toEqual([]);
+
+    // A migration that throws: the clone stays installed and mounted, and the answer says what to do.
+    const broken = await w.repo('broken', [{ v: '1.0.0', body: 'x', extra: { 'src/broken/$migration_20300103000000_broken.ts': mig('bx') } }]);
+    fail = '20300103000000_broken';
+    const bad = await w.confirm({ operation: 'install', name: 'broken', repo: broken, tag: 'v1.0.0' });
+    expect(bad.status).toBe('applied-migration-failed');
+    expect(bad.migrationError).toContain('already exists');
+    expect(bad.migrationError).toContain('procs.migrate.up');
+    expect(await w.hello('broken')).toBe('x');
+    expect((await w.lock()).plugins.broken).toMatchObject({ tag: 'v1.0.0' });
+    expect(applied.has('20300103000000_broken')).toBe(false);
+});
+
 test('update and rollback refuse local work; remove of unpushed work needs force', async () => {
     const f = await fixture();
     await f.confirm({ operation: 'install', name: 'demo', repo: f.demo, tag: 'v1.0.0' });

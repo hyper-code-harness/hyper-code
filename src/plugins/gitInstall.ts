@@ -22,7 +22,9 @@
  * background: the preview is the review. Rollback returns to the previous ref of any kind. Remove previews what goes away, refuses while another installed plugin requires it, and needs
  * force:true when the clone has local work. Repeating the call with confirmed:true and the digest applies it: moves
  * the staged clone into USER_PLUGINS/<name> (or checks the new commit out in place), records repo, tag, commit and
- * history in the lock file (plugins.lockFile) and remounts plugins with procs.modules.reload.
+ * history in the lock file (plugins.lockFile), remounts plugins with procs.modules.reload and runs the database
+ * migrations the clones bring ($migration_<id>.ts; the preview lists them in `migrations`, the applied change names
+ * the ones it ran in `migrated`) — so a plugin with tables works at once, not after the next restart.
  * @param opts.operation install, update, rollback or remove.
  * @param opts.name Plugin name: the folder under USER_PLUGINS and the package.json name.
  * @param opts.repo Repository for install — GitHub or another git server (plugins.repoUrl: `github:owner/repo`, https, ssh, a local path); update defaults to the lock's.
@@ -367,6 +369,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         }
         const installScripts = [...await scriptsOf(staged, plugin), ...(await Promise.all(companions.map(c => scriptsOf(c.dir, c.plugin)))).flat()];
 
+        // Database migrations the clones bring: `$migration_<id>.ts` anywhere under the plugin source.
+        const migrationIds = [...new Set([plugin, ...companions.map(c => c.plugin)].flatMap(p => p.files)
+            .map(f => /(?:^|\/)\$migration_([^/]+)\.ts$/.exec(f)?.[1]).filter((id): id is string => !!id))].sort();
         const old = installed ? await ctx.fns.plugins.inspectPackage({ dir: target }).catch(() => undefined) : undefined;
         const files = await diffFiles(installed ? target : null, plugin, staged, old);
         const diffStat = from ? await git(target, ['diff', '--stat', from.commit, commit], true) : '';
@@ -382,6 +387,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
             ...(diffStat ? { diffStat: diffStat.slice(0, 4000) } : {}),
             ...(companions.length ? { companions: companions.map(c => ({ name: c.name, repo: c.repo, tag: c.tag, commit: c.commit, ...(c.plugin.version ? { version: c.plugin.version } : {}), namespaces: c.plugin.namespaces })) } : {}),
             newPackages: [...has].filter(n => !had.has(n)).sort(),
+            ...(migrationIds.length ? { migrations: migrationIds } : {}),
             ...(installScripts.length ? { installScripts } : {}),
             ...(/Blocked \d+ postinstalls?/.test(log) ? { blockedScripts: log.match(/Blocked \d+ postinstalls?/)![0] } : {}),
             digest: createHash('sha256').update(JSON.stringify({
@@ -427,11 +433,22 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         }
         for (const c of companions) lock.plugins[c.name] = { repo: c.repo, tag: c.tag, commit: c.commit, previous: [] };
         await ctx.fns.plugins.lockFile({ lock });
+        // A plugin the last Hyper update removed is back: the Dock stops asking for it.
+        const lost = (ctx.state as { droppedPlugins?: { at: number; names: string[] } }).droppedPlugins;
+        if (lost) lost.names = lost.names.filter(n => n !== name && !companions.some(c => c.name === n));
         try {
             await ctx.fns.procs.modules.reload({});
-            return { ...result, status: 'applied' };
         } catch (cause) {
             return { ...result, status: 'applied-load-failed', loadError: 'Plugin files are in place but remounting failed; runtime may be partial. ' + (cause instanceof Error ? cause.message.slice(0, 300) : '') };
+        }
+        // The remount only collects migrations; they used to wait for the next start of Hyper, and until then the
+        // plugin's tables did not exist (found installing telegram on a machine that had never had it: 2 tables of 14).
+        // Run them now — these ids only: another module's pending migration keeps waiting for its own moment.
+        if (!migrationIds.length) return { ...result, status: 'applied' };
+        try {
+            return { ...result, migrated: (await ctx.fns.procs.migrate.up({ only: migrationIds })).applied, status: 'applied' };
+        } catch (cause) {
+            return { ...result, status: 'applied-migration-failed', migrationError: 'Plugin is installed and mounted, but a database migration failed: ' + (cause instanceof Error ? cause.message.slice(0, 300) : 'unknown error') + '. Fix the cause and run ctx.fns.procs.migrate.up({}), or restart Hyper.' };
         }
     } finally {
         await fs.rm(stage, { recursive: true, force: true });

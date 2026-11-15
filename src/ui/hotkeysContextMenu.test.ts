@@ -9,7 +9,7 @@ function setup() {
     const window = new Window({ url: "http://localhost/agent/test" });
     const { document } = window;
     // happy-dom does not implement the native popover top layer. Model its observable state.
-    const menu = document.createElement("div");
+    const menu = document.createElement("div") as ReturnType<typeof document.createElement> & { showPopover(): void; hidePopover(): void };
     menu.className = "w-menu";
     menu.dataset.contextOf = ".tab";
     menu.id = "tab-menu";
@@ -21,9 +21,9 @@ function setup() {
     menu.showPopover = () => { open = true; menu.setAttribute("data-open", ""); };
     menu.hidePopover = () => { open = false; menu.removeAttribute("data-open"); };
     const nativeMatches = menu.matches.bind(menu);
-    menu.matches = selector => selector === ":popover-open" ? open : nativeMatches(selector.replace(":popover-open", "[data-open]"));
+    menu.matches = (selector: string) => selector === ":popover-open" ? open : nativeMatches(selector.replace(":popover-open", "[data-open]"));
     const nativeQuery = document.querySelectorAll.bind(document);
-    document.querySelectorAll = selector => nativeQuery(selector.replace(":popover-open", "[data-open]"));
+    document.querySelectorAll = (selector: string) => nativeQuery(selector.replace(":popover-open", "[data-open]"));
     window.eval(contextMenu);
     return { window, document, menu, host, outside, isOpen: () => open };
 }

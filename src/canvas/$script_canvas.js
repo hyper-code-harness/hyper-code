@@ -539,10 +539,10 @@
         event.preventDefault();
         a.click();
     });
-    // The editor of an Edit view comes as <script> in the body. A refreshed panel is parsed from a template,
+    // The editor of an Edit view, or a @view page with its own script, comes as <script> in the body. A refreshed panel is parsed from a template,
     // where scripts are inert, so they are recreated to run (a first page load runs them itself).
     const runBodyScripts = el => {
-        el?.querySelectorAll?.('[data-canvas-files] script').forEach(old => {
+        el?.querySelectorAll?.('[data-canvas-files] script, [data-canvas-view] script').forEach(old => {
             const s = document.createElement('script');
             for (const { name, value } of old.attributes) s.setAttribute(name, value);
             s.textContent = old.textContent;

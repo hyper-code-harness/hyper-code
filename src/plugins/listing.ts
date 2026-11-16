@@ -73,6 +73,7 @@ async function readOne(ctx: Context, url: string, errors: string[]): Promise<typ
         plugins.push({
             name, label: String(item.label), description: String(item.description),
             ...(item.icon ? { icon: String(item.icon) } : {}),
+            ...(text(item.publishedBy, 200) ? { publishedBy: String(item.publishedBy) } : {}),
             source: src,
             listing: url,
         });

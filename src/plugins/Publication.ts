@@ -24,11 +24,16 @@ export type Publication = {
     /** Result of the plugin's own tests. */
     tests: { ran: boolean; output: string };
     /** The listing entry for this plugin: what goes to `plugins/<name>.json` of a listing repository. */
-    entry: { name: string; label: string; icon?: string; description: string; source: string };
+    entry: { name: string; label: string; icon?: string; description: string; source: string; publishedBy?: string };
+    /** Present when no repository was given and the address came from plugins.home: the network's git server, the owner
+     *  the repository goes under, who the server sees this Hyper as, who is recorded as the publisher, and anything
+     *  worth knowing (e.g. published as a person, not as a server of its own). */
+    home?: { server: string; owner: string; identity?: { kind: 'server' | 'person'; id: string }; publishedBy?: string; notes: string[] };
     /** What happens (or happened) with the listing repository given in `listing`. */
     listing: {
         /** `not-requested` — no listing given, add `entry` yourself; `will-add` — preview; `added` — committed and pushed;
-         *  `already-listed` — the entry was there; `push-refused` — no push rights: open a pull request with `entry`. */
+         *  `already-listed` — the entry was there; `push-refused` — the listing did not take it (no rights, the
+         *  server's catalog rule, or it kept changing): the plugin is published, register it later with plugins.addToListing. */
         status: 'not-requested' | 'will-add' | 'added' | 'already-listed' | 'push-refused';
         repo?: string;
         commit?: string;

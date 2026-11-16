@@ -28,6 +28,12 @@ import remotePackage from './remotePackage';
 import checkUpdates from './checkUpdates';
 import pendingUpdates from './pendingUpdates';
 import dockUpdates from './$dock_updates';
+import home from './home';
+import listingEntryOf from './listingEntryOf';
+import listingWrite from './listingWrite';
+import secretScan from './secretScan';
+import addToListing from './addToListing';
+import unpublish from './unpublish';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) { await chmod(join(r, 'server'), 0o755).catch(() => {}); await rm(r, { recursive: true, force: true }); } });
@@ -76,7 +82,7 @@ async function world() {
                 plugins: { ghRepo: async () => { throw new Error('gh must not be called for a non-GitHub server'); } },
             },
         };
-        for (const [k, f] of Object.entries({ hyperGitRepo, create, publish, release, releaseCheck, edit, gitInit, gitInstall, install, catalog, listing, versions, branchUpdates, inspectPackage, cloneStatus, cloneDir, cloneBadge, installed, readMetadata, validateTree, lockFile, repoUrl, remotePackage, checkUpdates, pendingUpdates }))
+        for (const [k, f] of Object.entries({ home, listingEntryOf, listingWrite, secretScan, addToListing, unpublish, hyperGitRepo, create, publish, release, releaseCheck, edit, gitInit, gitInstall, install, catalog, listing, versions, branchUpdates, inspectPackage, cloneStatus, cloneDir, cloneBadge, installed, readMetadata, validateTree, lockFile, repoUrl, remotePackage, checkUpdates, pendingUpdates }))
             ctx.fns.plugins[k] = (o: any) => (f as any)(ctx, null, o);
         // "Pull" the listing: copy index.json from the listing repository on the server.
         const pullListing = async () => { await mkdir(home, { recursive: true }); await writeFile(join(home, 'index.json'), git(listingBare, 'show', 'main:index.json') + '\n'); (ctx.state as any).pluginVersions?.clear(); };

@@ -1,9 +1,11 @@
 /**
- * Renders the git panel of an installed plugin clone: status badges, git facts and Edit / Release / Update / Rollback / Fork / Sync upstream buttons
+ * Renders the git panel of an installed plugin clone: status badges, git facts and Edit / Release / Share in the network / Update / Rollback / Fork / Sync upstream buttons
  *
  * Use on the plugin page (GET /plugins/:name) for a plugin whose folder is a git clone in USER_PLUGINS; returns ''
  * for anything else. Edit, Release, Fork and Sync upstream post to POST /plugins/:name/git with a CSRF token;
  * Release and Fork push or create something outside this machine and first show a confirmation (`confirm`).
+ * A local plugin (no origin) on a Hyper that has a place in its network (plugins.home) gets "Share in the network":
+ * the preview of plugins.publish as a review, confirmed by its digest (`confirm` with `digest` and `rows`).
  * A "Switch to: tag / branch / commit" form (also CSRF) previews moving the clone to another ref — dev mode follows a
  * branch or pins a commit — and confirms in the same review; a clone following a branch shows its new upstream
  * commits (plugins.branchUpdates) and an "Update (+N new)" button. Update and Rollback open the reviewed preview of the plugin catalog (POST /plugins/listing), which confirms by
@@ -12,7 +14,7 @@
  * @param opts.req Page request, for the CSRF token.
  * @param opts.notice Result line to show above the buttons (after an action).
  * @param opts.error Error line to show above the buttons.
- * @param opts.confirm Operation awaiting confirmation: shows its confirm form instead of the buttons.
+ * @param opts.confirm Operation awaiting confirmation: shows its confirm form instead of the buttons; `rows` are shown as a review and `digest` is posted back with the confirmation.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Plugin name (folder under USER_PLUGINS). */
@@ -23,8 +25,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     notice?: string;
     /** Error line to show above the buttons. */
     error?: string;
-    /** Operation awaiting confirmation: shows its confirm form instead of the buttons. */
-    confirm?: { operation: 'release' | 'fork' | 'merge'; detail: string };
+    /** Operation awaiting confirmation: shows its confirm form instead of the buttons; `rows` are shown as a review and `digest` is posted back with the confirmation. */
+    confirm?: { operation: 'release' | 'fork' | 'merge' | 'share'; detail: string; digest?: string; rows?: Array<[string, string]> };
 }): Promise<string> {
     let dir: string;
     try { dir = (await ctx.fns.plugins.cloneDir({ name: opts.name })).dir; } catch { return ''; }
@@ -50,6 +52,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         fork: !!(st.upstream || (lock && st.origin && !await same(st.origin, lock.repo))),
     };
     const esc = (v: unknown) => Bun.escapeHTML(String(v ?? ''));
+    // Only the setting is read here (no network on a page render): is there a place to share a local plugin to?
+    const home = git.local ? await Promise.resolve().then(() => ctx.fns.plugins.home({ offline: true })).catch(() => null) : null;
     const csrf = await ctx.fns.auth.csrfField({ req: opts.req });
     const self = `/plugins/${encodeURIComponent(opts.name)}/git`;
     const button = (fields: Record<string, string>, label: string, primary = false, action = self) =>
@@ -63,19 +67,23 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         ...(updates?.behind ? [['Upstream', `${updates.behind} new commit${updates.behind === 1 ? '' : 's'} on <code>origin/${esc(updates.branch)}</code>:<br>${updates.commits.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')}`] as [string, string]] : []),
         ...(updates?.error ? [['Upstream', esc(updates.error)] as [string, string]] : []),
         ...(git.origin ? [['Origin', `<code>${esc(git.origin)}</code>`] as [string, string]] : []),
-        ...(git.local ? [['Origin', 'none — a local plugin: versioned here, published nowhere. Publish it with <code>plugins.publish({ name, repo })</code>.'] as [string, string]] : []),
+        ...(git.local ? [['Origin', home?.configured
+            ? 'none — a local plugin: versioned here, published nowhere. <b>Share in the network</b> publishes it to this Hyper\'s network; <code>plugins.publish({ name, repo })</code> publishes it anywhere else.'
+            : 'none — a local plugin: versioned here, published nowhere. Publish it with <code>plugins.publish({ name, repo })</code>.'] as [string, string]] : []),
         ...(git.upstream ? [['Upstream', `<code>${esc(git.upstream)}</code>`] as [string, string]] : []),
         ...(git.dirty.length ? [['Uncommitted', git.dirty.slice(0, 20).map(f => `<code>${esc(f)}</code>`).join(' ')] as [string, string]] : []),
         ...(git.unpushed.length && !git.local ? [['Unpushed', git.unpushed.slice(0, 10).map(c => `<code>${esc(c)}</code>`).join('<br>')] as [string, string]] : []),
     ];
     let actions: string;
     if (opts.confirm) {
-        const label = { release: 'Confirm release', fork: 'Confirm fork', merge: 'Confirm merge' }[opts.confirm.operation];
-        actions = `<p class="text-sm text-muted">${esc(opts.confirm.detail)}</p><div class="mt-3 flex flex-wrap gap-2">${button({ operation: opts.confirm.operation, confirmed: 'true' }, label, true)}<a class="pl-button pl-secondary" href="/plugins/${encodeURIComponent(opts.name)}">Cancel</a></div>`;
+        const label = { release: 'Confirm release', fork: 'Confirm fork', merge: 'Confirm merge', share: 'Share in the network' }[opts.confirm.operation];
+        const review = opts.confirm.rows?.length ? `<dl class="pl-review mt-3" data-share-review>${opts.confirm.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '';
+        actions = `<p class="text-sm text-muted">${esc(opts.confirm.detail)}</p>${review}<div class="mt-3 flex flex-wrap gap-2">${button({ operation: opts.confirm.operation, confirmed: 'true', ...(opts.confirm.digest ? { digest: opts.confirm.digest } : {}) }, label, true)}<a class="pl-button pl-secondary" href="/plugins/${encodeURIComponent(opts.name)}">Cancel</a></div>`;
     } else {
         const list = [
             !git.branch ? button({ operation: 'edit' }, 'Edit', true) : '',
             git.branch && !git.dirty.length && !git.local ? button({ operation: 'release' }, 'Release') : '',
+            git.local && git.branch && !git.dirty.length && home?.configured ? button({ operation: 'share' }, 'Share in the network', true) : '',
             // A pinned commit has nothing to follow: it moves only through Switch to.
             lock && !local && git.mode !== 'commit' ? button({ operation: 'install', name: opts.name }, git.mode === 'branch' && updates?.behind ? `Update (+${updates.behind} new)` : 'Update', git.mode === 'branch' && !!updates?.behind, '/plugins/listing') : '',
             lock && !local && lock.previous.length ? button({ operation: 'rollback', name: opts.name }, 'Rollback', false, '/plugins/listing') : '',

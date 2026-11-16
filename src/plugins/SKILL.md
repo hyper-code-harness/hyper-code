@@ -300,9 +300,37 @@ across such a move does not mount them any more until they are installed from th
   mounting; the preview lists them. `applied-migration-failed` means the plugin is in place and a migration
   threw: fix the cause and run `procs.migrate.up({})`.
 
+## Sharing inside a private network
+
+A Hyper that belongs to a private network (a hyper-git server, see `plugins.home`) shares a plugin with the other
+Hypers of that network without anyone typing an address:
+
+```ts
+await ctx.fns.plugins.create({ name: "ehr", description: "Read the EHR." })   // a starter plugin, mounted here
+// …write it, commit…
+const plan = await ctx.fns.plugins.publish({ name: "ehr" })                   // preview: where, under whom, what the catalog will say
+await ctx.fns.plugins.publish({ name: "ehr", confirmed: true, expectedDigest: plan.digest })
+```
+
+- **Is it available here?** `plugins.home({})` — `ready`, the `owner` the repository goes under, the shared
+  `listing`, and `problems` in plain words. It is configured by the `plugins.home` setting (env `PLUGIN_HOME`): the
+  server address, and for a Hyper the server sees as a *person* rather than as a server of its own (several Hypers on
+  one machine) also `{ "owner": "<name>" }`. Not set: `publish` needs an explicit `repo`, as below.
+- **What stops it?** `plugins.publishReady({ name })` checks everything without changing anything: the folder, git,
+  uncommitted work, the description, secrets in tracked files, the server's answer, the name being free.
+- **On the page.** A local plugin shows **Share in the network** on `/plugins/<name>`: a review first, then confirm.
+- **The catalog.** The entry is written by `plugins.listingWrite`: one commit, applied again when another Hyper
+  published at the same moment, never forced. The server may check it (a team can list only its own repository);
+  then the listing says `push-refused` with the server's words, the plugin is still published, and
+  `plugins.addToListing({ name })` registers it later without another release.
+- **Taking it back.** `plugins.unpublish({ name })` removes the entry from the listing (preview, then confirm). The
+  repository, its tags and every installed copy stay.
+- Publishing shows other people your code: ask the person before confirming. `publish` refuses a plugin whose tracked
+  files hold a private key, a known token shape or a `.env` (`plugins.secretScan`); a clean scan is not a proof.
+
 ## Publishing: one plugin, one repository, releases are tags
 
-`plugins.publish({ name, repo, version?, listing?, createRepo?, visibility? })` is the first release — once per plugin, a preview first:
+`plugins.publish({ name, repo?, version?, listing?, createRepo?, visibility? })` is the first release — once per plugin, a preview first. With `repo` it publishes to any git server; without it, to this Hyper's place in its network (above):
 
 - **Preview** (changes nothing): runs `plugins.releaseCheck` (the package checks of an install, `bun.lock`, the plugin's tests), checks that `repo` is reachable and **empty** and that the catalog does not give this name to another repository, and returns the version and tag, what package.json gets (`version`, `repository`), the files, the listing `entry` and a `digest`.
 - **Confirm** (`confirmed: true, expectedDigest`): commits the package.json change, tags `vX.Y.Z`, adds `origin`, pushes the branch and the tag, records the plugin in the lock and leaves the clone at the released tag — the author's copy is then an installed plugin like anyone else's. If the push fails, the tag, the remote and the release commit are undone: nothing is published.

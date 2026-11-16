@@ -5,6 +5,23 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### Plugins: share a plugin with your network from any Hyper, without addresses
+- A Hyper inside a private network (a hyper-git server) now publishes a plugin with `plugins.publish({ name })` or the
+  **Share in the network** button on the plugin's page. The Hyper asks the server who it is and where it may publish
+  (`plugins.home`), creates the repository under its own team, tags the release and adds the plugin to the network's
+  shared catalog. Nobody types a repository or a listing address. A preview comes first; confirming takes its digest.
+- New setting `plugins.home` (env `PLUGIN_HOME`): the address of the network's git server. A Hyper the server knows
+  as a server needs nothing else. A Hyper that reaches it as a person — several Hypers of one machine look like one —
+  also sets the owner its plugins go under: `{ "server": "https://git…", "owner": "crm" }`; what it publishes is
+  marked with that person in the catalog (`publishedBy`). Without the setting nothing changes: `publish` needs `repo`.
+- `plugins.publishReady({ name })` says what stops a publication before anything is tried.
+- The shared catalog is written by `plugins.listingWrite`: two Hypers publishing at the same moment both get in (the
+  second applies its entry again on top), nothing is force-pushed, and a server that refuses the entry is quoted.
+  A refused entry no longer loses the publication: `plugins.addToListing({ name })` registers it later.
+- `plugins.unpublish({ name })` takes a plugin out of the catalog; its repository, releases and installed copies stay.
+- `plugins.publish` refuses a plugin whose tracked files hold a private key, a well-known token shape or a `.env`
+  file (`plugins.secretScan`). It recognises unmistakable shapes only.
+
 ### Plugins: an update of Hyper no longer takes plugins away silently; migrations run at install
 - Some plugins used to ship inside Hyper and now live in their own repositories (telegram, mermaid, reladraw,
   pipedrive, tts, duckdb, vegalite). A Hyper updated across that move stopped mounting them without a word:

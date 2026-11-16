@@ -136,6 +136,9 @@
       },
       "humanizer": {
         "path": "plugins/humanizer"
+      },
+      "mattpocock-skills": {
+        "path": "plugins/mattpocock-skills"
       }
     }
   }

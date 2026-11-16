@@ -1,7 +1,8 @@
 /** POST /hyperhub/config — explicitly replace saved hubs after same-origin validation. */
 export default async function(ctx:Context,_session:Session|null,opts:{req:Request;params:Record<string,string>}) {
  const origin=opts.req.headers.get('origin');
- if(!origin||origin!==new URL(opts.req.url).origin||opts.req.headers.get('sec-fetch-site')==='cross-site')return new Response('Same-origin request required',{status:403});
+ // Behind the network's hub the browser's origin is the public address: http.publicOrigin, not req.url.
+ if(!origin||origin!==await ctx.fns.http.publicOrigin({req:opts.req})||opts.req.headers.get('sec-fetch-site')==='cross-site')return new Response('Same-origin request required',{status:403});
  try {
   const form=await opts.req.formData();const hubs:Array<{label:string;origin:string;enabled:boolean;repo?:string}>=[];
   const text=(k:string)=>{const v=form.get(k);if(v!==null&&typeof v!=='string')throw new Error('Invalid field');return v??'';};

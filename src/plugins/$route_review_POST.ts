@@ -3,7 +3,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     req: Request;
 }) {
     const req = opts.req, origin = req.headers.get('origin');
-    if (!origin || origin !== new URL(req.url).origin || req.headers.get('sec-fetch-site') === 'cross-site')
+    // Behind the network's hub the browser's origin is the public address, not the one this process listens on:
+    // http.publicOrigin gives the browser-visible origin (forwarded headers count only from a loopback peer).
+    if (!origin || origin !== await ctx.fns.http.publicOrigin({ req }) || req.headers.get('sec-fetch-site') === 'cross-site')
         return new Response('Same-origin request required', { status: 403 });
     if (!req.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))
         return new Response('URL-encoded form required', { status: 415 });

@@ -4,7 +4,9 @@ export default async function(ctx: Context, _session: Session | null, opts: {
     /** Route parameters containing the mounted plugin name. */ params: Record<string,string>;
 }): Promise<Response> {
     const req = opts.req;
-    if (req.headers.get('origin') !== new URL(req.url).origin || req.headers.get('sec-fetch-site') === 'cross-site') return new Response('Same-origin request required', {status:403});
+    // Behind the network's hub the browser's origin is the public address, not the one this process listens on:
+    // http.publicOrigin gives the browser-visible origin (forwarded headers count only from a loopback peer).
+    if (req.headers.get('origin') !== await ctx.fns.http.publicOrigin({ req }) || req.headers.get('sec-fetch-site') === 'cross-site') return new Response('Same-origin request required', {status:403});
     if (req.headers.get('content-type')?.split(';')[0]?.trim() !== 'application/x-www-form-urlencoded') return new Response('URL-encoded form required', {status:415});
     const max = 32768;
     if (Number(req.headers.get('content-length')) > max) return new Response('Form too large', {status:413});

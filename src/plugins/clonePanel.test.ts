@@ -14,6 +14,7 @@ import branchUpdates from './branchUpdates';
 import route from './$route_$name_git_POST';
 import repoUrl from './repoUrl';
 import remotePackage from './remotePackage';
+import publicOrigin from '../http/publicOrigin';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
@@ -39,6 +40,7 @@ async function fixture() {
         env: { USER_PLUGINS: join(root, 'user'), HOME: root },
         state: { procs: { modules: [] } },
         fns: {
+            http: { publicOrigin: (o: any) => publicOrigin(ctx, null, o) },
             auth: {
                 csrfField: async () => '<input type="hidden" name="_csrf" value="tok">',
                 verifyCsrf: async ({ token }: any) => token === 'tok',

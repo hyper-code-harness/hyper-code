@@ -5,6 +5,14 @@ what to do (if anything). Internal refactors without visible effect do not need 
 
 ## Unreleased
 
+### Plugins: the plugin forms work for people who reach Hyper through a reverse proxy
+- Behind a network hub or any local reverse proxy the buttons of the plugin pages — install, remove, rollback,
+  release, share, plugin settings, review, and the hub list of hyperhub — answered "Same-origin request required":
+  the browser sent the public address as its origin and the form compared it with the address the process
+  listens on. They now compare with the browser-visible origin (`http.publicOrigin`), the same rule the global
+  request guard uses: forwarded headers count only when the proxy is on this machine. Found by pressing
+  "Share in the network" on a live Hyper; the functions behind the buttons always worked.
+
 ### Plugins: share a plugin with your network from any Hyper, without addresses
 - A Hyper inside a private network (a hyper-git server) now publishes a plugin with `plugins.publish({ name })` or the
   **Share in the network** button on the plugin's page. The Hyper asks the server who it is and where it may publish

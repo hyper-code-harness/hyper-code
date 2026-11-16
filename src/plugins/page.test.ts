@@ -6,9 +6,10 @@ import post from './$route_review_POST';
 import route from './$route_GET';
 import configRoute from './$route_config_GET';
 import searchRoute from './$route_search_GET';
+import publicOrigin from '../http/publicOrigin';
 const selection={provider:'mock',name:'demo',revision:'revision-1',source:{opaque:'<secret>'}};
 const provider={id:'mock',label:'Mock <source>',description:'Testing',handlers:{search:'mock.search',materialize:'mock.materialize'},configurationHref:'/mock/config'};
-function fixture(overrides:Record<string,unknown>={}) {return {fns:{plugins:{providers:async()=>[provider],list:async()=>[],installed:async()=>({plugins:[],errors:[]}),dispatch:async()=>({items:[{selection,description:'<script>evil</script>'}],errors:[]}),...overrides}}} as any;}
+function fixture(overrides:Record<string,unknown>={}) {return {fns:{http:{publicOrigin:(o:any)=>publicOrigin({state:{}} as any,null,o)},plugins:{providers:async()=>[provider],list:async()=>[],installed:async()=>({plugins:[],errors:[]}),dispatch:async()=>({items:[{selection,description:'<script>evil</script>'}],errors:[]}),...overrides}}} as any;}
 test('core catalogue works without HyperHub and escapes metadata',async()=>{const html=await page(fixture(),null,{});expect(html).toContain('Review install');expect(html).toContain('Mock &lt;source&gt;');expect(html).toContain('&lt;script&gt;');expect(html).not.toContain('/hyperhub');expect(html).toContain('/plugins/plugins.css');});
 test('mounted plugin cards link directly to live functions in catalogue and installed views',async()=>{for(const tab of ['catalog','installed'] as const){const html=await page(fixture({list:async()=>[{name:'demo',functions:17}]}),null,{tab});expect(html).toContain('href="/plugins/demo?tab=functions"');expect(html).toContain('Functions · 17');}expect(await page(fixture(),null,{})).not.toContain('Functions ·');});
 test('mounted-only source never offers self-install',async()=>{const html=await page(fixture({list:async()=>[{name:'demo'}]}),null,{});expect(html).toContain('>Mounted</span>');expect(html).not.toContain('Review install');});

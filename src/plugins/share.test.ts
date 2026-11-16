@@ -34,6 +34,10 @@ import addToListing from './addToListing';
 import unpublish from './unpublish';
 import publishReady from './publishReady';
 import route from './$route_$name_git_POST';
+import publicOrigin from '../http/publicOrigin';
+import listingRoute from './$route_listing_POST';
+import reviewRoute from './$route_review_POST';
+import configRoute from './$route_$name_config_POST';
 
 const roots: string[] = [];
 afterEach(async () => { for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
@@ -84,6 +88,7 @@ async function network() {
             fns: {
                 settings: { get: async (o: { key: string }) => o.key === 'home' ? ctx.homeSetting : [LISTING] },
                 auth: { csrfField: async () => '<input type="hidden" name="_csrf" value="tok">', verifyCsrf: async ({ token }: any) => token === 'tok' },
+                http: { publicOrigin: (o: any) => publicOrigin(ctx, null, o) },
                 procs: { modules: { reload: async () => { reloads++; } }, project: { projectRoot: () => join(import.meta.dir, '..', '..') } },
                 plugins: { ghRepo: async () => { throw new Error('gh must not be called inside the network'); } },
             },
@@ -572,3 +577,57 @@ test('the plugin page: a local plugin gets "Share in the network" — a review f
         expect(git(n.listingBare, 'rev-list', '--count', 'main')).toBe('2');
     });
 }, 120_000);
+
+// Found pressing the real button on a live Hyper (2026-11-16): behind the network's hub the browser's Origin is the
+// public address (https://hyper.<team>.in…) while the process sees its own (http://127.0.0.1:<port>), so every plugin
+// form — install, remove, release, share, settings — answered "Same-origin request required" for people who came
+// through the hub. The forms now compare with http.publicOrigin, like the global request guard.
+test('plugin forms work behind the hub: the browser\'s public origin is accepted when the proxy is local, and a forged one is not', async () => {
+    const n = await network();
+    const atomic = n.hyper('atomic', { kind: 'server', tenant: 'atomic' });
+    await online(n.server, async () => {
+        atomic.use();
+        await atomic.ctx.fns.plugins.create({ name: 'ehr', description: 'Read the EHR.' });
+        const PUBLIC = 'https://hyper.atomic.in.mesh.test';
+        // Who is on the other end of the TCP connection: the local reverse proxy (loopback) or somebody else.
+        let peer = '127.0.0.1';
+        atomic.ctx.state.procs.http = { server: { server: { requestIP: () => ({ address: peer }) } } };
+        const gitRoute = (headers: Record<string, string>) => route(atomic.ctx, null, {
+            req: new Request('http://127.0.0.1:3050/plugins/ehr/git', { method: 'POST', body: new URLSearchParams({ _csrf: 'tok', operation: 'share' }).toString(), headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers } }),
+            params: { name: 'ehr' },
+        }) as Promise<any>;
+        const viaHub = { origin: PUBLIC, 'x-forwarded-proto': 'https', 'x-forwarded-host': 'hyper.atomic.in.mesh.test', 'sec-fetch-site': 'same-origin' };
+        // A person in a browser, through the hub: the review comes back.
+        const ok = await gitRoute(viaHub);
+        expect(ok.main).toContain('data-share-review');
+        // Directly, without a proxy: as before.
+        expect((await gitRoute({ origin: 'http://127.0.0.1:3050' })).main).toContain('data-share-review');
+        // Another site: refused, with or without forwarding headers of its own making.
+        expect((await gitRoute({ ...viaHub, origin: 'https://evil.test' })).status).toBe(403);
+        expect((await gitRoute({ ...viaHub, 'sec-fetch-site': 'cross-site' })).status).toBe(403);
+        expect((await gitRoute({ origin: PUBLIC })).status).toBe(403);                        // no proxy said so
+        expect((await gitRoute({ 'x-forwarded-proto': 'https', 'x-forwarded-host': 'hyper.atomic.in.mesh.test' })).status).toBe(403);   // no Origin at all
+        // The forwarding headers count only from the local proxy: a remote peer cannot name its own origin.
+        peer = '10.77.2.9';
+        expect((await gitRoute({ ...viaHub, origin: 'https://evil.test', 'x-forwarded-host': 'evil.test' })).status).toBe(403);
+        expect((await gitRoute(viaHub)).status).toBe(403);
+        peer = '127.0.0.1';
+        expect((await gitRoute({ ...viaHub, origin: 'https://evil.test', 'x-forwarded-host': 'evil.test"><script>' })).status).toBe(403);
+        // The other plugin forms follow the same rule. Each is asked through the hub and from another site; what the
+        // form then does is stubbed — only "is this request let in" is under test here.
+        const form = (path: string, origin: string) => new Request(`http://127.0.0.1:3050${path}`, { method: 'POST', body: 'x=1', headers: { ...viaHub, origin, 'content-type': 'application/x-www-form-urlencoded' } });
+        const let_in = async (r: any) => (await r).status !== 403;
+        atomic.ctx.fns.plugins.saveConfiguration = async () => ({});
+        atomic.ctx.fns.plugins.startReview = async () => ({ id: 'ab' });
+        for (const [name, call] of [
+            ['catalog', (o: string) => listingRoute(atomic.ctx, null, { req: form('/plugins/listing', o) })],
+            ['review', (o: string) => reviewRoute(atomic.ctx, null, { req: form('/plugins/review', o) })],
+            ['settings', (o: string) => configRoute(atomic.ctx, null, { req: form('/plugins/ehr/config', o), params: { name: 'ehr' } })],
+        ] as const) {
+            expect([name, await let_in(call(PUBLIC))]).toEqual([name, true]);
+            expect([name, await let_in(call('https://evil.test'))]).toEqual([name, false]);
+        }
+        // Nothing was published by any of this: every call above was a preview or a refusal.
+        expect(existsSync(join(n.server, 'atomic'))).toBe(false);
+    });
+}, 60_000);

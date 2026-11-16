@@ -26,6 +26,10 @@ export default async function (
             system,
             user: JSON.stringify({ goal: goal.statement, candidateAnswer: opts.candidateAnswer, recent }),
             temperature: 0,
+            // The verdict is a few hundred tokens, but a reasoning model spends its thinking out of the same limit:
+            // with the default 2048 the thinking took all of it and the JSON came back empty or cut off
+            // ("goal checker failed: JSON Parse error: Unexpected EOF", 2026-11-16).
+            max_tokens: 8192,
         });
         const parsed = parseJson(result.text);
         const status = ["achieved", "continue", "needs_user", "blocked"].includes(parsed?.status) ? parsed.status : "blocked";

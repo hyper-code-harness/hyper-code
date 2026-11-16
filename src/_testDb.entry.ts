@@ -140,8 +140,10 @@ async function snapshotOf(admin: SQL): Promise<Snapshot> {
 // The columns of the template's own tables, as one hash: a dropped table or column, or a changed type, changes
 // it; tables a test added on top do not (the reset drops those).
 async function columnsOf(sql: SQL, tables: string[]): Promise<string> {
+    // unsafe() stringifies JS arrays as CSV, not PostgreSQL array literals. JSON preserves names safely.
     const [row] = await sql.unsafe(`SELECT count(DISTINCT table_name) || ':' || md5(string_agg(table_name || '.' || column_name || ':' || data_type, ',' ORDER BY table_name, column_name)) AS h
-        FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ANY($1::text[])`, [tables]);
+        FROM information_schema.columns WHERE table_schema = 'public'
+          AND table_name IN (SELECT jsonb_array_elements_text($1::jsonb))`, [JSON.stringify(tables)]);
     return String(row?.h ?? "");
 }
 

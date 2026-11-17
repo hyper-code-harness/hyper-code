@@ -78,6 +78,19 @@ describe("functions as memory", () => {
         expect(other).toContain("project: none");
     });
 
+    test("the prompt block starts with the machine note from system memory when there is one", async () => {
+        const hook = (await import("./$hook_agent.promptAugment")).default;
+        expect(await hook(ctx, null, { agentId, text: "" })).not.toContain("## This machine");
+        await mkdir(join(home, "memory/notes"), { recursive: true });
+        await Bun.write(join(home, "memory/notes/this-machine.md"), "---\ntitle: x\n---\n# aidbox on dojo\nPostgres on 127.0.0.1:5432.\n");
+        const text: string = await hook(ctx, null, { agentId, text: "" });
+        expect(text.indexOf("## This machine")).toBe(0);
+        expect(text).toContain("Postgres on 127.0.0.1:5432.");
+        expect(text).not.toContain("title: x");
+        expect(text).toContain("## Your memory");
+        await rm(join(home, "memory/notes/this-machine.md"));
+    });
+
     test("a deleted file drops its row", async () => {
         await rm(join(home, `src/agent_${agentId}/draw.ts`));
         expect((await ctx.fns.memory.syncCode({})).removed).toBe(1);

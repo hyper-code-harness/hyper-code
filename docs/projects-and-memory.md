@@ -124,7 +124,11 @@ Unique per level owner: `(visibility, project_id, user_id, agent_id, key)`.
 The core system prompt (`src/agent/SYSTEM_PROMPT_CORE.txt`) carries the table above and the rules. The
 `agent.promptAugment` hook (`src/memory/$hook_agent.promptAugment.ts`) adds the facts for this agent — a
 "Your memory" block: its id, project and person with their folders and entry counts, a pointer to
-`notes/where-we-stopped.md` when there is one, and the functions it may call. It is sent again only when
+`notes/where-we-stopped.md` when there is one, and the functions it may call. Above it, when system memory
+has `notes/this-machine.md`, comes a "This machine" block with that note's text (up to 4000 characters): where
+this Hyper runs (host, container or hyperd unit, network name), its neighbours and ports, what survives a
+re-create, how to restart, who looks after it. Whoever sets the machine up writes it (the hypermesh operator for
+the fleet); agents keep it true with `memory.edit`. It is sent again only when
 it changes; agents started by another agent get it too (`syncWorldState` counts agent messages as the turn).
 
 ## Files

@@ -317,3 +317,26 @@ test("the chat folds into a strip over the canvas and back in one server-side fl
     const tabs = await ctx.fns.canvas.list({ agentId: a.id });
     expect(tabs.items?.[0]?.args ?? tabs[0]?.args).toMatchObject({ fn: "agent.inspector", params: { agentId: a.id } });
 });
+
+test("the agent showing a tab leaves a chip in its chat that brings the tab back; a person's show leaves none", async () => {
+    const ctx: any = await mkTestCtx();
+    const r: any = reqCtx(ctx);
+    const a = await r.fns.agent.start({ model: "mock:echo" });
+    await r.fns.session.save({ agent: a });
+    const as = Object.create(ctx); as.session = { kind: "agent", agentId: a.id };
+    const chips = async () => (await ctx.fns.session.getEvents({ id: a.id })).filter((e: any) => e.type === "canvas_shown");
+    const tab = await as.fns.canvas.show({ kind: "file", args: { path: "package.json" }, title: "Package" });
+    await as.fns.canvas.show({ kind: "file", args: { path: "package.json" }, title: "Package" });
+    expect(await chips()).toMatchObject([{ itemId: tab.id, kind: "view", title: "Package" }]);
+    // A person's click (a link in the chat, the inspector button) is not the agent's: no chip.
+    await ctx.fns.canvas.show({ agentId: a.id, kind: "file", args: { path: "README.md" } });
+    expect((await chips()).length).toBe(1);
+    // The next turn shows it again: a new chip.
+    await ctx.fns.session.appendEvent({ id: a.id, event: { type: "user", text: "again" } });
+    await as.fns.canvas.show({ kind: "file", args: { path: "package.json" }, title: "Package" });
+    expect((await chips()).length).toBe(2);
+    const html = await ctx.fns.agent.renderEventHtml({ event: (await chips())[0], agentId: a.id });
+    expect(html).toContain(`data-canvas-reopen="${tab.id}"`);
+    expect(html).toContain("Package");
+    expect(html).toContain('href="/rpc/files.page?');
+});

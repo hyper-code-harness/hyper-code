@@ -188,6 +188,24 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         return eventCard({ title: `Canvas: ${String(ev.title ?? "tab")}`, icon: 'square-half', tone: 'info', body: esc(String(ev.text ?? "")), details: data ? await dump(data) : undefined });
     }
 
+    if (ev.type === "canvas_shown") {
+        // The agent opened a canvas tab: a chip with its title. On the agent page a click brings the tab back
+        // (canvas.js, data-canvas-reopen — reopens a closed tab, opens the canvas); elsewhere a tab with an
+        // address is a plain link to it.
+        const kinds = ((ctx.state as any).canvas?.kinds ?? {}) as Record<string, types.canvas.Registered>;
+        const address = typeof ev.address === "string" && ev.address.startsWith("/rpc/") ? ev.address : undefined;
+        const chip = ctx.fns.w.button({
+            label: String(ev.title ?? "Canvas tab"),
+            icon: kinds[String(ev.kind ?? "")]?.icon ?? "square-half",
+            size: "sm",
+            tone: "ghost",
+            title: "Show on the canvas",
+            ...(address ? { action: { href: address } } : {}),
+            attrs: { "data-canvas-reopen": Number(ev.itemId) || null },
+        });
+        return ctx.fns.w.box({ body: chip, mix: { padY: 's1' } });
+    }
+
     if (ev.type === "plan_activation") {
         return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: ctx.fns.w.box({ body: esc(ev.title ?? ev.taskId ?? "Task"), mix: { weight: 'strong' } }) + (ev.instructions ? para(esc(ev.instructions)) : "") });
     }

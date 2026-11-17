@@ -19,7 +19,7 @@
  * @param opts.title Tab title; defaults to the kind's suggestion.
  * @param opts.agentId Agent whose canvas to use. @default the current agent
  */
-export default async function (ctx: Context, _session: Session | null, opts: {
+export default async function (ctx: Context, session: Session | null, opts: {
     /** Canvas kind from the catalog, e.g. file; omit to let args decide: `path` → file, `fn` or a `/rpc/…` url → view, `html` → html, an http(s) `url` → url. */
     kind?: string;
     /** Arguments of that kind, e.g. { path } for file. */
@@ -112,6 +112,16 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     })) as { id: number; reused: boolean };
     const item = (await ctx.fns.canvas.list({ agentId })).find(i => i.id === id)!;
     const address = opts.kind === "view" && typeof item.args.url === "string" ? item.args.url : opts.kind === "url" ? String(item.args.url ?? "") : undefined;
+    // The agent showing something on its own canvas leaves a chip in its chat (a canvas_shown event): what it
+    // opened, and a click brings the tab back even after it was closed. Once per tab per turn — showing the same
+    // tab again in one turn adds nothing. A person's own clicks (links, the inspector) leave no chip.
+    if (session?.kind === "agent" && session.agentId === agentId) {
+        const seen = (await ctx.fns.procs.db.select({
+            sql: "SELECT 1 FROM events WHERE agent_id = ? AND type = 'canvas_shown' AND payload::jsonb->>'itemId' = ? AND idx > COALESCE((SELECT MAX(idx) FROM events WHERE agent_id = ? AND type = 'user'), -1) LIMIT 1",
+            params: [agentId, String(item.id), agentId],
+        })) as any[];
+        if (!seen.length) await ctx.fns.session.appendEvent({ id: agentId, event: { type: "canvas_shown", itemId: item.id, kind: item.kind, title: item.title, ...(address ? { address } : {}), reused } });
+    }
     return { ...item, ...(address ? { address } : {}), reused, ...(fixed ? { fixed } : {}), ...(hint ? { hint } : {}) };
 }
 

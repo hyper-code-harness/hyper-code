@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hyper Sidebar (local prototype)",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minimum_chrome_version": "142",
   "description": "One Hyper agent per Chrome tab, using the existing local Hyper UI.",
   "permissions": [
@@ -71,6 +71,18 @@
       ],
       "js": [
         "hotkeys.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*/*"
+      ],
+      "js": [
+        "frame.js"
       ],
       "run_at": "document_start",
       "all_frames": true

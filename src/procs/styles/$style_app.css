@@ -11,71 +11,70 @@
  * supplies utilities; no external component framework or theme layer is used.
  * Build screens from semantic colors so the explicit app theme can switch.
  *
- * The colours below are NOT a second palette. They are the names the markup used
- * before semantic themes, each defined in terms of the same project-owned tokens,
- * so legacy markup follows the selected theme instead of a hardcoded gray. Nothing new should use them — reach for `bg-base-100`,
- * `text-base-content`, `border-base-300`, `text-error` directly.
+ * Colour aliases use @theme inline: each utility reads --w-* where it is used,
+ * rather than inheriting a root-resolved value into a nested theme preview.
+ * New screens use w.*; these aliases keep existing markup on that same palette.
  *
  * The sizes further down are intentionally compact: this is a dense procedural
  * workbench rather than a marketing page.
  * The component rules below are the handful of things utilities cannot say. */
-@theme {
-  --color-base-100: var(--theme-base-100);
-  --color-base-200: var(--theme-base-200);
-  --color-base-300: var(--theme-base-300);
-  --color-base-content: var(--theme-base-content);
-  --color-primary: var(--theme-primary);
-  --color-primary-content: var(--theme-primary-content);
-  --color-info: var(--theme-info);
-  --color-success: var(--theme-success);
-  --color-warning: var(--theme-danger);
-  --color-error: var(--theme-danger);
+@theme inline {
+  --color-base-100: var(--w-surface-document);
+  --color-base-200: var(--w-surface-chat);
+  --color-base-300: var(--w-hover);
+  --color-base-content: var(--w-ink);
+  --color-primary: var(--w-ink);
+  --color-primary-content: var(--w-on-ink);
+  --color-info: var(--w-live);
+  --color-success: var(--w-success);
+  --color-warning: var(--w-warning);
+  --color-error: var(--w-danger);
 
-  --color-bg-primary: var(--color-base-200);
-  --color-bg-tertiary: var(--color-base-200);
-  --color-bg-quaternary: var(--color-base-300);
-  --color-bg-tint-hover: var(--color-base-300);
-  --color-bg-content: var(--color-base-100);
-  --color-bg-selected: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  --color-border-separator: var(--color-base-300);
-  --color-border-input: var(--color-base-300);
-  --color-border-focus: var(--color-primary);
-  --color-border-subtle: var(--color-base-300);
-  --color-ui-border: var(--ui-border);
+  --color-bg-primary: var(--w-surface-chat);
+  --color-bg-tertiary: var(--w-surface-chat);
+  --color-bg-quaternary: var(--w-hover);
+  --color-bg-tint-hover: var(--w-hover);
+  --color-bg-content: var(--w-surface-document);
+  --color-bg-selected: color-mix(in oklab, var(--w-ink) 10%, transparent);
+  --color-border-separator: var(--w-hover);
+  --color-border-input: var(--w-hover);
+  --color-border-focus: var(--w-ink);
+  --color-border-subtle: var(--w-hover);
+  --color-ui-border: var(--w-border);
   /* Secondary text has exactly three levels. Use `text-muted` for supporting
    * copy, `text-subtle` for metadata and `text-faint` for hints, timestamps and
    * placeholders — never an ad-hoc `text-base-content/NN`. */
-  --color-muted: color-mix(in oklab, var(--color-base-content) 72%, transparent);
-  --color-subtle: color-mix(in oklab, var(--color-base-content) 55%, transparent);
-  --color-faint: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  --color-ui-border-strong: var(--ui-border-strong);
-  --color-text-primary: var(--color-base-content);
-  --color-text-heading: var(--color-base-content);
-  --color-text-muted: color-mix(in oklab, var(--color-base-content) 70%, transparent);
-  --color-text-tertiary: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  --color-text-placeholder: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  --color-text-inverse: var(--color-primary-content);
-  --color-text-link: var(--color-primary);
-  --color-brand: var(--color-primary);
-  --color-brand-hover: color-mix(in oklab, var(--color-primary) 90%, black);
-  --color-brand-disabled: color-mix(in oklab, var(--color-primary) 50%, transparent);
-  --color-accent-soft: color-mix(in oklab, var(--color-primary) 8%, transparent);
-  --color-focus-ring: var(--color-primary);
-  --color-status-running: var(--color-success);
-  --color-status-warning: var(--color-warning);
-  --color-status-error: var(--color-error);
-  --color-state-info-bg: color-mix(in oklab, var(--color-info) 10%, transparent);
-  --color-state-info-border: color-mix(in oklab, var(--color-info) 30%, transparent);
-  --color-state-info-fg: var(--color-info);
-  --color-state-success-bg: color-mix(in oklab, var(--color-success) 10%, transparent);
-  --color-state-success-border: color-mix(in oklab, var(--color-success) 30%, transparent);
-  --color-state-success-fg: var(--color-success);
-  --color-state-warning-bg: color-mix(in oklab, var(--color-warning) 10%, transparent);
-  --color-state-warning-border: color-mix(in oklab, var(--color-warning) 30%, transparent);
-  --color-state-warning-fg: var(--color-warning);
-  --color-state-danger-bg: color-mix(in oklab, var(--color-error) 10%, transparent);
-  --color-state-danger-border: color-mix(in oklab, var(--color-error) 30%, transparent);
-  --color-state-danger-fg: var(--color-error);
+  --color-muted: color-mix(in oklab, var(--w-ink) 72%, transparent);
+  --color-subtle: color-mix(in oklab, var(--w-ink) 55%, transparent);
+  --color-faint: color-mix(in oklab, var(--w-ink) 40%, transparent);
+  --color-ui-border-strong: var(--w-border-control);
+  --color-text-primary: var(--w-ink);
+  --color-text-heading: var(--w-ink);
+  --color-text-muted: color-mix(in oklab, var(--w-ink) 70%, transparent);
+  --color-text-tertiary: color-mix(in oklab, var(--w-ink) 60%, transparent);
+  --color-text-placeholder: color-mix(in oklab, var(--w-ink) 40%, transparent);
+  --color-text-inverse: var(--w-on-ink);
+  --color-text-link: var(--w-ink);
+  --color-brand: var(--w-ink);
+  --color-brand-hover: color-mix(in oklab, var(--w-ink) 90%, black);
+  --color-brand-disabled: color-mix(in oklab, var(--w-ink) 50%, transparent);
+  --color-accent-soft: color-mix(in oklab, var(--w-ink) 8%, transparent);
+  --color-focus-ring: var(--w-ink);
+  --color-status-running: var(--w-success);
+  --color-status-warning: var(--w-warning);
+  --color-status-error: var(--w-danger);
+  --color-state-info-bg: color-mix(in oklab, var(--w-live) 10%, transparent);
+  --color-state-info-border: color-mix(in oklab, var(--w-live) 30%, transparent);
+  --color-state-info-fg: var(--w-live);
+  --color-state-success-bg: color-mix(in oklab, var(--w-success) 10%, transparent);
+  --color-state-success-border: color-mix(in oklab, var(--w-success) 30%, transparent);
+  --color-state-success-fg: var(--w-success);
+  --color-state-warning-bg: color-mix(in oklab, var(--w-warning) 10%, transparent);
+  --color-state-warning-border: color-mix(in oklab, var(--w-warning) 30%, transparent);
+  --color-state-warning-fg: var(--w-warning);
+  --color-state-danger-bg: color-mix(in oklab, var(--w-danger) 10%, transparent);
+  --color-state-danger-border: color-mix(in oklab, var(--w-danger) 30%, transparent);
+  --color-state-danger-fg: var(--w-danger);
   --color-state-neutral-bg: color-mix(in oklab, var(--color-neutral) 10%, transparent);
   --color-state-neutral-border: color-mix(in oklab, var(--color-neutral) 30%, transparent);
   --color-state-neutral-fg: var(--color-neutral);
@@ -109,49 +108,23 @@
   --tracking-label: 0.04em;
 }
 
-/* Three surfaces, not two. The light theme keeps the harness, product canvas,
- * and raised content visually distinct without using high-contrast borders.
- *
- *   base-200   the HARNESS — the chat column, the tab strip, the chrome
- *   canvas     the PRODUCT's page, a shade lighter, so it reads as the thing
- *              being built rather than as more of the frame around it
- *   base-100   what stands on the page: a card, white, with a light border and
- *              a shadow to lift it off
- *
- * After the plugin's own block on purpose — same specificity, later wins. */
-[data-theme="light"] {
-  --theme-base-100: oklch(100% 0 0);
-  --theme-base-200: oklch(96.8% 0.001 240);
-  --theme-base-300: oklch(92.5% 0.003 240);
-  --theme-base-content: oklch(21% 0.006 285.885);
-  --theme-primary: #1f2328;
-  --theme-primary-content: #ffffff;
-  --theme-info: #57606a;
-  --theme-success: #1a7f37;
-  --theme-danger: #cf222e;
-  --color-canvas: oklch(98.8% 0.001 240);
-  --ui-border: oklch(88.5% 0.004 240);
-  --ui-border-strong: oklch(88.5% 0.004 240);
-  --ui-input-border: oklch(72% 0.008 240);
-  /* GitHub-inspired restrained palette: neutral ink plus green/red states. */
-}
-
-[data-theme="dark"] {
-  --theme-base-100: oklch(25.33% 0.016 252.42);
-  --theme-base-200: oklch(23.26% 0.014 253.1);
-  --theme-base-300: oklch(31% 0.014 252);
-  --theme-base-content: oklch(97.807% 0.029 256.847);
-  --theme-primary: #f0f6fc;
-  --theme-primary-content: #0d1117;
-  --theme-info: #8c959f;
-  --theme-success: #3fb950;
-  --theme-danger: #f85149;
-  /* Dense chat surfaces use their own restrained border ramp: nested cards,
-   * popups and controls should separate without becoming a white wireframe. */
-  --color-canvas: color-mix(in oklab, var(--color-base-100) 72%, black);
-  --ui-border: oklch(38% 0.015 252);
-  --ui-border-strong: oklch(46% 0.018 252);
-  --ui-input-border: oklch(50% 0.018 252);
+/* Legacy utility names are an adapter, not a second palette. The project-owned
+ * w token layer is the single colour source for chat, chrome and older pages. */
+:where(:root, [data-w-theme]) {
+  --theme-base-100: var(--w-surface-document);
+  --theme-base-200: var(--w-surface-chat);
+  --theme-base-300: var(--w-hover);
+  --theme-base-content: var(--w-ink);
+  --theme-primary: var(--w-ink);
+  --theme-primary-content: var(--w-on-ink);
+  --theme-info: var(--w-live);
+  --theme-success: var(--w-success);
+  --theme-warning: var(--w-warning);
+  --theme-danger: var(--w-danger);
+  --color-canvas: var(--w-surface-document);
+  --ui-border: var(--w-border);
+  --ui-border-strong: var(--w-border-control);
+  --ui-input-border: var(--w-border-control);
 }
 
 body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
@@ -205,15 +178,9 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
   background-color: color-mix(in oklab, var(--theme-base-300) 70%, transparent);
 }
 [data-theme="dark"] .prose pre:not(.shiki) { color: var(--theme-base-content) !important; }
-[data-theme="light"] .shiki,
-[data-theme="light"] .shiki span {
-  color: var(--shiki-light) !important;
-  background-color: var(--shiki-light-bg) !important;
-}
-[data-theme="dark"] .shiki,
-[data-theme="dark"] .shiki span {
-  color: var(--shiki-dark) !important;
-  background-color: var(--shiki-dark-bg) !important;
+.shiki, .shiki span {
+  color: light-dark(var(--shiki-light), var(--shiki-dark)) !important;
+  background-color: light-dark(var(--shiki-light-bg), var(--shiki-dark-bg)) !important;
 }
 
 /* Inputs are intentionally stronger than structural dividers so white controls
@@ -222,18 +189,18 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
   border-color: var(--ui-input-border);
 }
 .input:focus, .textarea:focus, .select:focus, input:focus, textarea:focus, select:focus {
-  border-color: var(--color-primary);
+  border-color: var(--w-ink);
 }
 /* the chat's compose box: one focus ring around textarea + control row */
 .ui-compose-box {
-  background: var(--color-base-100);
-  border: 1px solid var(--color-base-300);
+  background: var(--w-surface-document);
+  border: 1px solid var(--w-hover);
   border-radius: 8px;
   transition: border-color 0.22s, box-shadow 0.22s;
 }
 .ui-compose-box:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border-color: var(--w-ink);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--w-ink) 10%, transparent);
 }
 /* The composer's send button uses the shared circular primary button pattern. */
  * the arrow's stroke is ours. Its disabled look is the component's, which is the
@@ -251,7 +218,7 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
   max-height: calc(100dvh - 4rem); overflow-y: auto; overflow-x: hidden;
   box-sizing: border-box;
   border: 1px solid var(--ui-border); border-radius: 0.5rem;
-  background: var(--color-base-100); color: var(--theme-base-content);
+  background: var(--w-surface-document); color: var(--theme-base-content);
   padding: 0.75rem; box-shadow: 0 12px 36px rgb(0 0 0 / 0.24);
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 }
@@ -291,8 +258,8 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
 .tool-output-full[open] + .tool-output-preview { display: none; }
-.tool-actions-anchor:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-.tool-icon-running { border-color: color-mix(in oklab, var(--color-base-content) 70%, transparent); color: var(--color-base-content); animation: tool-icon-pulse 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) infinite; }
+.tool-actions-anchor:focus-visible { outline: 2px solid var(--w-ink); outline-offset: 2px; }
+.tool-icon-running { border-color: color-mix(in oklab, var(--w-ink) 70%, transparent); color: var(--w-ink); animation: tool-icon-pulse 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) infinite; }
 @keyframes tool-icon-pulse {
   0% { box-shadow: 0 0 0 0 rgba(28, 25, 23, 0.28); }
   70% { box-shadow: 0 0 0 5px rgba(28, 25, 23, 0); }
@@ -302,9 +269,9 @@ details > summary::-webkit-details-marker { display: none; }
 .ui-panel-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 0 16px; height: 52px; flex-shrink: 0;
-  background: var(--color-base-200); border-bottom: 1px solid var(--color-base-300);
+  background: var(--w-surface-chat); border-bottom: 1px solid var(--w-hover);
 }
-.ui-pane-header { flex-shrink: 0; border-bottom: 1px solid var(--color-base-300); background: var(--color-base-200); display: flex; align-items: center; min-height: 52px; }
+.ui-pane-header { flex-shrink: 0; border-bottom: 1px solid var(--w-hover); background: var(--w-surface-chat); display: flex; align-items: center; min-height: 52px; }
 
 /* the plugin tab strip (src/ui/tabs.ts) */
 .ui-tabbar { display: flex; align-items: stretch; align-self: stretch; gap: 1px; height: 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -312,30 +279,30 @@ details > summary::-webkit-details-marker { display: none; }
 .ui-tab {
   display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0;
   height: 100%; padding: 0; position: relative;
-  font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--w-ink) 60%, transparent);
   white-space: nowrap; transition: color 0.15s;
 }
 /* One hover for the whole tab, × included: the close is part of the tab, not a
  * button parked beside it. It keeps a stronger hover of its own on top, which is
  * what says the two are different targets. */
-.ui-tab:hover, .ui-tab.is-active { color: var(--color-base-content); }
-.ui-tab:hover { background: var(--color-base-300); }
+.ui-tab:hover, .ui-tab.is-active { color: var(--w-ink); }
+.ui-tab:hover { background: var(--w-hover); }
 .ui-tab--closable { padding-right: 6px; }
 .ui-tab--closable .ui-tab__link { padding-right: 3px; }
 .ui-tab.is-active::after {
   content: ""; position: absolute; left: 6px; right: 6px; bottom: -1px;
-  height: 2px; background: var(--color-base-content); border-radius: 1px;
+  height: 2px; background: var(--w-ink); border-radius: 1px;
 }
 /* the patient the open app is about, under the strip */
 .ui-scope {
   display: flex; align-items: center; gap: 8px; flex-shrink: 0;
   height: 40px; padding: 0 16px; font-size: 13px;
-  background: var(--color-base-100); border-bottom: 1px solid var(--color-base-300);
+  background: var(--w-surface-document); border-bottom: 1px solid var(--w-hover);
 }
 .ui-scope__avatar {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 9999px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary);
+  background: color-mix(in oklab, var(--w-ink) 10%, transparent); color: var(--w-ink);
   font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
 }
 .ui-tab__link { display: inline-flex; align-items: center; gap: 6px; height: 100%; padding: 0 9px; }
@@ -344,15 +311,15 @@ details > summary::-webkit-details-marker { display: none; }
 .ui-tab__close {
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; margin-left: 2px; border: 0; border-radius: 4px;
-  background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 11px; cursor: pointer;
+  background: transparent; color: color-mix(in oklab, var(--w-ink) 60%, transparent); font-size: 11px; cursor: pointer;
 }
-.ui-tab__close:hover { background: color-mix(in oklab, var(--color-base-content) 18%, transparent); color: var(--color-base-content); }
-.ui-tab__icon { font-size: 16px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); flex-shrink: 0; }
-.ui-tab:hover .ui-tab__icon, .ui-tab.is-active .ui-tab__icon { color: var(--color-base-content); }
+.ui-tab__close:hover { background: color-mix(in oklab, var(--w-ink) 18%, transparent); color: var(--w-ink); }
+.ui-tab__icon { font-size: 16px; color: color-mix(in oklab, var(--w-ink) 60%, transparent); flex-shrink: 0; }
+.ui-tab:hover .ui-tab__icon, .ui-tab.is-active .ui-tab__icon { color: var(--w-ink); }
 .ui-tab__label { display: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
 .ui-tab.is-active .ui-tab__label, .ui-tab--named .ui-tab__label { display: inline; }
 /* Apps, then the hosts it runs in: a rule instead of a caption. */
-.ui-tab-sep { align-self: center; width: 1px; height: 18px; margin: 0 6px; background: var(--color-base-300); flex: 0 0 auto; }
+.ui-tab-sep { align-self: center; width: 1px; height: 18px; margin: 0 6px; background: var(--w-hover); flex: 0 0 auto; }
 
 /* the workspace pointing at things in the page (src/page/client.js) */
 #page-pointer, #page-ring, #page-caption {
@@ -361,13 +328,13 @@ details > summary::-webkit-details-marker { display: none; }
 }
 #page-pointer { filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
 #page-ring {
-  border: 2px solid var(--color-primary); border-radius: 6px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border: 2px solid var(--w-ink); border-radius: 6px;
+  background: color-mix(in oklab, var(--w-ink) 10%, transparent);
   transition: opacity .25s ease, left .5s cubic-bezier(.22,.61,.36,1), top .5s cubic-bezier(.22,.61,.36,1), width .5s, height .5s;
 }
 #page-caption {
   max-width: 22rem; padding: 8px 12px; border-radius: 8px;
-  background: var(--color-base-content); color: #fff;
+  background: var(--w-ink); color: #fff;
   font-size: 13px; line-height: 1.35; box-shadow: 0 6px 20px -8px rgba(0,0,0,.5);
 }
 
@@ -382,8 +349,8 @@ details > summary::-webkit-details-marker { display: none; }
 #page-dim[data-scope="app"] { clip-path: inset(var(--app-top, 3rem) 0 0 var(--chat-w, 24rem)); }
 #page-spot {
   position: fixed; pointer-events: none; border-radius: 10px;
-  outline: 2px solid var(--color-primary);
-  box-shadow: 0 0 0 9999px color-mix(in oklab, var(--color-base-content) 45%, transparent);
+  outline: 2px solid var(--w-ink);
+  box-shadow: 0 0 0 9999px color-mix(in oklab, var(--w-ink) 45%, transparent);
   transition: opacity .3s ease, left .4s cubic-bezier(.22,.61,.36,1), top .4s cubic-bezier(.22,.61,.36,1), width .4s, height .4s;
 }
 /* A step that names no control is about the page: its heading is outlined and
@@ -392,94 +359,94 @@ details > summary::-webkit-details-marker { display: none; }
 #page-tour {
   position: fixed; z-index: 950; right: 1.25rem; bottom: 1.25rem; width: 22rem; max-width: calc(100vw - 2.5rem);
   display: none; flex-direction: column; gap: .5rem; padding: 1rem;
-  border: 1px solid var(--color-base-300); border-radius: .75rem;
-  background: var(--color-base-100); color: var(--color-base-content);
+  border: 1px solid var(--w-hover); border-radius: .75rem;
+  background: var(--w-surface-document); color: var(--w-ink);
   box-shadow: 0 18px 40px -12px rgba(0,0,0,.45);
 }
 #page-tour[data-open] { display: flex; }
 .page-tour__head { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-  font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
+  font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in oklab, var(--w-ink) 55%, transparent); }
 .page-tour__head button { cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
-.page-tour__head button:hover { background: var(--color-base-200); }
+.page-tour__head button:hover { background: var(--w-surface-chat); }
 .page-tour__text { font-size: 14px; line-height: 1.45; }
-.page-tour__where { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+.page-tour__where { font-size: 12px; color: color-mix(in oklab, var(--w-ink) 60%, transparent); }
 .page-tour__foot { display: flex; align-items: center; gap: .5rem; }
 .page-tour__go { flex: 1; cursor: pointer; padding: .4rem .75rem; border-radius: .5rem; font-size: 13px; font-weight: 500;
-  background: var(--color-primary); color: var(--color-primary-content); }
+  background: var(--w-ink); color: var(--w-on-ink); }
 .page-tour__go:disabled { opacity: .6; cursor: default; }
 .page-tour__ghost { cursor: pointer; padding: .4rem .6rem; border-radius: .5rem; font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
-.page-tour__ghost:hover:not(:disabled) { background: var(--color-base-200); }
+  color: color-mix(in oklab, var(--w-ink) 65%, transparent); }
+.page-tour__ghost:hover:not(:disabled) { background: var(--w-surface-chat); }
 .page-tour__ghost:disabled { opacity: .35; cursor: default; }
 .page-tour__end { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .page-tour__dots { display: inline-flex; gap: 4px; }
-.page-tour__dots i { width: 6px; height: 6px; border-radius: 999px; background: var(--color-base-300); }
-.page-tour__dots i[data-status="done"] { background: color-mix(in oklab, var(--color-primary) 45%, transparent); }
-.page-tour__dots i[data-status="now"] { background: var(--color-primary); width: 16px; }
+.page-tour__dots i { width: 6px; height: 6px; border-radius: 999px; background: var(--w-hover); }
+.page-tour__dots i[data-status="done"] { background: color-mix(in oklab, var(--w-ink) 45%, transparent); }
+.page-tour__dots i[data-status="now"] { background: var(--w-ink); width: 16px; }
 /* The guided countdown, across the foot of the panel: what a step's remaining
  * time looks like. It is empty (and so invisible) in the manual mode, where
  * nothing moves on its own — the width is animated from the player. */
 .page-tour__timer { margin: .75rem -1rem -1rem; height: 3px; border-radius: 0 0 var(--radius-box, 1rem) var(--radius-box, 1rem); overflow: hidden; }
-.page-tour__timer i { display: block; width: 0; height: 100%; background: var(--color-primary); }
+.page-tour__timer i { display: block; width: 0; height: 100%; background: var(--w-ink); }
 
 /* rendered agent markdown */
 /* Code in a transcript is drawn as a WHITE bordered chip rather than a grey fill.
  * The chat column is grey — it is harness, not product — and a grey-on-grey chip
  * is an invisible chip; on the white of a rendered file it would be invisible the
  * other way round. A border is what makes one rule right on both surfaces. */
-.md-preview .md-frontmatter { margin: 0 0 1.25rem; overflow: hidden; border: 1px solid var(--color-base-300); border-radius: 0.5rem; background: var(--color-base-100); }
+.md-preview .md-frontmatter { margin: 0 0 1.25rem; overflow: hidden; border: 1px solid var(--w-hover); border-radius: 0.5rem; background: var(--w-surface-document); }
 .md-preview .md-frontmatter table { width: 100%; margin: 0; border-collapse: collapse; }
-.md-preview .md-frontmatter th, .md-preview .md-frontmatter td { border: 0; border-top: 1px solid var(--color-base-200); padding: 0.5rem 0.75rem; vertical-align: top; text-align: left; font-size: 0.75rem; line-height: 1.45; }
+.md-preview .md-frontmatter th, .md-preview .md-frontmatter td { border: 0; border-top: 1px solid var(--w-surface-chat); padding: 0.5rem 0.75rem; vertical-align: top; text-align: left; font-size: 0.75rem; line-height: 1.45; }
 .md-preview .md-frontmatter tr:first-child th, .md-preview .md-frontmatter tr:first-child td { border-top: 0; }
-.md-preview .md-frontmatter th { width: 9rem; background: var(--color-base-200); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-family: ui-monospace, monospace; font-weight: 600; }
-.md-preview .md-frontmatter td { white-space: pre-wrap; color: var(--color-base-content); }
+.md-preview .md-frontmatter th { width: 9rem; background: var(--w-surface-chat); color: color-mix(in oklab, var(--w-ink) 60%, transparent); font-family: ui-monospace, monospace; font-weight: 600; }
+.md-preview .md-frontmatter td { white-space: pre-wrap; color: var(--w-ink); }
 
-.md-preview pre { padding: 0.5rem 0.75rem; border-radius: 0.375rem; overflow-x: auto; margin: 1rem 0; background: var(--color-base-100); border: 1px solid var(--color-base-300); color: var(--color-base-content); }
+.md-preview pre { padding: 0.5rem 0.75rem; border-radius: 0.375rem; overflow-x: auto; margin: 1rem 0; background: var(--w-surface-document); border: 1px solid var(--w-hover); color: var(--w-ink); }
 .md-preview div + pre { margin-top: 0; }
 .md-preview pre code { font-size: 0.8125rem; background: transparent; padding: 0; }
-.md-preview :not(pre) > code { font-size: 0.8125rem; font-weight: 500; background: var(--color-base-100); border: 1px solid var(--color-base-300); padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; color: var(--color-base-content); }
+.md-preview :not(pre) > code { font-size: 0.8125rem; font-weight: 500; background: var(--w-surface-document); border: 1px solid var(--w-hover); padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; color: var(--w-ink); }
 .md-preview code::before, .md-preview code::after { content: none; }
-.md-preview blockquote { border-left: 4px solid color-mix(in oklab, var(--color-primary) 30%, transparent); background: color-mix(in oklab, var(--color-primary) 5%, transparent); border-radius: 0 0.25rem 0.25rem 0; padding: 0.5rem 1rem; font-style: normal; }
-.md-preview h1 { padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-base-300); }
-.md-preview a { color: var(--color-primary); text-decoration: none; }
+.md-preview blockquote { border-left: 4px solid color-mix(in oklab, var(--w-ink) 30%, transparent); background: color-mix(in oklab, var(--w-ink) 5%, transparent); border-radius: 0 0.25rem 0.25rem 0; padding: 0.5rem 1rem; font-style: normal; }
+.md-preview h1 { padding-bottom: 0.5rem; border-bottom: 1px solid var(--w-hover); }
+.md-preview a { color: var(--w-ink); text-decoration: none; }
 .md-preview a:hover { text-decoration: underline; }
 .md-preview img { border-radius: 0.25rem; }
 .md-preview table { border-collapse: collapse; }
-.md-preview th { background: var(--color-base-300); }
-.md-preview td, .md-preview th { border: 1px solid var(--color-base-300); padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
+.md-preview th { background: var(--w-hover); }
+.md-preview td, .md-preview th { border: 1px solid var(--w-hover); padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
 
 /* server-highlighted code blocks (ui.code, Shiki github-light) */
-.ui-code pre { margin: 0; padding: 0.75rem 1rem; background: var(--color-base-200) !important; }
+.ui-code pre { margin: 0; padding: 0.75rem 1rem; background: var(--w-surface-chat) !important; }
 .ui-code code { font-size: 0.6875rem; line-height: 1.5; }
 
 /* focus & hover the components share — inputs ring, actions outline */
 .ui-input { transition: border-color .15s, box-shadow .15s; }
-.ui-input:focus, .ui-input:focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); outline: none; }
-.ui-focusable:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; border-radius: 4px; }
+.ui-input:focus, .ui-input:focus-visible { border-color: var(--w-ink); box-shadow: 0 0 0 3px color-mix(in oklab, var(--w-ink) 10%, transparent); outline: none; }
+.ui-focusable:focus-visible { outline: 2px solid var(--w-ink); outline-offset: 1px; border-radius: 4px; }
 .ui-input-group { transition: border-color .15s, box-shadow .15s; }
-.ui-input-group:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.ui-input-group:focus-within { border-color: var(--w-ink); box-shadow: 0 0 0 3px color-mix(in oklab, var(--w-ink) 10%, transparent); }
 .ui-radio-card { transition: border-color .15s, background .15s, box-shadow .15s; }
-.ui-radio-card:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); border-color: var(--color-primary); }
+.ui-radio-card:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in oklab, var(--w-ink) 10%, transparent); border-color: var(--w-ink); }
 .ui-radio-card:has(input:checked) {
-  border-color: var(--color-primary);
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
+  border-color: var(--w-ink);
+  background: color-mix(in oklab, var(--w-ink) 10%, transparent);
+  color: var(--w-ink);
   font-weight: 500;
-  box-shadow: 0 0 0 1px var(--color-primary);
+  box-shadow: 0 0 0 1px var(--w-ink);
 }
 
 
 /* modal dialog (ui.dialog) — HTML popover, dimmed backdrop */
-.ui-dialog { margin: auto; padding: 0; width: min(32rem, calc(100vw - 2rem)); border: 1px solid var(--color-base-300); border-radius: 10px; background: var(--color-base-100); box-shadow: 0 14px 24px -14px rgba(28,25,23,.16); }
+.ui-dialog { margin: auto; padding: 0; width: min(32rem, calc(100vw - 2rem)); border: 1px solid var(--w-hover); border-radius: 10px; background: var(--w-surface-document); box-shadow: 0 14px 24px -14px rgba(28,25,23,.16); }
 .ui-dialog::backdrop { background: rgba(0,0,0,.3); }
 .ui-dialog--lg { width: min(40rem, calc(100vw - 2rem)); }
 .ui-dialog__head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; border-bottom:1px solid var(--ui-border); padding:.85rem 1.25rem; }
 .ui-dialog__body { padding:1.25rem; }
-.ui-dialog__foot { display:flex; justify-content:flex-end; gap:.5rem; border-top:1px solid var(--ui-border); background:var(--color-base-200); padding:.75rem 1.25rem; }
+.ui-dialog__foot { display:flex; justify-content:flex-end; gap:.5rem; border-top:1px solid var(--ui-border); background:var(--w-surface-chat); padding:.75rem 1.25rem; }
 /* procs.ui.tabs — underline tabs in a list header. */
 .ui-tabs { display:flex; align-items:center; gap:1.25rem; }
-.ui-tabs__item { display:inline-flex; align-items:center; gap:.4rem; color:var(--color-subtle); }
-.ui-tabs__item:hover, .ui-tabs__item[aria-current="page"] { color:var(--color-base-content); }
+.ui-tabs__item { display:inline-flex; align-items:center; gap:.4rem; color:color-mix(in oklab, var(--w-ink) 55%, transparent); }
+.ui-tabs__item:hover, .ui-tabs__item[aria-current="page"] { color:var(--w-ink); }
 .ui-tabs__item[aria-current="page"] { font-weight:600; }
 
 /* the map of everything (workspace/src/ui/map.ts) — a sheet over the APP, with
@@ -501,14 +468,14 @@ details > summary::-webkit-details-marker { display: none; }
  * that UA rule and leave the sheet on screen for good: the layout goes on
  * `:popover-open` for that reason. */
 :root { --app-top: 3rem; }
-.ui-sheet { position: fixed; top: calc(var(--app-top) + 1rem); right: 1rem; bottom: 1rem; left: calc(var(--chat-w, 24rem) + 1rem); width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; flex-direction: column; border: 1px solid var(--color-base-300); border-radius: 14px; background: var(--color-base-100); box-shadow: 0 24px 60px -20px rgba(28,25,23,.35); }
+.ui-sheet { position: fixed; top: calc(var(--app-top) + 1rem); right: 1rem; bottom: 1rem; left: calc(var(--chat-w, 24rem) + 1rem); width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; flex-direction: column; border: 1px solid var(--w-hover); border-radius: 14px; background: var(--w-surface-document); box-shadow: 0 24px 60px -20px rgba(28,25,23,.35); }
 .ui-sheet:popover-open { display: flex; }
 .ui-sheet::backdrop { background: rgba(0,0,0,.4); clip-path: inset(var(--app-top, 3rem) 0 0 var(--chat-w, 24rem)); }
 @media (max-width: 640px) { .ui-sheet { inset: 0.5rem; } .ui-sheet::backdrop { clip-path: none; } }
 
 /* tooltip (ui.tooltip) — CSS bubble on hover/focus */
 .ui-tooltip { position: relative; display: inline-flex; }
-.ui-tooltip__bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 6px; white-space: nowrap; padding: 4px 8px; border-radius: 6px; background: var(--color-base-content); color: #fff; font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 60; }
+.ui-tooltip__bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 6px; white-space: nowrap; padding: 4px 8px; border-radius: 6px; background: var(--w-ink); color: #fff; font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 60; }
 .ui-tooltip:hover .ui-tooltip__bubble, .ui-tooltip:focus-visible .ui-tooltip__bubble, .ui-tooltip:focus-within .ui-tooltip__bubble { opacity: 1; }
 
 /* skeleton shimmer (ui.skeleton) */
@@ -534,36 +501,34 @@ summary::-webkit-details-marker { display: none; }
 /* Project-owned action component. Feature code renders it through procs.ui.button. */
 .ui-button { display:inline-flex; min-height:2.25rem; align-items:center; justify-content:center; gap:.4rem; border:1px solid var(--ui-input-border); border-radius:.5rem; background:var(--theme-base-100); padding:.45rem .8rem; color:var(--theme-base-content); font-size:.8125rem; font-weight:600; line-height:1; cursor:pointer; transition:background-color .15s,border-color .15s,opacity .15s; }
 .ui-button:hover { background:var(--theme-base-200); }
-[data-theme="light"] .ui-button--default { border-color:var(--ui-input-border) !important; background:#fff !important; color:#1f2328 !important; }
-[data-theme="dark"] .ui-button--default { border-color:var(--ui-input-border) !important; background:#20242b !important; color:#f0f6fc !important; }
+.ui-button--default { border-color:var(--ui-input-border) !important; background:var(--w-surface-document) !important; color:var(--w-ink) !important; }
 .ui-button--default:hover { background:var(--theme-base-200) !important; }
 .ui-button:disabled,.ui-button[aria-disabled="true"] { cursor:not-allowed; opacity:.45; }
-[data-theme="light"] .ui-button--primary { border-color:#1f2328 !important; background:#1f2328 !important; color:#fff !important; }
-[data-theme="dark"] .ui-button--primary { border-color:#8c959f !important; background:#1f2328 !important; color:#f0f6fc !important; }
+.ui-button--primary { border-color:var(--w-ink) !important; background:var(--w-ink) !important; color:var(--w-on-ink) !important; }
 .ui-button--primary:hover { opacity:.88; }
 .ui-button--ghost { border-color:transparent !important; background:transparent !important; color:var(--theme-base-content) !important; }
-.ui-button--danger { border-color:color-mix(in oklab,var(--color-error) 55%,var(--ui-border)) !important; background:color-mix(in oklab,var(--color-error) 12%,var(--theme-base-100)) !important; color:color-mix(in oklab,var(--color-error) 78%,var(--theme-base-content)) !important; }
-.ui-button--danger:hover { background:color-mix(in oklab,var(--color-error) 20%,var(--theme-base-100)) !important; }
-.ui-button--success { border-color:var(--color-success) !important; background:var(--color-success) !important; color:var(--color-success-content,#fff) !important; }
-.ui-button--warning { border-color:color-mix(in oklab,var(--color-warning) 55%,var(--ui-border)) !important; background:color-mix(in oklab,var(--color-warning) 14%,var(--theme-base-100)) !important; color:color-mix(in oklab,var(--color-warning) 65%,var(--theme-base-content)) !important; }
-.ui-button--warning:hover { background:color-mix(in oklab,var(--color-warning) 23%,var(--theme-base-100)) !important; }
+.ui-button--danger { border-color:color-mix(in oklab,var(--w-danger) 55%,var(--ui-border)) !important; background:color-mix(in oklab,var(--w-danger) 12%,var(--theme-base-100)) !important; color:color-mix(in oklab,var(--w-danger) 78%,var(--theme-base-content)) !important; }
+.ui-button--danger:hover { background:color-mix(in oklab,var(--w-danger) 20%,var(--theme-base-100)) !important; }
+.ui-button--success { border-color:var(--w-success) !important; background:var(--w-success) !important; color:var(--color-success-content,#fff) !important; }
+.ui-button--warning { border-color:color-mix(in oklab,var(--w-warning) 55%,var(--ui-border)) !important; background:color-mix(in oklab,var(--w-warning) 14%,var(--theme-base-100)) !important; color:color-mix(in oklab,var(--w-warning) 65%,var(--theme-base-content)) !important; }
+.ui-button--warning:hover { background:color-mix(in oklab,var(--w-warning) 23%,var(--theme-base-100)) !important; }
 .ui-button--neutral { border-color:var(--color-neutral) !important; background:var(--color-neutral) !important; color:var(--color-neutral-content,#fff) !important; }
 .ui-button--xs { min-height:1.65rem; padding:.25rem .45rem; font-size:.6875rem; }
 .ui-button--sm { min-height:2rem; padding:.35rem .65rem; font-size:.75rem; }
 .ui-button--md { min-height:2.25rem; }
 .ui-button--lg { min-height:2.75rem; padding:.6rem 1rem; font-size:.875rem; }
 .ui-button--active { box-shadow:inset 0 0 0 1px currentColor; }
-.badge { display:inline-flex; min-height:1.25rem; align-items:center; justify-content:center; gap:.25rem; border:1px solid var(--ui-border); border-radius:9999px; background:var(--color-base-200); padding:.1rem .45rem; color:color-mix(in oklab,var(--color-base-content) 70%,transparent); font-size:.6875rem; line-height:1; }
+.badge { display:inline-flex; min-height:1.25rem; align-items:center; justify-content:center; gap:.25rem; border:1px solid var(--ui-border); border-radius:9999px; background:var(--w-surface-chat); padding:.1rem .45rem; color:color-mix(in oklab,var(--w-ink) 70%,transparent); font-size:.6875rem; line-height:1; }
 .badge-sm { min-height:1.125rem; padding:.08rem .38rem; font-size:.625rem; }
-.badge-soft { background:var(--color-base-200); }
+.badge-soft { background:var(--w-surface-chat); }
 /* Semantic tones for procs.ui.badge / tags / notice — one state palette. */
-.badge-info { border-color:var(--color-state-info-border); background:var(--color-state-info-bg); color:var(--color-state-info-fg); }
-.badge-success { border-color:var(--color-state-success-border); background:var(--color-state-success-bg); color:var(--color-state-success-fg); }
-.badge-warning { border-color:var(--color-state-warning-border); background:var(--color-state-warning-bg); color:var(--color-state-warning-fg); }
-.badge-error { border-color:var(--color-state-danger-border); background:var(--color-state-danger-bg); color:var(--color-state-danger-fg); }
-.badge-neutral { border-color:var(--ui-border); background:var(--color-base-200); color:var(--color-muted); }
-.input,.textarea,.select { width:100%; border:1px solid var(--ui-input-border); border-radius:.45rem; background:var(--color-base-100); color:var(--color-base-content); padding:.5rem .65rem; outline:none; }
-.input:focus,.textarea:focus,.select:focus { border-color:var(--color-primary); box-shadow:0 0 0 2px color-mix(in oklab,var(--color-primary) 12%,transparent); }
+.badge-info { border-color:color-mix(in oklab, var(--w-live) 30%, transparent); background:color-mix(in oklab, var(--w-live) 10%, transparent); color:var(--w-live); }
+.badge-success { border-color:color-mix(in oklab, var(--w-success) 30%, transparent); background:color-mix(in oklab, var(--w-success) 10%, transparent); color:var(--w-success); }
+.badge-warning { border-color:color-mix(in oklab, var(--w-warning) 30%, transparent); background:color-mix(in oklab, var(--w-warning) 10%, transparent); color:var(--w-warning); }
+.badge-error { border-color:color-mix(in oklab, var(--w-danger) 30%, transparent); background:color-mix(in oklab, var(--w-danger) 10%, transparent); color:var(--w-danger); }
+.badge-neutral { border-color:var(--ui-border); background:var(--w-surface-chat); color:color-mix(in oklab, var(--w-ink) 72%, transparent); }
+.input,.textarea,.select { width:100%; border:1px solid var(--ui-input-border); border-radius:.45rem; background:var(--w-surface-document); color:var(--w-ink); padding:.5rem .65rem; outline:none; }
+.input:focus,.textarea:focus,.select:focus { border-color:var(--w-ink); box-shadow:0 0 0 2px color-mix(in oklab,var(--w-ink) 12%,transparent); }
 .input-bordered,.textarea-bordered,.select-bordered { border-color:var(--ui-input-border); }
 .input-group { display:flex; align-items:stretch; }
 .input-group > * + * { margin-left:-1px; }
@@ -571,33 +536,33 @@ summary::-webkit-details-marker { display: none; }
 .input-sm,.textarea-sm,.select-sm { min-height:2rem; padding:.35rem .55rem; font-size:.75rem; }
 .textarea { min-height:5rem; }
 .select { appearance:auto; }
-.progress { display:block; width:100%; height:.375rem; overflow:hidden; border:0; border-radius:9999px; background:var(--color-base-300); color:var(--color-base-content); }
-.progress::-webkit-progress-bar { background:var(--color-base-300); }
+.progress { display:block; width:100%; height:.375rem; overflow:hidden; border:0; border-radius:9999px; background:var(--w-hover); color:var(--w-ink); }
+.progress::-webkit-progress-bar { background:var(--w-hover); }
 .progress::-webkit-progress-value { background:currentColor; }
 .progress::-moz-progress-bar { background:currentColor; }
-.toggle { appearance:none; width:2.25rem; height:1.25rem; border:1px solid var(--ui-input-border); border-radius:9999px; background:var(--color-base-300); cursor:pointer; transition:.15s; }
-.toggle::after { content:""; display:block; width:.875rem; height:.875rem; margin:.125rem; border-radius:9999px; background:var(--color-base-100); transition:transform .15s; }
+.toggle { appearance:none; width:2.25rem; height:1.25rem; border:1px solid var(--ui-input-border); border-radius:9999px; background:var(--w-hover); cursor:pointer; transition:.15s; }
+.toggle::after { content:""; display:block; width:.875rem; height:.875rem; margin:.125rem; border-radius:9999px; background:var(--w-surface-document); transition:transform .15s; }
 .toggle:checked { background:var(--theme-primary); border-color:var(--theme-primary); }
 .toggle:checked::after { transform:translateX(1rem); }
 .toggle-sm { width:2rem; height:1.125rem; }
-.card { border-radius:.75rem; background:var(--color-base-100); color:var(--color-base-content); }
+.card { border-radius:.75rem; background:var(--w-surface-document); color:var(--w-ink); }
 .card-border { border:1px solid var(--ui-border); }
 .card-body { display:flex; flex-direction:column; gap:.75rem; padding:1rem; }
 .card-title { font-size:.95rem; font-weight:650; }
 .card-actions { display:flex; align-items:center; gap:.5rem; }
-.alert { display:flex; align-items:flex-start; gap:.6rem; border:1px solid var(--ui-border); border-radius:.6rem; background:var(--color-base-200); padding:.75rem; color:var(--color-base-content); }
-.alert-soft { background:color-mix(in oklab,var(--color-base-200) 70%,transparent); }
-.alert-info { border-color:var(--color-state-info-border); background:var(--color-state-info-bg); color:var(--color-state-info-fg); }
-.alert-success { border-color:var(--color-state-success-border); background:var(--color-state-success-bg); color:var(--color-state-success-fg); }
-.alert-warning { border-color:var(--color-state-warning-border); background:var(--color-state-warning-bg); color:var(--color-state-warning-fg); }
-.alert-error { border-color:var(--color-state-danger-border); background:var(--color-state-danger-bg); color:var(--color-state-danger-fg); }
-.table { width:100%; border-collapse:collapse; color:var(--color-base-content); }
+.alert { display:flex; align-items:flex-start; gap:.6rem; border:1px solid var(--ui-border); border-radius:.6rem; background:var(--w-surface-chat); padding:.75rem; color:var(--w-ink); }
+.alert-soft { background:color-mix(in oklab,var(--w-surface-chat) 70%,transparent); }
+.alert-info { border-color:color-mix(in oklab, var(--w-live) 30%, transparent); background:color-mix(in oklab, var(--w-live) 10%, transparent); color:var(--w-live); }
+.alert-success { border-color:color-mix(in oklab, var(--w-success) 30%, transparent); background:color-mix(in oklab, var(--w-success) 10%, transparent); color:var(--w-success); }
+.alert-warning { border-color:color-mix(in oklab, var(--w-warning) 30%, transparent); background:color-mix(in oklab, var(--w-warning) 10%, transparent); color:var(--w-warning); }
+.alert-error { border-color:color-mix(in oklab, var(--w-danger) 30%, transparent); background:color-mix(in oklab, var(--w-danger) 10%, transparent); color:var(--w-danger); }
+.table { width:100%; border-collapse:collapse; color:var(--w-ink); }
 .table th,.table td { border-bottom:1px solid var(--ui-border); padding:.55rem .7rem; text-align:left; }
 .table-sm th,.table-sm td { padding:.35rem .5rem; font-size:.75rem; }
-.table-pin-rows thead { position:sticky; top:0; z-index:1; background:var(--color-base-100); }
-.menu { display:flex; flex-direction:column; padding:.35rem; color:var(--color-base-content); }
+.table-pin-rows thead { position:sticky; top:0; z-index:1; background:var(--w-surface-document); }
+.menu { display:flex; flex-direction:column; padding:.35rem; color:var(--w-ink); }
 .menu li>a,.menu li>button { display:flex; width:100%; align-items:center; gap:.5rem; border-radius:.4rem; padding:.45rem .6rem; }
-.menu li>a:hover,.menu li>button:hover { background:var(--color-base-200); }
+.menu li>a:hover,.menu li>button:hover { background:var(--w-surface-chat); }
 .dropdown { position:relative; }
 .dropdown-content { position:absolute; z-index:50; }
 .join { display:inline-flex; }
@@ -606,27 +571,27 @@ summary::-webkit-details-marker { display: none; }
 .join-item:last-child { border-radius:0 .45rem .45rem 0; }
 .avatar { display:inline-flex; align-items:center; justify-content:center; overflow:hidden; border-radius:9999px; }
 .avatar img { width:100%; height:100%; object-fit:cover; }
-.avatar-placeholder { background:var(--color-base-200); color:var(--color-base-content); }
+.avatar-placeholder { background:var(--w-surface-chat); color:var(--w-ink); }
 .status { display:inline-block; width:.5rem; height:.5rem; border-radius:9999px; background:currentColor; }
 .tooltip { position:relative; }
 .tooltip::after { content:attr(data-tip); position:absolute; bottom:calc(100% + .35rem); left:50%; transform:translateX(-50%); max-width:18rem; border-radius:.35rem; background:var(--theme-base-content); color:var(--theme-base-100); padding:.3rem .45rem; font-size:.6875rem; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .12s; z-index:60; }
 .tooltip:hover::after,.tooltip:focus-visible::after,.tooltip:focus-within::after { opacity:1; }
 .breadcrumbs { overflow-x:auto; }
 .breadcrumbs ul { display:flex; align-items:center; white-space:nowrap; }
-.breadcrumbs li+li::before { content:"/"; margin:0 .45rem; color:color-mix(in oklab,var(--color-base-content) 35%,transparent); }
+.breadcrumbs li+li::before { content:"/"; margin:0 .45rem; color:color-mix(in oklab,var(--w-ink) 35%,transparent); }
 .steps { display:flex; align-items:flex-start; gap:1rem; list-style:none; }
 .steps .step { flex:1; }
 .rounded-box { border-radius:.65rem; }
 /* procs.ui.stat — a label, one number, an optional note. */
 .stat { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
-.stat-title { color:var(--color-subtle); }
+.stat-title { color:color-mix(in oklab, var(--w-ink) 55%, transparent); }
 .stat-value { font-weight:650; line-height:1.2; font-variant-numeric:tabular-nums; }
-.stat-desc { color:var(--color-faint); }
+.stat-desc { color:color-mix(in oklab, var(--w-ink) 40%, transparent); }
 /* Native checkbox, themed: procs.ui.checkboxGroup and forms. */
-.checkbox { appearance:auto; width:1rem; height:1rem; accent-color:var(--color-primary); cursor:pointer; flex-shrink:0; }
+.checkbox { appearance:auto; width:1rem; height:1rem; accent-color:var(--w-ink); cursor:pointer; flex-shrink:0; }
 .checkbox-xs { width:.8rem; height:.8rem; }
 .checkbox-sm { width:.9rem; height:.9rem; }
 /* Keyboard hint. */
-.kbd { display:inline-flex; align-items:center; justify-content:center; min-width:1.25rem; height:1.25rem; padding:0 .3rem; border:1px solid var(--ui-border); border-bottom-width:2px; border-radius:.3rem; background:var(--color-base-200); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.6875rem; line-height:1; color:var(--color-subtle); }
+.kbd { display:inline-flex; align-items:center; justify-content:center; min-width:1.25rem; height:1.25rem; padding:0 .3rem; border:1px solid var(--ui-border); border-bottom-width:2px; border-radius:.3rem; background:var(--w-surface-chat); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.6875rem; line-height:1; color:color-mix(in oklab, var(--w-ink) 55%, transparent); }
 .kbd-xs { min-width:1rem; height:1rem; padding:0 .2rem; font-size:.625rem; }
 }

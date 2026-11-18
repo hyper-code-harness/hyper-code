@@ -13,6 +13,7 @@
 /* COLOURS — one layer of meanings, 19 in all (principle 15). A theme sets exactly these; a widget reads exactly these.
    No numbered scale: every colour exists because a meaning needs it, and two meanings that look the same share one. */
 :where(:root, [data-w-theme]) {
+  color-scheme: light;
   /* surfaces, from the document down to the chrome (principle 12) */
   --w-surface-document: #ffffff;   /* the page you read and write on */
   --w-surface-raised: #ffffff;     /* what pops up (levels 2–3); the same white in light, lighter in dark (principle 12) */
@@ -24,7 +25,7 @@
   --w-border-control: #a8b1bc;     /* an outlined control's edge, weighs like a filled ink button */
   /* ink: text, "mine", "do this" (principle 5) */
   --w-ink: #1c2129;                /* body text, my bubble, the primary button */
-  --w-ink-muted: #6b7582;          /* secondary text */
+  --w-ink-muted: #626d7a;          /* secondary text */
   --w-ink-faint: #8a94a1;          /* hints, time, captions */
   --w-on-ink: #ffffff;             /* text on an ink fill */
   /* blue: state, never hover (principle 3) */
@@ -71,8 +72,9 @@
 }
 [data-w-theme] { background: var(--w-surface-document); color: var(--w-ink); color-scheme: light; }
 
-/* dark: the same 18 meanings, turned over. */
-[data-w-theme="dark"] {
+/* The app and explicit preview scopes resolve the same palette. Preview scopes
+   reset the light defaults above, so a light example stays light in a dark app. */
+:root[data-theme="dark"], [data-w-theme="dark"] {
   --w-surface-document: #1f2430; --w-surface-raised: #2a3140; --w-surface-chat: #1c212b; --w-surface-chrome: #181c25; --w-hover: #262c38;
   --w-border: #363e4c; --w-border-control: #5c6676;
   --w-ink: #eef2f7; --w-ink-muted: #9aa3b1; --w-ink-faint: #7c8696; --w-on-ink: #11151c;
@@ -427,9 +429,12 @@ details.w-section > .w-section-head { cursor: pointer; } details.w-section > .w-
 .w-code > .w-code-copy { position: absolute; top: var(--w-s1); right: var(--w-s1); opacity: 0; } .w-code:hover > .w-code-copy, .w-code-copy:focus-visible { opacity: 1; } .w-code-copy:hover { background: var(--w-hover); color: var(--w-ink); }
 .w-code pre, .w-markdown pre { margin: 0; padding: var(--w-s3); overflow: auto; background: transparent !important; line-height: var(--w-line-ui); font-family: var(--w-mono); font-size: var(--w-text-ui); }
 .w-code[data-lines] pre code { counter-reset: w-line; } .w-code[data-lines] .line::before { counter-increment: w-line; content: counter(w-line); display: inline-block; width: 2ch; margin-right: 1.25ch; text-align: right; color: var(--w-ink-faint); }
-:where([data-w-theme], :root) .w-code .shiki, :where([data-w-theme], :root) .w-code .shiki span, .w-markdown .shiki, .w-markdown .shiki span { color: var(--shiki-light) !important; background-color: transparent !important; }
-[data-w-theme="dark"] :is(.w-code, .w-markdown) .shiki span, :where([data-theme="dark"]) :not([data-w-theme]) :is(.w-code, .w-markdown) .shiki span { color: var(--shiki-dark) !important; }
-[data-w-theme="contrast"] :is(.w-code, .w-markdown) .shiki span { color: var(--shiki-contrast) !important; }
+.w-code .shiki, .w-code .shiki span, .w-markdown .shiki, .w-markdown .shiki span { color: light-dark(var(--shiki-light), var(--shiki-dark)) !important; background-color: transparent !important; }
+/* Native color-scheme follows the nearest theme scope, unlike ancestor selectors
+   which leak dark syntax colours into nested light previews. */
+@scope ([data-w-theme="contrast"]) to ([data-w-theme]) {
+  :is(.w-code, .w-markdown) .shiki, :is(.w-code, .w-markdown) .shiki span { color: var(--shiki-contrast, var(--shiki-light)) !important; }
+}
 .w-markdown { max-width: var(--w-measure); color: var(--w-ink); font-size: var(--w-text-read); line-height: var(--w-line-read); overflow-wrap: anywhere; }
 .w-markdown[data-size="compact"] { font-size: var(--w-text-ui); line-height: 1.55; }
 .w-markdown > :first-child { margin-top: 0; } .w-markdown > :last-child { margin-bottom: 0; }

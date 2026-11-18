@@ -2,6 +2,15 @@
 
 Hyper-code2 owns its UI component and theme layer. Tailwind supplies utilities and the Typography plugin; there is no external component framework.
 
+## Theme ownership
+
+- `/ui/theme.js` is the only app-theme controller, loaded synchronously before CSS by `ui.layout`. It resolves explicit `hyper-theme=light|dark` from localStorage or the system preference when unset, updates `data-theme` and `color-scheme`, and follows OS/storage changes. The Settings menu offers a light/dark switch and **Use system theme**; removing the stored choice restores automatic mode.
+- `src/w/$style_w.css` owns the palette. The document's `data-theme` and explicit `data-w-theme="light|dark|contrast"` previews resolve the same semantic tokens. A preview resets its palette locally; an outer dark page must not leak into a light example.
+- Legacy Tailwind colour names in `src/procs/styles/$style_app.css` are `@theme inline` aliases directly to `--w-*`, not another palette. Component rules also read local semantic tokens. Do not introduce a separate dark/light colour list or per-page theme patches.
+- Shiki uses the nearest `color-scheme` via `light-dark()`; the contrast preview is bounded with CSS `@scope`. Provider SVG marks use `fill="currentColor"`.
+- Browser regressions: `src/ui/theme.browser.it.test.ts` covers preference, first paint, tabs, storage failure and keyboard interaction. `src/w/theme.browser.it.test.ts` compiles production CSS and checks light/dark at 390/1440 px, nested preview scopes, real Shiki output and text contrast (at least 4.5:1 for the tested text/controls).
+
+
 ## Principles
 
 1. **The base is four colours: white, grey, blue and black.**

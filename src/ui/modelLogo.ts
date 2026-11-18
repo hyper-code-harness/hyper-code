@@ -1,12 +1,11 @@
-// Compact provider mark for chat headers. The full model id stays out of the
-// header's visual flow and is available through the native hover tooltip.
-/** Performs the ui.modelLogo runtime operation. */
 /**
- * Compact provider mark for chat headers. The full model id stays out of the.
- * @param opts.model Model identifier.
- * @param opts.active Whether to render the active state.
- * @param opts.bare Whether to omit the surrounding container.
- * @param opts.compact Whether to use compact presentation.
+ * Render a theme-aware provider mark with the model route in its accessible label.
+ * Use in chat headers and model pickers. Known providers use local SVG paths;
+ * unknown providers use a CPU glyph, and Hyper relay routes add a proxy indicator.
+ * @param opts.model Provider-qualified model route; omitted renders the generic mark.
+ * @param opts.active Animate the mark while the model is working. @default false
+ * @param opts.bare Omit the border and surface for placement inside another component. @default false
+ * @param opts.compact Use the smaller dense-navigation mark. @default false
  */
 export default function (ctx: Context, _session: Session | null, opts: {
         /** Model identifier to use. */ model?: string | null;
@@ -51,7 +50,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const motion = opts.active ? ' animate-spin' : '';
     const markSize = opts.compact ? 'size-2.5' : 'size-3.5';
     const mark = path
-        ? `<svg viewBox="0 0 24 24" class="${markSize} fill-current${motion}" aria-hidden="true"><path d="${path}"></path></svg>`
+        ? `<svg viewBox="0 0 24 24" fill="currentColor" class="${markSize}${motion}" aria-hidden="true"><path d="${path}"></path></svg>`
         : `<i class="ph ph-cpu ${markSize} ${opts.compact ? 'text-xs' : 'text-sm'}${motion}" aria-hidden="true"></i>`;
 
     const frameSize = opts.compact ? 'size-4' : 'size-6';

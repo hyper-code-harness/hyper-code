@@ -35,11 +35,14 @@ describe("ui.layout", () => {
         expect(dock).toContain('id="theme-toggle"');
     });
 
-    test("initializes and exposes a persisted light-dark theme switcher", async () => {
+    test("loads one synchronous theme controller before every stylesheet", async () => {
         const ctx: any = await mkTestCtx();
         const html = await ctx.fns.ui.layout({ main: "", title: "t" });
-        expect(html).toContain("localStorage.getItem('hyper-theme')");
-        expect(html).toContain("prefers-color-scheme: dark");
+        const tag = '<script src="/ui/theme.js"></script>';
+        expect(html.split(tag)).toHaveLength(2);
+        expect(html.indexOf(tag)).toBeLessThan(html.indexOf('<style>'));
+        expect(html.indexOf(tag)).toBeLessThan(html.indexOf('<link rel="stylesheet"'));
+        expect(html).not.toContain("localStorage.getItem('hyper-theme')");
         expect(html).toContain('id="theme-toggle"');
         expect(html).toContain('class="bg-base-200 text-base-content text-sm h-screen"');
     });

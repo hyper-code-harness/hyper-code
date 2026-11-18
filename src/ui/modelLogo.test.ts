@@ -9,6 +9,7 @@ describe('ui.modelLogo', () => {
         for (const model of ['codex:gpt-5.6-sol', 'claude-code:claude-haiku-4-5', 'kimi:kimi-k3', 'xai:grok-4.6', 'cursor:composer-2.5']) {
             const html = render(model);
             expect(html).toContain('<svg');
+            expect(html).toContain('fill="currentColor"');
             expect(html).toContain(`title="${model}"`);
             expect(html).toContain(`aria-label="Model: ${model}"`);
         }

@@ -3,6 +3,8 @@
  * Use `?presentation=sidebar` for the same chat surface without global navigation
  * or agent Meta at any viewport width. `?embed=1` keeps iframe-preview behavior
  * and takes precedence over sidebar presentation; ordinary pages are unchanged.
+ * The synchronous /ui/theme.js controller resolves the stored or system theme
+ * before styles load; it owns later system and cross-tab changes too.
  * @param opts Shell content and optional active-agent and document metadata.
  * @param opts.currentId Active agent ID; defaults to the x-hyper-agent request header.
  * @param opts.title Page title prefix; omitted titles use hyper-code2.
@@ -30,7 +32,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
 <head>
 <meta charset="utf-8">
 <meta name="csrf-token" content="${esc(csrfToken)}">
-<script>(function(){try{var saved=localStorage.getItem('hyper-theme');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch(_){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light'}})()</script>
+<script src="/ui/theme.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <script>(function(){try{var c=localStorage.getItem('hyper-chrome');document.documentElement.dataset.chrome=c==='cards'?'cards':'flat'}catch(_){document.documentElement.dataset.chrome='flat'}})()</script>
 <script>(function(){var m='menu';try{var v=localStorage.getItem('hyper-dock-mode');if(v==='bar'||v==='dot'||v==='menu')m=v}catch(_){}if(m!=='bar')document.documentElement.dataset.dockMode=m})()</script>

@@ -75,27 +75,6 @@
         open(e.clientX + 2, e.clientY + 2, entries);
     });
 
-    // ── theme switch (delegated, so it survives a Dock refresh) ──────────────
-    function paintTheme() {
-        const button = document.getElementById('theme-toggle');
-        if (!button) return;
-        const dark = document.documentElement.dataset.theme === 'dark';
-        button.setAttribute('aria-pressed', String(dark));
-        if (!button.closest('[popover]')) button.title = dark ? 'Use light theme' : 'Use dark theme';
-        const icon = button.querySelector('i');
-        if (icon) { icon.classList.remove('ph-sun', 'ph-moon'); icon.classList.add(dark ? 'ph-sun' : 'ph-moon'); }
-        const name = button.querySelector('[data-theme-name], .w-row-hint');
-        if (name) name.textContent = dark ? 'Dark' : 'Light';
-    }
-    document.addEventListener('click', e => {
-        if (!e.target.closest?.('#theme-toggle')) return;
-        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-        document.documentElement.dataset.theme = next;
-        document.documentElement.style.colorScheme = next;
-        try { localStorage.setItem('hyper-theme', next); } catch (_) {}
-        paintTheme();
-    });
-
     // ── refresh after a pin changes (HX-Trigger dock-refresh, or the dock.changed event) ──
     let refreshing = false;
     async function refresh() {
@@ -182,6 +161,6 @@
     document.addEventListener('htmx:after:swap', paintUpdate);
     document.addEventListener('htmx:afterSwap', paintUpdate);
 
-    const setup = () => { paintMode(); paintTheme(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
+    const setup = () => { paintMode(); window.hyperTheme?.paint(); paintUpdate(); if (mode() === 'menu') loadPanel(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup();
 })();

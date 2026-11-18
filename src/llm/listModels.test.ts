@@ -92,11 +92,11 @@ describe("llm.listModels", () => {
     // for a NAMED account (no default login present), and each route resolves back to that provider and account.
     test("contract: every provider listAccounts reports has a per-account catalogue that resolveEndpoint routes", async () => {
         const source = await Bun.file(new URL("./listAccounts.ts", import.meta.url)).text();
-        // Providers listAccounts can report: literal entry("<provider>", …) calls plus its file-backed table
-        // [["codex", ".codex/auth.json"], …]. A new provider added there shows up here by itself.
-        const literal = [...source.matchAll(/entry\("([a-z][\w-]*)"/g)].map(m => m[1]!);
+        // Inventory entries and the file/OAuth tables declare the providers returned by listAccounts.
+        const literal = [...source.matchAll(/provider: "([a-z][\w-]*)"/g)].map(m => m[1]!);
         const fileBacked = [...source.matchAll(/\["([a-z][\w-]*)", "\.[^"]+"\]/g)].map(m => m[1]!);
-        const providers = [...new Set([...literal, ...fileBacked])].filter(p => p !== "hyper");
+        const managed = [...source.matchAll(/\["[a-z-]+-oauth", "([a-z][\w-]*)",/g)].map(m => m[1]!);
+        const providers = [...new Set([...literal, ...fileBacked, ...managed])].filter(p => p !== "hyper");
         expect(providers.length).toBeGreaterThanOrEqual(5);
         const realFetch = globalThis.fetch;
         globalThis.fetch = (async (input: any, init?: any) => String(input?.url ?? input).includes("/codex/models")

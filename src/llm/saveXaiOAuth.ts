@@ -31,5 +31,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
       access_enc=excluded.access_enc,refresh_enc=excluded.refresh_enc,expires_at=excluded.expires_at,scopes=excluded.scopes,
       label=COALESCE(excluded.label,oauth_credentials.label),version=oauth_credentials.version+1,updated_at=excluded.updated_at`,
       params: [provider, account, opts.label ?? null, accessEnc, refreshEnc, opts.expiresAt, opts.scopes ?? null, now, now] });
+    const state = (ctx.state as typeof ctx.state & { llm?: { accountInventoryCache?: Map<string, unknown> } }).llm;
+    if (state) delete state.accountInventoryCache;
     return { ok: true };
 }

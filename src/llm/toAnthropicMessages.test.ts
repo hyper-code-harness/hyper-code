@@ -1,3 +1,4 @@
+import fetchClaudeCode from "./fetchClaudeCode";
 import { test, expect, describe } from "bun:test";
 import convert from "./toAnthropicMessages";
 import buildLlmRequest from "../agent/buildLlmRequest";
@@ -157,6 +158,7 @@ test("stream caches history before the actual Continue nudge across sequential r
             resolveEndpoint: async () => ({ provider: "anthropic", modelId: "test", url: "https://unused.invalid" }),
             resolveReasoningEffort: async () => ({ mode: "none" }),
             toAnthropicMessages: (opts: any) => convert(context as any, null, opts),
+            fetchClaudeCode: (o: any) => fetchClaudeCode(context as any, null, o),
             connectFetch: async ({ init }: any) => {
                 bodies.push(JSON.parse(init.body));
                 return new Response("");

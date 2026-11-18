@@ -35,7 +35,9 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const flows: Map<string, any> = (root.accountLogins ??= new Map());
     const key = `${provider}:${account}`;
     const previous = flows.get(key);
+    flows.delete(key);
     if (previous?.proc && previous.status === "pending") try { previous.proc.kill(); } catch {}
+    invalidateCredentials(root);
 
     const env = { ...process.env, ...ctx.env } as Record<string, string>;
     if (provider === "codex") env.CODEX_HOME = path.dir;
@@ -64,7 +66,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     proc.stdout.on("data", onData);
     proc.stderr.on("data", onData);
     proc.on("exit", async (code) => {
-        const exists = ctx.fns.llm.accountCredentialExists({ provider, account });
+        if (flows.get(key) !== flow) return;
+        invalidateCredentials(root);
+        const exists = await ctx.fns.llm.accountCredentialExists({ provider, account, force: true });
+        if (flows.get(key) !== flow) return;
         flow.status = code === 0 && exists ? "connected" : "failed";
         if (flow.status === "failed") flow.error = code === 0 ? "login finished without storing a credential" : `login exited with code ${code}`;
         await ctx.fns.llm.accountRegistry({ action: flow.status === "connected" ? "connect" : "fail", provider, account, dir: path.dir, error: flow.error }).catch(() => undefined);
@@ -72,10 +77,12 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         // A successful login is now represented by the durable account row.
         // Keeping the progress row produced a stale "connected + device code"
         // banner that looked like login had done nothing.
-        if (flow.status === "connected") setTimeout(() => flows.delete(key), 1_000);
+        if (flow.status === "connected") setTimeout(() => { if (flows.get(key) === flow) flows.delete(key); }, 1_000);
         ctx.fns.procs.events.refresh({ topic: "llm-accounts", reason: "login finished" });
     });
     proc.on("error", async (error) => {
+        if (flows.get(key) !== flow) return;
+        invalidateCredentials(root);
         flow.status = "failed";
         flow.error = error.message;
         await ctx.fns.llm.accountRegistry({ action: "fail", provider, account, dir: path.dir, error: flow.error }).catch(() => undefined);
@@ -87,4 +94,11 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     const until = Date.now() + (provider === "codex" ? 8_000 : 3_000);
     while (!flow.verificationUri && !flow.error && Date.now() < until) await Bun.sleep(100);
     return { provider, account, status: "pending", verificationUri: flow.verificationUri, userCode: flow.userCode };
+}
+
+function invalidateCredentials(root: { accountCredentialRevision?: number; accountCredentialCache?: object; accountInventoryCache?: object; claudeCodeTokens?: object }): void {
+    root.accountCredentialRevision = (root.accountCredentialRevision ?? 0) + 1;
+    delete root.accountCredentialCache;
+    delete root.accountInventoryCache;
+    delete root.claudeCodeTokens;
 }

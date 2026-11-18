@@ -1,3 +1,4 @@
+import fetchClaudeCode from "./fetchClaudeCode";
 import { describe, expect, test } from "bun:test";
 import call from "./call";
 
@@ -156,6 +157,8 @@ describe("llm.call", () => {
                         refreshClaudeCode: async ({ account }: any) => { expect(account).toBe("work"); return "cli-token"; },
                         getAnthropicOAuthToken: async ({ account }: any) => { expect(account).toBe("work"); return "oauth-token"; },
                         claudeCodeCliVersion: async () => "2.1.260",
+                        connectFetch: (o: any) => fetch(o.url, o.init),
+                        fetchClaudeCode: (o: any) => fetchClaudeCode(ctx, null, o),
                     } } };
                     const model = `${provider}/work:claude-opus-4-6`;
                     const result = await call(ctx, null, { user: "Reply OK", system, model, noFallback: true, max_tokens: 23, temperature: 0.2 });
@@ -191,6 +194,8 @@ describe("llm.call", () => {
                 resolveEndpoint: async ({ model }: any) => { resolved.push(model); return { api: "anthropic", provider: "claude-code", modelId: "claude-fable-5-1", url: "https://example.test", account: "default" }; },
                 refreshClaudeCode: async () => "cli-token",
                 claudeCodeCliVersion: async () => "2.1.260",
+                connectFetch: (o: any) => fetch(o.url, o.init),
+                fetchClaudeCode: (o: any) => fetchClaudeCode(ctx, null, o),
             } } };
             await expect(call(ctx, null, { user: "hello", model: "claude-code:claude-fable-5-1", noFallback: true })).rejects.toThrow('claude-code 429: {"error":{"message":"limited"}}');
             expect(resolved.length).toBeGreaterThan(0);
@@ -214,6 +219,8 @@ describe("llm.call", () => {
                     refreshClaudeCode: async () => "cli-token",
                     getAnthropicOAuthToken: async () => "oauth-token",
                     claudeCodeCliVersion: async () => "2.1.260",
+                    connectFetch: (o: any) => fetch(o.url, o.init),
+                    fetchClaudeCode: (o: any) => fetchClaudeCode(ctx, null, o),
                 },
             } };
             const result = await call(ctx, null, { user: "hello" });
@@ -230,6 +237,7 @@ for (const api of ['anthropic','openai','responses']) test(`deadline aborts ${ap
  const previous=globalThis.fetch; let calls=0,aborted=false;
  globalThis.fetch=(async(_url:any,init:any)=>{calls++;return await new Promise((resolve,reject)=>{init.signal.addEventListener('abort',()=>{aborted=true;reject(init.signal.reason);},{once:true});});}) as any;
  try {const ctx:any={fns:{llm:{resolveEndpoint:async()=>({api,provider:api==='anthropic'?'kimi-coding':api==='responses'?'codex':'openai',modelId:'k3',url:'https://example.test',apiKey:'fake'}),refreshKimiCode:async()=> 'fake',refreshCodex:async()=> 'fake'}}};
+ ctx.fns.llm.connectFetch=(o:any)=>fetch(o.url,o.init);ctx.fns.llm.fetchClaudeCode=(o:any)=>fetchClaudeCode(ctx,null,o);
  await expect(call(ctx,null,{user:'x',model:'kimi-coding:k3',noFallback:true,timeoutMs:30})).rejects.toThrow();expect(calls).toBe(1);expect(aborted).toBe(true);
  } finally {globalThis.fetch=previous;}
 });

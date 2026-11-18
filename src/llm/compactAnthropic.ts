@@ -53,7 +53,8 @@ export default async function (
     if (focus) compaction.instructions = ("Summarize this conversation into a handoff checkpoint so another model can seamlessly continue: goal, progress, decisions, constraints, exact identifiers/paths/errors, and next steps.\n\nFocus: " + focus).slice(0, 16384);
     const body: any = { model: ep.modelId, max_tokens: opts.maxTokens ?? 32000, messages, compaction };
     if (system.length) body.system = system;
-    const res = await fetch(ep.url, { method: "POST", headers, body: JSON.stringify(body), signal: opts.signal });
+    const res = await ctx.fns.llm.fetchClaudeCode({ provider: ep.provider, account: ep.account, url: ep.url,
+        init: { method: "POST", headers, body: JSON.stringify(body), signal: opts.signal } });
     if (!res.ok) throw new Error(`anthropic compaction ${res.status}: ${(await res.text()).slice(0, 500)}`);
     const raw: any = await res.json();
     const block = (raw.content ?? []).find((b: any) => b?.type === "compaction");

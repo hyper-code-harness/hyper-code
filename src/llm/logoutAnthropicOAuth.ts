@@ -17,9 +17,11 @@ export default async function (ctx: Context, _session: Session | null, opts?: {
     } else {
         await ctx.fns.procs.db.run({ sql: "DELETE FROM oauth_credentials WHERE provider = ? AND account = ?", params: ["anthropic-oauth", account] });
     }
+    const state = (ctx.state as typeof ctx.state & { llm?: { accountInventoryCache?: Map<string, unknown> } }).llm;
+    if (state) delete state.accountInventoryCache;
     const store: any = (ctx.state as any).llm?.anthropicOAuth;
     if (store) {
-        for (const p of store.pending?.values?.() ?? []) try { p.server?.close(); } catch {}
+        for (const p of store.pending?.values?.() ?? []) try { p.server?.close(); } catch { console.warn("[anthropic-oauth] could not close pending login server"); }
         store.pending?.clear?.();
         store.lastError = null;
     }

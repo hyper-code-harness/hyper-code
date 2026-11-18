@@ -5,7 +5,9 @@
  * Credentials remain in the provider-owned secure store: Claude Code's macOS
  * keychain service or Codex's isolated CODEX_HOME. This registry contains only
  * `{provider, account, dir, status}` so `/llms` can distinguish a real connected
- * account from an empty directory left by a cancelled login.
+ * account from an empty directory left by a cancelled login. Mutations invalidate
+ * credential/inventory/token caches and advance accountCredentialRevision so an
+ * older token refresh cannot persist credentials across a login or removal.
  *
  * @param opts.action List, begin, connect, fail, or remove an account slot.
  * @param opts.provider Subscription provider.
@@ -36,5 +38,10 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (index >= 0) entries[index] = next; else entries.push(next);
     }
     await ctx.fns.procs.db.run({ sql: "INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", params: [key, JSON.stringify(entries)] });
+    const root = ((ctx.state as { llm?: { accountCredentialRevision?: number; accountCredentialCache?: object; accountInventoryCache?: object; claudeCodeTokens?: object } }).llm ??= {});
+    root.accountCredentialRevision = (root.accountCredentialRevision ?? 0) + 1;
+    delete root.accountCredentialCache;
+    delete root.accountInventoryCache;
+    delete root.claudeCodeTokens;
     return entries;
 }

@@ -53,7 +53,8 @@ export default async function (
     } else {
         const up = await ctx.fns.node.upstream({ provider: entry.provider, account: entry.account, api: opts.api, sessionId: opts.req.headers.get("session_id") ?? undefined });
         if (!up) return Response.json({ error: `${entry.provider}: no credentials on the host` }, { status: 503 });
-        upstream = await fetch(up.url, { method: "POST", headers: withBeta(up.headers), body, signal: opts.req.signal });
+        upstream = await ctx.fns.llm.fetchClaudeCode({ provider: entry.provider, account: entry.account, url: up.url,
+            init: { method: "POST", headers: withBeta(up.headers), body, signal: opts.req.signal } });
     }
     const out = new Headers({ "cache-control": "no-store" });
     for (const name of ["content-type", "retry-after", "request-id", "anthropic-request-id", "x-request-id"]) { const v = upstream.headers.get(name); if (v) out.set(name, v); }

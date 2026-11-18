@@ -1,7 +1,7 @@
 /**
  * Refreshes cached subscription quota for one or all configured LLM accounts
  *
- * Fetch live quota windows from provider-specific subscription usage endpoints for Codex, Claude and xAI/SuperGrok, then persist them through llm.recordUsage. Use before rendering /llms or the sidebar; requests are cached briefly and individual account failures are returned without failing the whole refresh.
+ * Fetch live quota windows from provider-specific subscription usage endpoints for Codex, Claude and xAI/SuperGrok, then persist them through llm.recordUsage. Use before rendering /llms or the sidebar; requests are cached briefly and individual account failures are returned without failing the whole refresh. Claude Code may retry one rejected 401 bearer with a different refreshed token; managed OAuth, 403 and network failures do not use that recovery.
  * @param opts.provider Only refresh this provider.
  * @param opts.account Only refresh this credential account.
  * @param opts.maxAgeMs Reuse a recent successful refresh for this many milliseconds. @default 60000 @minimum 0 @maximum 3600000
@@ -151,21 +151,35 @@ export default async function (
 
 
     async function refreshClaude(ctx: Context, provider: "claude-code" | "anthropic-oauth", account: string, timeoutMs: number, now: number): Promise<void> {
-        const token = provider === "claude-code"
+        let token = provider === "claude-code"
             ? await ctx.fns.llm.refreshClaudeCode({ account })
             : await ctx.fns.llm.getAnthropicOAuthToken({ account });
         if (!token) throw new Error("credential is unavailable");
         const base = String(ctx.env.CLAUDE_CODE_BASE_API_URL ?? "https://api.anthropic.com").replace(/\/$/, "");
-        const res = await ctx.fns.llm.connectFetch({
-            url: `${base}/api/oauth/usage`,
-            ms: timeoutMs,
-            init: { method: "GET", headers: {
-                authorization: `Bearer ${token}`,
-                "content-type": "application/json",
-                "user-agent": ctx.env.CLAUDE_CODE_USER_AGENT ?? `claude-cli/${await ctx.fns.llm.claudeCodeCliVersion({})} (external, sdk-cli)`,
-            } },
-        });
-        if (!res.ok) throw new Error(`usage endpoint returned ${res.status}`);
+        const userAgent = ctx.env.CLAUDE_CODE_USER_AGENT ?? `claude-cli/${await ctx.fns.llm.claudeCodeCliVersion({})} (external, sdk-cli)`;
+        let recovered401 = false;
+        const request = async (path: "usage" | "profile"): Promise<Response> => {
+            const rejectedToken = token!;
+            const headers: Record<string, string> = { authorization: `Bearer ${rejectedToken}`, "content-type": "application/json" };
+            if (path === "usage") headers["user-agent"] = userAgent;
+            let res = await ctx.fns.llm.connectFetch({ url: `${base}/api/oauth/${path}`, ms: timeoutMs, init: { method: "GET", headers } });
+            if (provider === "claude-code" && res.status === 401 && !recovered401) {
+                recovered401 = true;
+                const fresh = await ctx.fns.llm.refreshClaudeCode({ account, rejectedToken });
+                if (fresh && fresh !== rejectedToken) {
+                    await res.body?.cancel();
+                    token = fresh;
+                    res = await ctx.fns.llm.connectFetch({ url: `${base}/api/oauth/${path}`, ms: timeoutMs,
+                        init: { method: "GET", headers: { ...headers, authorization: `Bearer ${fresh}` } } });
+                }
+            }
+            return res;
+        };
+        const res = await request("usage");
+        if (!res.ok) {
+            await res.body?.cancel();
+            throw new Error(`usage endpoint returned ${res.status}`);
+        }
         const data: any = await res.json();
         const headers: Record<string, string> = {};
         addClaudeWindow(headers, "5h", data?.five_hour);
@@ -175,15 +189,11 @@ export default async function (
         // Profile failure must not discard otherwise valid usage data.
         let planType: string | null = null;
         try {
-            const profileRes = await ctx.fns.llm.connectFetch({
-                url: `${base}/api/oauth/profile`,
-                ms: timeoutMs,
-                init: { method: "GET", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" } },
-            });
+            const profileRes = await request("profile");
             if (profileRes.ok) {
                 const profile: any = await profileRes.json();
                 planType = claudePlan(profile?.organization?.organization_type);
-            }
+            } else await profileRes.body?.cancel();
         } catch { /* usage remains useful when profile metadata is unavailable */ }
         const snapshot = await ctx.fns.llm.recordUsage({ provider, account, headers, planType, now });
         if (!snapshot) throw new Error("usage endpoint returned no quota windows");

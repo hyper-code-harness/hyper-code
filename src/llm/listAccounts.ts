@@ -10,7 +10,9 @@
  * Combines file-backed logins (~/.codex/auth.json and its named siblings,
  * ~/.kimi/credentials), managed OAuth rows and the recorded quota snapshots,
  * and marks which accounts are currently exhausted. Use it to render an account
- * switcher or to pick a fallback credential.
+ * switcher or to pick a fallback credential. Credential inventory is cached for
+ * five seconds with singleflight; quota, reconnect health and node status stay
+ * live. Credential changes must delete ctx.state.llm.accountInventoryCache.
  *
  * @param opts.provider Restrict the listing to one provider.
  * @param opts.now Current time in ms, for testing.
@@ -47,59 +49,16 @@ export default async function (
     const health = await ctx.fns.llm.accountAuthHealth({ action: "list" });
     const reconnectKeys = new Set(health.filter((item: any) => item.needsReconnect).map((item: any) => `${item.provider}:${item.account}`));
 
-    // File-backed logins: the default path plus every "auth.<account>.json"
-    // sibling. One naming convention, so a second login needs no new code.
-    for (const [provider, path] of [["codex", ".codex/auth.json"], ["kimi-coding", ".kimi/credentials/kimi-code.json"]] as const) {
-        if (filter && filter !== provider) continue;
-        for (const account of await discoverFileAccounts(ctx, provider, path)) {
-            out.push(entry(provider, account, "file", byKey, reconnectKeys));
+    for (const credential of await inventory(ctx, filter)) {
+        const item = entry(credential.provider, credential.account, credential.source, byKey, reconnectKeys);
+        if (credential.label) item.label = credential.label;
+        if (credential.expiresAt !== undefined && credential.expiresAt <= now) {
+            item.needsReconnect = true; item.available = false;
         }
+        out.push(item);
     }
-
-    // Managed OAuth rows are presented as normal Claude accounts in user-facing
-    // UI. The runtime transport remains anthropic-oauth, but a person should not
-    // need that implementation detail to understand or switch accounts.
-    if (!filter || filter === "anthropic-oauth" || filter === "claude-code") {
-        const rows = (await ctx.fns.procs.db.select({
-            sql: "SELECT account, label, expires_at FROM oauth_credentials WHERE provider = ? ORDER BY account",
-            params: ["anthropic-oauth"],
-        })) as any[];
-        for (const row of rows) {
-            const item = entry("anthropic-oauth", String(row.account ?? "default"), "oauth", byKey, reconnectKeys);
-            item.label = row.label ? String(row.label) : (item.account === "default" ? "Claude managed" : item.account);
-            out.push(item);
-            if (Number(row.expires_at) <= now) { item.needsReconnect = true; item.available = false; }
-        }
-    }
-
-
-    // xAI managed device-OAuth credentials are exposed under the runtime model
-    // provider (`xai`) rather than their persistence adapter (`xai-oauth`).
-    if (!filter || filter === "xai" || filter === "xai-oauth") {
-        const rows = (await ctx.fns.procs.db.select({
-            sql: "SELECT account, label, expires_at FROM oauth_credentials WHERE provider = ? ORDER BY account",
-            params: ["xai-oauth"],
-        })) as any[];
-        for (const row of rows) {
-            const item = entry("xai", String(row.account ?? "default"), "oauth", byKey, reconnectKeys);
-            item.label = row.label ? String(row.label) : (item.account === "default" ? "Grok managed" : item.account);
-            if (Number(row.expires_at) <= now) { item.needsReconnect = true; item.available = false; }
-            out.push(item);
-        }
-    }
-
-    // Claude Code accounts live in isolated CLAUDE_CONFIG_DIRs. On macOS the
-    // actual tokens are in keychain services derived from those directories;
-    // the directory itself is the durable account registry.
-    if (!filter || filter === "claude-code") {
-        for (const account of await discoverDirectoryAccounts(ctx, "claude-code")) {
-            if (ctx.fns.llm.accountCredentialExists({ provider: "claude-code", account })) {
-                out.push(entry("claude-code", account, "keychain", byKey, reconnectKeys));
-            }
-        }
-        if (!out.some((a) => a.provider === "claude-code" && a.account === "default") && byKey.has("claude-code:default")) {
-            out.push(entry("claude-code", "default", "keychain", byKey, reconnectKeys));
-        }
+    if ((!filter || filter === "claude-code") && !out.some((a) => a.provider === "claude-code" && a.account === "default") && byKey.has("claude-code:default")) {
+        out.push(entry("claude-code", "default", "keychain", byKey, reconnectKeys));
     }
 
     // Hyper nodes (docs/hyper-node.md): one row per node; quota is the node's
@@ -142,6 +101,54 @@ function entry(provider: string, account: string, source: "file" | "oauth" | "ke
         resetCredits: known?.resetCredits ?? null,
         parkedAgents: known?.parkedAgents ?? 0,
     };
+}
+
+type Credential = {
+    provider: string;
+    account: string;
+    source: "file" | "oauth" | "keychain";
+    label?: string;
+    expiresAt?: number;
+};
+
+async function inventory(ctx: Context, filter?: string): Promise<Credential[]> {
+    type Cached = { value?: Credential[]; expiresAt: number; pending?: Promise<Credential[]> };
+    const root = ((ctx.state as { llm?: { accountInventoryCache?: Map<string, Cached> } }).llm ??= {});
+    const cache = (root.accountInventoryCache ??= new Map());
+    const key = JSON.stringify([filter ?? "", ctx.env.HOME ?? process.env.HOME, ctx.env.USER ?? process.env.USER]);
+    const known = cache.get(key);
+    if (known?.pending) return known.pending;
+    if (known?.value && known.expiresAt > Date.now()) return known.value;
+    for (const [id, value] of cache) if (!value.pending && value.expiresAt <= Date.now()) cache.delete(id);
+    const current: Cached = { expiresAt: 0 };
+    cache.set(key, current);
+    current.pending = (async () => {
+        const credentials: Credential[] = [];
+        for (const [provider, path] of [["codex", ".codex/auth.json"], ["kimi-coding", ".kimi/credentials/kimi-code.json"]] as const) {
+            if (filter && filter !== provider) continue;
+            for (const account of await discoverFileAccounts(ctx, provider, path)) credentials.push({ provider, account, source: "file" });
+        }
+        for (const [stored, provider, label] of [["anthropic-oauth", "anthropic-oauth", "Claude managed"], ["xai-oauth", "xai", "Grok managed"]] as const) {
+            if (filter && filter !== stored && filter !== provider && !(stored === "anthropic-oauth" && filter === "claude-code")) continue;
+            const rows = await ctx.fns.procs.db.select({
+                sql: "SELECT account, label, expires_at FROM oauth_credentials WHERE provider = ? ORDER BY account", params: [stored],
+            }) as Array<{ account: string | null; label: string | null; expires_at: number | null }>;
+            for (const row of rows) {
+                const account = String(row.account ?? "default");
+                credentials.push({ provider, account, source: "oauth", label: row.label ? String(row.label) : (account === "default" ? label : account), expiresAt: Number(row.expires_at) });
+            }
+        }
+        if (!filter || filter === "claude-code") {
+            const accounts = await discoverDirectoryAccounts(ctx, "claude-code");
+            const exists = await Promise.all(accounts.map((account) => ctx.fns.llm.accountCredentialExists({ provider: "claude-code", account })));
+            accounts.forEach((account, index) => { if (exists[index]) credentials.push({ provider: "claude-code", account, source: "keychain" }); });
+        }
+        current.value = credentials;
+        current.expiresAt = Date.now() + 5_000;
+        return credentials;
+    })();
+    try { return await current.pending; }
+    finally { delete current.pending; }
 }
 
 async function discoverFileAccounts(ctx: Context, provider: "codex" | "kimi-coding", relative: string): Promise<string[]> {

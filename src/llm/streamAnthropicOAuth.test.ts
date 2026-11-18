@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import stream from "./streamAnthropic";
+import fetchClaudeCode from "./fetchClaudeCode";
 import parseSSE from "./parseSSE";
 import toAnthropicMessages from "./toAnthropicMessages";
 
@@ -29,6 +30,7 @@ function mkCtx(provider: "anthropic-oauth" | "anthropic") {
 
             parseSSE: (opts: any) => parseSSE(ctx, null, opts),
             connectFetch: (o: any) => fetch(o.url, o.init),
+            fetchClaudeCode: (o: any) => fetchClaudeCode(ctx, null, o),
             toAnthropicMessages: (opts: any) => toAnthropicMessages(ctx, null, opts),
         },
     };

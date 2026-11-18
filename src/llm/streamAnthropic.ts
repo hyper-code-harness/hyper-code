@@ -111,7 +111,7 @@ export default async function (
         headers["anthropic-beta"] = [headers["anthropic-beta"], "compact-2026-09-04"].filter(Boolean).join(",");
     }
 
-    const send = () => ctx.fns.llm.connectFetch({ url: ep.url, init: {
+    const send = () => ctx.fns.llm.fetchClaudeCode({ provider: ep.provider, account: ep.account, url: ep.url, init: {
         method: "POST",
         headers,
         body: JSON.stringify(body),

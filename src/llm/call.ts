@@ -233,8 +233,10 @@ async function anthropic(ctx: Context, endpoint: any, opts: any) {
         if (opts.system) body.system.push({ type: "text", text: opts.system });
     } else if (opts.system) body.system = opts.system;
     if (opts.temperature != null) body.temperature = opts.temperature;
-    let response = await fetch(endpoint.url, { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) });
-    response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) }));
+    const send = () => ctx.fns.llm.fetchClaudeCode({ provider: endpoint.provider, account: endpoint.account, url: endpoint.url,
+        init: { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) } });
+    let response = await send();
+    response = await retryWithoutUnsupportedTemperature(response, body, send);
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await response.json();
     return { text: (raw.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join(""), finishReason: raw.stop_reason ?? null, usage: raw.usage, raw };

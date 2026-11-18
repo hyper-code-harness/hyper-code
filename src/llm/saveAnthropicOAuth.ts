@@ -1,4 +1,4 @@
-/** Performs the llm.saveAnthropicOAuth runtime operation. */
+/** Save an encrypted Anthropic subscription login and invalidate the account inventory. */
 /**
  * Encrypt and persist Anthropic OAuth credentials.
  * @param opts.access OAuth access token.
@@ -12,10 +12,10 @@ export default async function (
     ctx: Context,
     _session: Session | null,
     opts: {
-        /** Value used for the access option. */ access: string;
-        /** Value used for the refresh option. */ refresh: string;
-        /** Token expiration time. */ expiresAt: number;
-        /** Value used for the scopes option. */ scopes?: string | null;
+        /** OAuth bearer token to encrypt and store. */ access: string;
+        /** OAuth refresh token to encrypt and store. */ refresh: string;
+        /** Access-token expiration as Unix milliseconds. */ expiresAt: number;
+        /** Granted OAuth scopes, if supplied by the provider. */ scopes?: string | null;
         /** Credential slot within the provider. @default "default" */ account?: string;
         /** Human-readable account name shown in the UI. */ label?: string | null },
 ): Promise<{ ok: true }> {
@@ -36,6 +36,8 @@ export default async function (
               version=oauth_credentials.version+1, updated_at=excluded.updated_at`,
         params: [provider, account, opts.label ?? null, accessEnc, refreshEnc, opts.expiresAt, opts.scopes ?? null, now, now],
     });
+    const state = (ctx.state as typeof ctx.state & { llm?: { accountInventoryCache?: Map<string, unknown> } }).llm;
+    if (state) delete state.accountInventoryCache;
     return { ok: true };
 }
 

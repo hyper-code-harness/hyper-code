@@ -1,9 +1,11 @@
 /**
  * Compacts an idle agent context into a hidden summary fork and retained verbatim tail
  *
- * Use for manual, non-destructive context compaction. It summarizes the current effective projection, preserves a safe recent tail, and atomically activates only when the root transcript and compact head remain unchanged.
+ * Use for immediate, non-destructive context compaction while idle; interactive controls use requestCompaction to queue it. It summarizes the current effective projection, preserves a safe recent tail, and atomically activates only when the root transcript and compact head remain unchanged.
  * @param opts.agent Live root agent whose effective model context is compacted.
  * @param opts.instructions Optional focus instructions appended to the handoff summarizer prompt.
+ * @param opts.job Internal maintenance job id and lease token; activation and job completion commit together.
+ * @param opts.signal Cancellation signal for a leased maintenance attempt.
  */
 export default async function (
     ctx: Context,
@@ -13,9 +15,27 @@ export default async function (
         agent: types.agent.Agent;
         /** Optional focus instructions appended to the handoff summarizer prompt. */
         instructions?: string;
+        /** Worker-owned maintenance job identity; omit for immediate idle compaction. */
+        job?: { id: string; token: string };
+        /** Cooperative cancellation of the summarizer request. */
+        signal?: AbortSignal;
     },
 ): Promise<{ status: "compacted" | "not_needed" | "stale"; revision?: number; tokensBefore: number; tokensAfter?: number; keptMessages?: number; summary?: string }> {
     const parent = opts.agent;
+    // Enqueue, normal claims and compaction writes use the same row lock. The
+    // following job read is a fresh statement, not a stale NOT EXISTS snapshot.
+    const lockedWrite = async (fn: () => Promise<{ changes: number }>, existingDraft = false): Promise<{ changes: number }> =>
+      await ctx.fns.procs.db.transaction({ fn: async () => {
+        await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents WHERE id=? FOR UPDATE", params: [parent.id] });
+        if (opts.job) {
+          const job = (await ctx.fns.procs.db.select({ sql: "SELECT id FROM jobs WHERE id=? AND agent_id=? AND runner='compaction' AND status='running' AND lease_token=? AND lease_expires_at>? AND cancel_requested_at IS NULL FOR UPDATE", params: [opts.job.id,parent.id,opts.job.token,Date.now()] }))[0];
+          if (!job) return { changes: 0 };
+        } else if (!existingDraft) {
+          const pending = await ctx.fns.procs.db.select({ sql: "SELECT id FROM jobs WHERE agent_id=? AND runner='compaction' AND status='running'", params: [parent.id] });
+          if (pending.length) return { changes: 0 };
+        }
+        return await fn();
+      } }) as { changes: number };
     const estimate = (messages: any[]) => Math.ceil(messages.reduce((n: number, m: any) => n + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content ?? "").length) + JSON.stringify(m.tool_calls ?? []).length, 0) / 4);
     // Images are dropped from the compaction request: the summary is text, and screenshots in a long transcript
     // overflow the provider's request size limit ("too many total text bytes"). The tail keeps them as they were.
@@ -34,6 +54,7 @@ export default async function (
     const projection = await ctx.fns.agent.contextProjection({ agentId: parent.id, model: parent.model, sleepContext: sleep });
     const history = projection.history;
     const sourceFrontier = projection.ownRows;
+    const sourceFingerprint = JSON.stringify(history);
     // Summarizers that replay the transcript natively (Codex) refuse a tool result
     // without its call, so the summarised view gets the same repair as a request.
     const effective = ctx.fns.session.repairToolPairs({ messages: projection.messages }).messages;
@@ -77,10 +98,17 @@ export default async function (
     // basis "context": tailStart and sourceOffset count agent.contextHistory, whose
     // first `inherited` messages are the parent prefix; sourceFrontier is the
     // agent's own row count, the token that detects concurrent writes.
-    const generation: any = { revision, kind: "compaction", status: "draft", basis: "context", inherited: projection.inherited, contextAgentId: child.id, sourceAgentId: parent.id, sourceOffset: history.length, sourceFrontier, tailStart, summary: "", ...(opts.instructions?.trim() ? { instructions: opts.instructions.trim() } : {}), tokensBefore, tokensAfter: 0, model: parent.model, createdAt };
-    const draftContext = { mode: sleep?.mode ?? "full", activeRevision: oldHead, draftRevision: revision, draftOwner, generations: [...(sleep?.generations ?? []), generation].slice(-8) };
+    const generation: any = { revision, kind: "compaction", status: "draft", basis: "context", inherited: projection.inherited, contextAgentId: child.id, sourceAgentId: parent.id, sourceOffset: history.length, sourceFrontier, tailStart, summary: "", ...(opts.instructions?.trim() ? { instructions: opts.instructions.trim() } : {}), ...(opts.job ? { jobId: opts.job.id, jobToken: opts.job.token } : {}), tokensBefore, tokensAfter: 0, model: parent.model, createdAt };
+    const generations = [...(sleep?.generations ?? []), generation].slice(-8);
+    // Failed/stale attempts must never evict the active checkpoint. Reserve one
+    // of the eight slots for it when it falls outside the recent generations.
+    const activeGeneration = sleep?.generations.find((g: any) => Number(g.revision) === oldHead);
+    if (activeGeneration && !generations.includes(activeGeneration)) generations[0] = activeGeneration;
+    const draftContext = { mode: sleep?.mode ?? "full", activeRevision: oldHead, draftRevision: revision, draftOwner, generations };
+    // Keep an immutable CAS snapshot: generation is mutated with summary/status below.
+    const draftJson = JSON.stringify(draftContext);
     const draftAt = Date.now();
-    const drafted = await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb, updated_at = ? WHERE id = ? AND updated_at = ? AND run_state = 'idle'", params: [JSON.stringify(draftContext), draftAt, parent.id, Number(row.updated_at)] });
+    const drafted = await lockedWrite(async () => await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb, updated_at = ? WHERE id = ? AND updated_at = ? AND run_state = 'idle' AND run_token IS NULL AND archived_at IS NULL AND sleep_context->>'draftRevision' IS NULL", params: [draftJson, draftAt, parent.id, Number(row.updated_at)] }));
     if (!drafted.changes) { await ctx.fns.session.archive({ id: child.id }).catch(() => undefined); return { status: "stale", tokensBefore }; }
     parent.sleepContext = draftContext;
     await ctx.fns.session.appendEventWithHtml({ id: parent.id, type: "compaction_start", payload: { revision } });
@@ -93,6 +121,7 @@ export default async function (
         instructions: await ctx.fns.agent.fullSystemPrompt({ agent: parent }),
         focus: opts.instructions?.trim() || undefined,
         messages: effective.map(compactMessage),
+        signal: opts.signal,
       });
       const summary = result.summary;
       const summaryMessage: any = result.message;
@@ -103,33 +132,43 @@ export default async function (
       const currentCount = Number(((await ctx.fns.procs.db.select({ sql: "SELECT COUNT(*) AS n FROM messages WHERE agent_id = ?", params: [parent.id] })) as any[])[0]?.n ?? 0);
       const currentRow = ((await ctx.fns.procs.db.select({ sql: "SELECT updated_at, run_state, sleep_context FROM agents WHERE id = ?", params: [parent.id] })) as any[])[0];
       const currentSleep = ctx.fns.agent.normalizeSleepContext({ sleepContext: currentRow?.sleep_context });
-      const valid = currentRow?.run_state === "idle" && currentCount === sourceFrontier && currentSleep?.draftRevision === revision && currentSleep?.activeRevision === oldHead;
+      const currentHistory = await ctx.fns.agent.contextHistory({ id: parent.id });
+      const valid = JSON.stringify(currentHistory.messages) === sourceFingerprint && currentRow?.run_state === "idle" && currentCount === sourceFrontier && currentSleep?.draftRevision === revision && currentSleep?.activeRevision === oldHead;
       if (!valid) {
         generation.status = "stale"; generation.summary = summary;
         const stale = { ...draftContext, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
-        await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context->>'draftRevision' = ?", params: [JSON.stringify(stale), parent.id, String(revision)] });
-        parent.sleepContext = stale;
+        const cleared = await lockedWrite(async () => await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context = ?::jsonb", params: [JSON.stringify(stale), parent.id, draftJson] }), true);
+        if (cleared.changes) parent.sleepContext = stale;
         return { status: "stale", tokensBefore };
       }
       Object.assign(generation, { status: "active", summary, tokensAfter, activatedAt: Date.now() });
       const next = { mode: "compact", activeRevision: revision, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
-      const activated = await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb, updated_at = ? WHERE id = ? AND updated_at = ? AND run_state = 'idle' AND (SELECT COUNT(*) FROM messages WHERE agent_id = ?) = ?", params: [JSON.stringify(next), generation.activatedAt, parent.id, Number(currentRow.updated_at), parent.id, sourceFrontier] });
+      const activated = await lockedWrite(async () => {
+        // Detect same-row-count edits and edits to the inherited fork prefix too.
+        const latest = await ctx.fns.agent.contextHistory({ id: parent.id });
+        if (JSON.stringify(latest.messages) !== sourceFingerprint) return { changes: 0 };
+        const changed = await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb, updated_at = ? WHERE id = ? AND updated_at = ? AND run_state = 'idle' AND run_token IS NULL AND archived_at IS NULL AND sleep_context = ?::jsonb AND (SELECT COUNT(*) FROM messages WHERE agent_id = ?) = ?", params: [JSON.stringify(next), generation.activatedAt, parent.id, Number(currentRow.updated_at), draftJson, parent.id, sourceFrontier] });
+        if (changed.changes && opts.job) await ctx.fns.procs.db.run({ sql: "UPDATE jobs SET status='succeeded',outcome_reason='compacted',result=?::jsonb,finished_at=?,updated_at=?,next_at=NULL,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?", params: [JSON.stringify({ revision,tokensBefore,tokensAfter }),Date.now(),Date.now(),opts.job.id,opts.job.token] });
+        return changed;
+      }, true);
       if (!activated.changes) {
         generation.status = "stale";
         delete generation.activatedAt;
         const stale = { ...draftContext, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
-        await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context->>'draftRevision' = ?", params: [JSON.stringify(stale), parent.id, String(revision)] });
-        parent.sleepContext = stale;
+        const cleared = await lockedWrite(async () => await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context = ?::jsonb", params: [JSON.stringify(stale), parent.id, draftJson] }), true);
+        if (cleared.changes) parent.sleepContext = stale;
         return { status: "stale", tokensBefore };
       }
       parent.sleepContext = next;
-      await ctx.fns.session.appendEventWithHtml({ id: parent.id, type: "compaction_completed", payload: { revision, tokensBefore, tokensAfter, keptMessages: history.length - tailStart, summary } });
+      // The checkpoint and job are already committed. A notification failure
+      // must not turn that successful generation into a failed in-memory one.
+      await ctx.fns.session.appendEventWithHtml({ id: parent.id, type: "compaction_completed", payload: { revision, tokensBefore, tokensAfter, keptMessages: history.length - tailStart, summary } }).catch((error: Error) => console.error("compaction completion notification failed:", error));
       return { status: "compacted", revision, tokensBefore, tokensAfter, keptMessages: history.length - tailStart, summary };
     } catch (error: any) {
       generation.status = "failed";
       const failed = { ...draftContext, draftRevision: null, draftOwner: null, generations: draftContext.generations.map((g: any) => g.revision === revision ? generation : g) };
-      await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context->>'draftRevision' = ?", params: [JSON.stringify(failed), parent.id, String(revision)] }).catch(() => undefined);
-      parent.sleepContext = failed;
+      const cleared = await lockedWrite(async () => await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context = ?::jsonb WHERE id = ? AND sleep_context = ?::jsonb", params: [JSON.stringify(failed), parent.id, draftJson] }), true).catch(() => ({ changes: 0 }));
+      if (cleared.changes) parent.sleepContext = failed;
       await ctx.fns.session.appendEventWithHtml({ id: parent.id, type: "compaction_failed", payload: { revision, error: String(error?.message ?? error) } }).catch(() => undefined);
       throw error;
     }

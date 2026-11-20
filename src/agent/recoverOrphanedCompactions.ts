@@ -1,7 +1,7 @@
 /**
- * Clears compaction drafts owned by a previous Hyper process
+ * Clears interrupted compaction drafts, respecting live maintenance leases
  *
- * Scan idle agents for durable compaction drafts whose process owner differs from the current runtime, mark those generations failed, and clear draftRevision so compaction and agent work can resume after a crash or restart. Safe to call repeatedly from the worker loop.
+ * Recover idle agents after a process restart or a revoked maintenance lease. Queued drafts are fenced by their job token, including same-process lease expiry; legacy immediate drafts retain the process-owner check. A fresh transactional recheck prevents recovery from clearing a renewed or replacement attempt.
  */
 export default async function (
     ctx: Context,
@@ -14,10 +14,19 @@ export default async function (
     for (const row of rows) {
       const sleep: any = ctx.fns.agent.normalizeSleepContext({ sleepContext: row.sleep_context });
       const revision = sleep?.draftRevision;
-      if (revision == null || sleep?.draftOwner === owner) continue;
+      if (revision == null) continue;
+      const draft = sleep.generations.find((g: any) => Number(g.revision) === Number(revision));
+      if (!draft?.jobId && sleep?.draftOwner === owner) continue;
       const generations = (sleep.generations ?? []).map((g: any) => Number(g.revision) === Number(revision) ? { ...g, status: "failed", error: "compaction owner disappeared during restart" } : g);
       const next = { ...sleep, draftRevision: null, draftOwner: null, generations };
-      const changed = await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context=?::jsonb, updated_at=? WHERE id=? AND run_state='idle' AND sleep_context->>'draftRevision'=? AND COALESCE(sleep_context->>'draftOwner','')=?", params: [JSON.stringify(next), Date.now(), row.id, String(revision), String(sleep.draftOwner ?? "")] });
+      const changed = await ctx.fns.procs.db.transaction({ fn: async () => {
+        await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents WHERE id=? FOR UPDATE", params:[row.id] });
+        if (draft?.jobId) {
+          const job = (await ctx.fns.procs.db.select({ sql: "SELECT id FROM jobs WHERE id=? AND status='running' AND lease_token=? AND lease_expires_at>? AND cancel_requested_at IS NULL FOR UPDATE", params:[draft.jobId,draft.jobToken,Date.now()] }))[0];
+          if (job) return { changes:0 };
+        }
+        return await ctx.fns.procs.db.run({ sql: "UPDATE agents SET sleep_context=?::jsonb, updated_at=? WHERE id=? AND run_state='idle' AND sleep_context=?::jsonb", params: [JSON.stringify(next), Date.now(), row.id, JSON.stringify(row.sleep_context)] });
+      } }) as { changes:number };
       if (changed.changes) { recovered.push(String(row.id)); const live=(ctx.state as any).agent?.[row.id]; if(live) live.sleepContext=next; await ctx.fns.session.appendEventWithHtml({ id:String(row.id), type:"compaction_failed", payload:{ revision, error:"recovered after interrupted Hyper process" } }).catch(()=>undefined); }
     }
     return { recovered };

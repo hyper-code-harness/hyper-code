@@ -87,32 +87,9 @@ async function recoverStaleRuns(ctx: Context, now: number): Promise<void> {
     if (recovered.length) { try { ctx.fns.agent.wakeWorker({}); } catch {} }
 }
 
-// Atomically claim ONE pending agent. The opaque token fences heartbeat and
-// finalize writes from an older owner after recovery/reclaim.
+// Shared durable claim serializes conversation turns against queued maintenance.
 async function claimOne(ctx: Context, now: number): Promise<{ id: string; token: string } | null> {
-    const token = crypto.randomUUID();
-    const claimed = await ctx.fns.procs.db.select({
-        sql: `UPDATE agents
-            SET run_state       = 'running',
-                run_started_at  = ?,
-                run_heartbeat_at = ?,
-                run_token       = ?,
-                next_run_at     = NULL,
-                last_error      = NULL,
-                updated_at      = ?
-          WHERE id IN (
-              SELECT id FROM agents
-               WHERE run_state = 'idle'
-                 AND next_run_at IS NOT NULL
-                 AND next_run_at <= ?
-                 AND archived_at IS NULL
-               ORDER BY next_run_at ASC
-               LIMIT 1
-          )
-          RETURNING id`,
-        params: [now, now, token, now, now],
-    }) as any[];
-    return claimed.length === 0 ? null : { id: claimed[0]!.id as string, token };
+    return await ctx.fns.agent.claimPendingTurn({ now });
 }
 
 // Run one agent end-to-end. Mirrors what the old single-agent loop body did:
@@ -388,6 +365,17 @@ async function workerPass(ctx: Context, inflight: Set<Promise<unknown>>): Promis
             }
         }
         while (true) {
+            const claim = await ctx.fns.agent.claimCompaction({ now: Date.now() });
+            if (!claim) break;
+            drained++;
+            // Maintenance holds only its jobs lease, never a conversation cursor.
+            // Track it for graceful shutdown but do not block other claims.
+            const p = ctx.fns.agent.runQueuedCompaction(claim).catch((error: Error) => {
+                console.error('queued compaction failed:', error);
+            }).finally(() => { inflight.delete(p); ctx.fns.agent.wakeWorker({}); });
+            inflight.add(p);
+        }
+        while (true) {
             const claim = await claimOne(ctx, Date.now());
             if (!claim) break;
             drained++;
@@ -410,8 +398,8 @@ async function workerPass(ctx: Context, inflight: Set<Promise<unknown>>): Promis
             // the soonest scheduled `next_run_at` is due.
             const next = ((await ctx.fns.procs.db.select({
                 sql: `SELECT LEAST(
-                        COALESCE((SELECT MIN(next_run_at) FROM agents WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL), ?),
-                        COALESCE((SELECT MIN(next_at) FROM jobs WHERE status = 'running'), ?)
+                        COALESCE((SELECT MIN(next_run_at) FROM agents a WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL AND sleep_context->>'draftRevision' IS NULL AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.agent_id=a.id AND j.runner='compaction' AND j.status='running')), ?),
+                        COALESCE((SELECT MIN(next_at) FROM jobs j WHERE status = 'running' AND (runner<>'compaction' OR EXISTS (SELECT 1 FROM agents a WHERE a.id=j.agent_id AND a.run_state='idle' AND a.archived_at IS NULL))), ?)
                       ) AS next`,
                 params: ['idle', Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS],
             })) as any[])[0];
@@ -425,8 +413,8 @@ async function workerPass(ctx: Context, inflight: Set<Promise<unknown>>): Promis
             // MAX_IDLE_MS sleep that accidentally serialises agents.
             const next = ((await ctx.fns.procs.db.select({
                 sql: `SELECT LEAST(
-                        COALESCE((SELECT MIN(next_run_at) FROM agents WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL), ?),
-                        COALESCE((SELECT MIN(next_at) FROM jobs WHERE status = 'running'), ?)
+                        COALESCE((SELECT MIN(next_run_at) FROM agents a WHERE run_state = ? AND next_run_at IS NOT NULL AND archived_at IS NULL AND sleep_context->>'draftRevision' IS NULL AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.agent_id=a.id AND j.runner='compaction' AND j.status='running')), ?),
+                        COALESCE((SELECT MIN(next_at) FROM jobs j WHERE status = 'running' AND (runner<>'compaction' OR EXISTS (SELECT 1 FROM agents a WHERE a.id=j.agent_id AND a.run_state='idle' AND a.archived_at IS NULL))), ?)
                       ) AS next`,
                 params: ['idle', Date.now() + MAX_IDLE_MS, Date.now() + MAX_IDLE_MS],
             })) as any[])[0];
@@ -439,6 +427,7 @@ async function workerPass(ctx: Context, inflight: Set<Promise<unknown>>): Promis
 export default async function (ctx: Context, _session: Session | null, _opts?: {}): Promise<void> {
     if ((ctx.state as any).workerLoopRunning) return;
     (ctx.state as any).workerLoopRunning = true;
+    (ctx.state as any).compactionQueueWorker = true;
 
     const inflight = new Set<Promise<unknown>>();
 

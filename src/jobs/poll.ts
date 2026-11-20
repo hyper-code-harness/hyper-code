@@ -24,7 +24,7 @@ export default async function (
     const token = Bun.randomUUIDv7();
     const due = await ctx.fns.procs.db.select({
         sql: `UPDATE jobs SET lease_token = ?, lease_expires_at = ?, updated_at = ?
-               WHERE id IN (SELECT id FROM jobs WHERE status = 'running' AND next_at <= ? AND (lease_expires_at IS NULL OR lease_expires_at < ?) ORDER BY next_at LIMIT ? FOR UPDATE SKIP LOCKED)
+               WHERE id IN (SELECT id FROM jobs WHERE status = 'running' AND runner <> 'compaction' AND next_at <= ? AND (lease_expires_at IS NULL OR lease_expires_at < ?) ORDER BY next_at LIMIT ? FOR UPDATE SKIP LOCKED)
                RETURNING *`,
         params: [token, now + 60_000, now, now, now, limit],
     }) as any[];

@@ -80,6 +80,57 @@ describe("agent.compactContext", () => {
   });
 
 
+  test.each(["failed", "stale"] as const)("retains the active checkpoint through repeated %s drafts and reloads", async (outcome) => {
+    const ctx = await mkTestCtx();
+    const agent = await seeded(ctx);
+    ctx.state.registry.llm.call = () => ({ text: "retained checkpoint", finishReason: "stop", usage: {}, raw: {} });
+    expect((await ctx.fns.agent.compactContext({ agent })).status).toBe("compacted");
+    const active = structuredClone(agent.sleepContext.generations[0]);
+    for (let i = 0; i < 8; i++) await ctx.fns.session.appendMessage({ id: agent.id, message: { role: i % 2 ? "assistant" : "user", content: `new-${i}:` + "y".repeat(16000) } });
+    await ctx.fns.session.syncAgentState({ agent });
+
+    const expectCheckpoint = async (current: any) => {
+      expect(current.sleepContext.mode).toBe("compact");
+      expect(current.sleepContext.activeRevision).toBe(active.revision);
+      expect(current.sleepContext.generations.find((g: any) => g.revision === active.revision)).toEqual(active);
+      expect(current.sleepContext.generations.length).toBeLessThanOrEqual(8);
+      const projection = await ctx.fns.agent.contextProjection({ agentId: current.id, model: current.model, sleepContext: current.sleepContext });
+      expect(projection.generation?.revision).toBe(active.revision);
+      expect(projection.tailStart).toBe(active.tailStart);
+      expect(String(projection.messages[0].content)).toContain("retained checkpoint");
+      expect(projection.messages.slice(1)).toEqual(projection.history.slice(active.tailStart));
+    };
+    ctx.state.registry.llm.call = async (_c: any, _s: any, opts: any) => {
+      // The persisted draft must retain the active checkpoint even before cleanup.
+      await expectCheckpoint(await ctx.fns.session.load({ id: agent.id }));
+      expect(String(opts.user)).toContain("retained checkpoint");
+      if (outcome === "failed") throw new Error("retry failed");
+      await ctx.fns.session.appendMessage({ id: agent.id, message: { role: "user", content: "concurrent" } });
+      return { text: "stale checkpoint", finishReason: "stop", usage: {}, raw: {} };
+    };
+    for (let attempt = 0; attempt < 10; attempt++) {
+      if (outcome === "failed") await expect(ctx.fns.agent.compactContext({ agent })).rejects.toThrow("retry failed");
+      else expect((await ctx.fns.agent.compactContext({ agent })).status).toBe("stale");
+      expect(agent.sleepContext.draftRevision).toBeNull();
+      expect(agent.sleepContext.generations.at(-1).status).toBe(outcome);
+      expect(agent.sleepContext.generations.at(-1).revision).toBe(active.revision + attempt + 1);
+      await expectCheckpoint(agent);
+      await expectCheckpoint(await ctx.fns.session.load({ id: agent.id }));
+    }
+    expect(agent.sleepContext.generations.map((g: any) => g.revision)).toEqual([1, 5, 6, 7, 8, 9, 10, 11]);
+    const request = await ctx.fns.agent.buildLlmRequest({ agent: await ctx.fns.session.load({ id: agent.id }) });
+    expect(request.messages.some((m: any) => String(m.content).endsWith("retained checkpoint"))).toBe(true);
+    expect(request.messages.some((m: any) => String(m.content) === "0:" + "x".repeat(16000))).toBe(false);
+
+    ctx.state.registry.llm.call = () => ({ text: "replacement checkpoint", finishReason: "stop", usage: {}, raw: {} });
+    expect(await ctx.fns.agent.compactContext({ agent })).toMatchObject({ status: "compacted", revision: 12 });
+    const loaded = await ctx.fns.session.load({ id: agent.id });
+    expect(loaded.sleepContext.activeRevision).toBe(12);
+    expect(loaded.sleepContext.draftRevision).toBeNull();
+    expect(loaded.sleepContext.generations).toHaveLength(8);
+  }, 30000);
+
+
   test("does not send unsupported sampling parameters to the summarizer", async () => {
     const ctx = await mkTestCtx();
     const agent = await seeded(ctx);

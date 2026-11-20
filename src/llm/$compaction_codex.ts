@@ -8,7 +8,8 @@
  * @param opts.messages Effective transcript to compact.
  */
 export default async function (ctx: Context, _session: Session | null, opts: Parameters<types.compaction.Compactor>[2]): Promise<types.compaction.CompactionResult> {
-    const checkpoint = await ctx.fns.llm.compactCodex({ model: opts.model, sessionId: opts.sessionId, instructions: opts.instructions, messages: opts.messages, signal: opts.signal });
+    const instructions = opts.instructions + (opts.focus?.trim() ? "\n\nCompaction focus instructions: " + opts.focus.trim() : "");
+    const checkpoint = await ctx.fns.llm.compactCodex({ model: opts.model, sessionId: opts.sessionId, instructions, messages: opts.messages, signal: opts.signal });
     return {
         message: { role: "user", content: JSON.stringify(checkpoint.item), message_type: "codex_compaction" },
         summary: `Native Codex server checkpoint · ${checkpoint.responseId}`,

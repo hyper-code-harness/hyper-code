@@ -1,4 +1,4 @@
-// Panel card: what the chat is working on — its plan progress and goal.
+// Panel card: what the chat is working on — its plan progress and goal (a click on the goal edits it).
 export default {
     title: "Work",
     icon: "ph-list-checks",
@@ -15,7 +15,11 @@ export default {
             if (active) rows.push({ icon: "ph-arrow-right", label: String(active.title) });
         }
         const goalText = String(goal?.statement ?? goal?.text ?? "").trim();
-        if (goalText) rows.push({ icon: "ph-target", label: goalText, hint: goal?.status ? String(goal.status) : undefined });
-        return rows.length ? rows : [{ icon: "ph-list-checks", label: "No plan yet" }];
+        // The goal row opens its editor (agent.goalPopup), like the target icon in the message box.
+        const edit = { method: "agent.goalPopup", params: { agentId: view.agent.id } };
+        if (goalText) rows.push({ icon: "ph-target", label: goalText, hint: goal?.status ? String(goal.status) : undefined, popup: edit });
+        if (!rows.length) rows.push({ icon: "ph-list-checks", label: "No plan yet" });
+        if (!goalText) rows.push({ icon: "ph-target", label: "Set a goal…", popup: edit });
+        return rows;
     },
 } satisfies types.chat.Card;

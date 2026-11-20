@@ -28,7 +28,7 @@
                 const button = event.target.closest('button,input[type="submit"]');
                 if (!button || button.getAttribute('type') === 'button') return;
                 event.preventDefault();
-                send(elt);
+                send(elt, button);
                 return;
             }
             event.preventDefault();
@@ -38,7 +38,15 @@
             const form = event.target.closest?.('form[hx-popup]');
             if (!form) return;
             event.preventDefault();
-            send(form);
+            send(form, event.submitter);
+        });
+        // ⌘/Ctrl+Enter in a text area of such a form sends it with its first submit button, as Enter does in a field.
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey) || event.isComposing) return;
+            const form = event.target.closest?.('form[hx-popup]');
+            if (!form || event.target.tagName !== 'TEXTAREA') return;
+            event.preventDefault();
+            send(form, form.querySelector('button[name]:not([type="button"]), button:not([type="button"])'));
         });
         // HTMX does not swap 4xx/5xx responses. Popup RPC used to stay
         // on "loading…" even though the server had already returned a
@@ -64,7 +72,9 @@
         // A pending secure prompt survives a full page reload; check
         // once on boot, but do not open an empty loading dialog.
         if (host && host.dataset.pending === '1') send(host);
-        function send(elt) {
+        // `submitter` is the button that sent the form: its name and value go with the fields, as in a plain form
+        // post (FormData(form) alone leaves the pressed button out, so a form could not tell Save from Remove).
+        function send(elt, submitter) {
             let params = {};
             try { params = JSON.parse(elt.getAttribute('hx-popup-params') || '{}'); } catch { return; }
             if (elt.tagName === 'FORM') for (const [key, value] of new FormData(elt)) {
@@ -72,6 +82,8 @@
                 else if (Array.isArray(params[key])) params[key].push(value);
                 else params[key] = [params[key], value];
             }
+            const named = elt.tagName === 'FORM' && submitter?.form === elt ? submitter.getAttribute('name') : '';
+            if (named && params[named] === undefined) params[named] = submitter.value;
             const method = elt.getAttribute('hx-popup');
             const title = elt.getAttribute('title') || elt.getAttribute('aria-label') || method;
             const secureSubmit = method === 'secureInput.submit';

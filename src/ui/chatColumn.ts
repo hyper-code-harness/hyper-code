@@ -72,6 +72,19 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         html: await ctx.fns.agent.teamBadge({ agentId: id }),
     });
 
+    // The chat's goal (agent.setGoal): a target icon beside the subagents and jobs badges — always there, grey
+    // without a goal or with one that is off, coloured while it is active; a click opens agent.goalPopup to set,
+    // edit, pause or remove it. agent.setGoal and the goal checker refresh the topic.
+    const goalRegion = ctx.fns.ui.live({
+        id: 'chat-goal-badge',
+        url: `/agent/${encodeURIComponent(id)}/goal-badge`,
+        topic: `agent:${id}`,
+        every: 30,
+        swap: 'innerHTML',
+        attrs: 'class="w-composer-jobs"',
+        html: await ctx.fns.agent.goalBadge({ agentId: id }),
+    });
+
     const inject = await ctx.fns.chat.promptInject({ agentId: id });
 
     // The header — avatar, name, $chatbadge_ / $chatbutton_ parts and the ⋯ panel of $chatcard_ — is chat.header.
@@ -95,7 +108,7 @@ ${await ctx.fns.ui.chatComposer({
   aboveHtml: inject.mode === "global" ? "" : inject.trigger,
   statusHtml: inject.mode === "global" ? inject.trigger : "",
   toolsHtml: await ctx.fns.chat.modelChip({ agentId: id }),
-  metersHtml: teamRegion + jobsRegion + ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="w-composer-meters"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
+  metersHtml: goalRegion + teamRegion + jobsRegion + ctx.fns.ui.live({ id: 'chat-context-ring', url: `/chat/${encodeURIComponent(id)}/ring`, topic: `agent:${id}`, every: 60, swap: 'innerHTML', attrs: 'class="w-composer-meters"', html: await ctx.fns.chat.contextRing({ agentId: id }) }),
 })}
 
 ${inject.panel}

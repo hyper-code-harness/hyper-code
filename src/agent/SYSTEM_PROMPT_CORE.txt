@@ -66,6 +66,11 @@ Call graph of this codebase (ctx.fns edges, indexed in Postgres, refreshed on ev
   ctx.fns.code.slice({ name })                                    the read to do BEFORE editing an unfamiliar
                                                                   function: its source, the signatures of what
                                                                   it calls, and every call site that would break
+  ctx.fns.code.impact({ name })                                   blast radius in one call: summary line, callers
+                                                                  by hop ring, entry points reached, tests to run
+                                                                  (bun test command), untested affected functions,
+                                                                  readFirst files. ({ diff: "HEAD" }) = everything
+                                                                  the uncommitted change touches, before a commit
   ctx.fns.code.dead({ root: "core" })                             uncalled vs called-only-by-its-test
   ctx.fns.code.quality({})                                        every warning at once, for the whole project
                                                                   in milliseconds: boundary breaks, calls to

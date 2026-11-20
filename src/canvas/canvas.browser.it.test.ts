@@ -100,8 +100,11 @@ async function foldedTab(agentId: string) {
     const mac = await tab.evaluate("/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)");
     const focusKey = async () => { for (const type of ["rawKeyDown", "keyUp"]) await tab.send("Input.dispatchKeyEvent", { type, key: "i", code: "KeyI", windowsVirtualKeyCode: 73, modifiers: mac ? 4 : 2 }); };
     const key = async (k: string, code: string, vk: number, text?: string) => { await tab.send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code, windowsVirtualKeyCode: vk, ...(text ? { text } : {}) }); await tab.send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: vk }); };
+    // Entering a chat focuses its message box, so a folded chat arrives with the field open; Escape leaves the
+    // box and an empty one folds back into the circle.
+    const rest = async () => { await settle({ collapsed: true, open: true, focused: true }); await key("Escape", "Escape", 27); return settle({ collapsed: true, open: false, focused: false }); };
     await ready();
-    return { ...tab, ready, state, settle, click, key, focusKey, keyLabel: mac ? "⌘I" : "Ctrl+I" };
+    return { ...tab, ready, state, settle, click, key, focusKey, rest, keyLabel: mac ? "⌘I" : "Ctrl+I" };
 }
 
 test.skipIf(!CDP)("the folded chat is a circle; a click or the focus key opens the message box, a draft keeps it open, the field unfolds the chat", async () => {
@@ -110,6 +113,9 @@ test.skipIf(!CDP)("the folded chat is a circle; a click or the focus key opens t
     await ctx.fns.canvas.update({ agentId: agent.id, chatWidth: 520, chatCollapsed: true });
     const tab = await foldedTab(agent.id);
     try {
+        // Entering the chat puts the caret in the message box: the field is open, inside the window, ready to type.
+        await tab.settle({ collapsed: true, open: true, focused: true, text: "", inside: true });
+        await tab.rest();
         // At rest: the circle, with the key that opens the box written beside it.
         const rest = await tab.settle({ collapsed: true, open: false, size: [44, 44], onTop: true, inside: true, focused: false, key: JSON.stringify(tab.keyLabel) });
 
@@ -141,6 +147,7 @@ test.skipIf(!CDP)("the folded chat is a circle; a click or the focus key opens t
         await tab.evaluate("document.activeElement?.blur(); location.reload()");
         await Bun.sleep(300);
         await tab.ready();
+        await tab.rest();
         for (const width of [1400, 1000, 800, 600, 390]) {
             await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
             await tab.settle({ collapsed: true, open: false, size: [44, 44], onTop: true, inside: true });
@@ -164,6 +171,7 @@ test.skipIf(!CDP)("the folded chat shows the latest answer as a bubble with a cl
     const tab = await foldedTab(id);
     const runs: Map<string, unknown> = ((ctx.state as any).toolRuns ??= new Map());
     try {
+        await tab.rest();
         await tab.settle({ collapsed: true, open: false, bubbles: ["agent"], unread: null, tool: "" });
         // The answer is shown whole — nothing cut, no fade; a very long one scrolls inside its bubble instead.
         const whole = `(() => { const t = [...document.querySelectorAll('#messages > .w-msg[data-role="agent"] .w-msg-text')].pop(), b = t.closest('.w-msg').getBoundingClientRect(); return { cut: t.scrollHeight - t.clientHeight > 1, mask: getComputedStyle(t).maskImage, scrolls: getComputedStyle(t).overflowY, inside: b.top >= 0 && b.bottom <= innerHeight }; })()`;
@@ -175,6 +183,7 @@ test.skipIf(!CDP)("the folded chat shows the latest answer as a bubble with a cl
         await tab.evaluate("location.reload()");
         await Bun.sleep(300);
         await tab.ready();
+        await tab.rest();
         await tab.settle({ collapsed: true, bubbles: [], unread: null });
         expect(await tab.evaluate("document.querySelectorAll('#messages > .w-msg').length")).toBe(2);
 
@@ -185,6 +194,7 @@ test.skipIf(!CDP)("the folded chat shows the latest answer as a bubble with a cl
         await tab.evaluate("location.reload()");
         await Bun.sleep(300);
         await tab.ready();
+        await tab.rest();
         await tab.settle({ bubbles: ["user"], tool: "bash bun test" });
 
         // A new answer replaces it and is counted on the circle until the box is opened.
@@ -203,3 +213,28 @@ test.skipIf(!CDP)("the folded chat shows the latest answer as a bubble with a cl
         await tab.close();
     }
 }, 60_000);
+
+test.skipIf(!CDP)("switching to a chat whose chat is folded puts the caret in its message box", async () => {
+    const from = await ctx.fns.agent.start({ model: "mock:test", title: "column chat" });
+    const to = await ctx.fns.agent.start({ model: "mock:test", title: "folded chat" });
+    await ctx.fns.canvas.show({ agentId: to.id, kind: "html", title: "Drawing", args: { html: "<p>drawing</p>" } });
+    await ctx.fns.canvas.update({ agentId: to.id, chatCollapsed: true });
+    const tab = await openTab(`http://127.0.0.1:${server.port}/agent/${from.id}`);
+    try {
+        await tab.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+        await tab.send("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
+        const here = (id: string) => `(() => { const r = document.querySelector('[data-canvas-agent="${id}"]'); return !!r && !!window.__hyperCanvasInstalled && { collapsed: r.hasAttribute('data-chat-collapsed'), open: r.hasAttribute('data-chat-open'), focused: document.activeElement?.id === 'input' && r.contains(document.activeElement) }; })()`;
+        const until = async (id: string, want: Record<string, boolean>) => { let now: any = null; for (let i = 0; i < 100; i++) { now = await tab.evaluate(here(id)); if (now && JSON.stringify(now) === JSON.stringify(want)) break; await Bun.sleep(50); } return now; };
+        expect(await until(from.id, { collapsed: false, open: false, focused: true })).toEqual({ collapsed: false, open: false, focused: true });
+        // The way the person switches: the chat's row in the navigation.
+        const link = `[...document.querySelectorAll('a[href="/agent/${to.id}"], [hx-get="/agent/${to.id}"]')].find(el => el.offsetParent !== null)`;
+        for (let i = 0; i < 60 && !(await tab.evaluate(`!!${link}`)); i++) await Bun.sleep(50);
+        expect(await tab.evaluate(`(() => { const el = ${link}; if (!el) return 'no link'; el.click(); return 'clicked'; })()`)).toBe("clicked");
+        expect(await until(to.id, { collapsed: true, open: true, focused: true })).toEqual({ collapsed: true, open: true, focused: true });
+        // And typing lands in the box right away.
+        await tab.send("Input.insertText", { text: "hi" });
+        expect(await tab.evaluate("document.getElementById('input').value")).toBe("hi");
+    } finally {
+        await tab.close();
+    }
+}, 30_000);

@@ -107,8 +107,9 @@
                 if (this.jumpToHash()) return;
                 this.scrollBottom();
                 this.shouldStick = this.isNearBottom();
-                // A folded chat (canvas.js) stays a circle until the person goes to the message box.
-                if (!this.form.closest('[data-chat-collapsed]')) this.input.focus();
+                // Entering a chat puts the caret in the message box — a folded chat too: its circle opens into the
+                // field at once (canvas.js), so the person types without a click or a key.
+                this.input.focus();
             });
             return true;
         }

@@ -25,6 +25,14 @@
     const closedIds = root => { try { return JSON.parse(sessionStorage.getItem(closedKey(root)) || '[]'); } catch { return []; } };
     const answerIdx = el => Number(el.id.slice(2));
     let seen = { agent: null, idx: -1 };
+    // The agent whose folded chat the person put away with the key (canvas.hideChat): a circle even with a draft
+    // in the box, until they go to the box again.
+    let hidden = null;
+    const closeBubble = (root, bubble) => {
+        if (bubble.id) { try { sessionStorage.setItem(closedKey(root), JSON.stringify([...new Set([...closedIds(root), bubble.id])].slice(-50))); } catch {} }
+        if (bubble.getAttribute('data-role') === 'agent' && bubble.id.startsWith('m-')) seen.idx = Math.max(seen.idx, answerIdx(bubble));
+        bubble.setAttribute('data-bubble-closed', '');
+    };
     const syncFold = () => {
         const root = page(), chat = document.getElementById('chat-panel');
         if (!root || !chat) return;
@@ -33,7 +41,8 @@
         // The key that goes to the message box (chat.focus in the keymap) is written beside the circle.
         const box = form?.querySelector('.w-composer-box'), key = window.hyperKeys?.label('chat.focus') || '';
         if (box) { if (key) box.setAttribute('data-key', key); else box.removeAttribute('data-key'); }
-        const open = folded && (chat.contains(document.activeElement) || !!input?.value.trim() || !!chat.querySelector('[data-attachments] > *'));
+        if (hidden !== agentOf(root) || chat.contains(document.activeElement)) hidden = null;
+        const open = folded && !hidden && (chat.contains(document.activeElement) || !!input?.value.trim() || !!chat.querySelector('[data-attachments] > *'));
         root.toggleAttribute('data-chat-open', open);
         if (!folded) { form?.removeAttribute('data-unread'); seen = { agent: null, idx: -1 }; return; }
         const closed = new Set(closedIds(root));
@@ -61,9 +70,7 @@
         const box = bubble.getBoundingClientRect();
         if (event.clientX > box.right - 28 && event.clientY < box.top + 28) {
             event.preventDefault();
-            if (bubble.id) { try { sessionStorage.setItem(closedKey(root), JSON.stringify([...new Set([...closedIds(root), bubble.id])].slice(-50))); } catch {} }
-            if (bubble.getAttribute('data-role') === 'agent' && bubble.id.startsWith('m-')) seen.idx = Math.max(seen.idx, answerIdx(bubble));
-            bubble.setAttribute('data-bubble-closed', '');
+            closeBubble(root, bubble);
             syncFold();
             return;
         }
@@ -115,6 +122,22 @@
                 ?? page()?.querySelector('[data-canvas-chat-toggle]');
             if (!button || button.disabled) return false;
             button.click();
+            return true;
+        },
+    };
+
+    // The focus key pressed again inside the folded chat's box (scope foldedChat in $keymap_default.ts): everything
+    // goes away — the bubbles are closed, the field folds into the circle. A draft stays in the box for next time.
+    const inFoldedBox = () => !!page()?.hasAttribute('data-chat-collapsed') && document.activeElement?.id === 'input' && !!document.activeElement.closest('#chat-panel');
+    (window.hyperKeyScopes ??= {}).foldedChat = inFoldedBox;
+    commands['canvas.hideChat'] = {
+        title: 'Put the folded chat away: close its bubbles, back to the circle', group: 'canvas/window', when: inFoldedBox,
+        run: () => {
+            const root = page(), chat = document.getElementById('chat-panel');
+            chat.querySelectorAll('#messages > .w-msg').forEach(m => { if (getComputedStyle(m).display !== 'none') closeBubble(root, m); });
+            hidden = agentOf(root);
+            document.activeElement.blur();
+            syncFold();
             return true;
         },
     };

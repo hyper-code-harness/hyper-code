@@ -207,7 +207,18 @@ test.skipIf(!CDP)("the folded chat shows the latest answer as a bubble with a cl
         await tab.settle({ bubbles: ["agent"], unread: "2", tool: "" });
         expect(await tab.evaluate(whole)).toEqual({ cut: true, mask: "none", scrolls: "auto", inside: true });
         await tab.focusKey();
-        await tab.settle({ open: true, unread: null, bubbles: ["agent"] });
+        await tab.settle({ open: true, focused: true, unread: null, bubbles: ["agent"] });
+        // The same key again puts everything away: the bubbles close and the field folds into the circle — with a
+        // draft too, which waits in the box for the next time.
+        await tab.key("x", "KeyX", 88, "x");
+        await tab.settle({ open: true, focused: true, text: "x" });
+        await tab.focusKey();
+        await tab.settle({ open: false, focused: false, size: [44, 44], bubbles: [], unread: null, text: "x" });
+        await tab.focusKey();
+        await tab.settle({ open: true, focused: true, bubbles: [], text: "x" });
+        // A new answer is a new bubble.
+        await answer("One more.");
+        await tab.settle({ open: true, bubbles: ["agent"] });
     } finally {
         runs.delete("fold-test");
         await tab.close();

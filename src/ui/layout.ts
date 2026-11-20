@@ -318,7 +318,7 @@ ${opts.headExtra ?? ""}
   ${hideNavigation ? "" : ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', label: "Open agents and pages", title: "Agents and pages", marks: { action: "open-global-menu-mobile" }, attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" }, class: "hidden" })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
   ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load, htmx:after:swap[document.documentElement.dataset.dockMode==='menu'&&detail.ctx.target&&detail.ctx.target.id==='main'] from:document", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
-    <script src="/canvas/canvas.js?v=8" defer></script>
+    <script src="/canvas/canvas.js?v=9" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

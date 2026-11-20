@@ -4,6 +4,18 @@
 .canvas-panel > [data-canvas-rail] { display: none; }
 [data-page="agent"]:not([data-canvas-open]) > .canvas-panel > :not([data-canvas-rail]) { display: none !important; }
 [data-page="agent"]:not([data-canvas-open]) > .canvas-panel > [data-canvas-rail] { display: flex; width: 100%; height: 100%; }
+/* The chat header's fold button (canvas/$chatbutton_collapse.ts, `hidden` by class): shown while the canvas is
+   open, one of its two icons at a time. On the folded strip it is the strip's own way back to the column. */
+[data-page="agent"][data-canvas-open] .canvas-chat-toggle { display: inline-flex; }
+[data-canvas-chat-toggle] .canvas-chat-unfold, [data-page="agent"][data-chat-collapsed] [data-canvas-chat-toggle] .canvas-chat-fold { display: none; }
+[data-page="agent"][data-chat-collapsed] [data-canvas-chat-toggle] .canvas-chat-unfold { display: inline; }
+/* Narrow window: the canvas covers the whole page (ui.layout, z-index 45). The folded chat strip goes over it,
+   not under — otherwise the chat is gone from the screen. */
+@media (max-width: 1023px) { [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel { z-index: 46; } }
+/* The strip keeps its unfold button at any width: the narrow-chat and phone rules in ui.layout fold the header's
+   buttons away, and this one is the strip's only way back. */
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel > header [data-chat-buttons],
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel > header [data-chat-buttons] > [data-chat-id="canvas.collapse"] { display: flex !important; }
 .canvas-panel > .w-pane-header { padding-right: var(--w-s1); }
 .canvas-panel .w-tabs { overflow-x: auto; scrollbar-width: none; }
 /* Many tabs: each keeps room for its icon and a few letters, then the strip scrolls instead of squeezing labels to nothing. */

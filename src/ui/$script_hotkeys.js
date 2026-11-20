@@ -217,6 +217,9 @@
     // The strip appears when the chat folds (canvas.js flips the attribute) or after a page swap.
     new MutationObserver(restore).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-chat-collapsed'] });
     document.addEventListener('htmx:after:swap', restore);
+    // A narrower window: the saved place may now be outside the page — place() clamps it back in. The saved
+    // values are not rewritten, so a wide window gets its own place again.
+    window.addEventListener('resize', restore);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore); else restore();
 })();
 

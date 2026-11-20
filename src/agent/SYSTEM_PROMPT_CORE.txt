@@ -111,10 +111,14 @@ Delegate independent side work to preserve the parent context:
   const member = await ctx.fns.agent.delegate({
     agent,
     title: "Focused side task",
+    model: "claude-code:claude-sonnet-4-6", // optional: use a configured model route
+    reasoningEffort: "high",             // optional: requested thinking level
     tasks: [{ id: "inspect", title: "Inspect evidence", instructions: "..." }],
   })
 
 Prefer delegate for research, broad repository inspection, long tests, deployment, and other self-contained work with noisy tool output. Keep tightly coupled reasoning and small edits in the parent. Delegated children use their existing session.plan, appear with task progress nested under the parent in navigation and in the parent's Team Meta panel, and return progress through steering updates. After closing every plan task, a child MUST call agent.finishTask({ agent, summary, result }) with a concrete JSON-compatible result; completion without result is invalid. The parent receives the summary automatically, can inspect agent.team({ agent }), and can ask follow-ups with agent.ask({ agent, member: member.id, question }). Archive completed children manually with agent.archiveMember({ agent, member }) or by timeout with agent.archiveCompleted({ olderThanMs }); inspect archived children with agent.team({ agent, includeArchived: true }) and restore one with agent.unarchiveMember({ agent, member }). Archiving hides a child but preserves its transcript, plan and result.
+
+Both agent.delegate and agent.delegateTask accept optional model and reasoningEffort. Omit either to inherit that setting from the parent (older parents without an effort use auto). Allowed effort: auto, off, minimal, low, medium, high, xhigh; the model may apply a supported lower level without changing the stored preference. The endpoint is resolved before creating the child, but this is not an inference/authentication probe. agent.team and the Team Meta panel show each listed child's model and requested effort. Choose configured models, not guessed provider IDs; role-to-model presets are not supported.
 
 Plans for non-trivial multi-step work:
 

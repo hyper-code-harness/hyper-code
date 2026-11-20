@@ -16,8 +16,8 @@
  *
  * @param opts.agent Agent whose panel is rendered.
  * @param opts.section Which section to render: goal, automation, wake, team or plan.
- * @param opts.team Direct delegated children, for the team section.
- * @param opts.archivedTeam Archived delegated children, for the team section.
+ * @param opts.team Direct delegated children with stored models and requested reasoning preferences, for the team section.
+ * @param opts.archivedTeam Archived children with stored models and requested reasoning preferences, for the team section.
  * @param opts.models Models grouped by provider, for the parked-agent switcher.
  * @param opts.accounts Credential accounts with quota, for the parked-agent switcher.
  * @param opts.extraSettings Trusted HTML blocks answered by the `ui.agentSettings` point, appended to the settings section.
@@ -30,9 +30,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
     /** Active durable wake, cron and condition triggers for this agent. */
     triggers?: any[];
     /** Direct delegated children with their existing plans. */
-    team?: Array<{ id: string; title: string; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
+    team?: Array<{ id: string; title: string; model?: string; reasoningEffort?: types.llm.ReasoningEffort; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
     /** Archived delegated children displayed by the Team filter. */
-    archivedTeam?: Array<{ id: string; title: string; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
+    archivedTeam?: Array<{ id: string; title: string; model?: string; reasoningEffort?: types.llm.ReasoningEffort; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
     /** Models grouped by provider, used by the parked-agent switcher. */
     models?: Record<string, string[]>;
     /** Credential accounts with their quota, used by the parked-agent switcher. */
@@ -129,6 +129,8 @@ export default function (ctx: Context, _session: Session | null, opts: {
         const archivedTeam = Array.isArray(opts.archivedTeam) ? opts.archivedTeam : [];
         const allTeam = [...team, ...archivedTeam];
         if (!allTeam.length) return '';
+        // Stored preferences, not provider-resolved reasoning levels; escape both values.
+        const memberSettings = (member: { model?: string; reasoningEffort?: types.llm.ReasoningEffort }) => `<div class="break-words text-3xs leading-4 text-subtle" data-team-member-settings>Model: <span class="font-mono">${esc(member.model || 'Not set')}</span> · Reasoning (requested): <span>${esc(member.reasoningEffort ?? 'auto')}</span></div>`;
         return inspectorSection({
             title: 'Team', icon: 'users-three', badge: statusBadge({ label: String(team.length), tone: team.some((member: any) => member.status === 'failed' || member.status === 'blocked') ? 'error' : team.some((member: any) => member.status === 'working') ? 'info' : 'neutral' }), collapsible: true,
             open: team.some((member: any) => member.status === 'working' || member.status === 'blocked' || member.status === 'failed'), html: `
@@ -141,6 +143,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
                 return `<details class="group overflow-hidden rounded-lg border border-ui-border bg-base-200" ${member.status === 'working' ? 'open' : ''}>
           <summary class="flex min-h-10 cursor-pointer list-none items-center gap-2 px-2.5 py-2 hover:bg-base-200/60"><i class="ph ph-robot text-muted"></i><span class="min-w-0 flex-1 truncate text-xs font-medium text-base-content">${esc(member.title || `Agent ${member.id}`)}</span>${memberBadge}<span class="font-mono text-3xs tabular-nums text-faint">${memberDone}/${memberTasks.length}</span><i class="ph ph-caret-down text-3xs text-faint transition-transform group-open:rotate-180"></i></summary>
           <div class="space-y-2 border-t border-ui-border px-2.5 py-2">
+            ${memberSettings(member)}
             ${memberTasks.length ? progressBar({ value: memberDone, max: memberTasks.length, label: member.plan?.title || 'Task progress', showValue: false }) : ''}
             <div class="space-y-1.5">${memberTasks.map((task: any) => `<div class="text-2xs leading-4 ${task.status === 'done' ? 'text-faint' : task.status === 'active' ? 'text-muted' : 'text-subtle'}"><div class="flex items-start gap-1.5"><i class="ph ${task.status === 'done' ? 'ph-check-circle text-success' : task.status === 'active' ? 'ph-circle-notch animate-spin' : 'ph-circle'} mt-0.5"></i><span>${esc(task.title)}</span></div>${task.resultSummary ? `<div class="ml-4 mt-0.5 text-subtle">${esc(task.resultSummary)}</div>` : ''}</div>`).join('')}</div>
             ${member.summary ? `<div class="mt-2 border-t border-ui-border pt-2 text-3xs leading-4 text-subtle">${esc(member.summary)}</div>` : ''}
@@ -148,7 +151,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
           </div>
         </details>`;
             }).join('')}</div>
-      ${archivedTeam.length ? `<div data-team-archive-list class="mt-2 hidden space-y-2">${archivedTeam.map((member: any) => { const archivedTasks = Array.isArray(member.plan?.tasks) ? member.plan.tasks : []; return `<details class="rounded-lg border border-ui-border bg-base-200 opacity-80"><summary class="flex cursor-pointer list-none items-center gap-2 px-2.5 py-2"><i class="ph ph-archive text-faint"></i><span class="min-w-0 flex-1 truncate text-xs text-muted">${esc(member.title || `Agent ${member.id}`)}</span><span class="text-3xs text-faint">${archivedTasks.filter((task: any) => task.status === 'done').length}/${archivedTasks.length}</span></summary><div class="border-t border-ui-border px-2.5 py-2"><div class="space-y-1">${archivedTasks.map((task: any) => `<div class="text-3xs leading-4 text-subtle"><div class="flex items-start gap-1.5"><i class="ph ${task.status === 'done' ? 'ph-check-circle' : 'ph-circle'} mt-0.5"></i><span>${esc(task.title)}</span></div>${task.resultSummary ? `<div class="ml-4 mt-0.5 text-faint">${esc(task.resultSummary)}</div>` : ''}</div>`).join('')}</div>${member.summary ? `<div class="mt-2 border-t border-ui-border pt-2 text-3xs leading-4 text-subtle">${esc(member.summary)}</div>` : ''}<div class="mt-2 flex items-center gap-2"><form hx-post="/agent/${id}/team/${encodeURIComponent(member.id)}/unarchive" hx-swap="none" hx-on::after:request="if(event.detail.ctx?.response?.status < 400) location.href='/agent/${encodeURIComponent(member.id)}'">${ctx.fns.w.pressable({ html: '<i class="ph ph-arrow-counter-clockwise"></i> Restore &amp; open', marks: { action: 'restore-team-member' }, class: 'text-3xs text-primary hover:text-primary' })}</form></div></div></details>`; }).join('')}</div>` : ''}
+      ${archivedTeam.length ? `<div data-team-archive-list class="mt-2 hidden space-y-2">${archivedTeam.map((member: any) => { const archivedTasks = Array.isArray(member.plan?.tasks) ? member.plan.tasks : []; return `<details class="rounded-lg border border-ui-border bg-base-200 opacity-80"><summary class="flex cursor-pointer list-none items-center gap-2 px-2.5 py-2"><i class="ph ph-archive text-faint"></i><span class="min-w-0 flex-1 truncate text-xs text-muted">${esc(member.title || `Agent ${member.id}`)}</span><span class="text-3xs text-faint">${archivedTasks.filter((task: any) => task.status === 'done').length}/${archivedTasks.length}</span></summary><div class="border-t border-ui-border px-2.5 py-2">${memberSettings(member)}<div class="space-y-1">${archivedTasks.map((task: any) => `<div class="text-3xs leading-4 text-subtle"><div class="flex items-start gap-1.5"><i class="ph ${task.status === 'done' ? 'ph-check-circle' : 'ph-circle'} mt-0.5"></i><span>${esc(task.title)}</span></div>${task.resultSummary ? `<div class="ml-4 mt-0.5 text-faint">${esc(task.resultSummary)}</div>` : ''}</div>`).join('')}</div>${member.summary ? `<div class="mt-2 border-t border-ui-border pt-2 text-3xs leading-4 text-subtle">${esc(member.summary)}</div>` : ''}<div class="mt-2 flex items-center gap-2"><form hx-post="/agent/${id}/team/${encodeURIComponent(member.id)}/unarchive" hx-swap="none" hx-on::after:request="if(event.detail.ctx?.response?.status < 400) location.href='/agent/${encodeURIComponent(member.id)}'">${ctx.fns.w.pressable({ html: '<i class="ph ph-arrow-counter-clockwise"></i> Restore &amp; open', marks: { action: 'restore-team-member' }, class: 'text-3xs text-primary hover:text-primary' })}</form></div></div></details>`; }).join('')}</div>` : ''}
       ` });
     }
 

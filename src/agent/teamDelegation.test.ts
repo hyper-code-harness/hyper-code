@@ -45,6 +45,61 @@ describe("team delegation", () => {
         expect(members[0]!.plan.tasks).toHaveLength(2);
     });
 
+    test("delegate inherits the parent model and requested effort durably", async () => {
+        const ctx = await setup();
+        const parent = await ctx.fns.agent.start({ model: "mock:parent" });
+        parent.reasoningEffort = "xhigh";
+        await ctx.fns.session.save({ agent: parent });
+        const member = await delegate(ctx, null, { agent: parent, title: "Review", tasks: [{ id: "review", title: "Review" }] });
+        expect(ctx.state.agent[member.id]).toMatchObject({ model: "mock:parent", reasoningEffort: "xhigh" });
+        const loaded = await ctx.fns.session.load({ id: member.id });
+        expect(loaded).toMatchObject({ model: "mock:parent", reasoningEffort: "xhigh" });
+    });
+
+    test("delegate overrides child model and effort without changing its parent", async () => {
+        const ctx = await setup();
+        const parent = await ctx.fns.agent.start({ model: "mock:parent" });
+        parent.reasoningEffort = "high";
+        await ctx.fns.session.save({ agent: parent });
+        const member = await delegate(ctx, null, { agent: parent, title: "Panel", tasks: [{ id: "review", title: "Review" }], model: "mock:reviewer", reasoningEffort: "off" });
+        expect(await ctx.fns.session.load({ id: member.id })).toMatchObject({ model: "mock:reviewer", reasoningEffort: "off", forkOffset: 0 });
+        expect(await ctx.fns.session.load({ id: parent.id })).toMatchObject({ model: "mock:parent", reasoningEffort: "high" });
+    });
+
+    test("delegate independently defaults omitted settings and preserves explicit auto", async () => {
+        const ctx = await setup();
+        const parent = await ctx.fns.agent.start({ model: "mock:parent" });
+        parent.reasoningEffort = "low";
+        for (const [overrides, expected] of [
+            [{ model: "mock:reviewer" }, { model: "mock:reviewer", reasoningEffort: "low" }],
+            [{ reasoningEffort: "auto" as const }, { model: "mock:parent", reasoningEffort: "auto" }],
+        ] as const) {
+            const member = await delegate(ctx, null, { agent: parent, title: "Review", tasks: [{ id: "review", title: "Review" }], ...overrides });
+            expect(await ctx.fns.session.load({ id: member.id })).toMatchObject(expected);
+        }
+        delete parent.reasoningEffort;
+        const member = await delegate(ctx, null, { agent: parent, title: "Old parent", tasks: [{ id: "review", title: "Review" }] });
+        expect((await ctx.fns.session.load({ id: member.id })).reasoningEffort).toBe("auto");
+    });
+
+    test("invalid endpoint or effort fails before creating or queuing any child", async () => {
+        const ctx = await setup();
+        const parent = await ctx.fns.agent.start({ model: "mock:parent" });
+        const before = await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents ORDER BY id" });
+        let wakeCount = 0;
+        ctx.fns.agent.wakeWorker = () => { wakeCount++; };
+        for (const [settings, error] of [
+            [{ model: "missing-delegation-provider:test" }, "cannot resolve model"],
+            [{ model: "hyper/missing-node:test" }, "hyper node not configured"],
+            [{ model: " " }, "model must be a non-empty"],
+            [{ reasoningEffort: "huge" }, "invalid reasoningEffort"],
+        ] as const) {
+            await expect(delegate(ctx, null, { agent: parent, title: "Bad", tasks: [{ id: "bad", title: "Bad" }], ...settings } as any)).rejects.toThrow(error);
+            expect(await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents ORDER BY id" })).toEqual(before);
+        }
+        expect(wakeCount).toBe(0);
+    });
+
     test("completing a child task steers one durable update and schedules idle parent", async () => {
         const ctx = await setup();
         const parent = await ctx.fns.agent.start({ model: "m" });

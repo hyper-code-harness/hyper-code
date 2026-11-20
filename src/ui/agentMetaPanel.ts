@@ -23,16 +23,16 @@
  * slot at a time when the server pushes ui.metaSection for it.
  *
  * @param opts.agent Agent associated with the operation.
- * @param opts.team Direct delegated children with their existing plans.
- * @param opts.archivedTeam Archived delegated children displayed by the Team filter.
+ * @param opts.team Direct delegated children with their plans, stored models and requested reasoning preferences.
+ * @param opts.archivedTeam Archived children with stored models and requested reasoning preferences displayed by the Team filter.
  * @param opts.models Models grouped by provider, used by the parked-agent switcher.
  * @param opts.accounts Credential accounts with their quota, used by the parked-agent switcher.
  * @param opts.extraSettings Trusted HTML blocks answered by the `ui.agentSettings` point, appended to the settings section.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Agent associated with the operation. */ agent: types.agent.Agent;
-    /** Direct delegated children with their existing plans. */ team?: Array<{ id: string; title: string; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
-    /** Archived delegated children displayed by the Team filter. */ archivedTeam?: Array<{ id: string; title: string; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
+    /** Direct delegated children with their existing plans. */ team?: Array<{ id: string; title: string; model?: string; reasoningEffort?: types.llm.ReasoningEffort; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
+    /** Archived delegated children displayed by the Team filter. */ archivedTeam?: Array<{ id: string; title: string; model?: string; reasoningEffort?: types.llm.ReasoningEffort; runState: string; status: string; plan: any; summary: string | null; updatedAt: number; archivedAt?: number | null }>;
     /** Models grouped by provider, used by the parked-agent switcher. */ models?: Record<string, string[]>;
     /** Credential accounts with their quota, used by the parked-agent switcher. */ accounts?: Array<{ provider: string; account: string; label: string; model: string; available: boolean; usedPercent: number | null; resetsAt: number | null; parkedAgents: number }>;
     /** Active durable wake, cron and condition triggers for this agent. */ triggers?: any[];

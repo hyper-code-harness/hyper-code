@@ -1,19 +1,23 @@
-/** Delegate task for the runtime.  * @param opts.parent Parent agent that delegates the task.
- * @param opts.task Concise task to assign or perform.
- * @param opts.forkContext Whether the child inherits parent transcript context.
- * @param opts.instructions Additional instructions for completing the task.
- * @param opts.mode Delegation execution mode.
- * @param opts.responseFormat Expected completed-task response format.
- * @param opts.autoArchive Whether to archive the child after completion.
-*/
+/**
+ * Run a single delegated task with an optional child model and reasoning preference.
+ *
+ * Use await mode to return the child's finishTask result, or async mode to return
+ * its ID immediately. Validate the model route and thinking preference before
+ * creating a child. Omitted settings inherit the parent's model and requested
+ * reasoning effort; older parents without a preference use auto.
+ * @param opts.parent Parent agent delegating the task.
+ * @param opts.task Non-empty task instructions.
+ * @param opts.model Child model route accepted by llm.resolveEndpoint; omitted inherits the parent model.
+ * @param opts.reasoningEffort Requested child thinking level; omitted inherits the parent preference.
+ * @param opts.forkContext Inherit the parent transcript rather than start an isolated session. @default false
+ * @param opts.instructions Additional constraints appended to the task prompt.
+ * @param opts.mode Wait for completion or return the child ID immediately. @default await
+ * @param opts.responseFormat Desired format of the child's finishTask result. @default text
+ * @param opts.autoArchive Archive the child after successful completion. @default true
+ */
 export default async function (
     ctx: Context,
     _session: Session | null,
-/**
- * Delegate a task to a child agent.
- * In "await" mode, blocks until the child calls finishTask.
- * In "async" mode, spawns the child and returns immediately.
- */
     opts: {
 
         /** Parent agent delegating the task. */
@@ -22,19 +26,25 @@ export default async function (
         /** Task instructions. */
         task: string;
 
-        /** Whether to inherit the parent transcript. */
+        /** Child model route accepted by llm.resolveEndpoint; omitted inherits the parent model. */
+        model?: string;
+
+        /** Requested child thinking level; omitted inherits the parent preference, or auto for older parents. */
+        reasoningEffort?: types.llm.ReasoningEffort;
+
+        /** Inherit the parent transcript rather than start an isolated session. @default false */
         forkContext?: boolean;
 
-        /** Instructions used by the operation. */
+        /** Additional constraints appended to the task prompt. */
         instructions?: string;
 
-        /** Operation mode. */
+        /** Wait for completion or return the child ID immediately. @default await */
         mode?: "await" | "async";
 
-        /** Response format used by the operation. */
+        /** Desired format of the child's finishTask result. @default text */
         responseFormat?: "text" | "json" | "report" | { kind: "report" | "json"; fields?: string[] };
 
-        /** Auto archive used by the operation. */
+        /** Archive the child after successful completion. @default true */
         autoArchive?: boolean;
     },
 ): Promise<{ childId: string; summary?: string; result?: any; started?: true }> {
@@ -47,10 +57,11 @@ export default async function (
     const responseFormat = opts?.responseFormat ?? "text";
     const autoArchive = opts.autoArchive !== false;
 
+    const settings = await ctx.fns.agent.resolveDelegationSettings({ parent: parentAgent, model: opts.model, reasoningEffort: opts.reasoningEffort });
     const child = forkContext
         ? await ctx.fns.session.fork({ id: parentAgent.id, visibility: "team" })
         : await ctx.fns.agent.start({
-            model: parentAgent.model,
+            model: settings.model,
             systemPrompt: parentAgent.systemPrompt,
             systemPromptName: parentAgent.systemPromptName,
             systemPromptCore: parentAgent.systemPromptCore,
@@ -60,6 +71,8 @@ export default async function (
             visibility: "team",
         });
 
+    child.model = settings.model;
+    child.reasoningEffort = settings.reasoningEffort;
     child.scratchpad ??= {};
     child.scratchpad.delegateTask = {
         parentId: parentAgent.id,

@@ -93,4 +93,54 @@ describe("agent.delegateTask", () => {
         expect((await ctx.fns.session.list()).some((a: any) => a.id === res.childId)).toBe(false);
         expect((await ctx.fns.session.list({ includeArchived: true })).find((a: any) => a.id === res.childId)?.archivedAt).not.toBeNull();
     });
+    for (const forkContext of [false, true]) {
+        for (const mode of ["await", "async"] as const) {
+            test(`${mode} forkContext=${forkContext} applies and persists child settings before run`, async () => {
+                const ctx = await setup();
+                const parent = await ctx.fns.agent.start({ model: "mock:parent" });
+                parent.reasoningEffort = "xhigh";
+                await ctx.fns.session.save({ agent: parent });
+                const seen: Array<{ model: string; reasoningEffort: string | undefined }> = [];
+                let running: Promise<unknown> | undefined;
+                ctx.fns.agent.run = (c: any, _s: any, opts: { agent: any }) => running = (async () => {
+                    const row = (await c.fns.procs.db.select({ sql: "SELECT model,reasoning_effort FROM agents WHERE id=?", params: [opts.agent.id] }))[0];
+                    expect(row.model).toBe(opts.agent.model);
+                    expect(row.reasoning_effort).toBe(opts.agent.reasoningEffort);
+                    seen.push({ model: opts.agent.model, reasoningEffort: opts.agent.reasoningEffort });
+                    return c.fns.agent.finishTask({ agent: opts.agent, summary: "ok", result: { ok: true } });
+                })();
+                for (const [settings, expected] of [
+                    [{}, { model: "mock:parent", reasoningEffort: "xhigh" }],
+                    [{ model: "mock:reviewer" }, { model: "mock:reviewer", reasoningEffort: "xhigh" }],
+                    [{ reasoningEffort: "auto" as const }, { model: "mock:parent", reasoningEffort: "auto" }],
+                    [{ model: "mock:reviewer", reasoningEffort: "off" as const }, { model: "mock:reviewer", reasoningEffort: "off" }],
+                ] as const) {
+                    const res = await delegateTask(ctx, null, { parent, task: "review", forkContext, mode, autoArchive: false, ...settings });
+                    // Join the actual stubbed run, so async failures cannot hide in logging.
+                    await running;
+                    expect(ctx.state.agent[res.childId].scratchpad.delegateTask.status).toBe("finished");
+                    expect(await ctx.fns.session.load({ id: res.childId })).toMatchObject(expected);
+                    expect(seen.at(-1)).toEqual(expected);
+                }
+                expect(await ctx.fns.session.load({ id: parent.id })).toMatchObject({ model: "mock:parent", reasoningEffort: "xhigh" });
+            });
+        }
+        test(`forkContext=${forkContext} rejects invalid settings without a child or run`, async () => {
+            const ctx = await setup();
+            const parent = await ctx.fns.agent.start({ model: "mock:parent" });
+            const before = await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents ORDER BY id" });
+            let runs = 0;
+            ctx.fns.agent.run = async () => { runs++; };
+            for (const [settings, error] of [
+                [{ model: "missing-delegation-provider:test" }, "cannot resolve model"],
+                [{ model: "" }, "model must be a non-empty"],
+                [{ reasoningEffort: "huge" }, "invalid reasoningEffort"],
+            ] as const) {
+                await expect(delegateTask(ctx, null, { parent, task: "bad", forkContext, mode: "async", ...settings } as any)).rejects.toThrow(error);
+                expect(await ctx.fns.procs.db.select({ sql: "SELECT id FROM agents ORDER BY id" })).toEqual(before);
+            }
+            expect(runs).toBe(0);
+        });
+    }
+
 });

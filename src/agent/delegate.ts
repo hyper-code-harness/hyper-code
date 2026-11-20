@@ -5,6 +5,8 @@
  * @param opts.agent Parent agent delegating the work.
  * @param opts.title Short title shown for the child and its plan.
  * @param opts.tasks Ordered tasks in the native session.plan format; IDs must be stable and unique.
+ * @param opts.model Child model route; omitted inherits the parent model. Validated before creating the child.
+ * @param opts.reasoningEffort Requested child thinking level; omitted inherits the parent preference, or auto for older parents.
  */
 export default async function (
     ctx: Context,
@@ -16,18 +18,27 @@ export default async function (
         title: string;
         /** Ordered tasks in the native session.plan format; IDs must be stable and unique. */
         tasks: Array<{ id: string; title: string; instructions?: string }>;
+        /** Child model route accepted by llm.resolveEndpoint; omitted inherits the parent model. */
+        model?: string;
+        /** Requested child thinking level; omitted inherits the parent preference, or auto for older parents. */
+        reasoningEffort?: types.llm.ReasoningEffort;
     },
 ): Promise<{ id: string; status: "working" }> {
     const title = String(opts.title ?? "").trim();
     if (!title) throw new Error("delegate: title is required");
     if (!Array.isArray(opts.tasks) || opts.tasks.length === 0) throw new Error("delegate: tasks must not be empty");
+    const settings = await ctx.fns.agent.resolveDelegationSettings({ parent: opts.agent, model: opts.model, reasoningEffort: opts.reasoningEffort });
     // A delegated child is a fork in lineage/workspace, not a full transcript copy.
     // The task packet below is its bounded projection; offset 0 keeps the noisy
     // parent history out of the child context.
     const child = await ctx.fns.session.fork({ id: opts.agent.id, title, offset: 0, visibility: "team" });
+    // Persist the validated settings before any prompt is queued for the child.
+    child.model = settings.model;
+    child.reasoningEffort = settings.reasoningEffort;
     child.scratchpad = {
         delegation: { parentId: opts.agent.id, status: "working", title, createdAt: Date.now() },
     };
+    await ctx.fns.session.save({ agent: child });
     await ctx.fns.session.updateScratchpad({ id: child.id, scratchpad: child.scratchpad });
     await ctx.fns.session.plan({ agent: child, title, tasks: opts.tasks });
     const taskText = opts.tasks.map((task, index) => String(index + 1) + ". [" + task.id + "] " + task.title + (task.instructions ? ": " + task.instructions : "")).join("\n");

@@ -137,52 +137,7 @@ html[data-dock-mode="dot"] #main:not(:has(> [data-page="agent"])) { padding-left
 [data-page="agent"][data-canvas-open] > .canvas-resizer:hover::after, [data-page="agent"][data-canvas-open] > .canvas-resizer:focus-visible::after, [data-page="agent"].canvas-resizing > .canvas-resizer::after { background: var(--color-primary); }
 [data-page="agent"][data-canvas-open] > #chat-panel { flex: 0 0 var(--chat-w, 440px); width: var(--chat-w, 440px); max-width: calc(100% - 400px); }
 [data-page="agent"][data-canvas-open] { position: relative; }
-/* Collapsed chat (canvas_state.chat_collapsed, ⌘\ — canvas.toggleChat): the canvas takes the whole page and the
-   chat floats over its bottom as a strip — the composer and, above it, the latest message. Hovering or focusing
-   the strip shows a little more of the conversation; the header button / ⌘\ brings the column back. */
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-resizer { display: none; }
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-panel { margin-right: .5rem; }
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel {
-  position: absolute; z-index: 44; left: 50%; bottom: 1rem; transform: translateX(-50%);
-  width: min(44rem, calc(100% - 3rem)); max-width: none; flex: none; height: auto; max-height: 8.5rem;
-  border: 1px solid var(--color-ui-border); border-radius: .75rem; overflow: hidden;
-  background: rgb(from var(--color-base-100) r g b / .96); box-shadow: 0 10px 36px rgb(0 0 0 / .16);
-  backdrop-filter: blur(16px) saturate(115%); -webkit-backdrop-filter: blur(16px) saturate(115%);
-  transition: max-height .18s ease;
-}
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) { max-height: min(24rem, 55vh); }
-[data-page="agent"][data-chat-collapsed] > #chat-panel > header { position: absolute; top: .35rem; right: .5rem; left: auto; width: auto !important; margin: 0 !important; padding: 0 !important; background: none; border: 0; box-shadow: none; z-index: 2; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel > header > :not(.w-pane-actions), [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-chat-badges] { display: none !important; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-chat-buttons] > :not([data-chat-id="canvas.collapse"]) { display: none !important; }
-[data-page="agent"][data-chat-collapsed] #messages > * { max-width: none; }
-/* Folded strip as a slide: only the latest answer of the agent, no tool calls, no other messages, no scrolling —
-   a new answer replaces the old one. Long answers are cut with a fade; hovering the strip lets it grow. */
-[data-page="agent"][data-chat-collapsed] #messages { overflow: hidden !important; display: flex; flex-direction: column; justify-content: flex-end; }
-[data-page="agent"][data-chat-collapsed] #messages > * { display: none !important; }
-/* The latest message, whoever wrote it: right after sending you see your own message, and the answer replaces it. */
-[data-page="agent"][data-chat-collapsed] #messages > .w-msg:not(:has(~ .w-msg)) { display: flex !important; flex: none; }
-[data-page="agent"][data-chat-collapsed] #messages > .w-msg > .w-avatar { display: none; }
-[data-page="agent"][data-chat-collapsed] #messages .w-msg[data-role="user"] .w-msg-body { max-height: 5.5rem; overflow: hidden; }
-[data-page="agent"][data-chat-collapsed] #messages > .w-msg[data-role="agent"] .w-msg-body { max-height: 5.5rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
-[data-page="agent"][data-chat-collapsed] > #chat-panel:is(:hover, :focus-within) #messages > .w-msg[data-role="agent"] .w-msg-body { max-height: min(18rem, 45vh); overflow-y: auto; -webkit-mask-image: none; mask-image: none; }
-[data-page="agent"][data-chat-collapsed] #messages .chat-tools { display: none !important; }
-/* Resized from its top-left corner (ui/hotkeys.js): --strip-w/--strip-h; the answer then fills the strip. */
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel[data-strip-sized] { width: var(--strip-w) !important; height: var(--strip-h) !important; max-height: none !important; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel[data-strip-sized] #messages > .w-msg .w-msg-body { max-height: none !important; overflow: hidden; -webkit-mask-image: none; mask-image: none; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel::after { content: ""; position: absolute; z-index: 3; top: 3px; left: 3px; width: 9px; height: 9px; border-top: 2px solid var(--color-ui-border); border-left: 2px solid var(--color-ui-border); border-top-left-radius: 4px; cursor: nwse-resize; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel:hover::after { border-color: color-mix(in oklab, var(--color-base-content) 35%, transparent); }
-/* Moved by dragging its top edge (ui/hotkeys.js); --strip-x/--strip-y are kept per device. */
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel[data-strip-moved] { left: var(--strip-x) !important; top: var(--strip-y) !important; bottom: auto !important; transform: none !important; }
-[data-page="agent"][data-chat-collapsed] > #chat-panel::before { content: ""; position: absolute; z-index: 3; top: 0; left: 50%; width: 2.5rem; height: 4px; margin: 4px 0 0 -1.25rem; border-radius: 9999px; background: var(--color-ui-border); cursor: grab; }
-/* Folded strip input: just the text and send/stop on one line — no attach, model, effort or meters. */
-/* One line: [+] text [send/stop]. The toolbar row's box is dissolved (display: contents) so its + goes before
-   the text and send after it; model, effort and meters are hidden. */
-/* The folded strip is one tight card: the messages above, then the composer flush with its edges (no box in a
-   box) behind a hairline; the toolbar row is compact. */
-[data-page="agent"][data-chat-collapsed] #messages { background: none !important; padding: .5rem 3rem .25rem .875rem !important; flex: 1 1 auto; min-height: 0; }
-html [data-page="agent"][data-chat-collapsed] > #chat-panel > header.w-pane-header { height: auto !important; min-height: 0 !important; background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; position: absolute; top: .375rem !important; right: .375rem !important; left: auto; z-index: 2; }
-html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle] { width: 1.75rem !important; height: 1.75rem !important; border-radius: 9999px !important; background: none; color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
-html [data-page="agent"][data-chat-collapsed] > #chat-panel > header [data-canvas-chat-toggle]:hover { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); color: var(--color-base-content); }
+/* Folded chat (canvas_state.chat_collapsed, ⌘\ — canvas.toggleChat): a circle and bubbles over the canvas — canvas/$style_canvas.css. */
 [data-page="agent"].canvas-resizing { user-select: none; cursor: col-resize; }
 [data-page="agent"].canvas-resizing iframe { pointer-events: none; }
 /* Narrow window: the canvas covers the whole page; the chat stays mounted underneath. */
@@ -347,7 +302,7 @@ ${opts.headExtra ?? ""}
 <!-- keys.js: the one keyboard dispatcher; the bindings (keys.resolve) are inlined for it. -->
 <script>window.hyperKeymap=${JSON.stringify(await ctx.fns.keys.resolve({}).then(({ keymap, bindings }) => ({ keymap, bindings: bindings.map(({ from: _from, ...b }) => b) })).catch(() => ({ keymap: "default", bindings: [] }))).replace(/</g, "\\u003c")}</script>
 <script src="/keys/keys.js?v=9" defer></script>
-<script src="/ui/hotkeys.js?v=10" defer></script>
+<script src="/ui/hotkeys.js?v=12" defer></script>
 <script src="/ui/rpc.js?v=6" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>
@@ -363,7 +318,7 @@ ${opts.headExtra ?? ""}
   ${hideNavigation ? "" : ctx.fns.w.pressable({ html: '<i class="ph ph-squares-four text-xl" aria-hidden="true"></i>', label: "Open agents and pages", title: "Agents and pages", marks: { action: "open-global-menu-mobile" }, attrs: { id: "mobile-nav-button", onclick: "window.__navOpen?.()" }, class: "hidden" })}
   ${hideNavigation ? "" : await ctx.fns.dock.render({})}
   ${hideNavigation ? "" : ctx.fns.ui.live({ id: "dock-panel", url: "/dock/panel", topic: "agents", every: 120, tag: "aside", swap: "innerHTML", trigger: "load[document.documentElement.dataset.dockMode==='menu'], dock-panel-load, htmx:after:swap[document.documentElement.dataset.dockMode==='menu'&&detail.ctx.target&&detail.ctx.target.id==='main'] from:document", attrs: 'aria-label="Projects and chats" class="dock-panel"' })}
-    <script src="/canvas/canvas.js?v=5" defer></script>
+    <script src="/canvas/canvas.js?v=8" defer></script>
   <!-- This container owns no navigation attributes: live descendants must
        always target themselves, while navigation is handled by the global menu. -->
   <section id="page-view" class="flex min-w-0 flex-1 flex-col bg-base-100">

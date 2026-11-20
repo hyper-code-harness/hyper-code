@@ -107,7 +107,8 @@
                 if (this.jumpToHash()) return;
                 this.scrollBottom();
                 this.shouldStick = this.isNearBottom();
-                this.input.focus();
+                // A folded chat (canvas.js) stays a circle until the person goes to the message box.
+                if (!this.form.closest('[data-chat-collapsed]')) this.input.focus();
             });
             return true;
         }

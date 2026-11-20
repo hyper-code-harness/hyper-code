@@ -17,6 +17,60 @@
         fn();
         if (atBottom) requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
     };
+    // ── folded chat: a circle, bubbles and a field that opens on focus (styles in canvas.css) ──────────
+    // data-chat-open on the page root while the message box has focus, text or files — an empty box left alone
+    // folds back into the circle, a draft never does. Closed bubbles are remembered for the browser tab
+    // (sessionStorage); the circle counts the answers that came since the box was last open.
+    const closedKey = root => `hyper-bubbles-closed:${agentOf(root)}`;
+    const closedIds = root => { try { return JSON.parse(sessionStorage.getItem(closedKey(root)) || '[]'); } catch { return []; } };
+    const answerIdx = el => Number(el.id.slice(2));
+    let seen = { agent: null, idx: -1 };
+    const syncFold = () => {
+        const root = page(), chat = document.getElementById('chat-panel');
+        if (!root || !chat) return;
+        const form = chat.querySelector('#form'), input = chat.querySelector('#input');
+        const folded = root.hasAttribute('data-chat-collapsed');
+        // The key that goes to the message box (chat.focus in the keymap) is written beside the circle.
+        const box = form?.querySelector('.w-composer-box'), key = window.hyperKeys?.label('chat.focus') || '';
+        if (box) { if (key) box.setAttribute('data-key', key); else box.removeAttribute('data-key'); }
+        const open = folded && (chat.contains(document.activeElement) || !!input?.value.trim() || !!chat.querySelector('[data-attachments] > *'));
+        root.toggleAttribute('data-chat-open', open);
+        if (!folded) { form?.removeAttribute('data-unread'); seen = { agent: null, idx: -1 }; return; }
+        const closed = new Set(closedIds(root));
+        chat.querySelectorAll('#messages > .w-msg[id]').forEach(m => m.toggleAttribute('data-bubble-closed', closed.has(m.id)));
+        const answers = [...chat.querySelectorAll('#messages > .w-msg[data-role="agent"][id^="m-"]')].map(answerIdx);
+        const last = answers.length ? Math.max(...answers) : -1;
+        if (seen.agent !== agentOf(root)) seen = { agent: agentOf(root), idx: last };
+        if (open) seen.idx = Math.max(seen.idx, last);
+        const unread = answers.filter(idx => idx > seen.idx).length;
+        if (form) { if (unread) form.setAttribute('data-unread', String(unread)); else form.removeAttribute('data-unread'); }
+    };
+    document.addEventListener('focusin', syncFold);
+    document.addEventListener('focusout', () => setTimeout(syncFold, 0));
+    document.addEventListener('input', event => { if (event.target.closest?.('#chat-panel')) syncFold(); });
+    // A press on a button of the folded chat must not take the focus away from the box: the field would fold
+    // under the pointer and the click would be lost (Safari does not focus a clicked button at all).
+    document.addEventListener('mousedown', event => {
+        if (page()?.hasAttribute('data-chat-collapsed') && event.target.closest?.('#chat-panel :is(button, [role="button"])')) event.preventDefault();
+    });
+    // A bubble: its top right corner closes it (the answer stays in the chat); a click anywhere else unfolds the chat.
+    document.addEventListener('click', event => {
+        const root = page();
+        const bubble = root?.hasAttribute('data-chat-collapsed') ? event.target.closest?.('#chat-panel #messages > .w-msg') : null;
+        if (!bubble) return;
+        const box = bubble.getBoundingClientRect();
+        if (event.clientX > box.right - 28 && event.clientY < box.top + 28) {
+            event.preventDefault();
+            if (bubble.id) { try { sessionStorage.setItem(closedKey(root), JSON.stringify([...new Set([...closedIds(root), bubble.id])].slice(-50))); } catch {} }
+            if (bubble.getAttribute('data-role') === 'agent' && bubble.id.startsWith('m-')) seen.idx = Math.max(seen.idx, answerIdx(bubble));
+            bubble.setAttribute('data-bubble-closed', '');
+            syncFold();
+            return;
+        }
+        if (event.target.closest('a, button, input, summary, [popover]') || String(getSelection())) return;
+        window.hyperCommands?.['canvas.toggleChat']?.run();
+    });
+
     const paintButtons = root => {
         const open = root.hasAttribute('data-canvas-open');
         const collapsed = root.hasAttribute('data-chat-collapsed');
@@ -43,6 +97,7 @@
             if (state.chatWidth) root.style.setProperty('--chat-w', `${state.chatWidth}px`);
         });
         paintButtons(root);
+        syncFold();
     };
     const save = (root, body) => fetch(`/canvas/${encodeURIComponent(agentOf(root))}`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -565,7 +620,7 @@
         tabAction(root, { navigate: { itemId: Number(form.getAttribute('data-canvas-navigate')), url } });
     });
 
-    const init = () => { const root = page(); if (root) paintButtons(root); };
+    const init = () => { const root = page(); if (root) paintButtons(root); syncFold(); };
     document.addEventListener('htmx:after:swap', init);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

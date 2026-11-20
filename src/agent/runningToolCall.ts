@@ -8,7 +8,7 @@
 export default function (ctx: Context, _session: Session | null, opts: {
     /** Agent whose running tool call is described. */
     agentId: string;
-}): { icon: string; title: string; running: true; startedAt: number; action: types.w.Action } | null {
+}): { icon: string; title: string; label: string; running: true; startedAt: number; action: types.w.Action } | null {
     // Longest-running first: that is the call a waiting user is blocked on.
     const run = ctx.fns.tools.runs({ agentId: opts.agentId })[0];
     if (!run) return null;
@@ -16,6 +16,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     return {
         icon: String(run.icon).replace(/^ph-/, ""),
         title: `${label} — running, click for details`,
+        label,
         running: true,
         startedAt: Number(run.startedAt),
         action: { popup: { method: "agent.activeToolDetails", params: { agentId: opts.agentId } } },

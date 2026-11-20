@@ -5,17 +5,108 @@
 [data-page="agent"]:not([data-canvas-open]) > .canvas-panel > :not([data-canvas-rail]) { display: none !important; }
 [data-page="agent"]:not([data-canvas-open]) > .canvas-panel > [data-canvas-rail] { display: flex; width: 100%; height: 100%; }
 /* The chat header's fold button (canvas/$chatbutton_collapse.ts, `hidden` by class): shown while the canvas is
-   open, one of its two icons at a time. On the folded strip it is the strip's own way back to the column. */
+   open, one of its two icons at a time. */
 [data-page="agent"][data-canvas-open] .canvas-chat-toggle { display: inline-flex; }
 [data-canvas-chat-toggle] .canvas-chat-unfold, [data-page="agent"][data-chat-collapsed] [data-canvas-chat-toggle] .canvas-chat-fold { display: none; }
 [data-page="agent"][data-chat-collapsed] [data-canvas-chat-toggle] .canvas-chat-unfold { display: inline; }
-/* Narrow window: the canvas covers the whole page (ui.layout, z-index 45). The folded chat strip goes over it,
-   not under — otherwise the chat is gone from the screen. */
-@media (max-width: 1023px) { [data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel { z-index: 46; } }
-/* The strip keeps its unfold button at any width: the narrow-chat and phone rules in ui.layout fold the header's
-   buttons away, and this one is the strip's only way back. */
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel > header [data-chat-buttons],
-[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel > header [data-chat-buttons] > [data-chat-id="canvas.collapse"] { display: flex !important; }
+
+/* Folded chat (canvas_state.chat_collapsed, ⌘\ — canvas.toggleChat): the canvas takes the whole page and the chat is
+   a circle in its bottom right corner. Above it float the latest answer and your message after it — bubbles with a
+   close cross — and the running tool call as a chip. Focusing the message box opens the circle into the field;
+   canvas.js keeps data-chat-open while the box has focus, text or files, marks closed bubbles and counts new answers. */
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-resizer { display: none; }
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > .canvas-panel { margin-right: .5rem; }
+/* Over the canvas at any width: below 1024px the canvas covers the page at z-index 45 (ui.layout). */
+[data-page="agent"][data-canvas-open][data-chat-collapsed] > #chat-panel {
+  position: absolute; z-index: 46; inset: auto 1rem 1rem auto; width: min(30rem, calc(100% - 2rem)); max-width: none; height: auto;
+  max-height: calc(100% - 2rem); flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; transform: none; pointer-events: none;
+}
+[data-page="agent"][data-chat-collapsed] #messages {
+  flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: .375rem; width: 100%; min-height: 0;
+  padding: 0 !important; background: none !important; overflow: visible !important; pointer-events: none;
+  & > :not([popover]) { display: none !important; margin: 0 !important; }
+  /* Bubbles: the latest answer, and the latest message of yours when it came after that answer. */
+  & > .w-msg[data-role="agent"]:not([data-bubble-closed]):not(:has(~ .w-msg[data-role="agent"])),
+  & > .w-msg[data-role="user"]:not([data-bubble-closed]):not(:has(~ .w-msg:is([data-role="agent"], [data-role="user"]))) {
+    display: flex !important; flex: 0 1 auto; min-height: 0; max-width: 100%; pointer-events: auto; cursor: pointer; font-size: 12.5px; line-height: 1.45;
+    & > :not(.w-msg-body), & .w-msg-meta, & .w-msg-author { display: none; }
+    & > .w-msg-body { width: auto; max-width: none; min-width: 0; padding: .5rem 1.875rem .5rem .75rem; border-radius: .875rem; box-shadow: 0 6px 20px rgb(0 0 0 / .14); }
+    & .w-msg-text { font-size: inherit; line-height: inherit; }
+    /* The close cross (canvas.js reads a click in this corner). */
+    &::after { content: "×"; position: absolute; top: .3rem; right: .3rem; display: grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 9999px; font-size: 15px; line-height: 1; color: var(--w-ink-faint); }
+    &:hover::after { background: var(--w-hover); color: var(--w-ink); }
+  }
+  /* A little see-through, so the page under a bubble still reads as one page; solid again under the pointer. */
+  & > .w-msg > .w-msg-body { backdrop-filter: blur(10px) saturate(120%); transition: background-color .12s; }
+  & > .w-msg[data-role="agent"] > .w-msg-body { border: var(--w-rule); background: color-mix(in oklab, var(--w-surface-document) 78%, transparent); }
+  & > .w-msg[data-role="agent"]:hover > .w-msg-body { background: var(--w-surface-document); }
+  & > .w-msg[data-role="user"] > .w-msg-body { background: color-mix(in oklab, var(--w-ink) 80%, transparent); }
+  & > .w-msg[data-role="user"]:hover > .w-msg-body { background: var(--w-ink); }
+  /* The answer is shown whole, in smaller type: a cut answer cannot be read. Only one longer than most of the
+     window scrolls inside its bubble. */
+  & > .w-msg[data-role="agent"] > .w-msg-body { display: flex; flex-direction: column; max-height: min(70vh, 40rem); }
+  & > .w-msg[data-role="agent"] .w-msg-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  & > .w-msg[data-role="agent"] .w-msg-text :is(h1, h2, h3, h4) { margin: .5em 0 .25em; font-size: 1.05em; }
+  & > .w-msg[data-role="agent"] .w-msg-text :is(p, ul, ol, pre, table, blockquote) { margin: .35em 0; font-size: inherit; }
+  & > .w-msg[data-role="agent"] .w-msg-text :is(pre, code) { font-size: .92em; }
+  & > .w-msg[data-role="agent"] .w-msg-text > :first-child { margin-top: 0; } & > .w-msg[data-role="agent"] .w-msg-text > :last-child { margin-bottom: 0; }
+  & > .w-msg[data-role="user"] .w-msg-text { max-height: 4.35em; overflow: hidden; }
+  & > .w-msg[data-role="user"]::after { color: color-mix(in oklab, var(--w-on-ink) 65%, transparent); }
+  & > .w-msg[data-role="user"]:hover::after { background: color-mix(in oklab, var(--w-on-ink) 18%, transparent); color: var(--w-on-ink); }
+  /* The running tool call: one chip — its icon, what it does, the turn's clock. A click opens its details. */
+  & > .chat-tools:has(.w-tool[data-running]) {
+    display: flex !important; justify-content: flex-end; max-width: 100%; pointer-events: none;
+    & .w-tool-row { pointer-events: auto; }
+    & .w-tool-row { display: inline-flex; max-width: 100%; height: 1.75rem; gap: .375rem; padding: 0 .625rem 0 .25rem; border: var(--w-rule); border-radius: 9999px; background: color-mix(in oklab, var(--w-surface-document) 78%, transparent); backdrop-filter: blur(10px) saturate(120%); box-shadow: 0 4px 14px rgb(0 0 0 / .12); font-size: 12px; color: var(--w-ink-muted); }
+    & .w-tool-group { border: 0; background: none; }
+    & .w-tool-fold, & .w-tool:not([data-running]) { display: none; }
+    & .w-tool[data-running] { display: inline-flex; align-items: center; gap: .375rem; width: auto; min-width: 0; max-width: 16rem; padding: 0 .25rem; border: 0; }
+    & .w-tool[data-running]::after { content: attr(data-label); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--w-ink); }
+  }
+}
+/* The circle: the message box itself, folded. Its text area covers the circle, so a click or the focus key opens it. */
+[data-page="agent"][data-chat-collapsed]:not([data-chat-open]) #form {
+  position: relative; flex: none; width: 2.75rem; height: 2.75rem; border: 0; border-radius: 9999px; background: var(--w-ink); box-shadow: 0 6px 20px rgb(0 0 0 / .25); pointer-events: auto;
+  & > :not(.w-composer-box), & .w-composer-box > :not(textarea) { display: none !important; }
+  & .w-composer-box { position: absolute; inset: 0; display: block; max-width: none; margin: 0; padding: 0; }
+  & .w-composer-box::before { content: ""; position: absolute; inset: 0; margin: auto; width: 1.25rem; height: 1.25rem; background: var(--w-on-ink); pointer-events: none;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M4.5 3.5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H10l-3.5 3v-3h-2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M4.5 3.5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H10l-3.5 3v-3h-2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z'/%3E%3C/svg%3E") center / contain no-repeat; }
+  & textarea { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; border-radius: 9999px; overflow: hidden; opacity: 0; cursor: pointer; }
+  /* New answers since the box was last open: a dot for one, the number for more. */
+  &[data-unread]::before { content: attr(data-unread); position: absolute; z-index: 1; top: -.3rem; right: -.3rem; box-sizing: border-box; min-width: 1.125rem; height: 1.125rem; padding: 0 .25rem; border-radius: 9999px; background: var(--w-live); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 1.125rem; text-align: center; box-shadow: 0 0 0 2px var(--w-surface-document); pointer-events: none; }
+  &[data-unread="1"]::before { content: ""; top: -.1rem; right: -.1rem; min-width: .75rem; width: .75rem; height: .75rem; padding: 0; }
+}
+/* Beside the circle: the key that opens the box (canvas.js copies its label from the keymap). Not on touch screens. */
+[data-page="agent"][data-chat-collapsed]:not([data-chat-open]) #form .w-composer-box[data-key]::after {
+  content: attr(data-key); position: absolute; top: 50%; right: calc(100% + .5rem); transform: translateY(-50%); box-sizing: border-box; min-width: 1.375rem; height: 1.375rem; padding: 0 .375rem;
+  border: var(--w-rule); border-radius: .375rem; background: color-mix(in oklab, var(--w-surface-document) 78%, transparent); backdrop-filter: blur(10px) saturate(120%); box-shadow: 0 2px 8px rgb(0 0 0 / .1);
+  font: 500 11px/1.25rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--w-ink-muted); text-align: center; white-space: nowrap; pointer-events: none;
+}
+@media (hover: none) { [data-page="agent"][data-chat-collapsed] #form .w-composer-box[data-key]::after { display: none; } }
+/* The agent is working: a turning arc around the circle (the stop button's own state, hidden with the box). */
+[data-page="agent"][data-chat-collapsed]:not([data-chat-open]) #chat-panel:has(.w-send-wrap[data-running]) #form::after { content: ""; position: absolute; inset: -5px; border-radius: 9999px; background: conic-gradient(from 0deg, transparent 0 60%, var(--w-live) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); animation: w-spin var(--w-motion-spin) linear infinite; pointer-events: none; }
+/* Open: one line — attach, text, unfold, send. */
+[data-page="agent"][data-chat-collapsed][data-chat-open] #form {
+  flex: none; width: 100%; border: 1.5px solid var(--w-focus); border-radius: 1.375rem; background: var(--w-surface-document); box-shadow: 0 8px 28px rgb(0 0 0 / .18); overflow: hidden; pointer-events: auto;
+  & .w-composer-box { padding: .25rem .375rem .25rem .25rem; }
+  & textarea { margin-right: 1.875rem; max-height: 30vh; }
+  /* A draft of several lines: attach, unfold and send stay on its last line. */
+  & .w-composer-bar > .w-icon-button, & .w-composer-send { align-self: flex-end; }
+  & .w-composer-send { height: var(--w-control-lg); }
+}
+/* The chat header is gone while folded; only its unfold button stays, inside the open field before send. The
+   narrow-chat and phone rules in ui.layout fold header buttons away — this one is the way back, so it is forced. */
+html [data-page="agent"][data-chat-collapsed] > #chat-panel > header.w-pane-header { display: none !important; }
+html [data-page="agent"][data-chat-collapsed][data-chat-open] > #chat-panel > header.w-pane-header {
+  display: flex !important; position: absolute; z-index: 2; inset: auto 2.5rem .4rem auto; width: auto !important; height: auto !important; min-height: 0 !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; pointer-events: auto;
+  & > :not(.w-pane-actions), & [data-chat-badges], & [data-chat-buttons] > :not([data-chat-id="canvas.collapse"]) { display: none !important; }
+  & [data-chat-buttons], & [data-chat-buttons] > [data-chat-id="canvas.collapse"] { display: flex !important; }
+  & [data-canvas-chat-toggle] { width: 1.75rem !important; height: 1.75rem !important; border-radius: 9999px !important; background: none; color: var(--w-ink-faint); }
+  & [data-canvas-chat-toggle]:hover { background: var(--w-hover); color: var(--w-ink); }
+}
 .canvas-panel > .w-pane-header { padding-right: var(--w-s1); }
 .canvas-panel .w-tabs { overflow-x: auto; scrollbar-width: none; }
 /* Many tabs: each keeps room for its icon and a few letters, then the strip scrolls instead of squeezing labels to nothing. */

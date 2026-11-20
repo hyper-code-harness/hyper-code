@@ -2,14 +2,15 @@
  * Draws a run of tool calls as one pill of icon cells (failed ones red), folded to "N tool calls ›" when long,
  * with the running call glowing and its seconds in grey after the pill.
  * @param opts.calls The calls in order; each opens its details on click. An `aside` cell (the model thinking) is drawn
- * among them but not counted as a call.
+ * among them but not counted as a call. A cell's `label` (what the running call does, e.g. "bash bun test") is put
+ * on it as data-label for views that spell the call out, such as the folded chat's chip.
  * @param opts.runningSince Start of the running call (ms) — adds the live seconds; omit when idle.
  * @param opts.fold Fold to a count above this many calls. @default 6
  * @param opts.elapsed A finished row's time, e.g. "1m 12s", in grey after the pill; ignored while runningSince ticks.
  */
 export default function (ctx: Context, _session: Session | null, opts: {
     /** The calls in order; each opens its details on click. */
-    calls: Array<{ icon: string; title: string; error?: boolean; running?: boolean; aside?: boolean; action?: types.w.Action }>;
+    calls: Array<{ icon: string; title: string; label?: string; error?: boolean; running?: boolean; aside?: boolean; action?: types.w.Action }>;
     /** Start of the running call (ms) — adds the live seconds; omit when idle. */
     runningSince?: number;
     /** Fold to a count above this many calls. @default 6 */
@@ -22,7 +23,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
     const cell = (c: (typeof opts.calls)[number]) => {
         const { tag, attrs } = ctx.fns.w.actionAttrs({ action: c.action });
         const t = tag === "div" ? "button" : tag;
-        return `<${t} class="w-tool"${c.error ? ' data-tone="danger"' : ""}${c.running ? " data-running" : ""} title="${esc(c.title)}" aria-label="${esc(c.title)}"${attrs || ' type="button"'}>${ctx.fns.w.icon({ name: c.icon, size: 12 })}</${t}>`;
+        return `<${t} class="w-tool"${c.error ? ' data-tone="danger"' : ""}${c.running ? " data-running" : ""}${c.label ? ` data-label="${esc(c.label)}"` : ""} title="${esc(c.title)}" aria-label="${esc(c.title)}"${attrs || ' type="button"'}>${ctx.fns.w.icon({ name: c.icon, size: 12 })}</${t}>`;
     };
     const calls = opts.calls ?? [];
     const failed = calls.filter(c => c.error).length;

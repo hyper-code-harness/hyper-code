@@ -1,4 +1,4 @@
-// Chat header button: folds the chat into a floating strip over the canvas and back (⌘\, command
+// Chat header button: folds the chat into a circle with bubbles over the canvas and back (⌘\, command
 // canvas.toggleChat). A plain htmx post — the server flips the row (canvas.update toggleChat) and every page of
 // this chat follows canvas.changed; nothing is swapped here. Shown only while the canvas is open (ui.layout CSS).
 export default {

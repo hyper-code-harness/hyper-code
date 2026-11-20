@@ -295,18 +295,24 @@ test("chat links open as file/url tabs, canvas.search lists kinds, tabs say live
     expect(block).toMatch(/: live, web page https:\/\/example\.com\//);
 });
 
-test("the chat folds into a strip over the canvas and back in one server-side flip; closing the canvas unfolds it", async () => {
+test("the chat folds over the canvas and back in one server-side flip, the agent is told; closing the canvas unfolds it", async () => {
     const ctx: any = await mkTestCtx();
     const a = await ctx.fns.agent.start({ model: "mock:echo" });
     const post = (body: any, hx = false) => ctx.fns.procs.http.dispatch({ method: "POST", url: `http://localhost/canvas/${a.id}`, headers: { "content-type": "application/json", ...(hx ? { "hx-request": "true" } : {}) }, body: JSON.stringify(body) });
     // From a closed canvas the toggle opens it with the chat folded.
     expect((await post({ op: "toggleChat" }, true)).status).toBe(204);
     expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: true, chatCollapsed: true });
+    // The agent is told while the chat is folded (its answers are small bubbles then), and only then.
+    const block = async () => String((await ctx.fns.procs.hooks.run({ name: "agent.promptAugment", opts: { agentId: a.id, text: "" } })).find((b: string) => String(b).includes("## Canvas")) ?? "");
+    await ctx.fns.canvas.show({ agentId: a.id, kind: "html", title: "Page", args: { html: "<p>page</p>" } });
+    expect(await block()).toContain("Chat folded:");
+    expect(await ctx.fns.canvas.promptSection({})).toContain("A `Chat folded` line in the Canvas block says when");
     let html = await (await ctx.fns.procs.http.dispatch({ method: "GET", url: `http://localhost/agent/${a.id}` })).text();
     expect(html).toMatch(/data-canvas-open data-chat-collapsed/);
     expect(html).toContain('data-canvas-chat-toggle');
     await post({ op: "toggleChat" }, true);
     expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: true, chatCollapsed: false });
+    expect(await block()).not.toContain("Chat folded:");
     await post({ op: "toggleChat" }, true);
     await post({ open: false });
     expect(await ctx.fns.canvas.get({ agentId: a.id })).toMatchObject({ open: false, chatCollapsed: false });

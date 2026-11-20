@@ -68,81 +68,138 @@ test.skipIf(!CDP)("a canvas the agent opened while the tab was hidden opens when
     }
 }, 30_000);
 
-// The folded chat (canvas_state.chat_collapsed) is a strip over the canvas with its own unfold button. The
-// button's CSS was dropped with the old canvas header styles, so it stayed `hidden` and the strip had no way
-// back of its own. Fold → reload → unfold from the strip; the column comes back at its saved width.
+// The folded chat (canvas_state.chat_collapsed): the canvas takes the page and the chat is a circle in its bottom
+// right corner; the message box opens from it on focus (a click, ⌘I), bubbles float above it.
 const foldState = `(() => {
-    const root = document.querySelector('[data-canvas-agent]'), chat = document.getElementById('chat-panel');
-    const button = chat.querySelector('[data-canvas-chat-toggle]'), box = button.getBoundingClientRect();
-    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    const root = document.querySelector('[data-canvas-agent]'), chat = document.getElementById('chat-panel'), form = document.getElementById('form');
+    const box = form.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    const shown = sel => [...chat.querySelectorAll(sel)].filter(el => getComputedStyle(el).display !== 'none');
+    const unfold = chat.querySelector('[data-canvas-chat-toggle]').getBoundingClientRect();
     return {
-        collapsed: root.hasAttribute('data-chat-collapsed'), chatWidth: Math.round(chat.getBoundingClientRect().width),
-        button: box.width > 0 && !!hit && button.contains(hit),
-        icons: [...button.querySelectorAll('i')].filter(i => getComputedStyle(i).display !== 'none').map(i => i.classList.contains('canvas-chat-unfold') ? 'unfold' : 'fold'),
+        collapsed: root.hasAttribute('data-chat-collapsed'), open: root.hasAttribute('data-chat-open'),
+        size: [Math.round(box.width), Math.round(box.height)], onTop: !!hit && form.contains(hit),
+        inside: box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight,
+        focused: document.activeElement?.id === 'input', text: document.getElementById('input').value,
+        key: getComputedStyle(form.querySelector('.w-composer-box'), '::after').content,
+        bubbles: shown('#messages > .w-msg').map(el => el.dataset.role), unread: form.getAttribute('data-unread'),
+        tool: shown('#messages > .chat-tools').map(el => el.querySelector('.w-tool[data-running]')?.dataset.label ?? '').join('|'),
+        chatWidth: Math.round(chat.getBoundingClientRect().width),
+        at: { circle: [box.left + box.width / 2, box.top + box.height / 2], unfold: [unfold.left + unfold.width / 2, unfold.top + unfold.height / 2] },
     };
 })()`;
+async function foldedTab(agentId: string) {
+    const tab = await openTab(`http://127.0.0.1:${server.port}/agent/${agentId}`);
+    await tab.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+    await tab.send("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
+    const ready = async () => { for (let i = 0; i < 200 && !(await tab.evaluate("!!(window.__hyperCanvasInstalled && window.htmx && window.hyperKeys && window.hyperCommands?.['chat.focus'] && document.querySelector('[data-canvas-agent] #form'))")); i++) await Bun.sleep(50); };
+    const state = () => tab.evaluate(foldState);
+    // Polls until the state matches, then asserts it (the page follows the server through events).
+    const settle = async (want: Record<string, unknown>) => { let now: any = null; for (let i = 0; i < 60; i++) { now = await state(); if (now && Object.entries(want).every(([k, v]) => JSON.stringify(now[k]) === JSON.stringify(v))) break; await Bun.sleep(50); } expect(now).toMatchObject(want); return now; };
+    const click = async ([x, y]: number[]) => { for (const type of ["mousePressed", "mouseReleased"]) await tab.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 }); };
+    // The chord bound to chat.focus in the default keymap, Mod-i: ⌘I on a Mac, Ctrl+I elsewhere.
+    const mac = await tab.evaluate("/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)");
+    const focusKey = async () => { for (const type of ["rawKeyDown", "keyUp"]) await tab.send("Input.dispatchKeyEvent", { type, key: "i", code: "KeyI", windowsVirtualKeyCode: 73, modifiers: mac ? 4 : 2 }); };
+    const key = async (k: string, code: string, vk: number, text?: string) => { await tab.send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code, windowsVirtualKeyCode: vk, ...(text ? { text } : {}) }); await tab.send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: vk }); };
+    await ready();
+    return { ...tab, ready, state, settle, click, key, focusKey, keyLabel: mac ? "⌘I" : "Ctrl+I" };
+}
 
-test.skipIf(!CDP)("the folded chat strip has its own unfold button; fold and unfold keep the chat width, a reload keeps the fold", async () => {
+test.skipIf(!CDP)("the folded chat is a circle; a click or the focus key opens the message box, a draft keeps it open, the field unfolds the chat", async () => {
     const agent = await ctx.fns.agent.start({ model: "mock:test" });
     await ctx.fns.canvas.show({ agentId: agent.id, kind: "html", title: "Drawing", args: { html: "<p>drawing</p>" } });
-    await ctx.fns.canvas.update({ agentId: agent.id, chatWidth: 520 });
-    const tab = await openTab(`http://127.0.0.1:${server.port}/agent/${agent.id}`);
-    const ready = async () => { for (let i = 0; i < 100 && !(await tab.evaluate("!!(window.__hyperCanvasInstalled && window.htmx && window.hyperCommands?.['canvas.toggleChat'] && document.querySelector('[data-canvas-agent] #chat-panel [data-canvas-chat-toggle]'))")); i++) await Bun.sleep(50); };
-    const until = async (collapsed: boolean) => { let state: any = null; for (let i = 0; i < 60; i++) { state = await tab.evaluate(foldState); if (state?.collapsed === collapsed) break; await Bun.sleep(50); } return state; };
+    await ctx.fns.canvas.update({ agentId: agent.id, chatWidth: 520, chatCollapsed: true });
+    const tab = await foldedTab(agent.id);
     try {
-        await tab.send("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
-        await ready();
-        expect(await until(false)).toMatchObject({ collapsed: false, chatWidth: 520 });
+        // At rest: the circle, with the key that opens the box written beside it.
+        const rest = await tab.settle({ collapsed: true, open: false, size: [44, 44], onTop: true, inside: true, focused: false, key: JSON.stringify(tab.keyLabel) });
 
-        expect(await tab.evaluate("window.hyperCommands['canvas.toggleChat'].run()")).toBe(true);
-        expect(await until(true)).toMatchObject({ collapsed: true, button: true, icons: ["unfold"] });
-        expect(await ctx.fns.canvas.get({ agentId: agent.id })).toMatchObject({ open: true, chatCollapsed: true, chatWidth: 520 });
+        // The key goes to the message box; what is typed there stays text, "i" included.
+        await tab.focusKey();
+        await tab.settle({ open: true, focused: true, text: "", inside: true, key: "none" });
+        await tab.key("i", "KeyI", 73, "i");
+        await tab.settle({ open: true, focused: true, text: "i" });
+        // Escape leaves the box: a draft keeps the field open, an empty box folds back into the circle.
+        await tab.key("Escape", "Escape", 27);
+        await tab.settle({ open: true, focused: false, text: "i" });
+        // The key works from inside a text field too — here back into the box with the draft.
+        await tab.focusKey();
+        await tab.settle({ open: true, focused: true, text: "i" });
+        await tab.key("Escape", "Escape", 27);
+        await tab.evaluate("(() => { const i = document.getElementById('input'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); })()");
+        await tab.settle({ open: false, size: [44, 44] });
 
-        await tab.evaluate("location.reload()");
-        await Bun.sleep(300);
-        await ready();
-        expect(await until(true)).toMatchObject({ collapsed: true, button: true, icons: ["unfold"] });
-
-        await tab.evaluate("document.querySelector('#chat-panel [data-canvas-chat-toggle]').click()");
-        expect(await until(false)).toMatchObject({ collapsed: false, chatWidth: 520 });
+        // A click on the circle opens the field; its unfold button (a real press, the box keeps the focus) brings the column back.
+        await tab.click(rest.at.circle);
+        const open = await tab.settle({ open: true, focused: true });
+        await tab.click(open.at.unfold);
+        await tab.settle({ collapsed: false, open: false, chatWidth: 520 });
         expect(await ctx.fns.canvas.get({ agentId: agent.id })).toMatchObject({ open: true, chatCollapsed: false, chatWidth: 520 });
-    } finally {
-        await tab.close();
-    }
-}, 30_000);
 
-// Below 1024px the canvas covers the whole page (ui.layout, z-index 45). The folded strip sat under it at 44 —
-// the chat was gone from the screen. At every narrow width the strip is on top and inside the window.
-const stripState = `(() => {
-    const chat = document.getElementById('chat-panel'), box = chat.getBoundingClientRect();
-    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-    const un = chat.querySelector('[data-canvas-chat-toggle]').getBoundingClientRect(), unHit = document.elementFromPoint(un.left + un.width / 2, un.top + un.height / 2);
-    return { collapsed: document.querySelector('[data-canvas-agent]').hasAttribute('data-chat-collapsed'), onTop: !!hit && chat.contains(hit), unfold: un.width > 0 && !!unHit?.closest('#chat-panel [data-canvas-chat-toggle]'), inside: box.width > 200 && box.left >= 0 && box.right <= innerWidth && box.bottom <= innerHeight };
-})()`;
-
-test.skipIf(!CDP)("in a narrow window the folded chat strip stays over the canvas", async () => {
-    const agent = await ctx.fns.agent.start({ model: "mock:test" });
-    await ctx.fns.canvas.show({ agentId: agent.id, kind: "html", title: "Drawing", args: { html: "<p>drawing</p>" } });
-    await ctx.fns.canvas.update({ agentId: agent.id, chatCollapsed: true });
-    const tab = await openTab(`http://127.0.0.1:${server.port}/agent/${agent.id}`);
-    try {
+        // Folded again, a reload keeps it: still the circle, at every width over the canvas and inside the window.
+        expect(await tab.evaluate("window.hyperCommands['canvas.toggleChat'].run()")).toBe(true);
+        await tab.settle({ collapsed: true });
+        await tab.evaluate("document.activeElement?.blur(); location.reload()");
+        await Bun.sleep(300);
+        await tab.ready();
         for (const width of [1400, 1000, 800, 600, 390]) {
             await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
-            let state: any = null;
-            for (let i = 0; i < 60; i++) { state = await tab.evaluate(`window.__hyperCanvasInstalled && document.getElementById('chat-panel') ? ${stripState} : null`); if (state?.collapsed && state.onTop && state.unfold) break; await Bun.sleep(50); }
-            expect({ width, ...state }).toEqual({ width, collapsed: true, onTop: true, unfold: true, inside: true });
+            await tab.settle({ collapsed: true, open: false, size: [44, 44], onTop: true, inside: true });
         }
-        // A strip dragged to the right in a wide window comes back inside when the window gets narrow.
-        await tab.send("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
-        await tab.evaluate("localStorage.setItem('hyper-strip-pos', JSON.stringify({ x: 700, y: 300 })); location.reload()");
-        await Bun.sleep(300);
-        for (const width of [1400, 700]) {
-            await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
-            let state: any = null;
-            for (let i = 0; i < 60; i++) { state = await tab.evaluate(`window.__hyperCanvasInstalled && document.getElementById('chat-panel')?.hasAttribute('data-strip-moved') ? ${stripState} : null`); if (state?.onTop && state.inside) break; await Bun.sleep(50); }
-            expect({ moved: width, ...state }).toEqual({ moved: width, collapsed: true, onTop: true, unfold: true, inside: true });
-        }
+        await tab.focusKey();
+        await tab.settle({ open: true, focused: true, inside: true });
     } finally {
         await tab.close();
     }
-}, 30_000);
+}, 60_000);
+
+test.skipIf(!CDP)("the folded chat shows the latest answer as a bubble with a close cross, counts new answers on the circle and names the running tool", async () => {
+    const agent = await ctx.fns.agent.start({ model: "mock:test" });
+    const id = agent.id;
+    let messageIdx = 100;
+    const answer = (text: string) => ctx.fns.session.appendAssistantEvent({ id, payload: { text, html: `<p>${text}</p>`, messageIdx: messageIdx++ } });
+    await ctx.fns.canvas.show({ agentId: id, kind: "html", title: "Drawing", args: { html: "<p>drawing</p>" } });
+    await ctx.fns.session.appendUserMessage({ id, text: "build the table" });
+    await answer("Done: the table is built.");
+    await ctx.fns.canvas.update({ agentId: id, chatCollapsed: true });
+    const tab = await foldedTab(id);
+    const runs: Map<string, unknown> = ((ctx.state as any).toolRuns ??= new Map());
+    try {
+        await tab.settle({ collapsed: true, open: false, bubbles: ["agent"], unread: null, tool: "" });
+        // The answer is shown whole — nothing cut, no fade; a very long one scrolls inside its bubble instead.
+        const whole = `(() => { const t = [...document.querySelectorAll('#messages > .w-msg[data-role="agent"] .w-msg-text')].pop(), b = t.closest('.w-msg').getBoundingClientRect(); return { cut: t.scrollHeight - t.clientHeight > 1, mask: getComputedStyle(t).maskImage, scrolls: getComputedStyle(t).overflowY, inside: b.top >= 0 && b.bottom <= innerHeight }; })()`;
+        expect(await tab.evaluate(whole)).toEqual({ cut: false, mask: "none", scrolls: "auto", inside: true });
+        // The cross in the bubble's corner closes it for this browser tab; the answer stays in the chat.
+        const corner = await tab.evaluate("(() => { const b = [...document.querySelectorAll('#messages > .w-msg[data-role=\"agent\"]')].pop().getBoundingClientRect(); return [b.right - 12, b.top + 12]; })()");
+        await tab.click(corner);
+        await tab.settle({ collapsed: true, bubbles: [] });
+        await tab.evaluate("location.reload()");
+        await Bun.sleep(300);
+        await tab.ready();
+        await tab.settle({ collapsed: true, bubbles: [], unread: null });
+        expect(await tab.evaluate("document.querySelectorAll('#messages > .w-msg').length")).toBe(2);
+
+        // The person asks again and the agent works: their message is the bubble, the running call a chip.
+        await ctx.fns.session.appendUserMessage({ id, text: "by week, please" });
+        await ctx.fns.procs.db.run({ sql: "UPDATE agents SET run_state = 'running', next_run_at = NULL WHERE id = ?", params: [id] });
+        runs.set("fold-test", { id: "fold-test", agentId: id, name: "bash", subject: "bun test", icon: "ph-terminal-window", startedAt: Date.now(), timeoutMs: null, tail: "", aborted: false, controller: new AbortController() });
+        await tab.evaluate("location.reload()");
+        await Bun.sleep(300);
+        await tab.ready();
+        await tab.settle({ bubbles: ["user"], tool: "bash bun test" });
+
+        // A new answer replaces it and is counted on the circle until the box is opened.
+        runs.delete("fold-test");
+        await ctx.fns.procs.db.run({ sql: "UPDATE agents SET run_state = 'idle' WHERE id = ?", params: [id] });
+        await answer("Rebuilt by week. " + "Every line of a long answer stays readable. ".repeat(12));
+        await tab.settle({ bubbles: ["agent"], unread: "1", tool: "" });
+        expect(await tab.evaluate(whole)).toEqual({ cut: false, mask: "none", scrolls: "auto", inside: true });
+        await answer("And a very long one. " + "It scrolls inside the bubble and never leaves the window. ".repeat(160));
+        await tab.settle({ bubbles: ["agent"], unread: "2", tool: "" });
+        expect(await tab.evaluate(whole)).toEqual({ cut: true, mask: "none", scrolls: "auto", inside: true });
+        await tab.focusKey();
+        await tab.settle({ open: true, unread: null, bubbles: ["agent"] });
+    } finally {
+        runs.delete("fold-test");
+        await tab.close();
+    }
+}, 60_000);

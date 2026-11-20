@@ -29,5 +29,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
         "",
         "Some functions return data AND put the same selection on a tab (`@canvas <kind>`; canvas.search finds them): call them with `canvas: true` so the person sees what you read. A `@view` function only reads and returns an html fragment; add `@live <topic>` and call `procs.events.refresh({ topic })` where the data changes, and every open copy re-fetches itself. Details: docs/canvas-views.md."
             + (plugin.length ? ` Plugin kinds: ${plugin.map(n => `\`${n}\``).join(", ")}.` : ""),
+        "",
+        "The person can fold the chat (⌘\\): the canvas takes the whole page and the chat becomes a circle in its corner — your latest answer floats there as a small bubble, the running tool call as a chip. A `Chat folded` line in the Canvas block says when; then the canvas is the page and the bubble a caption to it: the substance goes on the canvas (update the tab), the answer is a few plain lines without tables, code blocks or headings.",
     ].join("\n");
 }

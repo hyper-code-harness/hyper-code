@@ -73,7 +73,7 @@ export default async function (
         })).join("") }),
     }) : "";
 
-    // Canvas controls live with the canvas: fold the chat into a strip over it (canvas on the whole page), reload, close.
+    // Canvas controls live with the canvas: fold the chat into a circle over it (canvas on the whole page), reload, close.
     const foldChat = w.iconButton({ icon: "arrows-out-simple", label: "Canvas on the whole page — ⌘\\", size: 28, marks: { action: "fold-chat" },
         action: { post: openUrl, vals: { op: "toggleChat" } }, attrs: { "data-canvas-chat-toggle": true, "hx-disabled-elt": "this" } });
     const reload = active ? w.iconButton({ icon: "arrow-clockwise", label: "Reload tab", size: 28, marks: { action: "reload-canvas-tab" }, attrs: { "data-canvas-reload": true } }) : "";

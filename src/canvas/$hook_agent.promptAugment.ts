@@ -25,5 +25,7 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         return `- [${item.id}] "${item.title}": ${mark}${what}${item.active ? " (active)" : ""}${state}`;
     };
     const ordered = [...items.filter(i => i.active), ...items.filter(i => !i.active)];
-    return `## Canvas\n\nThe canvas beside the chat is ${view.open ? "open" : "closed"}; tabs:\n` + (await Promise.all(ordered.map(line))).join("\n");
+    // The reminder half of canvas.promptSection's paragraph on the folded chat: sent when the person folds or unfolds it.
+    const folded = view.chatCollapsed ? "\n\nChat folded: the person sees the canvas on the whole page and your answer as a small bubble — put the substance on the canvas, answer in a few plain lines." : "";
+    return `## Canvas\n\nThe canvas beside the chat is ${view.open ? "open" : "closed"}; tabs:\n` + (await Promise.all(ordered.map(line))).join("\n") + folded;
 }

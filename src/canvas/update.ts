@@ -7,8 +7,8 @@
  * @param opts.agentId Agent whose canvas to change.
  * @param opts.open Show (true) or hide (false) the canvas; omit to keep.
  * @param opts.chatWidth Chat column width in px while the canvas is open; omit to keep. @minimum 320 @maximum 1600
- * @param opts.chatCollapsed Fold the chat into a floating strip at the bottom of the canvas (true) or show it as the column again (false); omit to keep. Closing the canvas unfolds it.
- * @param opts.toggleChat Flip the chat between column and strip in one statement: folded → column; otherwise the canvas opens with the chat folded. Wins over open/chatCollapsed. @default false
+ * @param opts.chatCollapsed Fold the chat into a circle with answer bubbles in the corner of the canvas (true) or show it as the column again (false); omit to keep. Closing the canvas unfolds it.
+ * @param opts.toggleChat Flip the chat between column and folded circle in one statement: folded → column; otherwise the canvas opens with the chat folded. Wins over open/chatCollapsed. @default false
  * @param opts.activeItemId Tab to show (one of this agent's canvas tabs), null for none; omit to keep.
  */
 export default async function (
@@ -21,9 +21,9 @@ export default async function (
         open?: boolean;
         /** Chat column width in px while the canvas is open; omit to keep. @minimum 320 @maximum 1600 */
         chatWidth?: number;
-        /** Fold the chat into a floating strip at the bottom of the canvas (true) or show it as the column again (false); omit to keep. Closing the canvas unfolds it. */
+        /** Fold the chat into a circle with answer bubbles in the corner of the canvas (true) or show it as the column again (false); omit to keep. Closing the canvas unfolds it. */
         chatCollapsed?: boolean;
-        /** Flip the chat between column and strip in one statement: folded → column; otherwise the canvas opens with the chat folded. Wins over open/chatCollapsed. @default false */
+        /** Flip the chat between column and folded circle in one statement: folded → column; otherwise the canvas opens with the chat folded. Wins over open/chatCollapsed. @default false */
         toggleChat?: boolean;
         /** Tab to show (one of this agent's canvas tabs), null for none; omit to keep. */
         activeItemId?: number | null;

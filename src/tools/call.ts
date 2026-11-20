@@ -28,7 +28,7 @@ export default async function (
         /** Agent making the call; sets the workspace, the running indicator and the tool-list check. */
         agent?: types.agent.Agent;
     },
-): Promise<{ output: string; content?: types.tools.Content[]; isError: boolean; terminal?: { type: 'html'; html: string; text: string } }> {
+): Promise<{ output: string; content?: types.tools.Content[]; isError: boolean; terminal?: { type: 'html'; html: string; text: string }; inlineLimit?: number }> {
     const name = String(opts.name ?? "").trim();
     const all = ctx.fns.tools.list({});
     const tool = all.find((t: any) => t.wireName === name || t.name === name || t.key === name);
@@ -162,5 +162,6 @@ export default async function (
     // agent cm). Replace with U+FFFD.
     output = output.replaceAll("\u0000", "\uFFFD");
 
-    return { output, ...(content?.length ? { content } : {}), ...(terminal ? { terminal } : {}), isError };
+    const inlineLimit = Number(tool.inlineLimit);
+    return { output, ...(content?.length ? { content } : {}), ...(terminal ? { terminal } : {}), isError, ...(inlineLimit > 0 ? { inlineLimit } : {}) };
 }

@@ -1,5 +1,8 @@
 # Installing Hyper as a skill
 
+> The other direction — using standard Agent Skills (`SKILL.md` folders written for Claude Code, Codex and
+> others) inside Hyper — is [agent-skills.md](agent-skills.md).
+
 How a coding harness — Claude Code, Codex, or anything that reads a skills directory —
 gets access to the capabilities of a **running** Hyper. The harness never imports Hyper's
 code: it talks to the live process over loopback through the `hyper` CLI, so every call

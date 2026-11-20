@@ -1,0 +1,200 @@
+{
+  "note": "Curated collections of Agent Skills. Checked 2026-11-20: every repository exists on GitHub; `stars` is from the GitHub API and `installs` is the sum over that repository's skills shown on the skills.sh home page that day. Left out on purpose: repositories with almost no stars and millions of installs (several are copies of obra/superpowers under other names) — install counts can be inflated. Trust is by origin, never by popularity.",
+  "collections": [
+    {
+      "id": "anthropics",
+      "repo": "github:anthropics/skills",
+      "publisher": "Anthropic",
+      "trust": "official",
+      "about": "Document skills (docx, xlsx, pptx, pdf) and example skills: skill-creator, frontend-design, mcp-builder, webapp-testing.",
+      "stars": 197989
+    },
+    {
+      "id": "claude-plugins",
+      "repo": "github:anthropics/claude-plugins-official",
+      "publisher": "Anthropic",
+      "trust": "official",
+      "about": "Anthropic's directory of Claude Code plugins; the skills of the plugins kept in the repository itself.",
+      "stars": 47812
+    },
+    {
+      "id": "openai",
+      "repo": "github:openai/skills",
+      "publisher": "OpenAI",
+      "trust": "official",
+      "about": "Skills catalogue for Codex: curated skills for Figma, Notion, Linear, deployment, documents and more; many need an MCP server.",
+      "stars": 28855
+    },
+    {
+      "id": "mattpocock",
+      "repo": "github:mattpocock/skills",
+      "publisher": "Matt Pocock",
+      "trust": "community",
+      "about": "Engineering process: grilling, TDD, bug diagnosis, two-axis code review, domain modelling, spec and tickets.",
+      "stars": 328726,
+      "installs": 33695160
+    },
+    {
+      "id": "superpowers",
+      "repo": "github:obra/superpowers",
+      "publisher": "Jesse Vincent",
+      "trust": "community",
+      "about": "A software development methodology as skills: brainstorming, plans, TDD, systematic debugging, subagent-driven work.",
+      "stars": 322708,
+      "installs": 3982301
+    },
+    {
+      "id": "vercel",
+      "repo": "github:vercel-labs/agent-skills",
+      "publisher": "Vercel",
+      "trust": "community",
+      "about": "Vercel's collection: React and Next.js practices, web design guidelines, deployment.",
+      "stars": 34598,
+      "installs": 3385349
+    },
+    {
+      "id": "vercel-skills-cli",
+      "repo": "github:vercel-labs/skills",
+      "publisher": "Vercel",
+      "trust": "community",
+      "about": "The `npx skills` tool's own skill for finding skills.",
+      "stars": 40198,
+      "installs": 4459978
+    },
+    {
+      "id": "agent-browser",
+      "repo": "github:vercel-labs/agent-browser",
+      "publisher": "Vercel",
+      "trust": "community",
+      "about": "Browser automation CLI for agents, with its skill.",
+      "stars": 53042,
+      "installs": 1623841
+    },
+    {
+      "id": "azure",
+      "repo": "github:microsoft/azure-skills",
+      "publisher": "Microsoft",
+      "trust": "community",
+      "about": "Skills and MCP server configurations for Azure scenarios.",
+      "stars": 1660,
+      "installs": 19449617
+    },
+    {
+      "id": "cloudflare",
+      "repo": "github:cloudflare/skills",
+      "publisher": "Cloudflare",
+      "trust": "community",
+      "about": "Building on Cloudflare: Workers, Agents SDK, Durable Objects, Wrangler.",
+      "stars": 3411,
+      "installs": 1593340
+    },
+    {
+      "id": "firebase",
+      "repo": "github:firebase/agent-skills",
+      "publisher": "Google Firebase",
+      "trust": "community",
+      "about": "Firebase products for agents: auth, Firestore, hosting, AI logic.",
+      "stars": 520,
+      "installs": 1791173
+    },
+    {
+      "id": "google-agents-cli",
+      "repo": "github:google/agents-cli",
+      "publisher": "Google",
+      "trust": "community",
+      "about": "Creating, evaluating and deploying AI agents with Google's agents CLI.",
+      "stars": 6379,
+      "installs": 4105349
+    },
+    {
+      "id": "prisma",
+      "repo": "github:prisma/skills",
+      "publisher": "Prisma",
+      "trust": "community",
+      "about": "Prisma ORM: schema, migrations, queries, upgrades.",
+      "stars": 80,
+      "installs": 3978580
+    },
+    {
+      "id": "remotion",
+      "repo": "github:remotion-dev/skills",
+      "publisher": "Remotion",
+      "trust": "community",
+      "about": "Making videos in React with Remotion.",
+      "stars": 7635,
+      "installs": 5086825
+    },
+    {
+      "id": "hyperframes",
+      "repo": "github:heygen-com/hyperframes",
+      "publisher": "HeyGen",
+      "trust": "community",
+      "about": "AI video editing with HyperFrames.",
+      "stars": 87378,
+      "installs": 17313714
+    },
+    {
+      "id": "lark",
+      "repo": "github:larksuite/cli",
+      "publisher": "Lark",
+      "trust": "community",
+      "about": "The Lark / Feishu CLI with skills for messages, docs, calendar and tables.",
+      "stars": 18171,
+      "installs": 12538754
+    },
+    {
+      "id": "taste",
+      "repo": "github:Leonxlnx/taste-skill",
+      "publisher": "Leon Lin",
+      "trust": "community",
+      "about": "Design taste for coding agents: art direction, reference images, a browser check.",
+      "stars": 119250,
+      "installs": 5602120
+    },
+    {
+      "id": "marketing",
+      "repo": "github:coreyhaines31/marketingskills",
+      "publisher": "Corey Haines",
+      "trust": "community",
+      "about": "Marketing: conversion optimisation, copywriting, SEO, analytics, growth.",
+      "stars": 61687,
+      "installs": 5169059
+    },
+    {
+      "id": "caveman",
+      "repo": "github:JuliusBrussee/caveman",
+      "publisher": "Julius Brussee",
+      "trust": "community",
+      "about": "Shorter answers and smaller token use for coding agents.",
+      "stars": 121757,
+      "installs": 4871970
+    },
+    {
+      "id": "emilkowalski",
+      "repo": "github:emilkowalski/skills",
+      "publisher": "Emil Kowalski",
+      "trust": "community",
+      "about": "Interface design and animation for designers and engineers.",
+      "stars": 58369,
+      "installs": 3628653
+    },
+    {
+      "id": "higgsfield",
+      "repo": "github:higgsfield-ai/skills",
+      "publisher": "Higgsfield",
+      "trust": "community",
+      "about": "Image and video generation with Higgsfield.",
+      "stars": 2029,
+      "installs": 1572754
+    },
+    {
+      "id": "rigorpilot",
+      "repo": "github:lllllllama/RigorPilot-Skills",
+      "publisher": "lllllllama",
+      "trust": "community",
+      "about": "Reproducing research from a README with bounded execution and auditable evidence.",
+      "stars": 489,
+      "installs": 4546491
+    }
+  ]
+}

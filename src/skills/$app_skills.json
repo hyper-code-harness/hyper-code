@@ -1,0 +1,8 @@
+{
+  "label": "Skills",
+  "href": "/rpc/skills.page",
+  "hint": "Agent Skills: installed packs, shared folders and how each skill is used",
+  "icon": "ph-book-open-text",
+  "group": "System",
+  "order": 56
+}

@@ -15,14 +15,17 @@ export default async function (
         output: string;
         /** Tool name; bash previews retain the tail, other tools retain the head. */
         kind: string;
+        /** Longest output kept inline, from the tool's declaration (`inlineLimit`). @default 6000 @minimum 1 @maximum 200000 */
+        inlineLimit?: number;
     },
 ): Promise<{ content: string; result_ref?: types.agent.ResultRef }> {
     const { agent, kind } = opts;
     const output = String(opts.output ?? "");
-    if (output.length <= LIMIT) return { content: output };
+    const limit = Math.max(1, Math.min(200_000, Math.floor(Number(opts.inlineLimit ?? LIMIT)) || LIMIT));
+    if (output.length <= limit) return { content: output };
 
     const fromTail = kind === "bash";
-    const { preview, ref: result_ref, storageError } = await ctx.fns.resultStore.prepare({ownerAgentId:agent.id,kind,text:output,inlineLimit:LIMIT,tail:fromTail});
+    const { preview, ref: result_ref, storageError } = await ctx.fns.resultStore.prepare({ownerAgentId:agent.id,kind,text:output,inlineLimit:limit,tail:fromTail});
     const label = `${fromTail ? "tail" : "head"} preview of ${output.length} characters`;
     if (!result_ref) {
         const reason = storageError ?? "unavailable";

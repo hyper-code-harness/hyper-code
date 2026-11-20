@@ -46,7 +46,8 @@
                 if (!this.isNearBottom()) this.shouldStick = false;
                 if (this.messages.scrollTop < 80) this.loadOlder();
             }, { passive: true, signal });
-            // @mentions: typing @ suggests people; the list owns arrows/Enter/Tab/Esc while open.
+            // @mentions: typing @ suggests people; "/" at the very start of the message suggests skills.
+            // The list owns arrows/Enter/Tab/Esc while open.
             this.input.addEventListener('input', () => { this.mentionUpdate(); this.fit(); }, { signal });
             this.input.addEventListener('blur', () => setTimeout(() => this.mentionClose(), 150), { signal });
             this.input.addEventListener('keydown', (event) => {
@@ -128,7 +129,36 @@
             return m ? { start: caret - m[2].length - 1, query: m[2].toLowerCase() } : null;
         }
 
+        // Skills the person can start in this chat (GET /skills/commands), read once per page.
+        async skillCommands() {
+            if (!this.skillsPromise) this.skillsPromise = fetch('/skills/commands?agent=' + encodeURIComponent(this.agentId), { cache: 'no-store' }).then(r => r.ok ? r.json() : []).catch(() => []);
+            return this.skillsPromise;
+        }
+
+        // "/name" being typed as the whole message so far, or null. A path like /usr/bin is not one.
+        slashQuery() {
+            const caret = this.input.selectionStart;
+            if (caret !== this.input.selectionEnd) return null;
+            const m = /^\/([a-z0-9:-]{0,80})$/i.exec(this.input.value.slice(0, caret));
+            return m ? { start: 0, query: m[1].toLowerCase() } : null;
+        }
+
+        async slashUpdate(slash) {
+            const skills = await this.skillCommands();
+            if (this.slashQuery()?.query !== slash.query) return;
+            const q = slash.query;
+            // A description matches only from three letters on: one letter is in every description.
+            const rank = s => s.name.startsWith(q) ? 0 : s.name.includes(q) ? 1 : q.length >= 3 && (s.description || '').toLowerCase().includes(q) ? 2 : 3;
+            const list = skills.map(s => ({ s, r: q ? rank(s) : 0 })).filter(x => x.r < 3).sort((a, b) => a.r - b.r || a.s.name.localeCompare(b.s.name)).slice(0, 8)
+                .map(({ s }) => ({ id: s.name, name: '/' + s.name + (s.hint ? ' ' + s.hint : ''), detail: s.description || s.pack, insert: '/' + s.name + ' ', skill: true }));
+            if (!list.length) return this.mentionClose();
+            this.mention = { start: 0, list, sel: Math.min(this.mention?.sel ?? 0, list.length - 1), label: 'Start a skill' };
+            this.mentionRender();
+        }
+
         async mentionUpdate() {
+            const slash = this.slashQuery();
+            if (slash) return this.slashUpdate(slash);
             const at = this.mentionQuery();
             if (!at) return this.mentionClose();
             const people = await this.mentionPeople();
@@ -148,7 +178,6 @@
             if (!box) {
                 box = this.mentionBox = document.createElement('div');
                 box.setAttribute('role', 'listbox');
-                box.setAttribute('aria-label', 'Mention someone');
                 box.dataset.mentionList = '';
                 box.className = 'absolute bottom-full left-0 z-30 mb-2 w-72 max-w-full overflow-hidden rounded-xl border border-ui-border bg-base-100 p-1 text-base-content shadow-xl';
                 box.addEventListener('mousedown', event => {
@@ -159,8 +188,10 @@
                 });
                 (this.input.parentElement || this.form).append(box);
             }
+            box.setAttribute('aria-label', this.mention.label || 'Mention someone');
             const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
             box.innerHTML = this.mention.list.map((p, i) => {
+                if (p.skill) return `<div role="option" aria-selected="${i === this.mention.sel}" data-mention-id="${esc(p.id)}" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 ${i === this.mention.sel ? 'bg-base-200' : 'hover:bg-base-200/60'}"><i class="ph ph-book-open-text shrink-0 text-muted" aria-hidden="true"></i><span class="min-w-0 flex-1"><span class="block truncate text-xs font-medium">${esc(p.name)}</span><span class="block truncate text-3xs text-faint">${esc(p.detail)}</span></span></div>`;
                 const face = p.picture
                     ? `<img src="${esc(p.picture)}" alt="" class="size-6 shrink-0 rounded-full object-cover" referrerpolicy="no-referrer">`
                     : `<span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-3xs font-semibold">${esc((p.name || p.id).slice(0, 1).toUpperCase())}</span>`;
@@ -194,7 +225,8 @@
         mentionPick(id) {
             if (!this.mention) return;
             const start = this.mention.start, end = this.input.selectionStart;
-            this.input.setRangeText('@' + id + ' ', start, end, 'end');
+            const picked = this.mention.list.find(p => p.id === id);
+            this.input.setRangeText(picked?.insert || '@' + id + ' ', start, end, 'end');
             this.mentionClose();
             this.input.focus();
             this.input.dispatchEvent(new Event('input', { bubbles: true }));

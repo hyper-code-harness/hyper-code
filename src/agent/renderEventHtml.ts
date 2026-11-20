@@ -206,6 +206,10 @@ async function mentionChips(ctx: Context, html: string, tone: 'dark' | 'light'):
         return ctx.fns.w.box({ body: chip, mix: { padY: 's1' } });
     }
 
+    if (ev.type === "skill_invocation") {
+        return eventCard({ title: `Skill ${String(ev.skill ?? ev.typed ?? "")}`, icon: 'book-open-text', tone: 'info', badge: badge('/' + String(ev.typed ?? ev.skill ?? '')) });
+    }
+
     if (ev.type === "plan_activation") {
         return eventCard({ title: 'Plan task injected', icon: 'list-checks', tone: 'info', body: ctx.fns.w.box({ body: esc(ev.title ?? ev.taskId ?? "Task"), mix: { weight: 'strong' } }) + (ev.instructions ? para(esc(ev.instructions)) : "") });
     }

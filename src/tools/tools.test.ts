@@ -16,7 +16,10 @@ describe('tools registry', () => {
         const ctx = await setup();
         const byName = Object.fromEntries(ctx.fns.tools.list({}).map((t: any) => [t.wireName, t]));
 
-        expect(Object.keys(byName).sort()).toEqual(['bash', 'edit', 'eval', 'find', 'grep', 'read', 'respondHtml', 'write']);
+        expect(Object.keys(byName).sort()).toEqual(['bash', 'edit', 'eval', 'find', 'grep', 'read', 'respondHtml', 'skill', 'write']);
+        // `skill` is declared but opt-in: an agent without a tool list is not offered it
+        expect(byName.skill.optIn).toBe(true);
+        expect(ctx.fns.tools.schemas({}).map((t: any) => t.function?.name ?? t.name)).not.toContain('skill');
         expect(byName.read.fn).toBe('tools.read');
         expect(byName.read.marker).toBe('read');
         expect(byName.read.parameters.required).toEqual(['path']);

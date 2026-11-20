@@ -76,4 +76,9 @@ export type Tool = {
     /** Off unless asked for: the tool is sent to the model only when the agent
      *  names it in `agent.tools`. An agent with no tool list does not get it. */
     optIn?: boolean;
+
+    /** Longest result, in characters, kept whole in the transcript. Longer results are stored as a file with a
+     *  preview (agent.stashResult); the default there is 6000. A tool whose result is instructions the model must
+     *  read in full — a loaded skill — raises it. */
+    inlineLimit?: number;
 };

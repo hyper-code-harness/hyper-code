@@ -93,6 +93,14 @@ export default async function (
         ctx.fns.procs.log?.warn?.({ event: "agent.world-state.failed", msg: String(error?.message ?? error), agentId: agent.id });
         return null;
     });
+    // `/name` typed by the person becomes the skill's instructions, as a row of its own next to their message.
+    const expandSkills = async () => {
+        await (ctx.fns as any).skills?.expandInvocations?.({ agent })?.catch?.((error: any) => {
+            ctx.fns.procs.log?.warn?.({ event: "agent.skills.expand-failed", msg: String(error?.message ?? error), agentId: agent.id });
+            return null;
+        });
+    };
+    await expandSkills();
     let consumedUserIdx = -1;
     // One `turn` event per answer: written at its start, completed with the end and the totals. A message the person
     // sends mid-run (steering) closes the current turn and opens a new one right after it, so the time under it
@@ -172,6 +180,8 @@ export default async function (
         if (turns > 1 && Number(seen?.i ?? -1) > consumedUserIdx) {
             await closeTurn('ok');
             await openTurn();
+            // A message that arrived mid-run may start a skill too.
+            await expandSkills();
         }
         consumedUserIdx = Math.max(consumedUserIdx, Number(seen?.i ?? -1));
         await ctx.fns.session.syncAgentState({ agent });
@@ -401,7 +411,7 @@ export default async function (
             const r = await ctx.fns.tools.call({ name: call.name, args: call.args, agent });
             totals.tools++;
             if (r.isError) totals.errors++;
-            const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name });
+            const { content: output, result_ref } = await ctx.fns.agent.stashResult({ agent, output: r.output, kind: call.name, inlineLimit: r.inlineLimit });
 
             // Events store data, never rendered markup. renderEventHtml builds
             // the current view on every read, so renderer improvements apply to

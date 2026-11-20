@@ -1,7 +1,7 @@
 /**
  * Remove unreferenced attachment metadata and blobs
  *
- * Garbage-collects metadata no longer referenced by a transcript, then removes
+ * Garbage-collects metadata no longer referenced by a transcript or by a plan task, then removes
  * content-addressed blobs with no metadata owner. Also cleans crash-orphaned
  * blob files older than one hour.
  */
@@ -13,6 +13,9 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
     for (const row of rows) {
         const hit = await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM messages WHERE content LIKE ? LIMIT 1", params: [`%\"attachmentId\":\"${row.id}\"%`] }) as any[];
         if (hit.length) continue;
+        // A file attached to a plan task (session.attachToTask) is referenced from the plan until the agent gets it.
+        const planned = await ctx.fns.procs.db.select({ sql: "SELECT 1 FROM agents WHERE scratchpad LIKE ? LIMIT 1", params: [`%\"attachmentId\":\"${row.id}\"%`] }) as any[];
+        if (planned.length) continue;
         await ctx.fns.procs.db.run({ sql: "DELETE FROM attachments WHERE id=?", params: [row.id] });
         removed++;
     }

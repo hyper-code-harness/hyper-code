@@ -179,7 +179,10 @@ div.w-divider > span { display: inline-flex; align-items: center; gap: var(--w-s
 .w-color code { font-size: var(--w-text-small); color: var(--w-ink-muted); }
 .w-ring { display: inline-flex; align-items: center; gap: var(--w-s2); font-size: var(--w-text-small); color: var(--w-ink-muted); }
 .w-ring-button { display: inline-grid; place-items: center; min-width: var(--w-control-lg); height: var(--w-control-lg); padding: 0 var(--w-s1); border: 0; border-radius: var(--w-radius-round); background: none; cursor: pointer; } .w-ring-button:hover { background: var(--w-hover); }
-.w-ring-track { stroke: var(--w-border); } .w-ring-fill { stroke: var(--w-tone, var(--w-ink)); }
+.w-ring-track { stroke: var(--w-border); } .w-ring-fill { stroke: var(--w-ring-tone, var(--w-ink)); }
+/* --w-tone does not inherit (see the tone rules above), so the arc — a child of .w-ring — gets the tone through a
+   plain property. A neutral ring keeps the ink arc. */
+.w-ring[data-tone]:not([data-tone="neutral"]) { --w-ring-tone: var(--w-tone); }
 } }
 
 @layer components { @layer w-molecules {
@@ -391,6 +394,55 @@ details.w-section > .w-section-head { cursor: pointer; } details.w-section > .w-
 .w-plan { display: flex; flex-direction: column; gap: var(--w-s1); font-size: var(--w-text-ui); } .w-plan-head { display: flex; align-items: center; gap: var(--w-s2); font-weight: 500; margin-bottom: var(--w-s1); }
 .w-plan-task { display: flex; align-items: center; gap: var(--w-s2); color: var(--w-ink-muted); } .w-plan-task[data-status="done"] { color: var(--w-ink-faint); text-decoration: line-through; }
 .w-plan-task[data-status="done"] .w-icon { color: var(--w-success); } .w-plan-task[data-status="active"] { color: var(--w-ink); font-weight: 500; } .w-plan-task[data-status="active"] .w-icon { color: var(--w-live); }
+/* todo (w.todo): an editable list — the current item on the selected blue, the queue with a grip, the add field
+   where a new item lands, finished items folded under "Done · N" at the bottom, the count and the actions in the footer. The mark is the item's button: state at
+   rest, the action on hover. */
+.w-todo { display: flex; flex-direction: column; gap: var(--w-s2); font-size: var(--w-text-ui); line-height: var(--w-line-ui); color: var(--w-ink); }
+.w-todo-summary { flex: 1; min-width: 0; font-size: var(--w-text-small); color: var(--w-ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.w-todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.w-todo-item, .w-todo-add-row { display: flex; align-items: flex-start; gap: var(--w-s1); min-height: var(--w-row); padding: var(--w-s1); border-radius: var(--w-radius-item); }
+.w-todo-item:hover { background: var(--w-hover); } .w-todo-item[data-status="active"] { background: var(--w-selected); }
+.w-todo-item[data-dragging] { position: relative; z-index: var(--w-layer-mark); background: var(--w-surface-raised); box-shadow: var(--w-shadow-raised); }
+.w-todo-list[data-sorting] { cursor: grabbing; user-select: none; } .w-todo-list[data-sorting] .w-todo-text { cursor: grabbing; }
+.w-todo-list[data-sorting] > .w-todo-item:not([data-dragging]) { transition: transform var(--w-motion-fast) var(--w-ease); }
+.w-todo-grip, .w-todo-mark, .w-todo-remove { flex: none; display: inline-grid; place-items: center; width: var(--w-control-xs); height: var(--w-control-xs); padding: 0; border: 0; border-radius: var(--w-radius-round); background: none; color: var(--w-ink-faint); }
+button:is(.w-todo-grip, .w-todo-mark, .w-todo-remove) { cursor: pointer; } button:is(.w-todo-mark, .w-todo-remove):hover { color: var(--w-ink); }
+button:is(.w-todo-grip, .w-todo-mark, .w-todo-remove):focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
+button.w-todo-grip { cursor: grab; touch-action: none; border-radius: var(--w-radius-item); opacity: 0; transition: opacity var(--w-motion-fast); } .w-todo-item[data-dragging] button.w-todo-grip { cursor: grabbing; }
+.w-todo-remove { opacity: 0; transition: opacity var(--w-motion-fast); }
+.w-todo-item:hover :is(button.w-todo-grip, .w-todo-remove), .w-todo-item:focus-within :is(button.w-todo-grip, .w-todo-remove), .w-todo-item[data-dragging] button.w-todo-grip { opacity: 1; }
+@media (hover: none) { button.w-todo-grip, .w-todo-remove { opacity: 1; } }
+.w-todo-over { display: none; } button.w-todo-mark:is(:hover, :focus-visible) .w-todo-rest { display: none; } button.w-todo-mark:is(:hover, :focus-visible) .w-todo-over { display: inline-grid; } .w-todo-rest { display: inline-grid; }
+.w-todo-item[data-status="active"] .w-todo-rest { color: var(--w-live); } .w-todo-item[data-status="done"] .w-todo-rest { color: var(--w-success); }
+.w-todo-body { flex: 1; min-width: 0; }
+.w-todo-text { display: block; overflow-wrap: anywhere; border-radius: var(--w-radius-item); } .w-todo-text[data-todo-title] { cursor: text; } .w-todo-text:focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
+.w-todo-item[data-status="active"] .w-todo-text { font-weight: 500; } .w-todo-item[data-status="done"] .w-todo-text { color: var(--w-ink-faint); text-decoration: line-through; }
+.w-todo-note { margin: 0; font-size: var(--w-text-small); line-height: var(--w-line-small); color: var(--w-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.w-todo-time, .w-todo-item > .w-timer { flex: none; font-size: var(--w-text-small); color: var(--w-ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.w-todo-item[data-status="active"] > .w-timer { color: var(--w-live); }
+.w-todo-add { border-radius: var(--w-radius-item); color: var(--w-ink-faint); } .w-todo-add-row { align-items: center; } .w-todo-add:focus-within { background: var(--w-surface-document); box-shadow: 0 0 0 1px var(--w-focus); }
+/* attachments: picked files wait above the field as the composer's chips; an item's own sit under its title as they do under a chat message; a file dragged over an item or the field rings it */
+.w-todo-add > .w-composer-files { margin: 0; padding: var(--w-s1) var(--w-s1) 0; }
+.w-todo-clip { flex: none; display: inline-grid; place-items: center; width: var(--w-control-xs); height: var(--w-control-xs); padding: 0; border: 0; border-radius: var(--w-radius-round); background: none; color: var(--w-ink-faint); cursor: pointer; } .w-todo-clip:hover { color: var(--w-ink); } .w-todo-clip:focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
+.w-todo-item > .w-todo-clip { opacity: 0; transition: opacity var(--w-motion-fast); } .w-todo-item:hover > .w-todo-clip, .w-todo-item:focus-within > .w-todo-clip { opacity: 1; }
+@media (hover: none) { .w-todo-item > .w-todo-clip { opacity: 1; } }
+.w-todo-item[data-drop], .w-todo-add[data-drop] { box-shadow: inset 0 0 0 var(--w-focus-width) var(--w-focus); }
+.w-todo-files { display: flex; flex-wrap: wrap; align-items: center; gap: var(--w-s2); margin: var(--w-s1) 0; }
+.w-todo-file { position: relative; display: inline-flex; max-width: 100%; } .w-todo-file .w-attach-img img { max-height: calc(2 * var(--w-row)); } .w-todo-file .w-attach-file { border: var(--w-rule); background: var(--w-surface-document); color: var(--w-ink-muted); }
+.w-todo-detach { position: absolute; z-index: var(--w-layer-mark); top: -4px; right: -4px; display: inline-grid; place-items: center; width: var(--w-mark); height: var(--w-mark); padding: 0; border: var(--w-rule); border-radius: var(--w-radius-round); background: var(--w-surface-raised); color: var(--w-ink-muted); cursor: pointer; opacity: 0; transition: opacity var(--w-motion-fast); }
+.w-todo-file:hover .w-todo-detach, .w-todo-detach:focus-visible { opacity: 1; } .w-todo-detach:hover { color: var(--w-ink); } .w-todo-detach:focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
+@media (hover: none) { .w-todo-detach { opacity: 1; } }
+.w-todo-add input, .w-todo-edit { flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: var(--w-ink); font: inherit; outline: none; } .w-todo-add input::placeholder { color: var(--w-ink-faint); }
+.w-todo-edit { display: block; width: 100%; padding: 0; border-radius: var(--w-radius-item); box-shadow: 0 0 0 1px var(--w-focus); background: var(--w-surface-document); }
+.w-todo-add .w-kbd { opacity: 0; } .w-todo-add:focus-within .w-kbd { opacity: 1; }
+.w-todo-empty { margin: 0 0 var(--w-s1); padding: 0 var(--w-s2); color: var(--w-ink-muted); }
+.w-todo-done > summary { display: flex; align-items: center; gap: var(--w-s1); min-height: var(--w-row); padding: var(--w-s1); border-radius: var(--w-radius-item); cursor: pointer; list-style: none; user-select: none; } .w-todo-done > summary::-webkit-details-marker { display: none; }
+.w-todo-done > summary:hover { background: var(--w-hover); } .w-todo-done > summary:focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
+.w-todo-done > summary .w-icon { transition: transform var(--w-motion-fast) var(--w-ease); } .w-todo-done[open] > summary .w-icon { transform: rotate(90deg); }
+.w-todo-error { margin: 0; padding: 0 var(--w-s2); font-size: var(--w-text-small); color: var(--w-danger); } .w-todo-error[hidden] { display: none; }
+.w-todo-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--w-s3); margin-top: var(--w-s1); padding-left: var(--w-s2); } .w-todo-actions { flex: none; display: flex; align-items: center; gap: var(--w-s2); }
+/* a badge that opens something (w.badge with an action) */
+button.w-badge { font-family: inherit; cursor: pointer; } button.w-badge:hover { color: var(--w-ink); background: var(--w-hover); } button.w-badge:focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
 .w-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--w-s3); margin-bottom: var(--w-s2); }
 .w-heading-text { min-width: 0; } .w-heading-title { display: flex; align-items: center; gap: var(--w-s2); margin: 0; font-size: var(--w-text-read); font-weight: 500; color: var(--w-ink); } .w-heading-meta { margin: 2px 0 0; font-size: var(--w-text-small); line-height: var(--w-line-small); color: var(--w-ink-faint); }
 .w-heading-actions { display: inline-flex; align-items: center; gap: var(--w-s2); flex: none; }

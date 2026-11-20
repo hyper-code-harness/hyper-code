@@ -53,7 +53,22 @@ export default async function (
     }
 
     agent.scratchpad ??= {};
-    if (agent.scratchpad.plan?.pausedAt && userText.trim()) {
+    // A paused plan is resumed by the person's next message. Through the worker that message is already in the
+    // transcript and userText is empty, so the transcript is asked: is there a message of the person (or a plan
+    // start from the plan editor) the cursor has not passed yet? A job result, a trigger, a team update or another
+    // agent's message (their own message types, or an `agent:` author) does not resume a plan the person stopped.
+    let resumesPlan = !!userText.trim();
+    if (agent.scratchpad.plan?.pausedAt && !resumesPlan && opts.userMessageAlreadyAppended) {
+        const fresh = await ctx.fns.procs.db.select({
+            sql: `SELECT 1 AS hit FROM messages m JOIN agents a ON a.id = m.agent_id
+                  WHERE m.agent_id = ? AND m.role = 'user' AND m.excluded_from_cursor = 0 AND m.idx > COALESCE(a.last_processed_msg_idx, -1)
+                    AND (m.message_type IS NULL OR m.message_type IN ('message', 'plan_activation'))
+                    AND (m.author IS NULL OR m.author NOT LIKE 'agent:%') LIMIT 1`,
+            params: [agent.id],
+        }) as any[];
+        resumesPlan = fresh.length > 0;
+    }
+    if (agent.scratchpad.plan?.pausedAt && resumesPlan) {
         const updated: any = await ctx.fns.session.mutateScratchpad({ id: agent.id, mutate: (scratchpad: Record<string, any>, now: number) => {
             const plan = scratchpad.plan;
             if (!plan?.pausedAt) return;
@@ -185,6 +200,12 @@ export default async function (
         }
         consumedUserIdx = Math.max(consumedUserIdx, Number(seen?.i ?? -1));
         await ctx.fns.session.syncAgentState({ agent });
+        // Files the person attached to the plan task in work reach the model here — the one safe moment: every tool
+        // result of the previous step is written, the next request is not built yet.
+        await ctx.fns.session.sendTaskAttachments?.({ agent })?.catch?.((error: any) => {
+            ctx.fns.procs.log?.warn?.({ event: "agent.plan-attachments.failed", msg: String(error?.message ?? error), agentId: agent.id });
+            return null;
+        });
 
         // Keep the current prose in live memory for native clients. Persisting
         // every token would hammer Postgres; the final assistant event remains

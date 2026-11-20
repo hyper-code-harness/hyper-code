@@ -21,7 +21,9 @@ export default function (ctx: Context, _session: Session | null, opts: {
     ctx.fns.procs.events.refresh({ topic: "agent-meta", reason: opts.reason ?? "meta" });
     // The team changed (delegate, stop, retry, finish, archive): the chat input's subagents badge is a live region on
     // the parent's topic.
-    // The goal too (set, paused, removed, checked): its target icon beside those badges is a live region on the same topic.
-    if (section === "team" || section === "goal") ctx.fns.procs.events.refresh({ topic: `agent:${opts.agentId}`, reason: opts.reason ?? section });
+    // The goal too (set, paused, removed, checked) and the plan (made, a task done, edited, paused, removed): the
+    // target icon and the plan count beside those badges are live regions on the same topic. "all" covers a
+    // plan paused by Stop, which names no section.
+    if (section === "team" || section === "goal" || section === "plan" || section === "all") ctx.fns.procs.events.refresh({ topic: `agent:${opts.agentId}`, reason: opts.reason ?? section });
     ctx.fns.procs.events.emit({ event: { type: "ui.metaSection", agentId: opts.agentId, section, reason: opts.reason ?? "meta" } });
 }

@@ -1,4 +1,4 @@
-// Panel card: what the chat is working on — its plan progress and goal (a click on the goal edits it).
+// Panel card: what the chat is working on — its plan progress and goal (a click opens the task list or the goal editor).
 export default {
     title: "Work",
     icon: "ph-list-checks",
@@ -11,7 +11,8 @@ export default {
         if (tasks.length) {
             const done = tasks.filter(t => t.status === "done").length;
             const active = tasks.find(t => t.status === "active") ?? tasks.find(t => t.status !== "done");
-            rows.push({ icon: "ph-list-checks", label: String(plan.title || "Plan"), hint: `${done}/${tasks.length}` });
+            // The plan row opens the to-do list (agent.planPopup), like the plan count in the message box.
+            rows.push({ icon: "ph-list-checks", label: String(plan.title || "Plan"), hint: `${done}/${tasks.length}`, popup: { method: "agent.planPopup", params: { agentId: view.agent.id } } });
             if (active) rows.push({ icon: "ph-arrow-right", label: String(active.title) });
         }
         const goalText = String(goal?.statement ?? goal?.text ?? "").trim();

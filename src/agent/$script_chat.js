@@ -66,7 +66,7 @@
             this.attachButton?.addEventListener('click', () => this.fileInput?.click(), { signal });
             this.fileInput?.addEventListener('change', () => this.renderAttachments(), { signal });
             this.input.addEventListener('paste', event => {
-                const files = [...(event.clipboardData?.items || [])].filter(item => item.kind === 'file').map(item => item.getAsFile()).filter(Boolean);
+                const files = window.hyperFiles.fromPaste(event);
                 if (!files.length) return;
                 event.preventDefault();
                 const text = event.clipboardData?.getData('text/plain') || '';
@@ -262,16 +262,8 @@
             if (!this.attachmentTray || !this.fileInput) return;
             const files = [...(this.fileInput.files || [])];
             this.attachmentTray.replaceChildren();
-            files.forEach((file, index) => {
-                const chip = document.createElement('div');
-                chip.className = 'w-composer-file';
-                if (file.type.startsWith('image/')) {
-                    const img = document.createElement('img'); img.src = URL.createObjectURL(file); img.onload = () => URL.revokeObjectURL(img.src); chip.append(img);
-                } else { const icon = document.createElement('i'); icon.className = 'w-icon ph ph-file'; icon.dataset.size = '16'; chip.append(icon); }
-                const name = document.createElement('span'); name.textContent = file.name; chip.append(name);
-                const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'w-icon-button'; remove.dataset.size = '24'; remove.setAttribute('aria-label', 'Remove ' + file.name); remove.innerHTML = '<i class="w-icon ph ph-x" data-size="14" aria-hidden="true"></i>'; remove.addEventListener('click', () => this.removeFile(index), { signal: this.abort.signal }); chip.append(remove);
-                this.attachmentTray.append(chip);
-            });
+            // The chip itself is shared with the to-do list (w/files.js).
+            files.forEach((file, index) => this.attachmentTray.append(window.hyperFiles.chip(file, () => this.removeFile(index))));
         }
         alive() { return current === this && this.panel.isConnected && !this.abort.signal.aborted; }
         isNearBottom() { return this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight <= STICKY_BOTTOM_PX; }

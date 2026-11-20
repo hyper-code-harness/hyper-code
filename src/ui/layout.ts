@@ -304,8 +304,10 @@ ${opts.headExtra ?? ""}
 <script src="/keys/keys.js?v=9" defer></script>
 <script src="/ui/hotkeys.js?v=12" defer></script>
 <script src="/ui/rpc.js?v=7" defer></script>
+<script src="/w/files.js" defer></script>
 <script src="/agent/chat.js" defer></script>
 <script src="/ui/popup.js" defer></script>
+<script src="/w/todo.js" defer></script>
 <script src="/chat/header.js" defer></script>
 <script src="/ui/meta.js" defer></script>
 <script src="/screen/client.js" defer></script>

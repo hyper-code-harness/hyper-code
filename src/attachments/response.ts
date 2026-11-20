@@ -18,6 +18,13 @@ export default async function (ctx: Context, _session: Session | null, opts: { /
                 .some((m: any) => Array.isArray(m.content) && m.content.some((p: any) => p?.attachmentId === opts.id));
         } catch { return new Response("not found", { status: 404 }); }
     }
+    if (!visible) {
+        // A fork carries its parent's plan, and with it the files attached to the plan's tasks (session.attachToTask)
+        // — also those no message shows yet.
+        const holder = (ctx.state as any).agent?.[opts.agentId] ?? await ctx.fns.session.load({ id: opts.agentId }).catch(() => null);
+        const tasks: any[] = Array.isArray(holder?.scratchpad?.plan?.tasks) ? holder.scratchpad.plan.tasks : [];
+        visible = tasks.some(task => (Array.isArray(task?.attachments) ? task.attachments : []).some((file: any) => String(file?.attachmentId) === opts.id));
+    }
     if (!visible) return new Response("not found", { status: 404 });
     const file = Bun.file(String(row.storage_path));
     if (!await file.exists()) return new Response("not found", { status: 404 });

@@ -376,3 +376,72 @@ test("addressBar: start before the steps, end after the address, placeholder, ne
     expect(ctx.fns.w.addressBar({ url: "/x" })).toContain("Open in a new tab");
     expect(ctx.fns.w.addressBar({ url: "/x", outlined: true })).toStartWith('<form class="w-address" data-outlined');
 });
+
+test("todo: current item, queue with grips, add field, finished at the bottom; changes go to its rpc; badge with an action is a button", async () => {
+    const ctx: any = await mkTestCtx();
+    const html = ctx.fns.w.todo({
+        rpc: { method: "agent.planPopup", params: { agentId: "ab" } }, topic: "agent:ab", state: "waiting", summary: "1 of 4 done", start: "Continue", edit: "Details",
+        items: [
+            { id: "a", title: "Done <first>", status: "done", time: "3m 05s" },
+            { id: "b", title: "Now", status: "active", note: "How to do it" },
+            { id: "c", title: "Next", status: "pending" },
+            { id: "d", title: "Later", status: "pending" },
+        ],
+    });
+    // Where a change is sent and what makes the list re-read itself.
+    expect(html).toContain('data-todo data-todo-rpc="agent.planPopup" data-todo-params="{&quot;agentId&quot;:&quot;ab&quot;}" data-live-topic="agent:ab" data-state="waiting"');
+    // Open items first, then the add field, then the finished ones under their caption — whatever order they came in.
+    expect([...html.matchAll(/data-status="(\w+)" data-todo-id="(\w+)"/g)].map(m => `${m[1]}:${m[2]}`)).toEqual(["active:b", "pending:c", "pending:d", "done:a"]);
+    // The finished ones are folded: a "Done · N" line that opens them, closed until the person opens it.
+    expect(html).toMatch(/data-todo-open>[\s\S]*data-todo-add[\s\S]*<details class="w-todo-done" data-todo-done-box><summary>.*wx-caption">Done · 1<\/span><\/summary><ol class="w-todo-list" data-todo-done>/);
+    expect(html).toContain("Done &lt;first&gt;");
+    // The text starts right after the mark: the grip and the cross are at the end of the row; the count and the buttons are in the footer.
+    expect(html).toMatch(/<li class="w-todo-item" data-status="pending" data-todo-id="c" data-todo-movable><button[^>]*class="w-todo-mark"/);
+    expect(html).toMatch(/class="w-todo-foot"><span class="w-todo-summary" data-todo-summary>1 of 4 done<\/span><span class="w-todo-actions">.*Details.*Continue/);
+    expect(html).not.toContain("<progress");
+    // Open items change places while the list waits — the current one too; only the queue is removed; open items
+    // are renamed in place; every mark is a button.
+    expect((html.match(/<button[^>]*data-todo-grip/g) ?? []).length).toBe(3);
+    expect([...html.matchAll(/data-todo-id="(\w+)" data-todo-movable/g)].map(m => m[1])).toEqual(["b", "c", "d"]);
+    // While the current item is being worked on it stays where it is.
+    expect([...ctx.fns.w.todo({ rpc: { method: "x.y" }, state: "working", items: [{ id: "b", title: "Now", status: "active" }, { id: "c", title: "Next", status: "pending" }, { id: "d", title: "Later", status: "pending" }] }).matchAll(/data-todo-id="(\w+)" data-todo-movable/g)].map(m => m[1])).toEqual(["c", "d"]);
+    // One row alone has nowhere to go: no grip.
+    expect(ctx.fns.w.todo({ rpc: { method: "x.y" }, state: "working", items: [{ id: "b", title: "Now", status: "active" }, { id: "c", title: "Next", status: "pending" }] })).not.toContain("data-todo-grip");
+    expect((html.match(/data-todo-act="remove"/g) ?? []).length).toBe(2);
+    expect((html.match(/data-todo-title/g) ?? []).length).toBe(3);
+    expect((html.match(/data-todo-act="done"/g) ?? []).length).toBe(3);
+    expect((html.match(/data-todo-act="reopen"/g) ?? []).length).toBe(1);
+    expect(html).toContain('aria-label="Mark done: Now"');
+    expect(html).toContain('<p class="w-todo-note">How to do it</p>');
+    expect(html).toContain('<span class="w-todo-time">3m 05s</span>');
+    expect(html).toMatch(/data-todo-act="start"[^>]*>.*Continue/);
+    expect(html).toMatch(/data-todo-act="edit"[^>]*>.*Details/);
+    expect(html).not.toContain("style=");
+    // A running item shows a clock with the server's reading, kept going by the page script.
+    expect(ctx.fns.w.todo({ rpc: { method: "x.y" }, state: "working", items: [{ id: "a", title: "A", status: "active", since: Date.now() - 65_000 }] })).toMatch(/class="w-timer" data-since="\d+" data-format="short">1m 0[45]s</);
+    // With an upload address items take files: a paperclip on the field and on every open item, a hidden picker, a
+    // tray for picked files; attached ones are drawn as under a chat message, an open item's with a cross.
+    const withFiles = ctx.fns.w.todo({ rpc: { method: "x.y" }, attach: "/agent/ab/plan/attach", items: [
+        { id: "a", title: "Open", status: "pending", files: [{ id: "f1", name: "shot <1>.png", url: "/attachments/ab/f1", image: true }, { id: "f2", name: "notes.txt", url: "/attachments/ab/f2" }, { id: "f3", name: "bad", url: "javascript:alert(1)" }] },
+        { id: "b", title: "Closed", status: "done", files: [{ id: "f4", name: "old.txt", url: "/attachments/ab/f4" }] },
+    ] });
+    expect(withFiles).toContain('data-todo-attach="/agent/ab/plan/attach"');
+    expect(withFiles).toContain('<input type="file" multiple hidden data-todo-picker>');
+    expect(withFiles).toContain('<div class="w-composer-files" data-todo-tray></div>');
+    expect((withFiles.match(/data-todo-pick[ >]/g) ?? []).length).toBe(2);
+    expect(withFiles).toContain('<img src="/attachments/ab/f1" alt="shot &lt;1&gt;.png" loading="lazy" draggable="false">');
+    expect(withFiles).toMatch(/<a class="w-attach-file" href="\/attachments\/ab\/f2"[^>]*>.*<span>notes.txt<\/span><\/a>/);
+    expect(withFiles).not.toContain("javascript:");
+    expect([...withFiles.matchAll(/data-todo-act="detach" data-todo-file="(\w+)"/g)].map(m => m[1])).toEqual(["f1", "f2"]);
+    // Without one there is nothing to attach with.
+    expect(html).not.toContain("data-todo-pick");
+    // Empty: the words and the field, no footer.
+    const empty = ctx.fns.w.todo({ rpc: { method: "x.y" }, items: [], empty: "Nothing yet", placeholder: "Add the first…" });
+    expect(empty).toContain('<p class="w-todo-empty">Nothing yet</p>');
+    expect(empty).toContain('placeholder="Add the first…"');
+    expect(empty).not.toContain("w-todo-foot");
+
+    expect(ctx.fns.w.badge({ text: "2/4", tone: "info" })).toBe('<span class="w-badge" data-tone="info">2/4</span>');
+    expect(ctx.fns.w.badge({ text: "2/4", tone: "info", title: "Plan", action: { popup: { method: "agent.planPopup", params: { agentId: "ab" } } }, marks: { action: "plan" } }))
+        .toBe('<button class="w-badge" data-tone="info" data-action="plan" title="Plan" aria-label="Plan" type="button" hx-popup="agent.planPopup" hx-popup-params="{&quot;agentId&quot;:&quot;ab&quot;}">2/4</button>');
+});

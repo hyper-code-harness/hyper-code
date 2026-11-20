@@ -84,7 +84,7 @@ describe("agent.renderEventsHtml", () => {
         // The turn just started: no call yet — an empty row with one glowing brain and the overall clock.
         const start = await ctx.fns.agent.renderEventsHtml({ agentId: "a1", events: [{ type: "user", idx: 0 }, turn], live: true });
         expect(start).toContain('id="tools-live"');
-        expect(start).toMatch(/class="w-tool" data-running title="thinking"/);
+        expect(start).toMatch(/class="w-tool" data-running data-label="thinking" title="thinking"/);
         expect(start).toContain('class="w-timer" data-since="7000"');
 
         // A call that took the model 3s to decide gets a thinking cell before it; under 1s none.

@@ -2,8 +2,9 @@
  * Link persisted upload metadata to its chat message
  *
  * Commits pending upload records after the user message index is allocated. Use immediately after appendMessage succeeds.
+ * An upload that belongs to no message yet (a file attached to a plan task, session.attachToTask) is committed with a null index.
  * @param opts.agentId Owning agent identifier.
- * @param opts.messageIdx Allocated user message index.
+ * @param opts.messageIdx Allocated user message index; null for an upload kept outside the transcript (a plan task).
  * @param opts.uploads Pending uploads returned by attachments.saveUploads.
  */
 export default async function (
@@ -12,8 +13,8 @@ export default async function (
     opts: {
         /** Owning agent identifier. */
         agentId: string;
-        /** Allocated user message index. */
-        messageIdx: number;
+        /** Allocated user message index; null for an upload kept outside the transcript (a plan task). */
+        messageIdx: number | null;
         /** Pending uploads returned by attachments.saveUploads. */
         uploads: Array<{ ref: types.tools.Content; pending: Record<string, any> }>;
     },

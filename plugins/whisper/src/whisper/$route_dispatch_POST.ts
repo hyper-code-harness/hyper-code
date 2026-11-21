@@ -1,7 +1,7 @@
-/** POST /whisper/dispatch — JSON { text, focusAgentId? } → whisper.dispatch decision (logged only, not executed). */
+/** POST /whisper/dispatch — JSON { text, agentId, focusAgentId?, partial? } → whisper.dispatch decision (logged only, not executed). */
 export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
     try {
         const b: any = await opts.req.json();
-        return Response.json(await ctx.fns.whisper.dispatch({ text: String(b.text ?? ""), focusAgentId: b.focusAgentId || undefined }));
+        return Response.json(await ctx.fns.whisper.dispatch({ text: String(b.text ?? ""), agentId: String(b.agentId ?? ""), focusAgentId: b.focusAgentId || undefined, partial: b.partial === true }));
     } catch (e: any) { return Response.json({ error: String(e?.message ?? e) }, { status: 500 }); }
 }

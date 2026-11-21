@@ -1,9 +1,12 @@
 /** GET /whisper — live microphone transcription page: partial text updates while speaking, finalized per pause. */
-export default async function (ctx: Context, _session: Session | null, _opts: { req: Request; params: Record<string, string> }) {
+export default async function (ctx: Context, _session: Session | null, opts: { req: Request; params: Record<string, string> }) {
+    const owner = new URL(opts.req.url).searchParams.get("agent") || "";
     const { models } = await ctx.fns.whisper.models({});
     const sessions: any = await ctx.fns.session.list({});
     const agents = (Array.isArray(sessions) ? sessions : []).filter((a: any) => !a.archivedAt && !a.parentId && a.visibility !== "hidden").slice(0, 60);
-    const agentOpt = agents.map((a: any) => `<option value="${Bun.escapeHTML(a.id)}">${Bun.escapeHTML(String(a.title || a.id))} · ${Bun.escapeHTML(a.id)}</option>`).join("");
+    const ownerRow = owner ? agents.find((a: any) => a.id === owner) ?? (Array.isArray(sessions) ? sessions : []).find((a: any) => a.id === owner) : null;
+    if (owner && ownerRow && !agents.includes(ownerRow)) agents.unshift(ownerRow);
+    const agentOpt = agents.map((a: any) => `<option value="${Bun.escapeHTML(a.id)}"${a.id === owner ? " selected" : ""}>${Bun.escapeHTML(String(a.title || a.id))} · ${Bun.escapeHTML(a.id)}</option>`).join("");
     const esc = (s: string) => Bun.escapeHTML(s);
     const opt = models.map((m) => `<option value="${esc(m.name)}"${m.name === "large-v3-turbo" ? " selected" : ""}>${esc(m.name)}</option>`).join("");
     const input = "rounded-lg border border-line bg-transparent px-3 py-2 text-sm";
@@ -11,7 +14,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: { 
         title: "Whisper live",
         main: `<div class="mx-auto w-full max-w-4xl p-5 sm:p-8">
 <div class="mb-2 text-xs font-medium uppercase tracking-[.18em] text-primary">Local speech-to-text · live</div>
-<h1 class="text-3xl font-semibold">Whisper live</h1>
+<h1 class="text-3xl font-semibold">Whisper live</h1>${ownerRow ? `<p class="mt-1 text-sm">Voice control for <b>${Bun.escapeHTML(String(ownerRow.title || owner))}</b> <span class="text-faint">· ${Bun.escapeHTML(owner)}</span></p>` : ""}
 <p class="mt-2 text-sm text-subtle">Turn the mic on and talk. Gray text is the running guess, it becomes final after a short pause. <b>Clap</b> to start a new block.</p>
 <div class="mt-5 grid gap-3 sm:grid-cols-[1fr_1fr_3fr]">
  <label class="text-xs text-faint">Model<select id="l-model" class="${input} mt-1 w-full">${opt}</select></label>
@@ -38,6 +41,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: { 
 </div>
 </div>
 <script>(function(){
+const OWNER=${JSON.stringify(owner).replace(/</g, "\\u003c")};
 const $=id=>document.getElementById(id), btn=$('l-btn'), st=$('l-st'), blocks=$('l-blocks');
 let ac=null, stream=null, node=null, on=false;
 let buf=[], len=0, speech=false, silentMs=0, speechMs=0, inflight=false, lastSend=0, gen=0;
@@ -63,7 +67,7 @@ async function partial(){ if(inflight||!len) return; inflight=true; const my=gen
 // a partial transcript that is already a complete, unambiguous command is executed right away and the input is cleared
 async function early(text, my){ const j=await route(text,true); if(my!==gen||!j||!j.confident) return;
   reset(); P().textContent=''; F().textContent=''; handle(text,j,'early'); }
-async function route(text,partial){ try{ const r=await fetch('/whisper/dispatch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,partial,focusAgentId:$('d-focus').value})}); return await r.json(); }catch(e){ return {error:String(e)} } }
+async function route(text,partial){ try{ const r=await fetch('/whisper/dispatch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,partial,agentId:OWNER||$('d-focus').value,focusAgentId:$('d-focus').value})}); return await r.json(); }catch(e){ return {error:String(e)} } }
 function reset(){ buf=[];len=0;speech=false;silentMs=0;speechMs=0; gen++; }
 async function finalize(){ const chunks=buf, cnt=len; reset(); const my=gen, blk=cur;
   const f=blk.querySelector('[data-f]'), p=blk.querySelector('[data-p]');

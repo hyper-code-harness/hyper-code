@@ -4,17 +4,22 @@
  * "new agent/новый агент ..." → ui.createAgent, "кто ждёт/непрочитанные" → whisper.waiting, "отмена/cancel" → cancel of the
  * pending dictation, anything else → ui.sendToAgent to the focused agent. `confident` marks commands that are safe to act on
  * from a partial transcript (the phrase is already complete and unambiguous).
+ * Requires the owning agent id: dictation goes to the focused agent, which is the owner until a spoken switch.
  * Agent names are fuzzy-matched against session titles and ids (Cyrillic transliterated). Use as the top-level voice dispatcher.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
     /** Finished transcript of one utterance. */
     text: string;
-    /** Id of the agent that currently has voice focus; receives plain dictation. */
+    /** Id of the agent that owns the voice-control panel (opened it); questions and dictation route back to it by default. */
+    agentId: string;
+    /** Id of the agent that currently has voice focus after a spoken switch; defaults to `agentId`. */
     focusAgentId?: string;
     /** The text is a running partial transcript; only unambiguous complete commands are marked confident. @default false */
     partial?: boolean;
 }): Promise<{
     kind: "command" | "dictation" | "cancel" | "none";
+    /** Agent that owns the panel; every decision is reported to it. */
+    agentId: string;
     command: string | null;
     opts: Record<string, unknown>;
     reason: string;
@@ -24,9 +29,11 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }> {
     const raw = (opts.text ?? "").trim();
     const text = raw.toLowerCase().replace(/[.,!?…:;«»"]+/g, " ").replace(/\s+/g, " ").trim();
-    const focus = opts.focusAgentId || undefined;
+    const owner = String(opts.agentId ?? "").trim();
+    if (!owner) throw new Error("whisper.dispatch: agentId (the agent that owns the voice panel) is required");
+    const focus = opts.focusAgentId || owner;
     const partial = opts.partial === true;
-    if (!text) return { kind: "none", command: null, opts: {}, reason: "empty", confident: false };
+    if (!text) return { kind: "none", agentId: owner, command: null, opts: {}, reason: "empty", confident: false };
 
     const TR: Record<string, string> = { а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"i",к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"c",ч:"ch",ш:"sh",щ:"sh",ъ:"",ы:"y",ь:"",э:"e",ю:"u",я:"ya" };
     const norm = (s: string) => s.toLowerCase().split("").map((c) => TR[c] ?? c).join("").replace(/[^a-z0-9]+/g, "");
@@ -86,5 +93,5 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         return { kind: "dictation" as const, command: null, opts: { text: raw }, reason: "dictation, no focused agent", confident: false };
     }
     const r: R = await run();
-    return r;
+    return { ...r, agentId: owner };
 }

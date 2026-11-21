@@ -101,6 +101,7 @@
                 this.fit();
                 requestAnimationFrame(() => { if (this.alive() && this.shouldStick) this.scrollBottom(); });
             }, { signal });
+            this.hintKeys();
             this.addInheritedNote();
             document.body.dataset.agentId = this.agentId;
             requestAnimationFrame(() => {
@@ -241,6 +242,45 @@
             const start = this.input.selectionStart, end = this.input.selectionEnd;
             this.input.setRangeText(text, start, end, 'end');
             this.input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // chat.toTask (⌘Enter): what is in the message box — the text and the picked files — becomes a task at the
+        // end of the plan's to-do list instead of a message to the agent. Sent to the list's own upload address.
+        async toTask() {
+            const text = this.input.value.trim();
+            const files = [...(this.fileInput?.files || [])];
+            if ((!text && !files.length) || this.tasking) return;
+            this.tasking = true;
+            const form = new FormData();
+            form.set('text', text);
+            for (const file of files) form.append('files', file);
+            let res = null;
+            try { res = await fetch('/agent/' + encodeURIComponent(this.agentId) + '/plan/attach', { method: 'POST', headers: window.hyperRpcCsrfHeaders?.() || {}, body: form }); } catch {}
+            this.tasking = false;
+            if (!res?.ok) {
+                // Nothing is lost: the text and the files stay in the box.
+                let message = 'Could not add to the plan';
+                try { message = (await res.json()).error || message; } catch {}
+                window.toast?.({ level: 'error', message });
+                return;
+            }
+            window.toast?.({ level: 'info', message: 'Added to the plan' });
+            if (!this.alive()) return;
+            // Taken: empty the box as a send does — unless the person has already typed something else there.
+            if (this.input.value.trim() === text) {
+                this.input.value = '';
+                // The draft keeper and the box's own height follow the field's input event.
+                this.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (this.fileInput && files.length) { this.fileInput.value = ''; this.renderAttachments(); }
+            this.input.focus();
+        }
+
+        // The Send button says what the other key does (the keymap may have moved it).
+        hintKeys() {
+            const key = window.hyperKeys?.label('chat.toTask');
+            const send = this.form?.querySelector('button.w-send[type="submit"]');
+            if (key && send) send.title = `Send · Enter — ${key} adds it to the plan instead`;
         }
 
         addFiles(files) {
@@ -414,7 +454,17 @@
     document.addEventListener('htmx:after:swap', event => {
         current?.afterSwap(event);
         mount();
+        // The Send button comes back from the server without its hint when a run ends.
+        current?.hintKeys();
     });
+    // The message box's own key: only while the caret is in it with something to add, and the @mention list is closed.
+    (window.hyperCommands ??= {})['chat.toTask'] = {
+        title: 'Add what is in the message box to the plan',
+        group: 'chat',
+        run: () => void current?.toTask(),
+        when: () => !!current && document.activeElement === current.input && !current.mention
+            && (!!current.input.value.trim() || !!current.fileInput?.files?.length),
+    };
     mount();
 
 })();

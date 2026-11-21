@@ -29,7 +29,7 @@ export default function (ctx: Context, _session: Session | null, opts: {
         title: string;
         /** done is finished, active is the one in work, pending waits in the queue. */
         status: "done" | "active" | "pending";
-        /** Quiet text under the title (the current item's instructions). */
+        /** Quiet text under the title (the item's instructions): in full for the active item, two lines for a queued one. */
         note?: string;
         /** Time it took, as text ("31m 46s"). */
         time?: string;

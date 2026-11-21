@@ -418,6 +418,7 @@ button.w-todo-grip { cursor: grab; touch-action: none; border-radius: var(--w-ra
 .w-todo-text { display: block; overflow-wrap: anywhere; border-radius: var(--w-radius-item); } .w-todo-text[data-todo-title] { cursor: text; } .w-todo-text:focus-visible { outline: var(--w-focus-width) solid var(--w-focus); outline-offset: 1px; }
 .w-todo-item[data-status="active"] .w-todo-text { font-weight: 500; } .w-todo-item[data-status="done"] .w-todo-text { color: var(--w-ink-faint); text-decoration: line-through; }
 .w-todo-note { margin: 0; font-size: var(--w-text-small); line-height: var(--w-line-small); color: var(--w-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.w-todo-item[data-status="pending"] .w-todo-note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; color: var(--w-ink-faint); }
 .w-todo-time, .w-todo-item > .w-timer { flex: none; font-size: var(--w-text-small); color: var(--w-ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .w-todo-item[data-status="active"] > .w-timer { color: var(--w-live); }
 .w-todo-add { border-radius: var(--w-radius-item); color: var(--w-ink-faint); } .w-todo-add-row { align-items: center; } .w-todo-add:focus-within { background: var(--w-surface-document); box-shadow: 0 0 0 1px var(--w-focus); }

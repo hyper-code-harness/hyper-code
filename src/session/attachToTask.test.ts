@@ -111,6 +111,27 @@ test("the list's upload address makes a task from a title and files, attaches to
     html = await (await ctx.fns.agent.planPopup({ agentId: agent.id, action: "detach", id: "task-2", file: agent.scratchpad.plan.tasks[1].attachments[0].attachmentId })).text();
     expect(tasks()[1]).toBe("pending:notes.txt:mock up.png");
 
+    // A whole message (the chat's message box, ⌘Enter): its first line names the task, all of it stays with the task
+    // as its instructions — the popup shows the rest under the title, and the agent gets it when it takes the task.
+    form = new FormData();
+    form.set("text", "  Fix the header\n\nIt jumps on scroll.\nSee the screenshot.  ");
+    form.append("files", png());
+    html = await (await post(ctx, agent.id, form)).text();
+    expect(agent.scratchpad.plan.tasks.at(-1)).toMatchObject({ title: "Fix the header", instructions: "Fix the header\n\nIt jumps on scroll.\nSee the screenshot.", status: "pending" });
+    expect(agent.scratchpad.plan.tasks.at(-1).attachments.map((f: any) => f.fileName)).toEqual(["mock up.png"]);
+    expect(html).toContain('<p class="w-todo-note">It jumps on scroll.\nSee the screenshot.</p>');
+    // One line is just a title; a very long first line is cut for the title and kept whole in the text.
+    form = new FormData();
+    form.set("text", "Ship it");
+    await post(ctx, agent.id, form);
+    expect(agent.scratchpad.plan.tasks.at(-1)).toMatchObject({ title: "Ship it", instructions: "" });
+    form = new FormData();
+    form.set("text", "x".repeat(400));
+    await post(ctx, agent.id, form);
+    expect(agent.scratchpad.plan.tasks.at(-1).title).toBe("x".repeat(299) + "…");
+    expect(agent.scratchpad.plan.tasks.at(-1).instructions).toBe("x".repeat(400));
+    for (const id of ["task-3", "task-4", "task-5"]) await ctx.fns.session.editPlanTask({ agent, action: "remove", id });
+
     // What cannot be taken is said, and nothing changes; a request without the page's token is refused.
     form = new FormData();
     form.set("id", "task-2");

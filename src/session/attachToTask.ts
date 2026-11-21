@@ -5,6 +5,7 @@
  * @param opts.agent Agent that owns the plan; defaults to the current session agent.
  * @param opts.id Open task that takes the files; omit to add a new task.
  * @param opts.title Title of the new task when id is omitted; defaults to the first file's name.
+ * @param opts.instructions Full text of the new task when id is omitted (session.editPlanTask add).
  * @param opts.files Uploaded files: at most 10 per call and per task, 25 MB each.
  */
 export default async function (
@@ -17,6 +18,8 @@ export default async function (
         id?: string;
         /** Title of the new task when id is omitted; defaults to the first file's name. */
         title?: string;
+        /** Full text of the new task when id is omitted (session.editPlanTask add). */
+        instructions?: string;
         /** Uploaded files: at most 10 per call and per task, 25 MB each. */
         files: File[];
     },
@@ -38,7 +41,7 @@ export default async function (
     // Stored the way chat uploads are: content-addressed blobs, a row per file, a compact ref to carry around.
     const uploads = await ctx.fns.attachments.saveUploads({ agentId: agent.id, files });
     if (!id) {
-        const made = await ctx.fns.session.editPlanTask({ agent, action: "add", title: (title || String(uploads[0]?.meta.fileName ?? "")).slice(0, 300) });
+        const made = await ctx.fns.session.editPlanTask({ agent, action: "add", title: (title || String(uploads[0]?.meta.fileName ?? "")).slice(0, 300), instructions: opts.instructions });
         id = String(made.added ?? "");
     }
     if (uploads.length) {

@@ -13,6 +13,9 @@ export default {
         // Goes to the message box from anywhere, text fields too; a folded chat opens its field (canvas.js).
         // ⌘I as in editors' "ask the assistant"; ⌘K, ⌘J, ⌘L, ⌘/ and ⌘B are taken (here or by the browser).
         "Mod-i": "chat.focus",
+        // In the message box: what is written (and the picked files) becomes a task at the end of the plan's to-do
+        // list instead of a message to the agent. Enter sends, so ⌘Enter is free there.
+        "Mod-Enter": "chat.toTask",
         // Leaves the message box; bound inside text fields on purpose.
         "Escape": { command: "chat.blur", inInput: true },
         // The cheat sheet: "?" outside text fields (Shift is part of the symbol, so it is not written).

@@ -332,3 +332,78 @@ test.skipIf(!CDP)("tasks take images and files: paste into the field, the paperc
         await rm(dir, { recursive: true, force: true });
     }
 }, 90_000);
+
+test.skipIf(!CDP)("⌘Enter in the chat's message box adds what is written to the plan instead of sending it — text, files and all", async () => {
+    const agent = await ctx.fns.agent.start({ model: "mock:test" });
+    const tab: any = await (await fetch(`${CDP}/json/new?${encodeURIComponent(`http://127.0.0.1:${server.port}/agent/${agent.id}`)}`, { method: "PUT" })).json();
+    const ws = new WebSocket(tab.webSocketDebuggerUrl);
+    await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; });
+    let n = 0;
+    const pending = new Map<number, (v: any) => void>();
+    ws.onmessage = (e) => { const m = JSON.parse(String(e.data)); pending.get(m.id)?.(m); };
+    const send = (method: string, params: Record<string, unknown> = {}) => new Promise<any>((ok) => { pending.set(++n, ok); ws.send(JSON.stringify({ id: n, method, params })); });
+    const evaluate = async (expression: string) => (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result?.result?.value;
+    const until = async (expression: string) => { let now: any = null; for (let i = 0; i < 100; i++) { now = await evaluate(expression); if (now) break; await Bun.sleep(50); } return now; };
+    const mac = await evaluate("/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)");
+    // The chord the default keymap binds to chat.toTask, Mod-Enter: ⌘Enter on a Mac, Ctrl+Enter elsewhere.
+    const modEnter = async () => { for (const type of ["rawKeyDown", "keyUp"]) await send("Input.dispatchKeyEvent", { type, key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, modifiers: mac ? 4 : 2 }); };
+    const key = (name: string, code: number, text?: string, modifiers = 0) => send("Input.dispatchKeyEvent", { type: text ? "keyDown" : "rawKeyDown", key: name, code: name, windowsVirtualKeyCode: code, text, modifiers }).then(() => send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: code, modifiers }));
+    const tasks = async () => ((await ctx.fns.session.load({ id: agent.id })).scratchpad.plan?.tasks ?? []).map((t: any) => `${t.status}:${t.title}|${t.instructions}|${(t.attachments ?? []).map((f: any) => f.fileName).join("+")}`);
+    const said = async () => (await ctx.fns.session.getMessages({ id: agent.id })).filter((m: any) => m.role === "user").length;
+    const box = `({ text: document.querySelector('#chat-panel #input').value, files: document.querySelector('#chat-panel #files').files.length, chips: document.querySelectorAll('#chat-panel [data-attachments] .w-composer-file').length, focused: document.activeElement?.id === 'input' })`;
+    const badge = `document.querySelector('#chat-plan-badge button')?.textContent.trim()`;
+    try {
+        await send("Emulation.setFocusEmulationEnabled", { enabled: true });
+        await send("Emulation.setDeviceMetricsOverride", { width: 1200, height: 800, deviceScaleFactor: 1, mobile: false });
+        expect(await until(`!!(window.htmx && window.hyperKeys && window.hyperFiles && window.hyperCommands?.['chat.toTask'] && window.__hyperEventsInstalled && document.querySelector('#chat-panel #input'))`)).toBe(true);
+        await Bun.sleep(400);
+        // The Send button tells about the other key.
+        expect(await evaluate(`document.querySelector('#chat-panel button.w-send').title`)).toBe(`Send · Enter — ${mac ? "⌘↵" : "Ctrl+↵"} adds it to the plan instead`);
+
+        // An empty box: the key does nothing (and is left to the browser).
+        await evaluate(`document.querySelector('#chat-panel #input').focus()`);
+        await modEnter();
+        await Bun.sleep(200);
+        expect(await tasks()).toEqual([]);
+
+        // A thought of several lines, with a file: ⌘Enter makes it the first task of a new plan — nothing is said to the agent.
+        await send("Input.insertText", { text: "Fix the header" });
+        await key("Enter", 13, "\r", 8);
+        await send("Input.insertText", { text: "It jumps on scroll." });
+        await evaluate(`(() => { const dt = new DataTransfer(); dt.items.add(new File(['what it should say'], 'spec.txt', { type: 'text/plain' })); const input = document.querySelector('#chat-panel #files'); input.files = dt.files; input.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+        expect(await until(`(${box}).chips === 1 && ${box}`)).toEqual({ text: "Fix the header\nIt jumps on scroll.", files: 1, chips: 1, focused: true });
+        // The draft keeper has it by now.
+        expect(await until(`localStorage.getItem('hyper-draft:${agent.id}')`)).toBe("Fix the header\nIt jumps on scroll.");
+        await modEnter();
+        expect(await until(`(${box}).text === '' && ${box}`)).toEqual({ text: "", files: 0, chips: 0, focused: true });
+        expect(await tasks()).toEqual(["active:Fix the header|Fix the header\nIt jumps on scroll.|spec.txt"]);
+        expect(await said()).toBe(0);
+        // The count appears by itself, a toast says where the words went, and the draft is forgotten.
+        expect(await until(`${badge} === '0/1'`)).toBe(true);
+        expect(await until(`[...document.querySelectorAll('body *')].some(el => el.children.length === 0 && el.textContent === 'Added to the plan')`)).toBe(true);
+        expect(await until(`localStorage.getItem('hyper-draft:${agent.id}') === null`)).toBe(true);
+
+        // The next one goes to the end of the list; plain Enter still sends a message to the agent.
+        await send("Input.insertText", { text: "Then ship it" });
+        await modEnter();
+        expect(await until(`${badge} === '0/2'`)).toBe(true);
+        expect((await tasks()).map((t: string) => t.split("|")[0])).toEqual(["active:Fix the header", "pending:Then ship it"]);
+        await send("Input.insertText", { text: "hello agent" });
+        await key("Enter", 13, "\r");
+        expect(await until(`(${box}).text === ''`)).toBe(true);
+        let users = 0;
+        for (let i = 0; i < 60 && !(users = await said()); i++) await Bun.sleep(50);
+        expect(users).toBe(1);
+        expect(await tasks()).toHaveLength(2);
+
+        // The list shows the rest of a task's words under its title.
+        await evaluate(`document.querySelector('#chat-plan-badge button').click()`);
+        expect(await until(`document.querySelector('#app-popup [data-todo-id="task-1"] .w-todo-note')?.textContent`)).toBe("It jumps on scroll.");
+        expect(await evaluate(`document.querySelector('#app-popup [data-todo-id="task-1"] .w-todo-file')?.textContent.trim()`)).toBe("spec.txt");
+        // In the list's own field ⌘Enter is not this command: the caret is not in the message box.
+        expect(await evaluate(`!!window.hyperCommands['chat.toTask'].when()`)).toBe(false);
+    } finally {
+        ws.close();
+        await fetch(`${CDP}/json/close/${tab.id}`).catch(() => null);
+    }
+}, 90_000);

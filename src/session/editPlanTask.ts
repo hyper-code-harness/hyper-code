@@ -6,6 +6,7 @@
  * @param opts.action The change to make.
  * @param opts.id Task the change applies to; required for done, reopen, remove and rename.
  * @param opts.title Task title of 1–300 characters; required for add and rename.
+ * @param opts.instructions For add: what the task means in full (up to 12 000 characters), shown to the agent with the task.
  * @param opts.file For detach: id of the attachment to take off the task (session.attachToTask put it there).
  * @param opts.order For move: ids of the queued tasks in their new order (with the current one while the plan is paused); tasks not listed keep their relative order after the listed ones.
  */
@@ -21,6 +22,8 @@ export default async function (
         id?: string;
         /** Task title of 1–300 characters; required for add and rename. */
         title?: string;
+        /** For add: what the task means in full (up to 12 000 characters), shown to the agent with the task. */
+        instructions?: string;
         /** For detach: id of the attachment to take off the task (session.attachToTask put it there). */
         file?: string;
         /** For move: ids of the queued tasks in their new order (with the current one while the plan is paused); tasks not listed keep their relative order after the listed ones. */
@@ -35,6 +38,8 @@ export default async function (
     const title = String(opts.title ?? "").replace(/\s+/g, " ").trim();
     if ((action === "add" || action === "rename") && (!title || title.length > 300)) throw new Error("editPlanTask: a task title of 1–300 characters is required");
     if (action !== "add" && action !== "move" && !id) throw new Error("editPlanTask: id is required");
+    const instructions = action === "add" ? String(opts.instructions ?? "").trim() : "";
+    if (instructions.length > 12_000) throw new Error("editPlanTask: the text of a task is 12 000 characters at most");
     const order = Array.isArray(opts.order) ? opts.order.map(String) : [];
     
     // Is the agent working (or about to)? A task that becomes current while nobody works must not run its clock.
@@ -66,7 +71,7 @@ export default async function (
             let n = tasks.length + 1;
             while (ids.has("task-" + n)) n++;
             added = "task-" + n;
-            tasks.push({ id: added, title, instructions: "", status: "pending", startedAt: null, activeSince: null, elapsedMs: 0, completedAt: null });
+            tasks.push({ id: added, title, instructions, status: "pending", startedAt: null, activeSince: null, elapsedMs: 0, completedAt: null });
         } else if (action === "rename") {
             find().title = title;
         } else if (action === "done") {

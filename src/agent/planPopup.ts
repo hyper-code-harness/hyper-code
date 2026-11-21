@@ -65,13 +65,16 @@ export default async function (
     const state = !tasks.length ? "waiting" : done === tasks.length ? "done" : paused ? "waiting" : "working";
     const short = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s` : `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, "0")}m`; };
     const total = tasks.reduce((sum, t) => sum + Math.max(0, Number(t.elapsedMs ?? 0)), 0);
+    // A task made from a whole message keeps the message as its instructions, first line included: not said twice.
+    const more = (task: any) => { const text = String(task.instructions ?? "").trim(), title = String(task.title ?? "").replace(/…$/, ""); return (text.startsWith(title) ? text.slice(title.length) : text).trim(); };
     const items = tasks.map(task => {
         const status = task.status === "done" ? "done" as const : task.status === "active" ? "active" as const : "pending" as const;
         const spent = Math.max(0, Number(task.elapsedMs ?? 0));
         const running = status === "active" && !paused && !!task.activeSince;
         return {
             id: String(task.id), title: String(task.title ?? ""), status,
-            note: status === "active" ? String(task.instructions ?? "").trim().slice(0, 600) || undefined : undefined,
+            // What the task says beyond its title: in full for the one in work, two lines for a queued one (w.todo).
+            note: status === "done" ? undefined : more(task).slice(0, 600) || undefined,
             // A running task ticks from where it is now (its banked time moved back from its start); the others show what they took.
             since: running ? Number(task.activeSince) - spent : undefined,
             time: !running && spent >= 1000 ? short(spent) : undefined,

@@ -164,7 +164,10 @@ export default async function (
 
     let goalIterations = 0;
     let lastGoalFeedback = "";
-    const goalDeadline = Date.now() + 5 * 60_000;
+    // The goal loop is bounded by the number of continuations the person chose (goal.maxIterations) and by a
+    // checker that repeats itself — not by the clock. It used to stop five minutes after the run began, the
+    // agent's own work included: an agent that worked longer than that before its first answer was told
+    // "deadline reached" at the very first check and never got a single continuation.
     const planAttempts: Record<string, number> = {};
     let totalPlanInjections = 0;
     while (true) {
@@ -325,15 +328,12 @@ export default async function (
                 const feedback = `${check.reason}\n${check.nextStep ?? ""}`.trim();
                 const maxIterations = Math.max(1, Math.min(10, Number(goal.maxIterations ?? 3)));
                 const withinBudget = goalIterations < maxIterations;
-                const withinTime = Date.now() < goalDeadline;
                 const hasProgress = feedback !== lastGoalFeedback;
-                const canContinue = check.status === "continue" && withinBudget && withinTime && hasProgress;
+                const canContinue = check.status === "continue" && withinBudget && hasProgress;
                 const effectiveCheck = check.status === "continue" && !canContinue ? {
                     status: "limit_reached",
                     reason: !withinBudget
                         ? `Goal continuation limit (${maxIterations}) reached. Last check: ${check.reason}`
-                        : !withinTime
-                        ? `Goal continuation deadline reached. Last check: ${check.reason}`
                         : `Goal checker repeated the same feedback. Last check: ${check.reason}`,
                     nextStep: check.nextStep,
                     evidence: check.evidence,

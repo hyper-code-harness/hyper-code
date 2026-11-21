@@ -22,6 +22,15 @@ test("the goal check asks for room to think AND answer", async () => {
     expect(w.calls).toHaveLength(1);
     expect(w.calls[0].max_tokens).toBeGreaterThanOrEqual(8192);
     expect(w.calls[0]).toMatchObject({ model: "anthropic:some-reasoning-model", sessionId: "aa", temperature: 0 });
+    // A goal is there so the agent works without the person: the checker has no "ask the user" verdict, unfinished
+    // work is "continue", and an earlier "limit reached" note in the transcript is not a reason to stop.
+    expect(w.calls[0].system).toContain("{status: achieved|continue|blocked,");
+    expect(w.calls[0].system).not.toContain("needs_user");
+    expect(w.calls[0].system).toContain("unfinished, partial or unverified work is always continue");
+    expect(w.calls[0].system).toContain("A limit reached earlier never makes the goal blocked");
+    // A model that answers with the old verdict anyway is read as "keep working".
+    const old = world(() => ({ text: '{"status":"needs_user","reason":"35 expenses still have no receipts","nextStep":"list them"}' }));
+    expect(await checkGoal(old.ctx, null, { agent: old.agent, candidateAnswer: "x" })).toMatchObject({ status: "continue", reason: "35 expenses still have no receipts", nextStep: "list them" });
 });
 
 test("an answer that is not a verdict is reported as a failed check, and a disabled goal is not checked at all", async () => {

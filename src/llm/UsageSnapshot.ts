@@ -15,8 +15,27 @@ export type UsageSnapshot = {
     };
     /** Subscription plan reported by the provider, e.g. "prolite". */
     planType?: string | null;
-    /** Codex one-shot rate-limit reset credits, when reported by the usage endpoint. */
-    resetCredits?: { availableCount: number; credits?: Array<{ id: string; resetType?: string; status?: string; grantedAt?: string | number; expiresAt?: string | number | null; title?: string | null; description?: string | null }> } | null;
+    /** Provider-reported one-shot resets, separate from automatic quota-window reset times. Null count means the provider did not expose availability, not zero resets. */
+    resetCredits?: {
+        availableCount: number | null;
+        /** Time this reset availability was explicitly checked; ordinary model responses do not refresh it. */
+        checkedAt?: number;
+        /** Safe provider availability reason, never a transport error or credential. */
+        unavailableReason?: "surface" | "unavailable" | "invalid-response";
+        credits?: Array<{
+            id: string;
+            resetType?: string;
+            status?: string;
+            grantedAt?: string | number;
+            expiresAt?: string | number | null;
+            title?: string | null;
+            description?: string | null;
+            /** Remaining uses of a Claude grant; Codex credit rows represent one use each. */
+            remainingCount?: number;
+            /** Whether the provider currently allows use; display-only, never automatic redemption. */
+            usableNow?: boolean;
+        }>;
+    } | null;
     /** When this snapshot was taken, ms epoch. */
     updatedAt: number;
     /** Where the numbers came from. */

@@ -39,7 +39,7 @@ export default async function (
         resetsAt?: number | null;
         /** Plan name reported by the provider, e.g. "prolite". */
         planType?: string | null;
-        /** Codex reset-credit summary reported by the usage endpoint. */
+        /** One-shot reset availability from an explicit Codex or Claude usage read; omitted preserves the last checked value. */
         resetCredits?: types.llm.UsageSnapshot["resetCredits"];
         /** Current timestamp in ms; defaults to Date.now(). */
         now?: number;
@@ -117,10 +117,15 @@ export default async function (
         source = "error";
     }
 
-    if (!windows.primary && !windows.secondary) return null;
+    if (!windows.primary && !windows.secondary && opts.resetCredits === undefined) return null;
 
     const key = `llm:usage:${provider}:${account}`;
     const previous = await read(ctx, key);
+    // A reset-only read must not erase an earlier quota snapshot.
+    if (!windows.primary && !windows.secondary && previous) {
+        Object.assign(windows, previous.windows);
+        source = previous.source;
+    }
     const warnedAt = keepWarning(previous, windows, now);
     const worst = Math.max(windows.primary?.usedPercent ?? 0, windows.secondary?.usedPercent ?? 0);
     // One warning per window, per credential — not per request. The threshold
@@ -144,14 +149,26 @@ export default async function (
         // written by parking. Keep the existing error snapshot until its reset
         // moment passes; after that a fresh success may replace it normally.
         sql: `INSERT INTO kv (key, value) VALUES (?, ?)
-              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+              ON CONFLICT (key) DO UPDATE SET value = CASE
+                WHEN ? OR COALESCE((kv.value::jsonb->'resetCredits'->>'checkedAt')::bigint,0)
+                    > COALESCE((EXCLUDED.value::jsonb->'resetCredits'->>'checkedAt')::bigint,0)
+                THEN jsonb_set(EXCLUDED.value::jsonb, '{resetCredits}', COALESCE(kv.value::jsonb->'resetCredits','null'::jsonb))::text
+                ELSE EXCLUDED.value END
               WHERE NOT (
                 (kv.value::jsonb->>'source') = 'error'
                 AND COALESCE((kv.value::jsonb->'windows'->'primary'->>'resetsAt')::bigint, 0) > ?
                 AND (EXCLUDED.value::jsonb->>'source') <> 'error'
               )`,
-        params: [key, JSON.stringify(snapshot), now],
+        params: [key, JSON.stringify(snapshot), opts.resetCredits === undefined, now],
     });
+    if (opts.resetCredits !== undefined) {
+        // Parking protects quota windows, not independent reset availability.
+        // A read must still reveal a usable free reset while the quota is exhausted.
+        await ctx.fns.procs.db.run({
+            sql: "UPDATE kv SET value=jsonb_set(value::jsonb, '{resetCredits}', ?::jsonb)::text WHERE key=? AND COALESCE((value::jsonb->'resetCredits'->>'checkedAt')::bigint, 0)<=?",
+            params: [JSON.stringify(opts.resetCredits), key, opts.resetCredits?.checkedAt ?? now],
+        });
+    }
     if (shouldWarn) {
         const resetsAt = windows.primary?.resetsAt ?? windows.secondary?.resetsAt ?? null;
         await ctx.fns.ui.notify({

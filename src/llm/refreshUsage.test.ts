@@ -38,8 +38,9 @@ describe("llm.refreshUsage", () => {
             if (opts.url === "https://api.anthropic.com/api/oauth/profile") {
                 return new Response(JSON.stringify({ organization: { organization_type: "claude_max" } }), { status: 200 });
             }
-            expect(opts.url).toBe("https://api.anthropic.com/api/oauth/usage");
+            expect(opts.url).toBe("https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1");
             return new Response(JSON.stringify({
+                cedar_ember: { eligible: true, grants: [{ id: "weekly", label: "Weekly reset", resets_total: 2, resets_left: 2, starts_at: new Date(NOW - 1000).toISOString(), ends_at: new Date(NOW + 86_400_000).toISOString(), usable_now: true }] },
                 five_hour: { utilization: 63.5, resets_at: new Date(NOW + 2_000_000).toISOString() },
                 seven_day: { utilization: 28, resets_at: new Date(NOW + 5 * 86_400_000).toISOString() },
             }), { status: 200, headers: { "content-type": "application/json" } });
@@ -48,7 +49,7 @@ describe("llm.refreshUsage", () => {
         const result = await ctx.fns.llm.refreshUsage({ accounts: [{ provider: "anthropic-oauth", account: "pro" }], maxAgeMs: 0, now: NOW });
         expect(result[0]?.status).toBe("refreshed");
         const usage = await ctx.fns.llm.usageOverview({ now: NOW });
-        expect(usage[0]).toMatchObject({ provider: "anthropic-oauth", account: "pro", usedPercent: 63.5, planType: "max" });
+        expect(usage[0]).toMatchObject({ provider: "anthropic-oauth", account: "pro", usedPercent: 63.5, planType: "max", resetCredits: { availableCount: 2, checkedAt: NOW, credits: [{ id: "weekly", remainingCount: 2, usableNow: true }] } });
     });
 
     test("fetches SuperGrok weekly usage from the CLI billing proxy", async () => {

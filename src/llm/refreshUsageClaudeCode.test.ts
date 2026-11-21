@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import refreshUsage from "./refreshUsage";
+import parseClaudeResetCredits from "./parseClaudeResetCredits";
 
 // Mocked procedure registry: never accesses real credentials, Postgres or HTTP.
 function mkTestCtx() {
@@ -9,6 +10,7 @@ function mkTestCtx() {
         recordUsage: async () => ({}),
         getAnthropicOAuthToken: async () => "managed-token",
     } } };
+    ctx.fns.llm.parseClaudeResetCredits = (opts: Parameters<typeof parseClaudeResetCredits>[2]) => parseClaudeResetCredits(ctx, null, opts);
     ctx.fns.llm.refreshUsage = (opts: Parameters<typeof refreshUsage>[2]) => refreshUsage(ctx, null, opts);
     return ctx;
 }
@@ -18,6 +20,36 @@ const profile = () => Response.json({ organization: { organization_type: "claude
 function failed(onCancel: () => void, status = 401) {
     return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode("failed")); }, cancel: onCancel }), { status });
 }
+
+test("managed Claude reset reads use the fixed origin, CLI beta, and reject redirects", async () => {
+    const ctx = mkTestCtx();
+    ctx.env.CLAUDE_CODE_BASE_API_URL = "https://not-anthropic.invalid";
+    const sent: string[] = [];
+    let recorded: any;
+    ctx.fns.llm.recordUsage = async (opts: any) => { recorded = opts; return {}; };
+    ctx.fns.llm.connectFetch = async (opts: any) => {
+        sent.push(opts.url);
+        expect(opts.url.startsWith("https://api.anthropic.com/api/oauth/")).toBe(true);
+        expect(opts.init.redirect).toBe("error");
+        expect(opts.init.method).toBe("GET");
+        expect(opts.init.headers["anthropic-beta"]).toBe("oauth-2025-04-20");
+        expect(opts.init.headers["user-agent"]).toBe("claude-cli/test (external, cli)");
+        return opts.url.endsWith("profile") ? profile() : Response.json({ five_hour: { utilization: 12 }, cedar_ember: { eligible: false, ineligible_reason: "surface", grants: [] } });
+    };
+    expect((await run(ctx, "anthropic-oauth"))[0].status).toBe("refreshed");
+    expect(sent).toEqual(["https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1", "https://api.anthropic.com/api/oauth/profile"]);
+    expect(recorded.resetCredits).toMatchObject({ availableCount: null, unavailableReason: "surface" });
+});
+
+test("a thrown rejected-token refresh closes the failed response without replay", async () => {
+    const ctx = mkTestCtx();
+    let cancelled = false, calls = 0;
+    ctx.fns.llm.refreshClaudeCode = async (opts: any) => { if (opts.rejectedToken) throw new Error("mock refresh failed"); return "old-token"; };
+    ctx.fns.llm.connectFetch = async () => { calls++; return failed(() => { cancelled = true; }); };
+    expect((await run(ctx))[0].status).toBe("failed");
+    expect(cancelled).toBe(true);
+    expect(calls).toBe(1);
+});
 
 describe("refreshUsage Claude Code recovery", () => {
     test("retries usage with a new bearer once, then uses it for profile", async () => {
@@ -66,7 +98,7 @@ describe("refreshUsage Claude Code recovery", () => {
         ctx.fns.llm.refreshClaudeCode = async (opts: any) => opts.rejectedToken ? "new-token" : "old-token";
         ctx.fns.llm.connectFetch = async (opts: any) => {
             calls++;
-            if (opts.url.endsWith("usage")) return usage();
+            if (new URL(opts.url).pathname.endsWith("usage")) return usage();
             if (calls === 2) return failed(() => { cancelled = true; });
             expect(cancelled).toBe(true);
             expect(opts.init.headers.authorization).toBe("Bearer new-token");
@@ -95,7 +127,7 @@ describe("refreshUsage Claude Code recovery", () => {
             calls++;
             if (mode === "network") throw new Error("offline");
             if (mode === "403") return new Response("forbidden", { status: 403 });
-            return opts.url.endsWith("usage") ? usage() : profile();
+            return new URL(opts.url).pathname.endsWith("usage") ? usage() : profile();
         };
         expect((await run(ctx))[0].status).toBe(mode === "success" ? "refreshed" : "failed");
         expect(refreshes).toBe(1);

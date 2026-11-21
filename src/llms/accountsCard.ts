@@ -35,7 +35,22 @@ export default function (ctx: Context, _session: Session | null, opts: {
         const resetCount = a.provider === "codex" ? a.resetCredits?.availableCount : undefined;
         const resetDetails = a.provider === "codex" && a.resetCredits?.credits?.length ? `<details class="text-3xs text-subtle"><summary class="cursor-pointer">details</summary><div class="absolute z-20 mt-1 max-w-xs space-y-1 rounded-lg border border-ui-border bg-base-100 p-2 shadow-xl">${a.resetCredits.credits.map((credit: any) => `<div><div class="font-medium text-muted">${esc(credit.title || credit.resetType || "Codex reset")}</div>${credit.description ? `<div>${esc(credit.description)}</div>` : ""}${credit.expiresAt ? `<div>expires ${esc(new Date(typeof credit.expiresAt === "number" ? (credit.expiresAt < 10_000_000_000 ? credit.expiresAt * 1000 : credit.expiresAt) : credit.expiresAt).toLocaleString())}</div>` : ""}</div>`).join("")}</div></details>` : "";
         const reset = a.provider === "codex" && resetCount != null ? `<form method="POST" action="/llms/codex/reset" hx-post="/llms/codex/reset" hx-target="find .reset-result" hx-swap="innerHTML" class="flex items-center gap-1" onsubmit="return confirm('Use one of ${resetCount} Codex reset credits now?')"><input type="hidden" name="account" value="${esc(a.account)}"><span class="reset-result text-3xs text-subtle">${resetCount} reset${resetCount === 1 ? "" : "s"}</span>${resetDetails}${resetCount > 0 ? ctx.fns.w.button({ label: "Reset limit", size: "sm", submit: true, marks: { action: "reset-codex-limit" } }) : ""}</form>` : "";
-        const actions = `${reset}${reconnect}${remove(a)}`;
+        const isClaude = a.provider === "claude-code" || a.provider === "anthropic-oauth";
+        const claudeReset = (() => {
+            if (!isClaude) return "";
+            const snapshot = a.resetCredits;
+            const checked = snapshot?.checkedAt;
+            const credits = (snapshot?.credits ?? []).filter(c => c.remainingCount != null && c.remainingCount > 0 && typeof c.expiresAt === "number" && c.expiresAt > now);
+            const count = snapshot?.availableCount == null ? null : credits.reduce((sum, c) => sum + (c.remainingCount ?? 0), 0);
+            const label = count == null ? (checked ? "Reset count unavailable" : "Resets not checked") : `${count} reset${count === 1 ? "" : "s"}`;
+            const checkedText = checked ? `Last checked ${new Date(checked).toLocaleString()}` : "Refresh accounts to check reset availability";
+            const reason = snapshot?.unavailableReason === "surface" ? "Claude does not expose these resets to this connection; check the matching account on Claude." : "Reset limit opens a fresh confirmation for this exact account; it never resets automatically.";
+            const details = credits.length ? `<details class="text-3xs text-subtle"><summary class="cursor-pointer">details</summary><div class="absolute z-20 mt-1 max-w-xs space-y-1 rounded-lg border border-ui-border bg-base-100 p-2 shadow-xl">${credits.map(c => `<div><div class="font-medium text-muted">${esc(c.title || "Claude limit reset")}</div><div>${c.remainingCount} remaining${c.usableNow === false ? " · currently restricted" : ""}</div>${c.description ? `<div>${esc(c.description)}</div>` : ""}<div>expires ${esc(new Date(Number(c.expiresAt)).toLocaleString())}</div></div>`).join("")}</div></details>` : "";
+            const resetButton = count != null && count > 0 && credits.some(c => c.usableNow === true) && a.source !== "node" && !a.needsReconnect
+                ? ctx.fns.w.button({ label: "Reset limit", size: "sm", action: { popup: { method: "llms.claudeResetPopup", params: { provider: a.provider, account: a.account } } }, marks: { action: "open-claude-reset" } }) : "";
+            return `<div data-claude-resets class="flex items-center gap-1" title="${esc(`${checkedText}. ${reason}`)}"><span class="text-3xs text-subtle">${esc(label)}</span>${details}${resetButton}<a href="https://claude.ai/settings/usage" target="_blank" rel="noopener noreferrer" class="text-3xs underline" aria-label="Open Claude usage for the matching account ${esc(a.account)}">View on Claude</a></div>`;
+        })();
+        const actions = `${reset}${claudeReset}${reconnect}${remove(a)}`;
         return ctx.fns.w.record({ entity: "llm-account", id: `${a.provider}/${a.account}`, status: a.needsReconnect ? "error" : status, cells: [
             { role: "account", text: a.account === "default" ? "main" : a.account, width: "label", mix: { mono: true, weight: "strong" } },
             ...(a.planType ? [{ role: "plan", html: ctx.fns.w.badge({ text: planName(a.provider, a.planType) }), title: `Subscription plan: ${a.planType}` }] : []),

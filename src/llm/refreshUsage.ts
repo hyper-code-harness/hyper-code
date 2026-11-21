@@ -1,13 +1,14 @@
 /**
  * Refreshes cached subscription quota for one or all configured LLM accounts
  *
- * Fetch live quota windows from provider-specific subscription usage endpoints for Codex, Claude and xAI/SuperGrok, then persist them through llm.recordUsage. Use before rendering /llms or the sidebar; requests are cached briefly and individual account failures are returned without failing the whole refresh. Claude Code may retry one rejected 401 bearer with a different refreshed token; managed OAuth, 403 and network failures do not use that recovery.
+ * Fetch live quota windows and read-only reset availability from provider-specific subscription usage endpoints for Codex, Claude and xAI/SuperGrok, then persist them through llm.recordUsage. Claude reset grants come from its CLI usage query and OAuth beta header; unavailable counts are not zero. No reset is redeemed. Managed Claude OAuth always uses api.anthropic.com and rejects redirects. Use before rendering /llms or the sidebar; requests are cached briefly and individual account failures are returned without failing the whole refresh. Claude Code may retry one rejected 401 bearer with a different refreshed token; managed OAuth, 403 and network failures do not use that recovery.
  * @param opts.provider Only refresh this provider.
  * @param opts.account Only refresh this credential account.
  * @param opts.maxAgeMs Reuse a recent successful refresh for this many milliseconds. @default 60000 @minimum 0 @maximum 3600000
  * @param opts.timeoutMs Deadline for each provider usage request in milliseconds. @default 5000 @minimum 500 @maximum 30000
  * @param opts.now Current timestamp in milliseconds, for testing.
  * @param opts.accounts Explicit account inventory, primarily for callers that already listed accounts and for tests.
+ * @param opts.preserveOnFailure Keep existing quota on a failed refresh, for post-reset reconciliation that must preserve concurrent failures. @default false
  */
 export default async function (
     ctx: Context,
@@ -25,6 +26,8 @@ export default async function (
         now?: number;
         /** Explicit account inventory, primarily for callers that already listed accounts and for tests. */
         accounts?: Array<{ provider: string; account: string }>;
+        /** Keep existing quota on failed telemetry reads after a confirmed reset. @default false */
+        preserveOnFailure?: boolean;
     },
 ): Promise<Array<{ provider: string; account: string; status: "refreshed" | "cached" | "unsupported" | "failed"; error: string | null }>> {
     const now = opts.now ?? Date.now();
@@ -51,7 +54,7 @@ export default async function (
             // A failed telemetry request says nothing about inference quota.
             // Hide the stale snapshot so the UI cannot present an old 100% as
             // a current hard limit while normal Claude calls still succeed.
-            const hidden = await ctx.fns.procs.db.run({ sql: "DELETE FROM kv WHERE key = ?", params: [`llm:usage:${provider}:${account}`] }).catch(() => ({ changes: 0 }));
+            const hidden = opts.preserveOnFailure ? { changes: 0 } : await ctx.fns.procs.db.run({ sql: "DELETE FROM kv WHERE key = ?", params: [`llm:usage:${provider}:${account}`] }).catch(() => ({ changes: 0 }));
             // Signal only when the rendered rings actually changed. The usage
             // route itself calls this function, so an unconditional signal made
             // every failed read (e.g. a provider 429) re-fetch the route, fail
@@ -155,22 +158,27 @@ export default async function (
             ? await ctx.fns.llm.refreshClaudeCode({ account })
             : await ctx.fns.llm.getAnthropicOAuthToken({ account });
         if (!token) throw new Error("credential is unavailable");
-        const base = String(ctx.env.CLAUDE_CODE_BASE_API_URL ?? "https://api.anthropic.com").replace(/\/$/, "");
-        const userAgent = ctx.env.CLAUDE_CODE_USER_AGENT ?? `claude-cli/${await ctx.fns.llm.claudeCodeCliVersion({})} (external, sdk-cli)`;
+        // Managed OAuth credentials never follow the CLI's custom API origin.
+        const base = provider === "anthropic-oauth" ? "https://api.anthropic.com"
+            : String(ctx.env.CLAUDE_CODE_BASE_API_URL ?? "https://api.anthropic.com").replace(/\/$/, "");
+        const userAgent = ctx.env.CLAUDE_CODE_USER_AGENT ?? `claude-cli/${await ctx.fns.llm.claudeCodeCliVersion({})} (external, cli)`;
         let recovered401 = false;
         const request = async (path: "usage" | "profile"): Promise<Response> => {
             const rejectedToken = token!;
-            const headers: Record<string, string> = { authorization: `Bearer ${rejectedToken}`, "content-type": "application/json" };
-            if (path === "usage") headers["user-agent"] = userAgent;
-            let res = await ctx.fns.llm.connectFetch({ url: `${base}/api/oauth/${path}`, ms: timeoutMs, init: { method: "GET", headers } });
+            const headers: Record<string, string> = { authorization: `Bearer ${rejectedToken}`, "content-type": "application/json", "anthropic-beta": "oauth-2025-04-20", "user-agent": userAgent };
+            // The explicit read flag includes reset grants; ordinary usage responses omit them.
+            const url = `${base}/api/oauth/${path}${path === "usage" ? "?cedar_ember=1&skip_spend=1" : ""}`;
+            let res = await ctx.fns.llm.connectFetch({ url, ms: timeoutMs, init: { method: "GET", headers, redirect: "error" } });
             if (provider === "claude-code" && res.status === 401 && !recovered401) {
                 recovered401 = true;
-                const fresh = await ctx.fns.llm.refreshClaudeCode({ account, rejectedToken });
+                let fresh: string | null;
+                try { fresh = await ctx.fns.llm.refreshClaudeCode({ account, rejectedToken }); }
+                catch (cause) { await res.body?.cancel(); throw cause; }
                 if (fresh && fresh !== rejectedToken) {
                     await res.body?.cancel();
                     token = fresh;
-                    res = await ctx.fns.llm.connectFetch({ url: `${base}/api/oauth/${path}`, ms: timeoutMs,
-                        init: { method: "GET", headers: { ...headers, authorization: `Bearer ${fresh}` } } });
+                    res = await ctx.fns.llm.connectFetch({ url, ms: timeoutMs,
+                        init: { method: "GET", headers: { ...headers, authorization: `Bearer ${fresh}` }, redirect: "error" } });
                 }
             }
             return res;
@@ -195,7 +203,8 @@ export default async function (
                 planType = claudePlan(profile?.organization?.organization_type);
             } else await profileRes.body?.cancel();
         } catch { /* usage remains useful when profile metadata is unavailable */ }
-        const snapshot = await ctx.fns.llm.recordUsage({ provider, account, headers, planType, now });
+        const resetCredits = await ctx.fns.llm.parseClaudeResetCredits({ status: data?.cedar_ember, now });
+        const snapshot = await ctx.fns.llm.recordUsage({ provider, account, headers, planType, resetCredits, now });
         if (!snapshot) throw new Error("usage endpoint returned no quota windows");
     }
     

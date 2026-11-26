@@ -237,6 +237,11 @@ test("a plan written by hand starts on the person's next chat message through th
     expect(agent.scratchpad.plan.pausedAt).toBeGreaterThan(0);
     const files = async () => (await ctx.fns.session.getMessages({ id: agent.id, includeExcluded: true })).filter((m: any) => m.message_type === "plan_attachments");
 
+    // A caller whose message is already stored may pass no userText at all: the run must not trip over that.
+    agent.scratchpad.mockTurn = 0;
+    await ctx.fns.agent.run({ agent, userMessageAlreadyAppended: true });
+    expect(agent.scratchpad.plan.pausedAt).toBeGreaterThan(0);
+
     // Something that is not the person's word — a context row — does not start a plan the person left waiting.
     await ctx.fns.session.appendMessage({ id: agent.id, message: { role: "user", content: "a job finished", message_type: "world_state", excluded_from_cursor: true } });
     await ctx.fns.session.syncAgentState({ agent });

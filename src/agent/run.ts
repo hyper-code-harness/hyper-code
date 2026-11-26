@@ -57,7 +57,7 @@ export default async function (
     // transcript and userText is empty, so the transcript is asked: is there a message of the person (or a plan
     // start from the plan editor) the cursor has not passed yet? A job result, a trigger, a team update or another
     // agent's message (their own message types, or an `agent:` author) does not resume a plan the person stopped.
-    let resumesPlan = !!userText.trim();
+    let resumesPlan = !!String(userText ?? "").trim();
     if (agent.scratchpad.plan?.pausedAt && !resumesPlan && opts.userMessageAlreadyAppended) {
         const fresh = await ctx.fns.procs.db.select({
             sql: `SELECT 1 AS hit FROM messages m JOIN agents a ON a.id = m.agent_id

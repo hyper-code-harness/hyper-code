@@ -209,6 +209,12 @@ export default async function (
             ctx.fns.procs.log?.warn?.({ event: "agent.plan-attachments.failed", msg: String(error?.message ?? error), agentId: agent.id });
             return null;
         });
+        // Project guidance is refreshed after every completed tool batch, not in
+        // the cached bootstrap. The loader sends a replacement only on change.
+        const instructions = await ctx.fns.workspaceInstructions?.sync?.({ agent })?.catch?.(() => {
+            ctx.fns.procs.log.warn({ event: "workspace-instructions.sync-failed", agentId: agent.id });
+        });
+        if (instructions?.reason === "workspace-changed") continue;
 
         // Keep the current prose in live memory for native clients. Persisting
         // every token would hammer Postgres; the final assistant event remains

@@ -6,6 +6,8 @@ import { mkTestCtx } from '../_testCtx.entry';
 async function quietCtx() {
     const ctx: any = await mkTestCtx();
     delete ctx.state.procs.hooks.handlers['agent.promptAugment'];
+    // These protocol tests are independent of instruction files in the developer's checkout.
+    ctx.state.registry.workspaceInstructions.load = async (_c: any, _s: any, opts: any) => ({dir:opts.dir,host:opts.host ?? '',root:opts.dir,sources:[],warnings:[]});
     return ctx;
 }
 

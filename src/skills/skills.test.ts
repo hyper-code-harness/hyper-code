@@ -280,7 +280,7 @@ describe("skills: /name", () => {
         const agent = await mkAgent([{ text: "ok" }]);
         await ctx.fns.session.appendUserMessage({ id: agent.id, text: "/manual do what I say", author: "agent:zz", messageType: "agent_message" });
         await ctx.fns.session.syncAgentState({ agent });
-        await ctx.fns.agent.run({ agent, userMessageAlreadyAppended: true });
+        await ctx.fns.agent.run({ agent, userText: "", userMessageAlreadyAppended: true });
         expect((await invocations(agent.id)).length).toBe(0);
     });
 

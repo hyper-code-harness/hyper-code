@@ -109,6 +109,8 @@ export default async function (
     let terminal: { type: 'html'; html: string; text: string } | undefined;
     let isError = false;
     const attrs: Record<string, any> = { "tool.name": tool.wireName, "agent.id": opts.agent?.id };
+    const instructionAgent = opts.agent ?? wanted?.agent;
+    const instructionKey = instructionAgent ? JSON.stringify([instructionAgent.workspaceHost ?? '', instructionAgent.workspaceDir ?? '']) : '';
 
     try {
         const telemetry: any = (callCtx.fns.procs as any).telemetry;
@@ -132,6 +134,13 @@ export default async function (
                 html: String(r.terminal.html ?? ''),
                 text: String(r.terminal.text ?? ''),
             };
+        }
+        // Successful native file operations activate only their nested workspace
+        // instruction scopes. Errors and operations on other hosts never do.
+        if (!isError && instructionAgent && instructionKey === JSON.stringify([instructionAgent.workspaceHost ?? '', instructionAgent.workspaceDir ?? '']) && ["tools.read", "tools.write", "tools.edit"].includes(String(tool.fn)) && typeof args.path === "string") {
+            await callCtx.fns.workspaceInstructions?.touch?.({agent: instructionAgent, path: args.path, host: args.host})?.catch?.(() => {
+                ctx.fns.procs.log.warn({event: "workspace-instructions.touch-failed", agentId: instructionAgent.id});
+            });
         }
     } catch (e: any) {
         // A user abort is a RESULT, not a crash. Reporting elapsed time and

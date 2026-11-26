@@ -148,6 +148,8 @@ test("the list's upload address makes a task from a title and files, attaches to
 test("a running agent gets a task's files after the tool call that made the task current — never between the call and its result", async () => {
     const ctx: any = await mkTestCtx();
     delete ctx.state.procs.hooks.handlers["agent.promptAugment"];
+    // Keep this transcript-order test independent of checkout instruction files.
+    ctx.state.registry.workspaceInstructions.load = async (_c: any, _s: any, opts: any) => ({dir:opts.dir,host:opts.host ?? '',root:opts.dir,sources:[],warnings:[]});
     const agent = await ctx.fns.agent.start({ model: "mock:test" });
     // The agent's first step finishes the first task (as it does with session.done from eval); then it answers.
     // (The mock model counts its turns in the live scratchpad, which a plan change re-reads from the database: the

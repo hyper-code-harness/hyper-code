@@ -24,3 +24,5 @@
 [data-file-status] { font-size: var(--w-text-small); }
 [data-file-vim] { flex: none; padding: 2px var(--w-s3); font-family: var(--w-mono); font-size: var(--w-text-small); background: var(--w-ink); color: var(--w-on-ink); }
 [data-canvas-files], [data-files-page] { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
+
+[data-file-page][data-wide] [data-file-prose] > .w-markdown { max-width: 120ch; }

@@ -18,7 +18,8 @@
  * Marks each agent as parked, schedules a durable wake-up at the reset moment
  * with per-agent jitter, clears the pending run and emits one toast for the
  * whole group. Call it from the worker loop when llm.classifyError returns
- * kind "usage_limit".
+ * kind "usage_limit". A synthetic "claude-pool" failure parks every local
+ * claude-code and anthropic-oauth account, without recording synthetic usage.
  *
  * @param opts.info Failure classification produced by llm.classifyError.
  * @param opts.originAgentId Agent whose request hit the limit, for the toast.
@@ -54,7 +55,9 @@ export default async function (
 
     const targets = rows.filter((row) => {
         const parsed = splitModel(String(row.model ?? ""));
-        return parsed.provider === info.provider && parsed.account === info.account;
+        return info.provider === "claude-pool"
+            ? parsed.provider === "claude-code" || parsed.provider === "anthropic-oauth"
+            : parsed.provider === info.provider && parsed.account === info.account;
     });
 
     const reason = `${info.provider} usage limit resets — continue the interrupted work`;
@@ -129,7 +132,7 @@ export default async function (
     }
 
     // The quota indicator must show the wall too, not only the approach to it.
-    await ctx.fns.llm.recordUsage({
+    if (info.provider !== "claude-pool") await ctx.fns.llm.recordUsage({
         provider: info.provider,
         account: info.account,
         spent: true,

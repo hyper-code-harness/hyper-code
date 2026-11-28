@@ -101,6 +101,11 @@ export default async function (
 
     let text = "", thinking = "";
     const usage = { prompt_tokens: 0, completion_tokens: 0 };
+    // Keep provider-reported counts separate from the legacy UI shape, whose
+    // zero defaults cannot distinguish missing usage from a measured zero.
+    let reportedUsage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number } | undefined;
+    let accountingStatus: "success" | "error" | "cancelled" = "error";
+    const startedAt = Date.now();
     try {
         const run = await sdkAgent.send(prompt);
         stopLoop = () => { void run.cancel().catch(() => undefined); };
@@ -117,6 +122,14 @@ export default async function (
                     if (chunk) { thinking += chunk; opts.onEvent?.({ type: "thinking_delta", delta: chunk }); }
                 } else if (msg.type === "usage") {
                     const u: any = (msg as any).usage ?? {};
+                    // SDK usage messages are per-turn. The final wait() usage
+                    // below replaces this subtotal instead of being added twice.
+                    for (const key of ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"] as const) {
+                        if (typeof u[key] === "number" && Number.isFinite(u[key]) && u[key] >= 0) {
+                            reportedUsage ??= {};
+                            reportedUsage[key] = (reportedUsage[key] ?? 0) + u[key];
+                        }
+                    }
                     usage.prompt_tokens = u.inputTokens ?? 0;
                     usage.completion_tokens = u.outputTokens ?? 0;
                     (usage as any).cache_read_tokens = u.cacheReadTokens ?? 0;
@@ -126,6 +139,10 @@ export default async function (
 
         const result = await run.wait();
         if (result.usage) {
+            reportedUsage = {
+                inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens,
+                cacheReadTokens: result.usage.cacheReadTokens, cacheWriteTokens: result.usage.cacheWriteTokens,
+            };
             usage.prompt_tokens = result.usage.inputTokens ?? usage.prompt_tokens;
             usage.completion_tokens = result.usage.outputTokens ?? usage.completion_tokens;
             (usage as any).cache_read_tokens = (result.usage as any).cacheReadTokens ?? (usage as any).cache_read_tokens ?? 0;
@@ -137,8 +154,20 @@ export default async function (
         // the user's abort: the harness runs the tool and the model continues.
         const aborted = opts.signal?.aborted === true;
         const finishReason = toolCalls.length ? "tool_calls" : aborted || result.status === "cancelled" ? "cancelled" : "stop";
+        accountingStatus = finishReason === "cancelled" ? "cancelled" : "success";
         return { text, thinking, finishReason, usage, toolCalls };
     } finally {
+        const accounting = (ctx.fns as any).llmUsage;
+        if (typeof accounting?.recordResult === "function") {
+            try {
+                await ctx.fns.llmUsage.recordResult({ provider: ep.provider, account: ep.account, model: ep.modelId, api: "sdk",
+                    usage: reportedUsage, status: opts.signal?.aborted ? "cancelled" : accountingStatus, startedAt });
+            } catch {
+                // Accounting is best-effort and must not replace SDK results or
+                // errors; do not log provider errors or transcript data here.
+                console.warn("[llmUsage] SDK accounting unavailable");
+            }
+        }
         // One SDK agent per turn: its history is Cursor's copy of a transcript
         // we already own, and leaving it open holds a workspace executor lease.
         sdkAgent.close();

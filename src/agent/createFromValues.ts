@@ -1,8 +1,11 @@
 import { resolve } from 'node:path';
 
-/** Create from values for the runtime.  * @param opts.title Human-readable agent title.
+/** Create an agent from form values after workspace and prompt validation.
+ * Preview an explicit shared Claude account without writes, and apply it only after agent creation succeeds. If that final selection fails, return both the created agent and an explicit error; no inference is scheduled.
+ * @param opts.title Human-readable agent title.
  * @param opts.workspaceDir Workspace directory assigned to the agent; empty inside a project means the project's folder.
  * @param opts.createWorkspaceDir Whether to create a missing workspace directory.
+ * @param opts.claudeAccount Explicit managed Claude account chosen after the model; changes the shared current account only when this form is submitted.
  * @param opts.model Model identifier to use.
  * @param opts.promptPreset System-prompt preset name.
  * @param opts.systemPrompt Additional system instructions.
@@ -20,6 +23,8 @@ workspaceDir?: string;
 createWorkspaceDir?: string;
         /** Model identifier. */
 model?: string;
+        /** Explicit managed Claude account to make current for local chats and incoming relay when submitting this form. */
+claudeAccount?: string;
         /** Prompt preset used by the operation. */
 promptPreset?: string | string[];
         /** Additional system instructions. */
@@ -37,7 +42,7 @@ projectId?: string }): Promise<{ agent?: any; confirmation?: { dir: string; valu
     try {
         // Inside a project an empty folder means the project's own (dir and host) — agent.start fills it in.
         const workspaceDir = projectId && !requestedWorkspace.trim() ? undefined : await ctx.fns.workspace.normalize({ dir: requestedWorkspace, create: opts.createWorkspaceDir === '1' });
-        const model = String(opts.model ?? '').trim() || (await ctx.fns.settings.modelDefault({})) || ctx.env.MODEL || 'claude-code:claude-opus-5';
+        let model = String(opts.model ?? '').trim() || (await ctx.fns.settings.modelDefault({})) || ctx.env.MODEL || 'claude-code:claude-opus-5';
         const presets = await ctx.fns.agent.listPromptPresets({});
         const ids = (Array.isArray(opts.promptPreset) ? opts.promptPreset : opts.promptPreset ? [opts.promptPreset] : []) as (keyof typeof presets)[];
         const presetText = ids.filter(id => Object.prototype.hasOwnProperty.call(presets, id)).map(id => presets[id].text.trim()).filter(Boolean).join('\n\n');
@@ -60,7 +65,18 @@ projectId?: string }): Promise<{ agent?: any; confirmation?: { dir: string; valu
             const known = await ctx.fns.agent.systemPrompts({ userId: await ctx.fns.auth.actorId({}), projectId: project?.id ?? null, name: systemPromptName });
             if (!known.length) return { error: `Unknown system prompt: ${systemPromptName}` };
         }
+        const claude = /^(?:claude-code|anthropic-oauth)(?:\/[^:]+)?:(.+)$/.exec(model);
+        if (opts.claudeAccount && !claude) return { error: 'A Claude subscription model is required to select a shared Claude account' };
+        const pool = claude ? await ctx.fns.llm.claudePoolSelect({ readOnly: true, ...(opts.claudeAccount ? { preferredAccount: opts.claudeAccount } : {}) }) : null;
+        if (pool?.enabled) {
+            if (!pool.account) return { error: 'No managed Claude subscription is available' };
+            model = `claude-code:${claude![1]}`;
+        }
         const created = await ctx.fns.agent.start({ model, title: String(opts.title ?? '').trim().slice(0, 120), workspaceDir, systemPrompt, systemPromptName, systemPromptCore, projectId });
+        if (opts.claudeAccount) {
+            try { await ctx.fns.llm.claudePoolSelect({ preferredAccount: opts.claudeAccount }); }
+            catch { return { agent: created, error: `Agent ${created.id} was created, but the shared Claude account could not be selected. No inference was scheduled; choose the account again before sending a message.` }; }
+        }
         const userId = await ctx.fns.auth.actorId({});
         if (userId && systemPromptName) await ctx.fns.agent.rememberSystemPrompt({ userId, name: systemPromptName }).catch(() => null);
         await ctx.fns.procs.db.run({ sql: "INSERT INTO kv (key, value) VALUES ('last-model', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", params: [model] }).catch(() => {});

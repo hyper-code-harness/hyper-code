@@ -12,9 +12,11 @@
 // agent's run forever — 141s of silence looked like a hang to the user. If no
 // chunk arrives within idleTimeoutMs (default 120s) the generator throws; the
 // run errors out, the statusbar shows it, the next message retries.
-/** Performs the llm.parseSSE runtime operation. */
 /**
- * Shared Server-Sent-Events frame parser for every LLM stream path.
+ * Parse provider SSE frames and release the response stream when consumption ends.
+ *
+ * Use for native model streams. Consumer breaks, callback errors and idle
+ * timeouts cancel an unfinished body so transports and accounting can settle.
  * @param opts.body Response byte stream or notification body.
  * @param opts.idleTimeoutMs Maximum wait between stream chunks in milliseconds.
  */
@@ -22,38 +24,49 @@ export default async function* (
     _ctx: Context,
     _session: Session | null,
     opts: {
-        /** Request body sent to the model endpoint. */ body: ReadableStream<Uint8Array>;
-        /** Value used for the idle timeout ms option. */ idleTimeoutMs?: number },
+        /** Provider response byte stream; owned until EOF or consumer cancellation. */ body: ReadableStream<Uint8Array>;
+        /** Maximum quiet interval between chunks in milliseconds. @default 120000 */ idleTimeoutMs?: number },
 ): AsyncGenerator<{ event: string | null; data: string }> {
     const idleMs = opts.idleTimeoutMs ?? 120_000;
     const decoder = new TextDecoder();
     let buf = "";
     const reader = opts.body.getReader();
-    while (true) {
-        let timer: any;
-        const stall = new Promise<never>((_, reject) => {
-            timer = setTimeout(() => reject(new Error(`stream stalled — no data for ${Math.round(idleMs / 1000)}s`)), idleMs);
-        });
-        let done: boolean, chunk: Uint8Array | undefined;
-        try {
-            ({ done, value: chunk } = await Promise.race([reader.read(), stall]) as any);
-        } finally {
-            clearTimeout(timer);
-        }
-        if (done) break;
-        if (!chunk) continue;
-        buf += decoder.decode(chunk, { stream: true });
-        let idx: number;
-        while ((idx = buf.indexOf("\n\n")) >= 0) {
-            const raw = buf.slice(0, idx);
-            buf = buf.slice(idx + 2);
-            let event: string | null = null;
-            const dataLines: string[] = [];
-            for (const line of raw.split("\n")) {
-                if (line.startsWith("event:")) event = line.slice(6).trim();
-                else if (line.startsWith("data:")) dataLines.push(line.slice(5).replace(/^ /, ""));
+    let finished = false;
+    try {
+        while (true) {
+            let timer: any;
+            const stall = new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error(`stream stalled — no data for ${Math.round(idleMs / 1000)}s`)), idleMs);
+            });
+            let done: boolean, chunk: Uint8Array | undefined;
+            try {
+                ({ done, value: chunk } = await Promise.race([reader.read(), stall]) as any);
+            } finally {
+                clearTimeout(timer);
             }
-            if (dataLines.length) yield { event, data: dataLines.join("\n") };
+            if (done) { finished = true; break; }
+            if (!chunk) continue;
+            buf += decoder.decode(chunk, { stream: true });
+            let idx: number;
+            while ((idx = buf.indexOf("\n\n")) >= 0) {
+                const raw = buf.slice(0, idx);
+                buf = buf.slice(idx + 2);
+                let event: string | null = null;
+                const dataLines: string[] = [];
+                for (const line of raw.split("\n")) {
+                    if (line.startsWith("event:")) event = line.slice(6).trim();
+                    else if (line.startsWith("data:")) dataLines.push(line.slice(5).replace(/^ /, ""));
+                }
+                if (dataLines.length) yield { event, data: dataLines.join("\n") };
+            }
         }
+    } finally {
+        // An early consumer exit must reach the underlying response observer.
+        // Preserve the original parser/consumer error if cancellation rejects.
+        if (!finished) {
+            try { await reader.cancel(); }
+            catch { console.warn("[llm.parseSSE] stream cancellation failed"); }
+        }
+        reader.releaseLock();
     }
 }

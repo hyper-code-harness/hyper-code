@@ -15,6 +15,12 @@ export default async function (ctx: Context, _session: Session | null, opts?: { 
     // (llm.listAccounts, milliseconds): a login, logout or reconnect — through Hyper or a CLI writing its own
     // auth file — rebuilds the catalogue on the next call, nobody has to reset it.
     const accounts = await subscriptionAccounts(ctx);
+    const pool = await ctx.fns.llm.claudePoolSelect({});
+    // Keep the stable subscription alias offered to existing relay clients whose
+    // grant names claude-code, even if every credential now lives in managed OAuth.
+    if (pool.enabled && !accounts.some(a => a.provider === "claude-code" && a.account === "default")) {
+        accounts.push({ provider: "claude-code", account: "default", needsReconnect: false });
+    }
     const fingerprint = accounts.map(a => `${a.provider}/${a.account}${a.needsReconnect ? "!" : ""}`).sort().join(",");
     const key = opts?.skipNodes ? "skipNodes" : "all";
     if (!(ctx as any).state) return build(ctx, accounts, opts);

@@ -42,44 +42,52 @@ export default async function (
     if (!user) throw new Error("llm.call: user is required");
     const primary = String(opts.model ?? await ctx.fns.settings.modelDefault({})).trim();
     if (!primary) throw new Error("llm.call: model is required");
-    const configuredFallbacks = opts.noFallback ? "" : await (ctx.fns.settings.getString?.({
-        module: "llm", scopeType: "global", key: "fallbackModels",
-        fallback: "codex:gpt-5.4-mini,kimi-coding:kimi-for-coding",
-    }) ?? Promise.resolve(""));
-    const alternate = alternateAnthropicModel(primary);
-    const models = [primary, ...(alternate ? [alternate] : []), ...String(configuredFallbacks ?? "").split(",").map(x => x.trim()).filter(Boolean)]
-        .filter((model, index, all) => all.indexOf(model) === index);
-    const attempted: string[] = [];
-    const attempts: Array<{ model: string; count: number }> = [];
-    let lastError: unknown;
-    for (const model of models) {
-        attempted.push(model);
-        let count = 0;
-        try {
-            while (true) {
-                count++;
-                try {
-                    signal?.throwIfAborted();
-                    const result = await callModel(ctx, { ...opts, model, user, signal });
-                    attempts.push({ model, count });
-                    return attempted.length === 1 && count === 1
-                        ? { ...result, model }
-                        : { ...result, model, fallback: { primary, attempted, attempts } };
-                } catch (error) {
-                    signal?.throwIfAborted();
-                    lastError = error;
-                    if (count >= 3 || !shouldRetrySameModel(error)) throw error;
-                    await Bun.sleep(count === 1 ? 500 : 1_500);
+    // A logical call spans model fallback and transport retries; individual sends
+    // are recorded below (Claude sends are owned by fetchClaude).
+    const invoke = async () => {
+        const configuredFallbacks = opts.noFallback ? "" : await (ctx.fns.settings.getString?.({
+            module: "llm", scopeType: "global", key: "fallbackModels",
+            fallback: "codex:gpt-5.4-mini,kimi-coding:kimi-for-coding",
+        }) ?? Promise.resolve(""));
+        const alternate = alternateAnthropicModel(primary);
+        const models = [primary, ...(alternate ? [alternate] : []), ...String(configuredFallbacks ?? "").split(",").map(x => x.trim()).filter(Boolean)]
+            .filter((model, index, all) => all.indexOf(model) === index);
+        const attempted: string[] = [];
+        const attempts: Array<{ model: string; count: number }> = [];
+        let lastError: unknown;
+        for (const model of models) {
+            attempted.push(model);
+            let count = 0;
+            try {
+                while (true) {
+                    count++;
+                    try {
+                        signal?.throwIfAborted();
+                        const result = await callModel(ctx, { ...opts, model, user, signal });
+                        attempts.push({ model, count });
+                        return attempted.length === 1 && count === 1
+                            ? { ...result, model }
+                            : { ...result, model, fallback: { primary, attempted, attempts } };
+                    } catch (error) {
+                        signal?.throwIfAborted();
+                        lastError = error;
+                        if (count >= 3 || !shouldRetrySameModel(error)) throw error;
+                        await Bun.sleep(count === 1 ? 500 : 1_500);
+                    }
                 }
+            } catch (error) {
+                signal?.throwIfAborted();
+                lastError = error;
+                attempts.push({ model, count });
+                if (opts.noFallback || !shouldFallback(error) || model === models.at(-1)) throw error;
             }
-        } catch (error) {
-            signal?.throwIfAborted();
-            lastError = error;
-            attempts.push({ model, count });
-            if (opts.noFallback || !shouldFallback(error) || model === models.at(-1)) throw error;
         }
-    }
-    throw lastError;
+        throw lastError;
+    };
+    const accounting = (ctx.fns as any).llmUsage;
+    return await (typeof accounting?.run === "function"
+        ? ctx.fns.llmUsage.run({ operation: "call", requestedModel: primary, fn: invoke }) as Promise<Awaited<ReturnType<typeof invoke>>>
+        : invoke());
 }
 
 async function callModel(ctx: Context, opts: any): Promise<{ text: string; finishReason: string | null; usage: any; raw: any }> {
@@ -92,7 +100,7 @@ async function callModel(ctx: Context, opts: any): Promise<{ text: string; finis
     const result = endpoint.provider === "xai" ? await xaiResponses(ctx, endpoint, { ...opts, user, system })
         : endpoint.api === "responses" ? await responses(ctx, endpoint, { ...opts, user, system })
             : endpoint.api === "anthropic" ? await anthropic(ctx, endpoint, { ...opts, user, system })
-                : await openAI(endpoint, { ...opts, user, system });
+                : await openAI(ctx, endpoint, { ...opts, user, system });
     return normalizeStructured(result, opts.response_format);
 }
 
@@ -108,12 +116,15 @@ function alternateAnthropicModel(model: string): string | null {
 }
 
 function shouldRetrySameModel(error: unknown): boolean {
+    if ((error as { failure?: types.llm.FailureInfo })?.failure?.provider === "claude-pool") return false;
     const message = String((error as any)?.message ?? error);
     if (/usage_limit_reached|usage limit (?:has been )?reached|quota_exceeded|credits_depleted|out of credits/i.test(message)) return false;
     return /\b429\b|rate.?limit|\b5\d\d\b|timeout|timed out|ETIMEDOUT|ECONNRESET|network|connection (?:reset|refused|closed)|overloaded|service unavailable/i.test(message);
 }
 
 function shouldFallback(error: unknown): boolean {
+    // Exhausting the pool waits for Claude, never silently changes the requested model.
+    if ((error as { failure?: types.llm.FailureInfo })?.failure?.provider === "claude-pool") return false;
     const message = String((error as any)?.message ?? error);
     if (/\b(?:400|401|403|404|409|413|422)\b/.test(message)) return false;
     if (/context_length_exceeded|request_too_large|prompt is too long|exceeds the context|invalid|unsupported|authentication|unauthorized/i.test(message)) return false;
@@ -134,7 +145,7 @@ async function xaiResponses(ctx: Context, endpoint: any, opts: any) {
     if (format) body.text = { format };
     if (opts.max_tokens != null) body.max_output_tokens = opts.max_tokens;
     if (opts.temperature != null) body.temperature = opts.temperature;
-    const response = await fetch(endpoint.url, {
+    const response = await observeFetch(ctx, endpoint, () => fetch(endpoint.url, {
         signal: opts.signal,
         method: "POST",
         headers: {
@@ -144,7 +155,7 @@ async function xaiResponses(ctx: Context, endpoint: any, opts: any) {
             session_id: opts.sessionId || Bun.randomUUIDv7(),
         },
         body: JSON.stringify(body),
-    });
+    }));
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await readResponsesSSE(response);
     ctx.fns.llm.refreshUsage?.({ provider: endpoint.provider, account: endpoint.account, maxAgeMs: 60_000 })?.catch(() => undefined);
@@ -167,7 +178,7 @@ async function responses(ctx: Context, endpoint: any, opts: any) {
     if (format) body.text.format = format;
     // ChatGPT Codex backend controls output limits and sampling; neither
     // max_output_tokens nor temperature is accepted by the subscription API.
-    const response = await fetch(endpoint.url, {
+    const response = await observeFetch(ctx, endpoint, () => fetch(endpoint.url, {
         signal: opts.signal,
         method: "POST",
         headers: {
@@ -179,13 +190,13 @@ async function responses(ctx: Context, endpoint: any, opts: any) {
             session_id: opts.sessionId || Bun.randomUUIDv7(),
         },
         body: JSON.stringify(body),
-    });
+    }));
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await readResponsesSSE(response);
     return { text: responseText(raw), finishReason: raw.status === "completed" ? "stop" : raw.status ?? null, usage: raw.usage, raw };
 }
 
-async function openAI(endpoint: any, opts: any) {
+async function openAI(ctx: Context, endpoint: any, opts: any) {
     const messages = [...(opts.system ? [{ role: "system", content: opts.system }] : []), { role: "user", content: opts.user }];
     const body: any = { model: endpoint.modelId, messages, stream: false };
     if (opts.temperature != null) body.temperature = opts.temperature;
@@ -193,8 +204,9 @@ async function openAI(endpoint: any, opts: any) {
     if (endpoint.provider === "groq" && /^openai\/gpt-oss-(20b|120b)$/.test(endpoint.modelId) && opts.groqReasoningEffort) body.reasoning_effort = opts.groqReasoningEffort;
     if (endpoint.provider === "openrouter" && opts.openrouterReasoningEffort) body.reasoning = { effort: opts.openrouterReasoningEffort, exclude: true };
     if (opts.response_format != null) body.response_format = opts.response_format;
-    let response = await fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) });
-    response = await retryWithoutUnsupportedTemperature(response, body, () => fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) }));
+    const send = () => observeFetch(ctx, endpoint, () => fetch(endpoint.url, { signal: opts.signal, method: "POST", headers: { "content-type": "application/json", ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}) }, body: JSON.stringify(body) }));
+    let response = await send();
+    response = await retryWithoutUnsupportedTemperature(response, body, send);
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await response.json();
     const choice = raw?.choices?.[0] ?? {};
@@ -233,13 +245,22 @@ async function anthropic(ctx: Context, endpoint: any, opts: any) {
         if (opts.system) body.system.push({ type: "text", text: opts.system });
     } else if (opts.system) body.system = opts.system;
     if (opts.temperature != null) body.temperature = opts.temperature;
-    const send = () => ctx.fns.llm.fetchClaudeCode({ provider: endpoint.provider, account: endpoint.account, url: endpoint.url,
-        init: { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) } });
+    const send = async () => (await ctx.fns.llm.fetchClaude({ provider: endpoint.provider, account: endpoint.account, url: endpoint.url,
+        init: { signal: opts.signal, method: "POST", headers, body: JSON.stringify(body) } })).response;
     let response = await send();
     response = await retryWithoutUnsupportedTemperature(response, body, send);
     if (!response.ok) throw new Error(`${endpoint.provider} ${response.status}: ${await response.text()}`);
     const raw: any = await response.json();
     return { text: (raw.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join(""), finishReason: raw.stop_reason ?? null, usage: raw.usage, raw };
+}
+
+// Metadata only: neither request bodies, credentials nor response content enter
+// the ledger. Kept optional for small offline transport contexts.
+function observeFetch(ctx: Context, endpoint: { provider: string; account?: string; modelId: string; api: string }, send: () => Promise<Response>): Promise<Response> {
+    const accounting = (ctx.fns as any).llmUsage;
+    return typeof accounting?.fetch === "function"
+        ? ctx.fns.llmUsage.fetch({ provider: endpoint.provider, account: endpoint.account ?? "default", model: endpoint.modelId, api: endpoint.api === "responses" ? "responses" : "openai", send })
+        : send();
 }
 
 async function retryWithoutUnsupportedTemperature(response: Response, body: any, retry: () => Promise<Response>): Promise<Response> {

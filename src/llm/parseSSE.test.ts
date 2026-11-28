@@ -63,4 +63,31 @@ describe("llm.parseSSE", () => {
             { event: null, data: '{"a":1}' },
         ]);
     });
+    test("consumer callback failure cancels an unfinished source and releases its lock", async () => {
+        let cancelled = 0;
+        const body = new ReadableStream<Uint8Array>({
+            start(c) { c.enqueue(new TextEncoder().encode('data: {}\n\n')); },
+            cancel() { cancelled++; },
+        });
+        const consume = async () => { for await (const _frame of parseSSE(ctx, null, { body })) throw new Error("consumer failed"); };
+        await expect(consume()).rejects.toThrow("consumer failed");
+        expect(cancelled).toBe(1);
+        expect(body.locked).toBe(false);
+    });
+
+    test("idle timeout cancels the pending read and releases the stream lock", async () => {
+        let cancelled = 0;
+        const body = new ReadableStream<Uint8Array>({ cancel() { cancelled++; } });
+        const consume = async () => { for await (const _frame of parseSSE(ctx, null, { body, idleTimeoutMs: 5 })) {} };
+        await expect(consume()).rejects.toThrow("stream stalled");
+        expect(cancelled).toBe(1);
+        expect(body.locked).toBe(false);
+    });
+
+    test("normal EOF releases the lock without cancelling a completed source", async () => {
+        const body = streamOf('data: {}\n\n');
+        await collect(body);
+        expect(body.locked).toBe(false);
+    });
+
 });

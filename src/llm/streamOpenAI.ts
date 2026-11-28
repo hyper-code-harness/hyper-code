@@ -1,6 +1,9 @@
-/** Performs the llm.streamOpenAI runtime operation. */
 /**
  * Stream an agent request through an OpenAI-compatible endpoint.
+ *
+ * Supports API and local LM Studio routes, native tool calls and provider usage
+ * frames. Physical sends join the calling stream's accounting scope without
+ * storing request or response text.
  * @param opts.agent Agent associated with the operation.
  * @param opts.signal Abort signal for cancelling the request.
  * @param opts.onEvent Callback invoked for each normalized stream event.
@@ -47,12 +50,16 @@ export default async function (
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (ep.apiKey) headers["authorization"] = `Bearer ${ep.apiKey}`;
 
-    const res = await ctx.fns.llm.connectFetch({ url: ep.url, init: {
+    const send = () => ctx.fns.llm.connectFetch({ url: ep.url, init: {
         method: "POST",
         headers,
         body: JSON.stringify(body),
         signal: opts.signal,
     } });
+    const accounting = (ctx.fns as any).llmUsage;
+    const res: Response = await (typeof accounting?.fetch === "function"
+        ? ctx.fns.llmUsage.fetch({ provider: ep.provider, account: ep.account, model: ep.modelId, api: "openai", send })
+        : send());
     if (!res.ok) throw new Error(`${ep.provider} ${res.status}: ${await res.text()}`);
     if (!res.body) throw new Error("empty response body");
 

@@ -7,6 +7,8 @@
 // account, not to a provider, so parking and usage tracking key on both.
 /**
  * Parse agent.model "provider[/account]:modelId" into a callable endpoint.
+ * With llm.claudeSubscriptionPool enabled, all local Claude subscriptions use the
+ * shared current managed account; API-key and remote Hyper routes stay unchanged.
  * @param opts.model Model identifier.
  */
 export default async function (ctx: Context, _session: Session | null, opts: {
@@ -23,8 +25,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
 }> {
     const model = opts.model;
     const m = /^([a-z][\w\-]*)(?:\/([\w\-.]+))?:(.+)$/.exec(model);
-    const provider = m ? m[1]! : "lmstudio";
-    const account = (m?.[2] ?? "default");
+    let provider = m ? m[1]! : "lmstudio";
+    let account = (m?.[2] ?? "default");
     const modelId = m ? m[3]! : model;
     // hyper/<node>:<model> — another Hyper relays the call through its own
     // provider (docs/hyper-node.md). The wire api and billing kind come from the
@@ -36,6 +38,15 @@ export default async function (ctx: Context, _session: Session | null, opts: {
         if (!entry) throw new Error(`hyper/${account} does not offer model ${modelId}`);
         const path = entry.api === "openai" ? "chat" : entry.api;
         return { url: `${node.url}/${path}`, apiKey: await ctx.fns.node.token({ name: account }), modelId, provider, account, kind: entry.kind, api: entry.api, upstream: entry.provider };
+    }
+    // Explicit account names also follow the shared pool when opted in.
+    if (provider === "claude-code" || provider === "anthropic-oauth") {
+        const pool = await ctx.fns.llm.claudePoolSelect({});
+        if (pool.enabled) {
+            if (!pool.account) return await ctx.fns.llm.claudePoolExhausted({ resetsAt: pool.resetsAt });
+            provider = "anthropic-oauth";
+            account = pool.account;
+        }
     }
     const p = PROVIDERS[provider];
     if (!p) throw new Error(`unknown provider: ${provider}`);

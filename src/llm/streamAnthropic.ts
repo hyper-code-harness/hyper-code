@@ -111,12 +111,14 @@ export default async function (
         headers["anthropic-beta"] = [headers["anthropic-beta"], "compact-2026-09-04"].filter(Boolean).join(",");
     }
 
-    const send = () => ctx.fns.llm.fetchClaudeCode({ provider: ep.provider, account: ep.account, url: ep.url, init: {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: opts.signal,
-    } });
+    let credential = { provider: ep.provider, account: ep.account, pooled: false };
+    const send = async () => {
+        const sent = await ctx.fns.llm.fetchClaude({ provider: ep.provider, account: ep.account, url: ep.url, init: {
+            method: "POST", headers, body: JSON.stringify(body), signal: opts.signal,
+        } });
+        credential = sent;
+        return sent.response;
+    };
     let res = await send();
     // Too large an output budget for this model/provider is a 400 naming max_tokens:
     // step down instead of failing the turn.
@@ -132,7 +134,7 @@ export default async function (
         // window must arrive at the worker as a parkable failure carrying its
         // reset moment, not as an opaque "provider 429: {…}" string.
         const info = ctx.fns.llm.classifyError({
-            provider: ep.provider, account: ep.account, kind: ep.kind,
+            provider: credential.provider, account: credential.account, kind: ep.kind,
             status: res.status, body: await res.text(), headers: res.headers,
         });
         const error = new Error(info.message);
@@ -190,8 +192,8 @@ export default async function (
     // Subscription quota travels in the unified rate-limit headers of every OK
     // response; recording it here is what makes the left panel honest without
     // a single extra request.
-    if (ep.kind === "subscription") {
-        ctx.fns.llm.recordUsage?.({ provider: ep.provider, account: ep.account, headers: res.headers })?.catch(() => undefined);
+    if (ep.kind === "subscription" && !credential.pooled) {
+        ctx.fns.llm.recordUsage?.({ provider: credential.provider, account: credential.account, headers: res.headers })?.catch(() => undefined);
     }
     return { text, thinking, finishReason: mapStop(finishReason), usage, toolCalls };
 }

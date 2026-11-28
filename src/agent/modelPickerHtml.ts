@@ -1,5 +1,5 @@
 /**
- * Renders the Provider → Account → Model picker body as embeddable HTML.
+ * Renders the Subscription type → Model → Account picker body as embeddable HTML.
  *
  * Shared by the per-agent model popup (agent.modelPicker) and the new-agent
  * form (agent.newForm). Own providers come first, every Hyper node follows as
@@ -26,7 +26,13 @@ export default async function (
     const mode = opts.mode ?? "agent";
     const id = String(opts.agentId ?? "");
     const esc = (value: unknown) => ctx.fns.w.escape({ text: String(value ?? "") });
-    const current = String(opts.current ?? "");
+    let current = String(opts.current ?? "");
+    const pool = await ctx.fns.llm.claudePoolSelect({ readOnly: true });
+    // Access-token expiry is refreshable; only durable auth failure requires reconnect.
+    const reconnect = new Set(pool.enabled ? (await ctx.fns.llm.accountAuthHealth({ action: "list" }))
+        .filter(row => row.provider === "anthropic-oauth" && row.needsReconnect).map(row => row.account) : []);
+    const isClaude = (provider: string) => provider === "claude-code" || provider === "anthropic-oauth";
+    if (pool.enabled && isClaude(parseRoute(current).provider)) current = `claude-code:${parseRoute(current).modelId}`;
     const currentRoute = parseRoute(current);
     const [listed, accountRows] = await Promise.all([
         ctx.fns.llm.listModels({}),
@@ -38,8 +44,9 @@ export default async function (
         // Hyper nodes are not one provider here: each node becomes its own proxy
         // entry below, with the host's providers as its accounts.
         if (group.startsWith("hyper/") || group === "hyper") continue;
-        const provider = group.split("/")[0]!;
-        const values = Array.from(new Set((models ?? []).map(String).filter(Boolean)));
+        const rawProvider = group.split("/")[0]!;
+        const provider = pool.enabled && isClaude(rawProvider) ? "claude-code" : rawProvider;
+        const values = Array.from(new Set((models ?? []).map(model => pool.enabled && isClaude(rawProvider) ? `claude-code:${parseRoute(String(model)).modelId}` : stripAccount(String(model))).filter(Boolean)));
         if (values.length) groups[provider] = Array.from(new Set([...(groups[provider] ?? []), ...values]));
     }
     if (current && !Object.values(groups).some(models => models.some(model => sameBaseModel(model, current)))) {
@@ -47,7 +54,7 @@ export default async function (
     }
 
     const labels: Record<string, string> = {
-        "claude-code": "Claude Code",
+        "claude-code": pool.enabled ? "Claude" : "Claude Code",
         "anthropic-oauth": "Claude managed",
         anthropic: "Anthropic API",
         codex: "Codex",
@@ -64,7 +71,10 @@ export default async function (
     const entries: Entry[] = Object.entries(groups).map(([provider, models]) => ({
         provider,
         models,
-        accounts: accountsFor(provider, accountRows, currentRoute),
+        accounts: pool.enabled && provider === "claude-code" ? pool.accounts.map(item => {
+            const row = accountRows.find(row => row.provider === "anthropic-oauth" && row.account === item.account);
+            return { provider, account: item.account, available: item.available && !reconnect.has(item.account), needsReconnect: reconnect.has(item.account), usedPercent: row?.usedPercent ?? null, planType: row?.planType ?? null };
+        }) : accountsFor(provider, accountRows, currentRoute),
     })).sort((a, b) => {
         if (a.provider === currentRoute.provider) return -1;
         if (b.provider === currentRoute.provider) return 1;
@@ -76,7 +86,7 @@ export default async function (
     const navRow = (entry: Entry, providerIndex: number) => {
         const selected = isSelectedProvider(entries, entry, providerIndex, currentRoute);
         const name = entry.node ?? labels[entry.provider] ?? entry.provider;
-        const count = entry.accounts.reduce((sum, account) => sum + (account.models?.length ?? 0), 0) || entry.models.length;
+        const count = new Set(entry.node ? entry.accounts.flatMap(account => account.models ?? []) : entry.models).size;
         return w.listRow({
             label: name,
             meta: entry.node ? "proxy" : undefined,
@@ -84,7 +94,7 @@ export default async function (
             lead: entry.node ? undefined : ctx.fns.ui.modelLogo({ model: entry.models[0] ?? entry.provider + ":?", bare: true, compact: true }),
             hint: String(count),
             action: { action: "select-model-provider" },
-            attrs: { "data-model-provider-tab": true, "aria-selected": String(selected), "aria-label": entry.node ? `Show models relayed by Hyper node ${entry.node}` : `Show ${name} accounts`, onclick: providerScript(providerIndex) },
+            attrs: { "data-model-provider-tab": true, "aria-selected": String(selected), "aria-label": entry.node ? `Show models relayed by Hyper node ${entry.node}` : `Show ${name} models`, onclick: providerScript(providerIndex) },
         });
     };
     const own = entries.map((entry, i) => entry.node ? "" : navRow(entry, i)).join("");
@@ -93,53 +103,47 @@ export default async function (
 
     const providerPanels = entries.map((entry, providerIndex) => {
         const providerSelected = isSelectedProvider(entries, entry, providerIndex, currentRoute);
-        const accountNav = entry.accounts.map((account, accountIndex) => {
-            const selected = isSelectedAccount(entry, account, accountIndex, currentRoute, current);
-            const quota = account.usedPercent == null ? "usage —" : `${Math.round(100 - account.usedPercent)}% left`;
-            const plan = account.planType ? planName(entry.provider, account.planType) : "";
-            return w.listRow({
-                label: account.label ?? (account.account === "default" ? "main" : account.account),
-                lead: account.label ? ctx.fns.ui.modelLogo({ model: `${account.upstream}:?`, bare: true, compact: true }) : undefined,
-                detail: [plan, quota].filter(Boolean).join(" · "),
-                hint: account.needsReconnect ? "Reconnect required" : !account.available ? "limit" : undefined,
-                dot: account.needsReconnect || !account.available ? "error" : undefined,
-                action: { action: "select-model-account" },
-                attrs: { "data-model-account-tab": true, "aria-selected": String(selected), "aria-label": `Use account ${account.account}`, "aria-disabled": !account.available && !selected ? "true" : undefined, onclick: accountScript(accountIndex) },
-            });
-        }).join("");
-        const modelPanels = entry.accounts.map((account, accountIndex) => {
-            const accountSelected = isSelectedAccount(entry, account, accountIndex, currentRoute, current);
-            const list = account.models ?? entry.models;
-            const rows = list.map(baseModel => {
-                const target = account.models ? baseModel : withAccount(baseModel, entry.provider, account.account);
-                const selected = target === current;
-                const disabled = account.needsReconnect;
+        const pooled = pool.enabled && entry.provider === "claude-code" && !entry.node;
+        const models = [...new Set(entry.node ? entry.accounts.flatMap(account => account.models ?? []) : entry.models)];
+        const selectedIndex = Math.max(0, models.findIndex(model => sameBaseModel(model, current)));
+        const modelNav = models.map((model, index) => w.listRow({
+            label: parseRoute(model).modelId,
+            current: model === stripAccount(current),
+            action: { action: "select-picker-model" },
+            attrs: { "data-picker-model-tab": true, "aria-selected": String(index === selectedIndex), onclick: modelScript(index) },
+        })).join("");
+        const accountPanels = models.map((model, index) => {
+            const accounts = entry.node ? entry.accounts.filter(account => account.models?.includes(model)) : entry.accounts;
+            const rows = accounts.map(account => {
+                const target = entry.node ? model : pooled ? `claude-code:${parseRoute(model).modelId}` : withAccount(model, entry.provider, account.account);
+                const selected = pooled ? account.account === pool.account : target === current;
+                const disabled = !account.available || account.needsReconnect;
+                const quota = account.usedPercent == null ? "usage —" : `${Math.round(100 - account.usedPercent)}% left`;
+                const status = account.needsReconnect ? "Reconnect required in LLM connections" : !account.available ? "Quota exhausted" : selected ? "current" : undefined;
                 return w.listRow({
-                    label: parseRoute(target).modelId,
-                    detail: target,
+                    label: entry.node ? "Use model on host" : account.account === "default" ? "main" : account.account,
+                    detail: [account.planType ? planName(account.upstream ?? entry.provider, account.planType) : "", quota].filter(Boolean).join(" · "),
+                    hint: status,
+                    dot: disabled ? "error" : undefined,
                     current: selected,
-                    hint: selected ? "current" : undefined,
-                    // The agent route reads model and scope from the posted form; scope=agent changes only this agent.
-                    action: mode === "form" ? { action: "select-model" } : { post: `/agent/${encodeURIComponent(id)}/model`, vals: { model: target, scope: "agent" } },
+                    action: disabled ? undefined : mode === "form" ? { action: "select-model" } : { post: `/agent/${encodeURIComponent(id)}/model`, vals: { model: target, scope: "agent", ...(pooled ? { claudeAccount: account.account } : {}) } },
                     attrs: {
                         "data-model-route": target,
+                        "data-claude-account": pooled ? account.account : "",
                         "aria-disabled": disabled ? "true" : undefined,
-                        "aria-label": account.needsReconnect ? "Reconnect this account in LLM connections before selecting it" : undefined,
-                        onclick: mode === "form" ? FORM_SELECT : undefined,
+                        onclick: !disabled && mode === "form" ? FORM_SELECT : undefined,
                     },
                 });
             }).join("");
-            const heading = account.label ? `${entry.node} → ${account.label}` : account.account === "default" ? "main" : account.account;
-            const sub = entry.node ? `relayed through Hyper node ${entry.node} · hyper/${entry.node}:` : `${entry.provider}${account.account === "default" ? "" : `/${account.account}`}:`;
-            const head = w.heading({ title: heading, meta: esc(sub), actions: account.planType ? w.badge({ text: planName(account.upstream ?? entry.provider, account.planType) }) : undefined });
-            return `<div data-model-account-panel${accountSelected ? "" : " hidden"}>${head}${w.list({ body: rows, label: `${heading} models` })}</div>`;
+            const note = entry.node ? `Credentials managed on host ${entry.node}; this does not change the remote account.` : pooled ? `Current shared Claude account: ${pool.account ?? "none available"}. Automatically switches when quota is exhausted. Choosing an account changes the shared Claude account for ALL chats + relay${mode === "form" ? " when this form is submitted" : ""}.` : "Choose the account for this model.";
+            return `<div data-picker-model-panel${index === selectedIndex ? "" : " hidden"}>${w.heading({ title: entry.node ? "3. Managed on host" : "3. Account" })}${w.box({ body: esc(note) })}${w.list({ body: rows, label: "Accounts" })}</div>`;
         }).join("");
-        return `<div data-model-provider-panel${providerSelected ? "" : " hidden"}>${w.masterDetail({ master: w.list({ body: accountNav, label: "Accounts" }), detail: modelPanels })}</div>`;
+        return `<div data-model-provider-panel${providerSelected ? "" : " hidden"}>${w.masterDetail({ master: w.heading({ title: "2. Model" }) + w.list({ body: modelNav, label: "Models" }), detail: accountPanels })}</div>`;
     }).join("");
 
     if (!entries.length) return w.empty({ title: "No configured model providers are available.", icon: "warning" });
-    const picker = w.masterDetail({ master: w.list({ body: providerNav, label: "Providers" }), detail: providerPanels, attrs: { "data-model-picker": true } });
-    if (mode === "form") return `<div data-model-picker-field><input type="hidden" name="model" value="${esc(current)}">`
+    const picker = w.masterDetail({ master: w.heading({ title: "1. Subscription type" }) + w.list({ body: providerNav, label: "Subscription types" }), detail: providerPanels, attrs: { "data-model-picker": true } });
+    if (mode === "form") return `<div data-model-picker-field><input type="hidden" name="model" value="${esc(current)}"><input type="hidden" name="claudeAccount" value="">`
         + w.box({ body: `Model: <span data-model-picker-current>${esc(current || "—")}</span>`, mix: { text: "small", ink: "muted", mono: true, padY: "s2" } })
         + picker + `</div>`;
     return picker;
@@ -165,7 +169,7 @@ async function proxyEntries(ctx: Context, listed: Record<string, string[]>, acco
         const node = nodes.find(n => n.name === name);
         const row = accountRows.find(r => r.provider === "hyper" && r.account === name);
         const listedIds = new Set((listed[`hyper/${name}`] ?? []).map(m => parseRoute(m).modelId));
-        const catalog = (node?.catalog ?? []).filter(e => !listedIds.size || listedIds.has(e.id));
+        const catalog = (node?.catalog ?? []).filter(e => listedIds.has(e.id));
         const byUpstream = new Map<string, { provider: string; account: string; via?: string; ids: string[] }>();
         for (const e of catalog) {
             const key = `${e.provider}/${e.account}/${e.via ?? ""}`;
@@ -183,7 +187,7 @@ async function proxyEntries(ctx: Context, listed: Record<string, string[]>, acco
             const usage = node?.usage?.find(u => u.provider === g.provider && u.account === g.account);
             const label = g.provider === "hyper" ? "models" : `${UPSTREAM_LABELS[g.provider] ?? g.provider}${g.account !== "default" ? ` · ${g.account}` : ""}${g.via ? ` (${g.via.replace(/^hyper\//, "via ")})` : ""}`;
             const offline = !row || row.available === false;
-            return { provider: "hyper", account: name, label, upstream: g.provider, models: g.ids.map(route), available: !offline, needsReconnect: row?.needsReconnect === true, usedPercent: usage?.usedPercent ?? null, planType: usage?.planType ?? null };
+            return { provider: "hyper", account: name, label, upstream: g.provider, models: g.ids.map(route), available: !offline, needsReconnect: false, usedPercent: usage?.usedPercent ?? null, planType: usage?.planType ?? null };
         });
         if (!accounts.length) continue;
         // The current route's upstream first, so the right panel opens on it.
@@ -195,10 +199,6 @@ async function proxyEntries(ctx: Context, listed: Record<string, string[]>, acco
 function isSelectedProvider(entries: Entry[], entry: Entry, index: number, current: ReturnType<typeof parseRoute>): boolean {
     const owns = (e: Entry) => e.node ? current.provider === "hyper" && current.account === e.node : e.provider === current.provider;
     return owns(entry) || (!entries.some(owns) && index === 0);
-}
-function isSelectedAccount(entry: Entry, account: Account, index: number, current: ReturnType<typeof parseRoute>, currentModel: string): boolean {
-    if (entry.node) return account.models!.includes(currentModel) || (!entry.accounts.some(a => a.models!.includes(currentModel)) && index === 0);
-    return account.account === current.account && entry.provider === current.provider || (entry.provider !== current.provider && index === 0);
 }
 function accountsFor(provider: string, rows: any[], current: ReturnType<typeof parseRoute>): Account[] {
     const found = rows.filter(row => row.provider === provider).map(row => ({ provider, account: String(row.account ?? "default"), available: row.available !== false, needsReconnect: row.needsReconnect === true, usedPercent: row.usedPercent ?? null, planType: row.planType ?? null }));
@@ -212,5 +212,5 @@ function withAccount(model:string,provider:string,account:string){const p=parseR
 function sameBaseModel(a:string,b:string){const x=parseRoute(a),y=parseRoute(b);return x.provider===y.provider&&x.modelId===y.modelId;}
 function planName(provider:string,plan:string){const p=plan.toLowerCase();if(provider==="codex"&&p==="prolite")return "ChatGPT Go";return p.charAt(0).toUpperCase()+p.slice(1);}
 function providerScript(index:number){return `const root=this.closest('[data-model-picker]');root.querySelectorAll('[data-model-provider-tab]').forEach((tab,i)=>tab.setAttribute('aria-selected',String(i===${index})));root.querySelectorAll('[data-model-provider-panel]').forEach((panel,i)=>panel.hidden=i!==${index})`;}
-const FORM_SELECT = `const field=this.closest('[data-model-picker-field]');const route=this.dataset.modelRoute;field.querySelector('input[name=model]').value=route;field.querySelector('[data-model-picker-current]').textContent=route;field.querySelectorAll('[data-model-route]').forEach(b=>b.toggleAttribute('aria-current',b===this))`;
-function accountScript(index:number){return `const panel=this.closest('[data-model-provider-panel]');panel.querySelectorAll('[data-model-account-tab]').forEach((tab,i)=>tab.setAttribute('aria-selected',String(i===${index})));panel.querySelectorAll('[data-model-account-panel]').forEach((item,i)=>item.hidden=i!==${index})`;}
+const FORM_SELECT = `const field=this.closest('[data-model-picker-field]');const route=this.dataset.modelRoute;field.querySelector('input[name=model]').value=route;field.querySelector('input[name=claudeAccount]').value=this.dataset.claudeAccount||'';field.querySelector('[data-model-picker-current]').textContent=route;field.querySelectorAll('[data-model-route]').forEach(b=>b.toggleAttribute('aria-current',b===this))`;
+function modelScript(index:number){return `const panel=this.closest('[data-model-provider-panel]');panel.querySelectorAll('[data-picker-model-tab]').forEach((tab,i)=>tab.setAttribute('aria-selected',String(i===${index})));panel.querySelectorAll('[data-picker-model-panel]').forEach((item,i)=>item.hidden=i!==${index})`;}

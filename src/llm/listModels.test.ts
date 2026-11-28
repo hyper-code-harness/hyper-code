@@ -4,6 +4,7 @@ import listModels from "./listModels";
 describe("llm.listModels", () => {
     test("omits static remote catalogues when their credentials are absent", async () => {
         const ctx = { env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+            claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }),
             kimiCodingModels: async () => [],
             resolveEndpoint: async ({ model }: any) => ({ kind: "api", apiKey: model.startsWith("openai:") ? "key" : null }),
         } } } as unknown as Context;
@@ -19,6 +20,7 @@ describe("llm.listModels", () => {
     // Subscription groups come only from llm.listAccounts. `accounts` stubs it; everything else is offline.
     const account = (provider: string, account: string, needsReconnect = false) => ({ provider, account, source: "file", available: !needsReconnect, needsReconnect });
     const offline = (accounts: any[], llm: Record<string, unknown> = {}) => ({ env: { LMSTUDIO_URL: "http://127.0.0.1:9" }, fns: { llm: {
+        claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }),
         resolveEndpoint: async () => ({ kind: "api", apiKey: null }),
         listAccounts: async () => accounts,
         kimiCodingModels: async () => [],
@@ -108,7 +110,7 @@ describe("llm.listModels", () => {
                 kimiCodingModels: async ({ account }: { account: string }) => [`kimi-coding${account === "default" ? "" : "/" + account}:k`],
             }), null);
             const resolveEndpoint = (await import("./resolveEndpoint")).default;
-            const rctx = { env: {}, fns: { llm: { refreshKimiCode: async () => null, accountCredentialPath: () => ({ file: null }) }, settings: { getString: async () => "" } } } as unknown as Context;
+            const rctx = { env: {}, fns: { llm: { claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }), refreshKimiCode: async () => null, accountCredentialPath: () => ({ file: null }) }, settings: { getString: async () => "" } } } as unknown as Context;
             for (const provider of providers) {
                 const ids = groups[provider] ?? [];
                 expect({ provider, routes: ids.length > 0 }).toEqual({ provider, routes: true });

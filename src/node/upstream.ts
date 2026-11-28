@@ -7,7 +7,9 @@
  *
  * Refreshes subscription credentials (claude-code, anthropic-oauth, codex,
  * kimi-coding) exactly like the local stream functions and adds the identity
- * headers each provider requires. Returns null when no credential is available.
+ * headers each provider requires. Returns the resolved provider and account for
+ * safe attribution before any request-time failover; fetchClaude owns the final
+ * identity when it changes accounts. Returns null when no credential is available.
  * @param opts.provider Own provider name, e.g. "claude-code".
  * @param opts.account Credential account within the provider. @default "default"
  * @param opts.api Wire api of the request being relayed.
@@ -26,9 +28,10 @@ export default async function (
         /** Client session id forwarded to cache-keyed providers. */
         sessionId?: string;
     },
-): Promise<{ url: string; headers: Record<string, string>; kind: string } | null> {
-    const account = opts.account ?? "default";
-    const ep = await ctx.fns.llm.resolveEndpoint({ model: `${opts.provider}${account === "default" ? "" : `/${account}`}:x` });
+): Promise<{ url: string; headers: Record<string, string>; kind: string; provider: string; account: string } | null> {
+    const requestedAccount = opts.account ?? "default";
+    const ep = await ctx.fns.llm.resolveEndpoint({ model: `${opts.provider}${requestedAccount === "default" ? "" : `/${requestedAccount}`}:x` });
+    const account = ep.account;
     if (ep.api !== opts.api) throw new Error(`model api mismatch: ${opts.provider} speaks ${ep.api}, request is ${opts.api}`);
     let apiKey: string | null = ep.apiKey;
     if (ep.provider === "claude-code") apiKey = await ctx.fns.llm.refreshClaudeCode({ account }) ?? apiKey;
@@ -60,7 +63,7 @@ export default async function (
     } else {
         headers.authorization = `Bearer ${apiKey}`;
     }
-    return { url: ep.url, headers, kind: ep.kind };
+    return { url: ep.url, headers, kind: ep.kind, provider: ep.provider, account };
 }
 
 function accountIdOf(token: string): string {

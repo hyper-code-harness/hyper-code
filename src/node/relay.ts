@@ -10,7 +10,12 @@
  * forwards the untouched body upstream with the host's credential and
  * identity headers (or to the next node with the hop counter incremented) and
  * returns the upstream response 1:1 including streaming body, status,
- * retry-after and rate-limit headers.
+ * retry-after and rate-limit headers. Direct Claude subscription requests use
+ * the shared account pool; exhausted pools return a quota 429 with reset time.
+ * Chained node requests are forwarded once and never retried or counted here.
+ * When llmUsage is enabled, the terminal host records one logical relay call
+ * against the authenticated immediate client. Claude owns its physical attempts
+ * and final account attribution; other providers are observed once here.
  * @param opts.req Incoming client request with the provider JSON body.
  * @param opts.api Wire api named by the route.
  */
@@ -51,10 +56,34 @@ export default async function (
         upstream = await fetch(`${node.url}/${opts.api}`, { method: "POST", signal: opts.req.signal, body,
             headers: withBeta({ "content-type": "application/json", authorization: `Bearer ${token}`, "x-hyper-hops": String(auth.hops + 1), accept: opts.req.headers.get("accept") ?? "*/*" }) });
     } else {
-        const up = await ctx.fns.node.upstream({ provider: entry.provider, account: entry.account, api: opts.api, sessionId: opts.req.headers.get("session_id") ?? undefined });
-        if (!up) return Response.json({ error: `${entry.provider}: no credentials on the host` }, { status: 503 });
-        upstream = await ctx.fns.llm.fetchClaudeCode({ provider: entry.provider, account: entry.account, url: up.url,
-            init: { method: "POST", headers: withBeta(up.headers), body, signal: opts.req.signal } });
+        const send = async (): Promise<Response> => {
+            const up = await ctx.fns.node.upstream({ provider: entry.provider, account: entry.account, api: opts.api, sessionId: opts.req.headers.get("session_id") ?? undefined });
+            if (!up) return Response.json({ error: `${entry.provider}: no credentials on the host` }, { status: 503 });
+            const init = { method: "POST", headers: withBeta(up.headers), body, signal: opts.req.signal };
+            // fetchClaude observes each actual send, including quota/401 retries.
+            // Observing its returned response again would double count tokens.
+            if (entry.provider === "claude-code" || entry.provider === "anthropic-oauth") {
+                return (await ctx.fns.llm.fetchClaude({ provider: entry.provider, account: entry.account, url: up.url, init })).response;
+            }
+            const submit = () => fetch(up.url, init);
+            // Tiny isolated test registries may not mount the optional ledger.
+            return typeof ctx.state.registry?.llmUsage?.fetch === "function"
+                ? ctx.fns.llmUsage.fetch({ provider: up.provider, account: up.account, model, api: opts.api, send: submit })
+                : submit();
+        };
+        try {
+            upstream = typeof ctx.state.registry?.llmUsage?.run === "function"
+                ? await ctx.fns.llmUsage.run({ operation: "relay", source: "node", clientId: auth.client.id,
+                    clientName: auth.client.name, requestedModel: model, fn: send }) as Response
+                : await send();
+        } catch (error) {
+            const failure = (error as { failure?: types.llm.FailureInfo })?.failure;
+            if (failure?.provider !== "claude-pool" || failure.kind !== "usage_limit") throw error;
+            const headers = new Headers({ "cache-control": "no-store" });
+            if (failure.resetsAt != null) headers.set("retry-after", String(Math.max(1, Math.ceil((failure.resetsAt - Date.now()) / 1000))));
+            return Response.json({ error: { type: "usage_limit_reached", message: failure.message,
+                ...(failure.resetsAt != null ? { resets_at: Math.ceil(failure.resetsAt / 1000) } : {}) } }, { status: 429, headers });
+        }
     }
     const out = new Headers({ "cache-control": "no-store" });
     for (const name of ["content-type", "retry-after", "request-id", "anthropic-request-id", "x-request-id"]) { const v = upstream.headers.get(name); if (v) out.set(name, v); }

@@ -1,7 +1,7 @@
 /**
  * Renders the provider, credential account and model picker for one agent.
  *
- * Wraps agent.modelPickerHtml (Provider → Account → Model navigation) in a popup. Submitting a model always uses scope=agent, so the action
+ * Wraps agent.modelPickerHtml (Subscription type → Model → Account navigation) in a popup. Submitting a model always uses scope=agent, so the action
  * moves only the selected agent; bulk migration remains a separate parked-card
  * action.
  *
@@ -22,6 +22,6 @@ export default async function (
 
     const esc = (value: unknown) => ctx.fns.w.escape({ text: String(value ?? "") });
     const body = await ctx.fns.agent.modelPickerHtml({ current: String(agent.model ?? ""), mode: "agent", agentId: id });
-    const html = body.includes("data-model-picker") ? body + ctx.fns.w.box({ body: `This changes only agent ${esc(id)}. Chat history stays unchanged; the next call uses the selected account and model.`, mix: { text: "small", ink: "faint", line: "top", padY: "s2" } }) : body;
-    return new Response(ctx.fns.ui.popupContent({ title: "Provider, account and model", kind: "model-picker", class: "w-full max-w-3xl", html }), { headers: { "content-type": "text/html; charset=utf-8" } });
+    const html = body.includes("data-model-picker") ? body + ctx.fns.w.box({ body: `Model changes apply to agent ${esc(id)}. Chat history stays unchanged. Shared Claude account changes apply to ALL chats + relay.`, mix: { text: "small", ink: "faint", line: "top", padY: "s2" } }) : body;
+    return new Response(ctx.fns.ui.popupContent({ title: "Subscription type, model and account", kind: "model-picker", class: "w-full max-w-3xl", html }), { headers: { "content-type": "text/html; charset=utf-8" } });
 }

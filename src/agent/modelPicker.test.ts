@@ -4,6 +4,7 @@ import { mkTestCtx } from "../_testCtx.entry";
 describe("agent.modelPicker", () => {
     test("groups model routes by provider and marks the current model", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "mock:test" });
         ctx.fns.llm.listModels = async () => ({
             mock: ["mock:test", "mock:other"],
@@ -13,7 +14,7 @@ describe("agent.modelPicker", () => {
         const response = await ctx.fns.agent.modelPicker({ agentId: agent.id });
         expect(response.status).toBe(200);
         const html = await response.text();
-        expect(html).toContain("Provider, account and model");
+        expect(html).toContain("Subscription type, model and account");
         expect(html).toContain("mock:test");
         expect(html).toContain("mock:other");
         expect(html).toContain("OpenAI API");
@@ -29,6 +30,7 @@ describe("agent.modelPicker", () => {
 
     test("expands named credential accounts into concrete model routes", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "codex:gpt-test" });
         ctx.fns.llm.listModels = async () => ({ codex: ["codex:gpt-test"] });
         ctx.fns.llm.listAccounts = async () => ([
@@ -40,12 +42,13 @@ describe("agent.modelPicker", () => {
         expect(html).toContain("codex/persona:gpt-test");
         expect(html).toContain("16% left");
         expect(html).toContain("100% left");
-        expect(html).toContain("This changes only agent");
+        expect(html).toContain("Model changes apply to agent");
     });
 
 
     test("shows each Hyper node as a proxy with the host's providers as accounts", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "hyper/anna:gpt-x" });
         ctx.fns.llm.listModels = async () => ({ codex: ["codex:gpt-x"], "hyper/anna": ["hyper/anna:gpt-x", "hyper/anna:claude-y"] });
         ctx.fns.llm.listAccounts = async () => ([{ provider: "hyper", account: "anna", available: true, usedPercent: 3, planType: "pro" }]);
@@ -54,8 +57,8 @@ describe("agent.modelPicker", () => {
             usage: [{ provider: "codex", account: "default", usedPercent: 3, resetsAt: null, planType: "pro", parkedAgents: 0 }] }]);
         const html = await (await ctx.fns.agent.modelPicker({ agentId: agent.id })).text();
         expect(html).toContain("via proxy");
-        expect(html).toContain("anna → Codex");
-        expect(html).toContain("anna → Claude Code");
+        expect(html).toContain("Credentials managed on host anna");
+        expect(html).toContain("Use model on host");
         expect(html).toContain("97% left");
         expect(html).toContain('data-model-route="hyper/anna:claude-y"');
         expect(html).not.toContain("Hyper nodes");
@@ -63,6 +66,7 @@ describe("agent.modelPicker", () => {
 
     test("keeps the current route visible when it is absent from the catalogue", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "mock:private" });
         ctx.fns.llm.listModels = async () => ({});
 
@@ -72,12 +76,14 @@ describe("agent.modelPicker", () => {
 
     test("returns 404 for an unknown agent", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const response = await ctx.fns.agent.modelPicker({ agentId: "missing" });
         expect(response.status).toBe(404);
     });
 
     test("switches through the HTTP route and asks HTMX to refresh the chat", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "mock:test" });
         const response = await ctx.fns.procs.http.dispatch({
             url: `/agent/${agent.id}/model`,
@@ -91,20 +97,22 @@ describe("agent.modelPicker", () => {
         expect((await ctx.fns.session.load({ id: agent.id })).model).toBe("mock:other");
     });
 
-    test("shows the model count and keeps quota-exhausted accounts selectable", async () => {
+    test("shows the model count and disables quota-exhausted accounts", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "codex:gpt-test" });
         ctx.fns.llm.listModels = async () => ({ "claude-code": ["claude-code:claude-haiku-4-5", "claude-code:claude-sonnet-5", "claude-code:claude-opus-5"] });
         ctx.fns.llm.listAccounts = async () => ([{ provider: "claude-code", account: "default", available: false, needsReconnect: false, usedPercent: 100, planType: "team" }]);
         const html = await (await ctx.fns.agent.modelPicker({ agentId: agent.id })).text();
         expect(html).toContain(">3<");
         expect(html).toContain("claude-code:claude-opus-5");
-        expect(html).not.toMatch(/data-model-route="claude-code:claude-opus-5"[^>]*aria-disabled/);
+        expect(html).toMatch(/data-model-route="claude-code:claude-opus-5"[^>]*aria-disabled/);
     });
 
 
     test("renders reconnect-required accounts and disables their models", async () => {
         const ctx: any = await mkTestCtx();
+        ctx.fns.llm.claudePoolSelect = async () => ({enabled:false,account:null,accounts:[],resetsAt:null});
         const agent = await ctx.fns.agent.start({ model: "codex:gpt-test" });
         ctx.fns.llm.listModels = async () => ({ codex: ["codex:gpt-test"] });
         ctx.fns.llm.listAccounts = async () => ([{ provider: "codex", account: "expired", available: false, needsReconnect: true, usedPercent: null, planType: null }]);

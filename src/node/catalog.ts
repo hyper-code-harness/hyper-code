@@ -46,7 +46,15 @@ export default async function (
             const provider = m[1]!, account = m[2] ?? "default", id = m[3]!;
             if (provider === "cursor" || (allow.size && !allow.has(provider))) continue;
             let ep;
-            try { ep = await ctx.fns.llm.resolveEndpoint({ model: full }); } catch { continue; }
+            try { ep = await ctx.fns.llm.resolveEndpoint({ model: full }); }
+            catch (error) {
+                const failure = (error as { failure?: types.llm.FailureInfo }).failure;
+                // Exhaustion is temporary, not model removal. Keep the entry so relay can
+                // return a quota 429 with the reset time instead of a misleading 404.
+                if ((provider === "claude-code" || provider === "anthropic-oauth") && failure?.provider === "claude-pool" && failure.kind === "usage_limit") {
+                    ep = { api: "anthropic" as const, provider, kind: "subscription" as const };
+                } else continue;
+            }
             if ((ep.api !== "anthropic" && ep.api !== "responses" && ep.api !== "openai") || ep.provider === "cursor" || ep.kind === "local" || seen.has(id)) continue;
             seen.add(id);
             out.push({ id, api: ep.api, provider, account, kind: ep.kind });

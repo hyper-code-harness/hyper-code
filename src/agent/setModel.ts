@@ -13,6 +13,7 @@
  *
  * @param opts.id Agent whose model changes.
  * @param opts.model Target model as "provider[/account]:modelId".
+ * @param opts.claudeAccount Explicit managed Claude account to make current for all local chats and incoming relay requests; model is stored without the account.
  * @param opts.scope Apply to this agent only, or to every agent sharing its parked credential.
  * @param opts.now Current time in ms, for testing.
  */
@@ -24,21 +25,17 @@ export default async function (
         id: string;
         /** Target model string, e.g. "kimi-coding:k3" or "codex/personal:gpt-5.6-sol". */
         model: string;
+        /** Explicit managed Claude account to use as the shared current subscription; requires the Claude pool and a Claude subscription model. */
+        claudeAccount?: string;
         /** "agent" changes one agent; "provider" changes every agent parked on the same credential. @default "agent" */
         scope?: "agent" | "provider";
         /** Current timestamp in ms; defaults to Date.now(). */
         now?: number;
     },
 ): Promise<{ changed: string[]; model: string; from: string | null }> {
-    const model = String(opts.model ?? "").trim();
+    let model = String(opts.model ?? "").trim();
     const now = opts.now ?? Date.now();
     if (!model) throw new Error("setModel: model is required");
-
-    // Fail here, loudly, instead of on the agent's next turn.
-    const endpoint = await ctx.fns.llm.resolveEndpoint({ model });
-    if (!endpoint.apiKey && endpoint.kind !== "local" && endpoint.provider !== "claude-code" && endpoint.provider !== "anthropic-oauth") {
-        throw new Error(`setModel: no credential for ${endpoint.provider}/${endpoint.account} — add a key or log in first`);
-    }
 
     const row = ((await ctx.fns.procs.db.select({
         sql: "SELECT id, model, scratchpad FROM agents WHERE id = ? AND archived_at IS NULL",
@@ -46,6 +43,17 @@ export default async function (
     })) as any[])[0];
     if (!row) throw new Error(`setModel: agent not found: ${opts.id}`);
     const from = row.model ? String(row.model) : null;
+    const claude = /^(?:claude-code|anthropic-oauth)(?:\/[^:]+)?:(.+)$/.exec(model);
+    if (opts.claudeAccount) {
+        if (!claude) throw new Error("A Claude subscription model is required to select a shared Claude account");
+        await ctx.fns.llm.claudePoolSelect({ preferredAccount: opts.claudeAccount });
+    }
+    // Fail here, loudly, instead of on the agent's next turn.
+    const endpoint = await ctx.fns.llm.resolveEndpoint({ model });
+    if (!endpoint.apiKey && endpoint.kind !== "local" && endpoint.provider !== "claude-code" && endpoint.provider !== "anthropic-oauth") {
+        throw new Error(`setModel: no credential for ${endpoint.provider}/${endpoint.account} — add a key or log in first`);
+    }
+    if (claude && (await ctx.fns.llm.claudePoolSelect({})).enabled) model = `claude-code:${claude[1]}`;
 
     let targets = [String(row.id)];
     if (opts.scope === "provider") {
@@ -61,6 +69,7 @@ export default async function (
             targets = rows
                 .filter((r) => {
                     const parsed = splitModel(String(r.model ?? ""));
+                    if (parked.provider === "claude-pool") return parsed.provider === "claude-code" || parsed.provider === "anthropic-oauth";
                     return parsed.provider === parked.provider && parsed.account === (parked.account ?? "default");
                 })
                 .map((r) => String(r.id));
@@ -76,7 +85,15 @@ export default async function (
         // The live object is what the next turn reads. A row edited behind the
         // process (SQL, migration) can already say the new model while the agent
         // in memory still runs the old one — that drift is exactly a switch.
-        if (previous === model && (!live || live.model === model)) continue;
+        if (previous === model && (!live || live.model === model)) {
+            if (opts.claudeAccount) {
+                await ctx.fns.agent.unpark({ id, reason: "model-switch", now });
+                await ctx.fns.session.appendEvent({ id, event: { type: "model_changed", from: model, to: model, account: opts.claudeAccount } });
+                ctx.fns.events.refreshAgentMeta({ agentId: id, section: "wake", reason: "account-changed" });
+                changed.push(id);
+            }
+            continue;
+        }
         // The last error belonged to the old model; leaving it makes the status
         // bar keep shouting about a credential the agent no longer uses.
         await ctx.fns.procs.db.run({

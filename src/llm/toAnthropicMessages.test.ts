@@ -3,6 +3,7 @@ import { test, expect, describe } from "bun:test";
 import convert from "./toAnthropicMessages";
 import buildLlmRequest from "../agent/buildLlmRequest";
 import streamAnthropic from "./streamAnthropic";
+import fetchClaude from "./fetchClaude";
 
 const ctx = {} as Context;
 
@@ -155,6 +156,8 @@ test("stream caches history before the actual Continue nudge across sequential r
         auth: { attributeMessages: async ({ messages }: any) => ({ messages, applied: false }) },
         attachments: { resolveContent: async ({ messages }: any) => messages },
         llm: {
+            fetchClaude: (opts: Parameters<typeof fetchClaude>[2]) => fetchClaude(context as any, null, opts),
+            claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }),
             resolveEndpoint: async () => ({ provider: "anthropic", modelId: "test", url: "https://unused.invalid" }),
             resolveReasoningEffort: async () => ({ mode: "none" }),
             toAnthropicMessages: (opts: any) => convert(context as any, null, opts),

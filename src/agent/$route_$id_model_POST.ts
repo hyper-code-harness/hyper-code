@@ -14,7 +14,8 @@ export default async function (ctx: Context, _session: Session | null, opts: {
     // exhausted credential, not just the one being looked at.
     const scope = String(form.get("scope") ?? "agent") === "provider" ? "provider" : "agent";
     try {
-        const result = await ctx.fns.agent.setModel({ id: opts.params.id!, model, scope });
+        const claudeAccount = String(form.get("claudeAccount") ?? "").trim() || undefined;
+        const result = await ctx.fns.agent.setModel({ id: opts.params.id!, model, scope, claudeAccount });
         return new Response(null, { status: 204, headers: { "HX-Refresh": "true", "x-hyper-changed": String(result.changed.length) } });
     } catch (error: any) {
         return new Response(error?.message ?? "Invalid model", { status: 400 });

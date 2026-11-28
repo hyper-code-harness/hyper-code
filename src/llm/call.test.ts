@@ -1,6 +1,16 @@
 import fetchClaudeCode from "./fetchClaudeCode";
 import { describe, expect, test } from "bun:test";
 import call from "./call";
+import fetchClaude from "./fetchClaude";
+
+// Keep the real disabled-pool transport, with HTTP supplied by each test's fetch mock.
+function offlineClaudeTransport() {
+    const ctx: any = { fns: { llm: {
+        claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }),
+        connectFetch: ({ url, init }: { url: string; init: RequestInit }) => fetch(url, init),
+    } } };
+    return { fetchClaude: (opts: Parameters<typeof fetchClaude>[2]) => fetchClaude(ctx, null, opts) };
+}
 
 describe("llm.call", () => {
     test("uses the configured default model when model is omitted", async () => {
@@ -150,6 +160,7 @@ describe("llm.call", () => {
                 }) as any;
                 try {
                     const ctx: any = { env: {}, fns: { llm: {
+                        ...offlineClaudeTransport(),
                         resolveEndpoint: async ({ model }: any) => {
                             resolved.push(model);
                             return { api: "anthropic", provider, modelId: "claude-opus-4-6", url: "https://example.test", apiKey: "api-key", account: "work" };
@@ -191,6 +202,7 @@ describe("llm.call", () => {
         globalThis.fetch = (async () => new Response('{"error":{"message":"limited"}}', { status: 429 })) as any;
         try {
             const ctx: any = { env: {}, fns: { llm: {
+                        ...offlineClaudeTransport(),
                 resolveEndpoint: async ({ model }: any) => { resolved.push(model); return { api: "anthropic", provider: "claude-code", modelId: "claude-fable-5-1", url: "https://example.test", account: "default" }; },
                 refreshClaudeCode: async () => "cli-token",
                 claudeCodeCliVersion: async () => "2.1.260",
@@ -215,6 +227,7 @@ describe("llm.call", () => {
             const ctx: any = { env: {}, fns: {
                 settings: { modelDefault: async () => "claude-code:test", getString: async () => "codex:fallback" },
                 llm: {
+                    ...offlineClaudeTransport(),
                     resolveEndpoint: async ({ model }: any) => { resolved.push(model); return { api: "anthropic", provider: model.startsWith("claude-code") ? "claude-code" : "anthropic-oauth", modelId: "test", url: "https://example.test", apiKey: null, account: "default", kind: "subscription" }; },
                     refreshClaudeCode: async () => "cli-token",
                     getAnthropicOAuthToken: async () => "oauth-token",
@@ -236,8 +249,7 @@ describe("llm.call", () => {
 for (const api of ['anthropic','openai','responses']) test(`deadline aborts ${api} HTTP without orphan retry`, async()=>{
  const previous=globalThis.fetch; let calls=0,aborted=false;
  globalThis.fetch=(async(_url:any,init:any)=>{calls++;return await new Promise((resolve,reject)=>{init.signal.addEventListener('abort',()=>{aborted=true;reject(init.signal.reason);},{once:true});});}) as any;
- try {const ctx:any={fns:{llm:{resolveEndpoint:async()=>({api,provider:api==='anthropic'?'kimi-coding':api==='responses'?'codex':'openai',modelId:'k3',url:'https://example.test',apiKey:'fake'}),refreshKimiCode:async()=> 'fake',refreshCodex:async()=> 'fake'}}};
- ctx.fns.llm.connectFetch=(o:any)=>fetch(o.url,o.init);ctx.fns.llm.fetchClaudeCode=(o:any)=>fetchClaudeCode(ctx,null,o);
+ try {const ctx:any={fns:{llm:{...offlineClaudeTransport(),resolveEndpoint:async()=>({api,provider:api==='anthropic'?'kimi-coding':api==='responses'?'codex':'openai',modelId:'k3',url:'https://example.test',apiKey:'fake'}),refreshKimiCode:async()=> 'fake',refreshCodex:async()=> 'fake'}}};
  await expect(call(ctx,null,{user:'x',model:'kimi-coding:k3',noFallback:true,timeoutMs:30})).rejects.toThrow();expect(calls).toBe(1);expect(aborted).toBe(true);
  } finally {globalThis.fetch=previous;}
 });

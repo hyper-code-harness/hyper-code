@@ -3,7 +3,7 @@ import call from "./call";
 import streamAnthropic from "./streamAnthropic";
 import compactAnthropic from "./compactAnthropic";
 import relay from "../node/relay";
-import fetchClaudeCode from "./fetchClaudeCode";
+import fetchClaude from "./fetchClaude";
 import parseSSE from "./parseSSE";
 import toAnthropicMessages from "./toAnthropicMessages";
 
@@ -44,7 +44,8 @@ function fixture(route: Route, provider = "claude-code", retryStatus = 200) {
             ].join(""), { headers: { "content-type": "text/event-stream" } });
             return Response.json({ content: route === "compact" ? [block] : [{ type: "text", text: "ok" }], stop_reason: "end_turn", usage: {} });
         },
-        fetchClaudeCode: (opts: Parameters<typeof fetchClaudeCode>[2]) => fetchClaudeCode(ctx, null, opts),
+        claudePoolSelect: async () => ({ enabled: false }),
+        fetchClaude: (opts: Parameters<typeof fetchClaude>[2]) => fetchClaude(ctx, null, opts),
         parseSSE: (opts: Parameters<typeof parseSSE>[2]) => parseSSE(ctx, null, opts),
         toAnthropicMessages: (opts: Parameters<typeof toAnthropicMessages>[2]) => toAnthropicMessages(ctx, null, opts),
         call: (opts: Parameters<typeof call>[2]) => call(ctx, null, opts),

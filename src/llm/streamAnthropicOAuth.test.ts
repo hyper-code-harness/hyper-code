@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import stream from "./streamAnthropic";
-import fetchClaudeCode from "./fetchClaudeCode";
+import fetchClaude from "./fetchClaude";
 import parseSSE from "./parseSSE";
 import toAnthropicMessages from "./toAnthropicMessages";
 
@@ -23,6 +23,8 @@ function mkCtx(provider: "anthropic-oauth" | "anthropic") {
             wireTools: () => [{ name: "functions.read", description: "read", input_schema: { type: "object", properties: {} } }],
         },
         llm: {
+            fetchClaude: (opts: Parameters<typeof fetchClaude>[2]) => fetchClaude(ctx, null, opts),
+            claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }),
             resolveEndpoint: () => ({ url: "http://mock/v1/messages", modelId: "claude-x", apiKey: provider === "anthropic" ? "api-key" : null, provider, api: "anthropic" }),
             getAnthropicOAuthToken: async () => "managed-access",
             claudeCodeCliVersion: async () => "2.1.260",
@@ -30,7 +32,6 @@ function mkCtx(provider: "anthropic-oauth" | "anthropic") {
 
             parseSSE: (opts: any) => parseSSE(ctx, null, opts),
             connectFetch: (o: any) => fetch(o.url, o.init),
-            fetchClaudeCode: (o: any) => fetchClaudeCode(ctx, null, o),
             toAnthropicMessages: (opts: any) => toAnthropicMessages(ctx, null, opts),
         },
     };

@@ -27,39 +27,45 @@ export default async function (
         signal?: AbortSignal;
     },
 ): Promise<{ block: { type: "compaction"; content: string; signature: string; [key: string]: unknown }; stopReason: string; usage: { prompt_tokens: number; completion_tokens: number } }> {
-    const ep = await ctx.fns.llm.resolveEndpoint({ model: opts.model });
-    const upstream = ep.provider === "hyper" ? String(ep.upstream ?? "") : ep.provider;
-    if (ep.api !== "anthropic" || !["anthropic", "claude-code", "anthropic-oauth"].includes(upstream)) throw new Error(`server compaction is not supported for ${ep.provider}`);
-    let apiKey = ep.apiKey;
-    if (ep.provider === "claude-code") apiKey = (await ctx.fns.llm.refreshClaudeCode({ account: ep.account })) ?? apiKey;
-    else if (ep.provider === "anthropic-oauth") apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: ep.account });
-    if (!apiKey) throw new Error(`${ep.provider}: no credentials`);
-    const subscription = upstream === "claude-code" || upstream === "anthropic-oauth";
-    const headers: Record<string, string> = { "content-type": "application/json", "anthropic-version": "2023-06-01" };
-    if (subscription || ep.provider === "hyper") headers.authorization = `Bearer ${apiKey}`; else headers["x-api-key"] = apiKey;
-    headers["anthropic-beta"] = [...(subscription ? ["claude-code-20250219", "oauth-2025-04-20"] : []), "compact-2026-09-04"].join(",");
-    if (subscription) {
-        headers["user-agent"] = ctx.env.CLAUDE_CODE_USER_AGENT ?? `claude-cli/${await ctx.fns.llm.claudeCodeCliVersion({})} (external, sdk-cli)`;
-        headers["x-app"] = "cli";
-        headers["anthropic-dangerous-direct-browser-access"] = "true";
-    }
-    const system: any[] = subscription ? [{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." }] : [];
-    if (opts.instructions?.trim()) system.push({ type: "text", text: opts.instructions });
-    const messages = ctx.fns.llm.toAnthropicMessages({ messages: opts.messages.filter((m: any) => m?.role !== "system") });
-    // compaction.instructions REPLACES the server summarization prompt, so a focus
-    // is wrapped into a full handoff prompt rather than sent alone.
-    const focus = opts.focus?.trim();
-    const compaction: any = { type: "summarize" };
-    if (focus) compaction.instructions = ("Summarize this conversation into a handoff checkpoint so another model can seamlessly continue: goal, progress, decisions, constraints, exact identifiers/paths/errors, and next steps.\n\nFocus: " + focus).slice(0, 16384);
-    const body: any = { model: ep.modelId, max_tokens: opts.maxTokens ?? 32000, messages, compaction };
-    if (system.length) body.system = system;
-    const res = await ctx.fns.llm.fetchClaudeCode({ provider: ep.provider, account: ep.account, url: ep.url,
-        init: { method: "POST", headers, body: JSON.stringify(body), signal: opts.signal } });
-    if (!res.ok) throw new Error(`anthropic compaction ${res.status}: ${(await res.text()).slice(0, 500)}`);
-    const raw: any = await res.json();
-    const block = (raw.content ?? []).find((b: any) => b?.type === "compaction");
-    const iteration = (raw.usage?.iterations ?? []).find((i: any) => i?.type === "compaction") ?? {};
-    // Output cut off, refusal or context overflow all return 200 with empty content.
-    if (!block || typeof block.content !== "string" || !block.signature) throw new Error(`anthropic compaction returned no block (stop_reason ${raw.stop_reason})`);
-    return { block, stopReason: String(raw.stop_reason ?? ""), usage: { prompt_tokens: Number(iteration.input_tokens ?? 0), completion_tokens: Number(iteration.output_tokens ?? 0) } };
+    const invoke = async () => {
+        const ep = await ctx.fns.llm.resolveEndpoint({ model: opts.model });
+        const upstream = ep.provider === "hyper" ? String(ep.upstream ?? "") : ep.provider;
+        if (ep.api !== "anthropic" || !["anthropic", "claude-code", "anthropic-oauth"].includes(upstream)) throw new Error(`server compaction is not supported for ${ep.provider}`);
+        let apiKey = ep.apiKey;
+        if (ep.provider === "claude-code") apiKey = (await ctx.fns.llm.refreshClaudeCode({ account: ep.account })) ?? apiKey;
+        else if (ep.provider === "anthropic-oauth") apiKey = await ctx.fns.llm.getAnthropicOAuthToken({ account: ep.account });
+        if (!apiKey) throw new Error(`${ep.provider}: no credentials`);
+        const subscription = upstream === "claude-code" || upstream === "anthropic-oauth";
+        const headers: Record<string, string> = { "content-type": "application/json", "anthropic-version": "2023-06-01" };
+        if (subscription || ep.provider === "hyper") headers.authorization = `Bearer ${apiKey}`; else headers["x-api-key"] = apiKey;
+        headers["anthropic-beta"] = [...(subscription ? ["claude-code-20250219", "oauth-2025-04-20"] : []), "compact-2026-09-04"].join(",");
+        if (subscription) {
+            headers["user-agent"] = ctx.env.CLAUDE_CODE_USER_AGENT ?? `claude-cli/${await ctx.fns.llm.claudeCodeCliVersion({})} (external, sdk-cli)`;
+            headers["x-app"] = "cli";
+            headers["anthropic-dangerous-direct-browser-access"] = "true";
+        }
+        const system: any[] = subscription ? [{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." }] : [];
+        if (opts.instructions?.trim()) system.push({ type: "text", text: opts.instructions });
+        const messages = ctx.fns.llm.toAnthropicMessages({ messages: opts.messages.filter((m: any) => m?.role !== "system") });
+        // compaction.instructions REPLACES the server summarization prompt, so a focus
+        // is wrapped into a full handoff prompt rather than sent alone.
+        const focus = opts.focus?.trim();
+        const compaction: any = { type: "summarize" };
+        if (focus) compaction.instructions = ("Summarize this conversation into a handoff checkpoint so another model can seamlessly continue: goal, progress, decisions, constraints, exact identifiers/paths/errors, and next steps.\n\nFocus: " + focus).slice(0, 16384);
+        const body: any = { model: ep.modelId, max_tokens: opts.maxTokens ?? 32000, messages, compaction };
+        if (system.length) body.system = system;
+        const { response: res } = await ctx.fns.llm.fetchClaude({ provider: ep.provider, account: ep.account, url: ep.url,
+            init: { method: "POST", headers, body: JSON.stringify(body), signal: opts.signal } });
+        if (!res.ok) throw new Error(`anthropic compaction ${res.status}: ${(await res.text()).slice(0, 500)}`);
+        const raw: any = await res.json();
+        const block = (raw.content ?? []).find((b: any) => b?.type === "compaction");
+        const iteration = (raw.usage?.iterations ?? []).find((i: any) => i?.type === "compaction") ?? {};
+        // Output cut off, refusal or context overflow all return 200 with empty content.
+        if (!block || typeof block.content !== "string" || !block.signature) throw new Error(`anthropic compaction returned no block (stop_reason ${raw.stop_reason})`);
+        return { block, stopReason: String(raw.stop_reason ?? ""), usage: { prompt_tokens: Number(iteration.input_tokens ?? 0), completion_tokens: Number(iteration.output_tokens ?? 0) } };
+    };
+    const accounting = (ctx.fns as any).llmUsage;
+    return await (typeof accounting?.run === "function"
+        ? ctx.fns.llmUsage.run({ operation: "compact", requestedModel: opts.model, fn: invoke }) as Promise<Awaited<ReturnType<typeof invoke>>>
+        : invoke());
 }

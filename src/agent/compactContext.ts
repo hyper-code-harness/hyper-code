@@ -115,14 +115,25 @@ export default async function (
     try {
       // Provider-specific strategy from `$compaction_<provider>.ts`, else `$compaction_default.ts`.
       const compactor = ctx.fns.compaction.resolve({ model: child.model });
-      const result = await compactor.compact(ctx, session, {
+      // The hidden fork owns this model call; the requesting session may belong
+      // to the parent (or to a worker with no agent at all).
+      const compactCtx = Object.create(ctx) as Context;
+      compactCtx.session = ctx.fns.session.forAgent({ agent: child });
+      const instructions = await ctx.fns.agent.fullSystemPrompt({ agent: parent });
+      const invoke = () => compactor.compact(compactCtx, compactCtx.session, {
         model: child.model,
         sessionId: child.id,
-        instructions: await ctx.fns.agent.fullSystemPrompt({ agent: parent }),
+        instructions,
         focus: opts.instructions?.trim() || undefined,
         messages: effective.map(compactMessage),
         signal: opts.signal,
       });
+      // Native compaction fallback and overflow trimming remain attempts of one
+      // operation; the provider wrappers reuse this outer accounting scope.
+      const accounting = (compactCtx.fns as any).llmUsage;
+      const result: types.compaction.CompactionResult = await (typeof accounting?.run === "function"
+        ? compactCtx.fns.llmUsage.run({ operation: "compact", requestedModel: child.model, agentId: child.id, fn: invoke }) as Promise<types.compaction.CompactionResult>
+        : invoke());
       const summary = result.summary;
       const summaryMessage: any = result.message;
       const tokensAfter = estimate([summaryMessage, ...history.slice(tailStart)]);

@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { mkTestCtx } from "../_testCtx.entry";
+import relay from "./relay";
+
+async function mkTestCtx(): Promise<any> {
+    const registry: any = { node: { relay }, llm: {}, procs: { log: { info: () => {} } } };
+    const ctx: any = { state: { registry }, env: {} };
+    const proxy = (obj: any): any => new Proxy({}, { get: (_t, key) => typeof obj[key] === "function"
+        ? (opts: any) => obj[key](ctx, null, opts) : proxy(obj[key]) });
+    ctx.fns = proxy(registry);
+    return ctx;
+}
 
 describe("node.relay", () => {
     test("merges the client's anthropic-beta with the host's identity betas", async () => {
@@ -8,6 +17,7 @@ describe("node.relay", () => {
         reg.node.authorize = async () => ({ ok: true, client: { name: "c", providers: ["claude-code"] }, hops: 0 });
         reg.node.catalog = async () => [{ id: "claude-x", api: "anthropic", provider: "claude-code", account: "default" }];
         reg.node.upstream = async () => ({ url: "https://upstream.test/v1/messages", kind: "subscription", headers: { "content-type": "application/json", "anthropic-beta": "claude-code-20250219,oauth-2025-04-20" } });
+        reg.llm.fetchClaude = async (_c: any, _s: any, o: any) => ({ response: await fetch(o.url, o.init) });
         const realFetch = globalThis.fetch;
         let sent: Record<string, string> = {};
         globalThis.fetch = (async (_url: any, init: any) => { sent = init.headers; return new Response("{}", { status: 200 }); }) as any;

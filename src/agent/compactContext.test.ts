@@ -13,9 +13,15 @@ describe("agent.compactContext", () => {
     const ctx = await mkTestCtx();
     const agent = await seeded(ctx);
     const before = await ctx.fns.session.getMessages({ id: agent.id });
-    ctx.state.registry.llm.call = () => ({ text: "handoff summary", finishReason: "stop", usage: {}, raw: {} });
+    let summarizerSession: any;
+    ctx.state.registry.llm.call = (_ctx: any, session: any) => {
+      summarizerSession = session;
+      return { text: "handoff summary", finishReason: "stop", usage: {}, raw: {} };
+    };
     const result = await ctx.fns.agent.compactContext({ agent });
     expect(result.status).toBe("compacted");
+    expect(summarizerSession.agentId).toBe(agent.sleepContext.generations.at(-1).contextAgentId);
+    expect(summarizerSession.agent.parentId).toBe(agent.id);
     expect(await ctx.fns.session.getMessages({ id: agent.id })).toEqual(before);
     const request = await ctx.fns.agent.buildLlmRequest({ agent });
     const summaryAt = request.messages.findIndex((m: any) => String(m.content).endsWith("handoff summary"));

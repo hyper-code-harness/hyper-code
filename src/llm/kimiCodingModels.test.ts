@@ -67,6 +67,7 @@ test("timeout is bounded to five seconds", async () => {
 test("outer SWR retains other provider behaviour and avoids repeated discovery", async () => {
     const f = fixture(); let discoveries = 0;
     f.ctx.fns.llm.resolveEndpoint = async () => ({ apiKey: "key" });
+    f.ctx.fns.llm.claudePoolSelect = async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] });
     f.ctx.fns.llm.kimiCodingModels = async () => { discoveries++; return ["kimi-coding:k3.1-pro"]; };
     f.ctx.fns.settings = { getString: async () => null };
     // Subscription groups follow llm.listAccounts: one Kimi Coding default login.

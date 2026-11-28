@@ -3,9 +3,11 @@
 // ~/.codex/auth.json — refreshCodex() is called first to ensure freshness.
 // Same return shape as streamOpenAI / streamAnthropic so the dispatcher in
 // stream.ts can swap providers transparently.
-/** Performs the llm.streamCodex runtime operation. */
 /**
- * OpenAI Responses API streamer for the ChatGPT subscription via Codex backend.
+ * Stream an agent step through the Codex Responses API or a Hyper relay.
+ *
+ * Retries transient pre-stream failures, converts SSE into text/tool events and
+ * observes each physical send within the caller's logical accounting scope.
  * @param opts.agent Agent associated with the operation.
  * @param opts.signal Abort signal for cancelling the request.
  * @param opts.onEvent Callback invoked for each normalized stream event.
@@ -75,9 +77,14 @@ export default async function (
     let res: Response | null = null;
     let lastErr: any = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        if (opts.signal?.aborted) throw new Error("aborted");
+        if (opts.signal?.aborted) throw new DOMException("aborted", "AbortError");
         try {
-            res = await ctx.fns.llm.connectFetch({ url: ep.url, init: { method: "POST", headers, body: bodyJson, signal: opts.signal } });
+            const send = () => ctx.fns.llm.connectFetch({ url: ep.url, init: { method: "POST", headers, body: bodyJson, signal: opts.signal } });
+            const accounting = (ctx.fns as any).llmUsage;
+            const response: Response = await (typeof accounting?.fetch === "function"
+                ? ctx.fns.llmUsage.fetch({ provider: ep.provider, account: ep.account, model: ep.modelId, api: "responses", send })
+                : send());
+            res = response;
             if (res.ok) {
                 await ctx.fns.llm.accountAuthHealth({ action: "clear", provider: ep.provider, account: ep.account });
                 break;

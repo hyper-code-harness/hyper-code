@@ -1,6 +1,6 @@
 import { test, expect, describe, afterEach } from "bun:test";
 import stream from "./streamAnthropic";
-import fetchClaudeCode from "./fetchClaudeCode";
+import fetchClaude from "./fetchClaude";
 import parseSSE from "./parseSSE";
 import toAnthropicMessages from "./toAnthropicMessages";
 
@@ -24,11 +24,12 @@ function mkCtx(): Context {
             wireTools: () => [],
         },
         llm: {
+            fetchClaude: (opts: Parameters<typeof fetchClaude>[2]) => fetchClaude(ctx, null, opts),
+            claudePoolSelect: async () => ({ enabled: false, account: null, resetsAt: null, accounts: [] }),
             resolveEndpoint: () => ({ url: "http://mock/v1/messages", modelId: "claude-x", apiKey: "k", provider: "anthropic", api: "anthropic" }),
             parseSSE: (opts: any) => parseSSE(ctx, null, opts),
             resolveReasoningEffort: async () => ({ requested: "high", applied: "high", mode: "anthropic-adaptive", downgraded: false, reason: null }),
             connectFetch: (o: any) => fetch(o.url, o.init),
-            fetchClaudeCode: (o: any) => fetchClaudeCode(ctx, null, o),
             toAnthropicMessages: (opts: any) => toAnthropicMessages(ctx, null, opts),
         },
     };

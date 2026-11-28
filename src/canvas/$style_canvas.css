@@ -109,9 +109,22 @@ html [data-page="agent"][data-chat-collapsed][data-chat-open] > #chat-panel > he
 }
 .canvas-panel > .w-pane-header { padding-right: var(--w-s1); }
 .canvas-panel .w-tabs { overflow-x: auto; scrollbar-width: none; }
-/* Many tabs: each keeps room for its icon and a few letters, then the strip scrolls instead of squeezing labels to nothing. */
-.canvas-panel .w-tabs[data-variant="equal"] .w-tab { min-width: 5rem; max-width: 10rem; }
-.canvas-panel .w-tabs[data-variant="equal"] .w-tab[data-pinned] { min-width: 0; }
+/* Many tabs, as in Chrome: tabs shrink evenly down to a few letters, a pinned tab keeps its width and the open tab
+   keeps room for its name and close button. What still does not fit scrolls; canvas.js keeps the open tab in view
+   and the All tabs list (panelHtml) reaches every tab, so nothing is lost behind the hidden scrollbar. */
+.canvas-panel .w-tabs[data-variant="equal"] .w-tab { min-width: 2.5rem; max-width: 10rem; }
+.canvas-panel .w-tabs[data-variant="equal"] .w-tab:not([data-pinned]) { container-type: inline-size; }
+.canvas-panel .w-tabs[data-variant="equal"] .w-tab[data-active]:not([data-pinned]) { min-width: 6rem; }
+.canvas-panel .w-tabs[data-variant="equal"] .w-tab[data-pinned] { min-width: 2rem; }
+/* A tab too narrow for a name and a close button shows a few letters only; its close button is in its menu and in All tabs. */
+@container (max-width: 4.5rem) {
+  .canvas-panel .w-tab:not([data-active]) > .w-tab-close { display: none; }
+  .canvas-panel .w-tab:not([data-active]) > .w-tab-main { padding: 0 var(--w-s1); justify-content: center; }
+  .canvas-panel .w-tab:not([data-active]) .w-tab-label { text-overflow: clip; }
+}
+/* All tabs: the filter hides rows (canvas.js sets hidden); the list scrolls inside the popover. */
+[data-canvas-all-tabs] [hidden] { display: none !important; }
+[data-canvas-all-tabs] .w-input { margin-bottom: var(--w-s2); }
 /* Tabs are chrome, not content: small text, tight sides (room for the close button on the right). */
 .canvas-panel .w-tabs { font-size: var(--w-text-small); }
 .canvas-panel .w-tab-main { justify-content: flex-start; gap: var(--w-s1); padding: 0 var(--w-s4) 0 var(--w-s2); }

@@ -13,7 +13,9 @@
  * The answer is the tab plus `address` (its `/rpc/…` address when it has one), `reused` (the same thing was
  * already a tab), `fixed` (what the server corrected on the way) and `hint` (advice, nothing changed). An html page
  * whose only scripts draw Mermaid diagrams is drawn on the server instead (mermaid.render) and saved as a static
- * page — `fixed` says so.
+ * page — `fixed` says so. One thing is one tab: a file already open in another Files mode (preview, code, edit) is
+ * switched to, and a scripted page or a drawing shown again under the title of an open tab replaces that tab's
+ * content — `fixed` says so too.
  * @param opts.kind Canvas kind from the catalog, e.g. file; omit to let args decide.
  * @param opts.args Arguments of that kind, e.g. { path } for file.
  * @param opts.title Tab title; defaults to the kind's suggestion.
@@ -64,7 +66,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
         const item = await ctx.fns.canvas.show({ agentId, kind: "view", title, args: { fn: "memory.view", params: { key: page.key } } });
         // Same address, new content: a new page version in the tab state re-renders the frame.
         const updated = page.version > 1 ? await ctx.fns.canvas.setState({ agentId, itemId: item.id, state: { page: page.version } }) : item;
-        return { ...updated, address: item.address, reused: item.reused, ...(fixed ? { fixed } : {}) };
+        return { ...updated, address: item.address, reused: item.reused, ...(fixed ? { fixed } : {}), ...(item.hint ? { hint: item.hint } : {}) };
     }
     // A file is an address too: the file kind pins the path (absolute, in the target agent's workspace, with
     // its host) and the tab is a view of files.page — address bar, history, open in a browser tab.
@@ -75,7 +77,7 @@ export default async function (ctx: Context, session: Session | null, opts: {
         const a = pinned.args;
         const params = { path: a.path, ...(a.host && a.host !== "local" ? { host: a.host } : {}), ...(a.tab ? { tab: a.tab } : {}) };
         const shown = await ctx.fns.canvas.show({ agentId, kind: "view", title: opts.title ?? pinned.title, args: { fn: "files.page", params } });
-        return hint ? { ...shown, hint } : shown;
+        return hint ? { ...shown, hint: [hint, shown.hint].filter(Boolean).join("; ") } : shown;
     }
     const kind = ((ctx.state as any).canvas?.kinds ?? {})[opts.kind] as types.canvas.Registered | undefined;
     if (!kind) throw new Error(`canvas.show: unknown kind "${opts.kind}" — loaded: ${(await ctx.fns.canvas.kinds({})).map(k => k.name).join(", ") || "none"}`);
@@ -86,11 +88,26 @@ export default async function (ctx: Context, session: Session | null, opts: {
     const payload = JSON.stringify(prepared.args ?? {});
 
     // Lookup and insert under the agent's canvas lock: two identical shows make one tab.
-    const { id, reused } = (await ctx.fns.canvas.locked({
+    // One thing, one tab. The same file in another Files mode (preview, code, edit) is the same file; a content
+    // kind (a scripted page, a drawing) has no address, so a given title names it and a new version replaces the old.
+    const fileParams = opts.kind === "view" && prepared.args?.fn === "files.page" ? prepared.args.params ?? {} : null;
+    const named = !!kind.content && (opts.title != null || (opts.kind === "html" && /<title>[^<]+<\/title>/i.test(String(opts.args?.html ?? ""))));
+    const { id, reused, putAway, merged } = (await ctx.fns.canvas.locked({
         agentId,
         fn: async () => {
-            const same = (await ctx.fns.procs.db.select({ sql: "SELECT id, closed_at FROM canvas_items WHERE agent_id = ? AND kind = ? AND payload = ?::jsonb ORDER BY closed_at IS NOT NULL, closed_at DESC, id LIMIT 1", params: [agentId, opts.kind, payload] })) as any[];
+            let same = (await ctx.fns.procs.db.select({ sql: "SELECT id, closed_at FROM canvas_items WHERE agent_id = ? AND kind = ? AND payload = ?::jsonb ORDER BY closed_at IS NOT NULL, closed_at DESC, id LIMIT 1", params: [agentId, opts.kind, payload] })) as any[];
             const now = Date.now();
+            let merged: "file" | "title" | null = null;
+            if (!same[0] && (fileParams || named)) {
+                const near = (fileParams
+                    ? await ctx.fns.procs.db.select({ sql: "SELECT id, closed_at FROM canvas_items WHERE agent_id = ? AND kind = 'view' AND closed_at IS NULL AND payload->>'fn' = 'files.page' AND payload->'params'->>'path' = ? AND COALESCE(payload->'params'->>'host', '') = ? ORDER BY id LIMIT 1", params: [agentId, String(fileParams.path ?? ""), String(fileParams.host ?? "")] })
+                    : await ctx.fns.procs.db.select({ sql: "SELECT id, closed_at FROM canvas_items WHERE agent_id = ? AND kind = ? AND closed_at IS NULL AND title = ? ORDER BY id DESC LIMIT 1", params: [agentId, opts.kind, title] })) as any[];
+                if (near[0]) {
+                    await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET payload = ?::jsonb, updated_at = ? WHERE id = ?", params: [payload, now, Number(near[0].id)] });
+                    same = near;
+                    merged = fileParams ? "file" : "title";
+                }
+            }
             let itemId: number;
             const reused = !!same[0];
             if (same[0]) {
@@ -105,11 +122,14 @@ export default async function (ctx: Context, session: Session | null, opts: {
             }
             await ctx.fns.procs.db.run({ sql: "UPDATE canvas_state SET open = true, active_item_id = ?, updated_at = ? WHERE agent_id = ?", params: [itemId, now, agentId] });
             await ctx.fns.procs.db.run({ sql: "UPDATE canvas_items SET shown_at = ? WHERE id = ?", params: [now, itemId] });
-            // A long strip puts away the tabs nobody looked at for longest (pinned ones never).
-            await ctx.fns.canvas.tidy({ agentId, keep: itemId });
-            return { id: itemId, reused };
+            // With the canvas.maxTabs setting on (off by default), a long strip puts away the tabs nobody looked at for longest.
+            const tidied = await ctx.fns.canvas.tidy({ agentId, keep: itemId });
+            return { id: itemId, reused, putAway: tidied.closed.length, merged };
         },
-    })) as { id: number; reused: boolean };
+    })) as { id: number; reused: boolean; putAway: number; merged: "file" | "title" | null };
+    if (merged) fixed = [fixed, merged === "file" ? `this file was already tab ${id} — switched to it instead of opening a second tab` : `tab ${id} with this title was updated in place instead of opening a second tab`].filter(Boolean).join("; ");
+    // Never silent: when the canvas.maxTabs setting put tabs away, the caller is told.
+    if (putAway) hint = [hint, `${putAway} tab${putAway === 1 ? " was" : "s were"} put away into Recently closed by the canvas.maxTabs setting (canvas.reopen brings one back; a pinned tab is never put away)`].filter(Boolean).join("; ");
     const item = (await ctx.fns.canvas.list({ agentId })).find(i => i.id === id)!;
     const address = opts.kind === "view" && typeof item.args.url === "string" ? item.args.url : opts.kind === "url" ? String(item.args.url ?? "") : undefined;
     // The agent showing something on its own canvas leaves a chip in its chat (a canvas_shown event): what it

@@ -14,6 +14,7 @@ const MAX = 200_000;
 export default {
     icon: "pencil-simple-line",
     live: (item: types.canvas.Item) => !!item.args.tsx,
+    content: true,
     async prepare(ctx: Context, opts: { agentId: string; args: Record<string, any> }) {
         const svg = typeof opts.args.svg === "string" ? opts.args.svg.trim() : "";
         const tsx = typeof opts.args.tsx === "string" ? opts.args.tsx.trim() : "";

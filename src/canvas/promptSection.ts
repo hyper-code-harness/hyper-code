@@ -14,7 +14,7 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
     return [
         "## Canvas",
         "",
-        "A surface left of the chat for what you and the person look at together. Every tab is an **address**: it can be opened again, linked from the chat and opened in a browser tab. Open one with `await ctx.fns.canvas.show({ args, title? })` — the args decide the kind (`kind` is optional); showing the same thing again switches to its tab. The answer is the tab plus `address`, `reused`, `fixed` (what the server corrected) and `hint` (advice) — read the last two. `canvas.list({})`, `canvas.close({ itemId })`, `canvas.reopen({ itemId })` and `canvas.setState({ itemId, state })` manage tabs; a `Canvas` block tells you what is open. To open, show or look at something, use the canvas — not `ui.openFile`, which navigates the page away from the chat.",
+        "A surface left of the chat for what you and the person look at together. Every tab is an **address**: it can be opened again, linked from the chat and opened in a browser tab. Open one with `await ctx.fns.canvas.show({ args, title? })` — the args decide the kind (`kind` is optional); showing the same thing again switches to its tab. The answer is the tab plus `address`, `reused`, `fixed` (what the server corrected) and `hint` (advice) — read the last two. `canvas.list({})`, `canvas.close({ itemId })`, `canvas.reopen({ itemId })` and `canvas.setState({ itemId, state })` manage tabs; `canvas.refresh({ itemId? })` redraws a tab after its data changed; a `Canvas` block tells you what is open. To open, show or look at something, use the canvas — not `ui.openFile`, which navigates the page away from the chat.",
         "",
         "Three kinds of tab. Take the first that fits:",
         "1. **Ours → a Hyper address `/rpc/<fn>?<json>`.**",
@@ -24,6 +24,8 @@ export default async function (ctx: Context, _session: Session | null, _opts: {}
         "   - Only a page that must run code in the browser (an animation, a board, `hyper.setState` / `hyper.ping`) keeps `<script>`: it becomes a sandboxed frame without an address. Rare.",
         `2. **A web site → \`{ url: "https://…" }\`**, framed in the tab. Sites that forbid framing show a link unless the person's Chrome has the Hyper canvas frames extension.`,
         ...(has("browser.live") ? ["3. **A live session → `{ kind: \"browser.live\", args: { url } }`** — the Hyper machine's own Chrome, which you can drive too. Only for a login, a captcha or automation; to just look at a site use 1 or 2."] : []),
+        "",
+        "**One thing, one tab.** Before opening, read the `Canvas` block: what is already a tab is shown with the same args (`reused: true`) or moved with `canvas.navigate({ itemId, url })`; a new version of a page or drawing keeps the **same `title`** and replaces the old one. No second tab for the same thing.",
         "",
         "Bad → good: `<script src=…mermaid>` in html → `mermaid.render` (the server does it for you and says so in `fixed`) · a report written to `.hyper/tmp` and opened as a file → `{ html }`, it lands in memory · a new tab per edit → the same `title` · a file's text pasted into html → `{ path }` · `browser.live` to read a site → `{ url }`.",
         "",

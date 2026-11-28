@@ -22,7 +22,7 @@ export default async function (
     const kinds = ((ctx.state as any).canvas?.kinds ?? {}) as Record<string, types.canvas.Registered>;
     const iconOf = (item: types.canvas.Item) => kinds[item.kind]?.icon ?? "square";
     const active = items.find(i => i.active) ?? null;
-    const closed = await ctx.fns.canvas.list({ agentId: opts.agentId, closed: true, limit: 15 }).catch(() => [] as types.canvas.Item[]);
+    const closed = await ctx.fns.canvas.list({ agentId: opts.agentId, closed: true, limit: 50 }).catch(() => [] as types.canvas.Item[]);
     const now = Date.now();
     const ago = (ms: number) => {
         const s = Math.max(0, Math.round((now - ms) / 1000));
@@ -56,21 +56,35 @@ export default async function (
         })),
     });
 
-    // Recently closed: closing only marks a tab, so it can come back with its state (kept 30 days).
-    const historyId = `canvas-history-${String(opts.agentId).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-    const history = closed.length ? w.popover({
+    // All tabs, as Chrome's tab search: one list of every open tab (in the strip's order, pinned first) and the
+    // recently closed ones, with a filter once the list is long. It is the way to a tab the crowded strip cannot
+    // show by name. Closing only marks a tab, so a closed one comes back with its state (kept 30 days).
+    const historyId = `canvas-all-tabs-${String(opts.agentId).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+    const openRows = items.map(item => w.listRow({
+        label: item.title,
+        icon: item.pinned ? "push-pin" : iconOf(item),
+        current: item.active,
+        action: { action: "goto-canvas-tab" },
+        attrs: { "data-canvas-goto": item.id, "aria-label": `${item.title}${item.pinned ? " — pinned" : ""} — opened ${stamp(item.createdAt)}` },
+        end: item.pinned ? undefined : w.iconButton({ icon: "x", label: `Close ${item.title}`, size: 24, attrs: { "data-canvas-close-item": item.id } }),
+    })).join("");
+    const closedRows = closed.map(item => w.listRow({
+        label: item.title,
+        icon: iconOf(item),
+        hint: ago(item.closedAt ?? now),
+        action: { action: "reopen-canvas-tab" },
+        attrs: { "data-canvas-reopen": item.id, "aria-label": `${item.title} — opened ${stamp(item.createdAt)}, closed ${stamp(item.closedAt ?? now)}` },
+    })).join("");
+    const history = items.length > 1 || closed.length ? w.popover({
         id: historyId,
-        label: "Recently closed tabs",
+        label: "All tabs",
         placement: "below-end",
-        width: 288,
-        trigger: w.iconButton({ icon: "clock-counter-clockwise", label: "Recently closed tabs", action: { popover: historyId }, size: 28 }),
-        body: w.listSection({ title: "Recently closed", rows: closed.map(item => w.listRow({
-            label: item.title,
-            icon: iconOf(item),
-            hint: ago(item.closedAt ?? now),
-            action: { action: "reopen-canvas-tab" },
-            attrs: { "data-canvas-reopen": item.id, "aria-label": `${item.title} — opened ${stamp(item.createdAt)}, closed ${stamp(item.closedAt ?? now)}` },
-        })).join("") }),
+        width: 320,
+        attrs: { "data-canvas-all-tabs": true },
+        trigger: w.iconButton({ icon: "caret-down", label: `All tabs — ${items.length} open${closed.length ? `, ${closed.length} recently closed` : ""}`, action: { popover: historyId }, size: 28, marks: { action: "all-canvas-tabs" } }),
+        body: (items.length + closed.length > 8 ? w.input({ name: "canvasTabFilter", type: "search", placeholder: "Filter tabs…", label: "Filter tabs", autocomplete: "off" }) : "")
+            + (items.length ? w.listSection({ title: "Open", count: items.length, rows: openRows }) : "")
+            + (closed.length ? w.listSection({ title: "Recently closed", count: closed.length, rows: closedRows }) : ""),
     }) : "";
 
     // Canvas controls live with the canvas: fold the chat into a circle over it (canvas on the whole page), reload, close.

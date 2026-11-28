@@ -15,6 +15,10 @@ export type Kind = {
      *  being what `prepare` returns as args (and its title). The tab then has an address, ◀ ▶ history and opens in
      *  a browser tab; `render` only draws tabs of this kind opened before it became an alias. */
     view?: string;
+    /** The args are the content itself (a page, a drawing), not an address. Such a tab has no address to tell two
+     *  versions apart, so its title is its identity: canvas.show of this kind with the title of an open tab
+     *  replaces that tab's content instead of opening a second tab. */
+    content?: boolean;
     /** Phosphor icon name for the tab. */
     icon?: string;
     /** The tab shows its source as it is now (a file, a site, data read on every display) rather than a fixed

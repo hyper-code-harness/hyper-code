@@ -74,5 +74,5 @@ test("canvas.search ranks pages from the function index, plugins' too; the promp
     expect(prompt).toContain("canvas.search({ query })");
     expect(prompt).toMatch(/There are \d+ \(plugins' too\)/);
     expect(prompt).not.toContain("`files.page`");
-    expect(prompt.length).toBeLessThan(3200);
+    expect(prompt.length).toBeLessThan(3500);   // 3200 + the one-thing-one-tab rule and canvas.refresh
 });

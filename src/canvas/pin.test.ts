@@ -55,7 +55,8 @@ test("the browser route pins, moves and runs the tab menu; pinned tabs are icons
     expect(res.status).toBe(200);
     let panel = String((await res.json()).panel);
     expect(await titles()).toEqual(["*one", "two"]);
-    const pinnedTab = panel.match(/<span class="w-tab"[^>]*data-pinned[^>]*>.*?<\/span><\/span>|<span class="w-tab"[^>]*data-pinned[^>]*>(?:(?!<span class="w-tab").)*/s)?.[0] ?? "";
+    // The pinned tab's own element: up to the next tab or the end of the strip (the All tabs list after it has close buttons of its own).
+    const pinnedTab = panel.match(/<span class="w-tab"[^>]*data-pinned[^>]*>(?:(?!<span class="w-tab"|<\/nav>).)*/s)?.[0] ?? "";
     expect(pinnedTab).toContain(`data-canvas-tab="${one}"`);
     expect(pinnedTab).toContain('<span class="w-tab-label" data-short>On</span>');   // two letters, not the title
     expect(pinnedTab).toContain('aria-label="one"');                  // the icon-only tab keeps its name
@@ -108,10 +109,83 @@ test("a long strip puts away the least recently shown unpinned tabs, never pinne
         expect(await titles()).toEqual(["*one", "five", "four", "two"]);      // three was shown least recently
         const closed = (await ctx.fns.canvas.list({ agentId: a.id, closed: true })).map((i: any) => i.title);
         expect(closed).toContain("three");                                     // put away, not deleted
+        const shown = await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>extra</p>" }, title: "extra" });
+        expect(shown.hint).toMatch(/1 tab was put away .*canvas\.maxTabs/);       // never silent
+        expect(await titles()).toEqual(["*one", "extra", "five", "two"]);
         await ctx.fns.settings.set({ module: "canvas", scopeType: "global", key: "maxTabs", value: 0 });
         await open("six"); await open("seven");
         expect((await titles()).length).toBe(6);                                // 0 turns it off
     } finally {
-        await ctx.fns.settings.set({ module: "canvas", scopeType: "global", key: "maxTabs", value: 12 });
+        await ctx.fns.settings.set({ module: "canvas", scopeType: "global", key: "maxTabs", value: 0 });
     }
+});
+
+test("by default nothing is put away, and the All tabs list reaches every open and recently closed tab", async () => {
+    const { ctx, a, open } = await setup();
+    const ids: number[] = [];
+    for (let i = 1; i <= 15; i++) ids.push(await open(`tab ${i}`));
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).length).toBe(15);   // no limit: nothing closed behind the person's back
+    expect((await ctx.fns.canvas.show({ agentId: a.id, kind: "html", args: { html: "<p>tab 15</p>" }, title: "tab 15" })).hint).toBeUndefined();
+    await ctx.fns.canvas.pin({ agentId: a.id, itemId: ids[0]! });
+    await ctx.fns.canvas.close({ agentId: a.id, itemId: ids[1]! });
+    const panel: string = await ctx.fns.canvas.panelHtml({ agentId: a.id });
+    const list = panel.slice(panel.indexOf("data-canvas-all-tabs"));
+    expect(list).toContain('name="canvasTabFilter"');
+    for (const id of ids.filter(id => id !== ids[1])) expect(list).toContain(`data-canvas-goto="${id}"`);
+    expect(list).toContain(`data-canvas-reopen="${ids[1]}"`);
+    expect(list).not.toContain(`data-canvas-goto="${ids[1]}"`);
+    // A pinned tab has no close button in the list either; the others do.
+    expect(list).not.toContain(`data-canvas-close-item="${ids[0]}"`);
+    expect(list).toContain(`data-canvas-close-item="${ids[2]}"`);
+    // Two tabs or fewer and nothing closed: one tab needs no list.
+    const b = await setup();
+    await b.open("only");
+    expect(await b.ctx.fns.canvas.panelHtml({ agentId: b.a.id })).not.toContain("data-canvas-all-tabs");
+});
+
+test("pinning changes the panel fingerprint even when the order stays; canvas.refresh makes the body draw again", async () => {
+    const { ctx, a, open } = await setup();
+    await open("one"); const two = await open("two");                        // strip: two, one — two is first and open
+    const before = await ctx.fns.canvas.revision({ agentId: a.id });
+    await ctx.fns.canvas.pin({ agentId: a.id, itemId: two });                 // first unpinned → first pinned: same order
+    const pinned = await ctx.fns.canvas.revision({ agentId: a.id });
+    expect(pinned.panel).not.toBe(before.panel);                              // pages redraw the strip
+    expect(pinned.body).toBe(before.body);                                    // …and keep the live body
+    const fresh = await ctx.fns.canvas.refresh({ agentId: a.id });
+    expect(fresh.id).toBe(two);                                               // default: the open tab
+    const after = await ctx.fns.canvas.revision({ agentId: a.id });
+    expect(after.body).not.toBe(pinned.body);
+    expect(after.panel).not.toBe(pinned.panel);
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).map((i: any) => (i.pinned ? "*" : "") + i.title)).toEqual(["*two", "one"]);   // nothing else moved
+    await expect(ctx.fns.canvas.refresh({ agentId: a.id, itemId: 999999 })).rejects.toThrow(/no open tab/);
+});
+
+test("one thing, one tab: a file in another mode and a scripted page under the same title reuse their tab", async () => {
+    const { ctx, a } = await setup();
+    const file = await ctx.fns.canvas.show({ agentId: a.id, args: { path: "package.json" } });
+    const code = await ctx.fns.canvas.show({ agentId: a.id, args: { path: "package.json", tab: "code" } });
+    expect(code.id).toBe(file.id);                                            // the same file, not a second tab
+    expect(code.reused).toBe(true);
+    expect(code.fixed).toMatch(/already tab/);
+    expect(code.args.params.tab).toBe("code");                                // moved to the asked mode
+    expect((await ctx.fns.canvas.show({ agentId: a.id, args: { path: "README.md" } })).id).not.toBe(file.id);   // another file is another tab
+
+    const page = (n: number) => `<h1>v${n}</h1><script>window.v = ${n}</script>`;
+    const v1 = await ctx.fns.canvas.show({ agentId: a.id, title: "Board", args: { html: page(1) } });
+    const v2 = await ctx.fns.canvas.show({ agentId: a.id, title: "Board", args: { html: page(2) } });
+    expect(v1.kind).toBe("html");
+    expect(v2.id).toBe(v1.id);                                                // a new version replaces the old one
+    expect(v2.fixed).toMatch(/updated in place/);
+    expect(v2.args.html).toContain("v2");
+    const other = await ctx.fns.canvas.show({ agentId: a.id, title: "Another board", args: { html: page(3) } });
+    expect(other.id).not.toBe(v1.id);                                         // another title is another tab
+    // Without a title nothing names the page: two different pages stay two tabs.
+    const anon1 = await ctx.fns.canvas.show({ agentId: a.id, args: { html: page(4) } });
+    const anon2 = await ctx.fns.canvas.show({ agentId: a.id, args: { html: page(5) } });
+    expect(anon2.id).not.toBe(anon1.id);
+    expect((await ctx.fns.canvas.list({ agentId: a.id })).length).toBe(6);
+
+    const prompt: string = await ctx.fns.canvas.promptSection({});
+    expect(prompt).toContain("One thing, one tab");
+    expect(prompt).toContain("canvas.refresh");
 });

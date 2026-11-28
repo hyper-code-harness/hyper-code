@@ -27,10 +27,42 @@ tab will land and posts `{ move: { itemId, before } }` to `POST /canvas/:id`; `c
 `before` (or at the end) and derives the pinned state from the place: dropped among the pinned tabs it is pinned,
 dragged out of them it is unpinned. The pinned group always stays together at the left.
 
-## Tidying a long strip
+## Many tabs
+
+Nothing closes a tab for the person. As in Chrome, a crowded strip shrinks its tabs evenly down to a few letters
+(`canvas.css`: a container query drops the close button and the padding of a narrow tab), a pinned tab keeps its
+width and the open tab keeps room for its name and close button. What still does not fit scrolls, and `canvas.js`
+(`showActiveTab`) brings the open tab into view after every panel update.
+
+The **All tabs** button (caret, right of the strip; `panelHtml`) is the way to any tab: a popover with every open
+tab in the strip's order — pinned first, the open one marked, a close button on unpinned rows — and the recently
+closed ones (50 newest), with a filter field once there are more than eight rows. `data-canvas-goto` switches,
+`data-canvas-reopen` brings a closed tab back; Enter in the filter opens the first match.
+
+## Tidying a long strip (off by default)
 
 `shown_at` records when a tab was last the shown one (canvas.show, canvas.update activeItemId, canvas.reopen).
-After `canvas.show` opens a tab, `canvas.tidy` puts away the unpinned tabs shown least recently once there are
-more than the `canvas.maxTabs` setting (default 12, `0` turns it off). Put away = closed: the tab is listed under
+With the `canvas.maxTabs` setting above 0 (default `0` = off), `canvas.tidy` runs after `canvas.show` opens a tab
+and puts away the unpinned tabs shown least recently beyond that many. Put away = closed: the tab is listed under
 Recently closed with its args and state for 30 days and `canvas.reopen` brings it back. The active tab and the
-tab just opened stay.
+tab just opened stay. `canvas.show` says how many were put away in `hint` — it is never silent.
+
+## One thing, one tab
+
+`canvas.show` looks for a tab that already shows the thing before it adds one:
+
+- the same kind and args → that tab (open or recently closed) — `reused: true`;
+- a file already open in another Files mode (`tab`: preview, code, edit) → that tab, moved to the asked mode;
+- a content kind (`content: true` in its `$canvas_*.ts` — `html` with scripts, `svg.drawing`) shown under the title
+  of an open tab of that kind → that tab, its content replaced. A static html page already works this way through
+  memory (`pages/<slug of the title>.html`).
+
+The last two say so in `fixed`. The prompt (`canvas.promptSection`) tells agents the rule: read the Canvas block,
+reuse or navigate the tab, a new version goes out under the same title. Two tabs can still end on one address when
+a person navigates one of them there — as in a browser.
+
+## Drawing a tab again
+
+`canvas.refresh({ itemId? })` (default: the open tab) bumps `canvas_items.version`; the version is part of the
+body fingerprint (`canvas.revision`), so every page of the chat draws the tab again, hidden ones when they catch
+up. Use it after changing the data behind a tab that is not a `@live` view. The ↻ button does the same for one page.

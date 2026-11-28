@@ -145,6 +145,15 @@
     // Tabs changed (opened, switched, closed, retitled, state — here, in another page, or by the agent):
     // fetch the panel again. Only the latest request may swap, and when the active body is unchanged the
     // live one is kept (the framed file keeps its scroll and unsaved edits) and only the strip changes.
+    // A crowded strip scrolls (its scrollbar is hidden): the open tab is always brought into view, so opening a
+    // tab from the All tabs list or from the agent never leaves it out of sight.
+    const showActiveTab = root => {
+        const tab = root?.querySelector('[data-canvas-header] .w-tab[data-active]'), strip = tab?.closest('.w-tabs');
+        if (!tab || !strip || strip.scrollWidth <= strip.clientWidth) return;
+        const s = strip.getBoundingClientRect(), t = tab.getBoundingClientRect();
+        if (t.left < s.left) strip.scrollLeft -= s.left - t.left;
+        else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
+    };
     let refreshing = 0;
     // `given` is a panel the server already sent (the answer of a tab action), so no second request is made.
     const refreshPanel = async (root, force = false, given = null) => {
@@ -168,6 +177,7 @@
             panel.replaceWith(next);
             runBodyScripts(next);
             window.htmx?.process?.(next);
+            showActiveTab(root);
             // A view tab may bring a live region (a `@live` view): the event stream must watch its topic.
             document.dispatchEvent(new CustomEvent('hyper:regions'));
             return;
@@ -176,7 +186,7 @@
         // body never moves — the framed file keeps scroll and edits, an html page keeps running.
         panel.setAttribute('data-canvas-rev', next.getAttribute('data-canvas-rev') || '');
         const oldHeader = panel.querySelector(':scope > header'), newHeader = next.querySelector(':scope > header');
-        if (oldHeader && newHeader) { oldHeader.replaceWith(newHeader); window.htmx?.process?.(newHeader); }
+        if (oldHeader && newHeader) { oldHeader.replaceWith(newHeader); window.htmx?.process?.(newHeader); showActiveTab(root); }
         // A live-state page (html tab) gets the new state posted in instead of a reload.
         const nextState = newBody.getAttribute('data-canvas-state');
         if (nextState !== null && nextState !== oldBody.getAttribute('data-canvas-state')) {
@@ -411,6 +421,14 @@
             if (form) tabAction(root, { navigate: { itemId: Number(form.getAttribute('data-canvas-navigate')), history: step.getAttribute('data-canvas-step') } });
             return;
         }
+        // A row of the All tabs list: switch to that open tab.
+        const goto = event.target.closest?.('[data-canvas-goto]');
+        if (goto && root.contains(goto)) {
+            event.preventDefault();
+            goto.closest('[popover]')?.hidePopover?.();
+            if (!goto.hasAttribute('aria-current')) tabAction(root, { activeItemId: Number(goto.getAttribute('data-canvas-goto')) });
+            return;
+        }
         const reopen = event.target.closest?.('[data-canvas-reopen]');
         if (reopen && root.contains(reopen)) {
             event.preventDefault();
@@ -643,7 +661,39 @@
         tabAction(root, { navigate: { itemId: Number(form.getAttribute('data-canvas-navigate')), url } });
     });
 
-    const init = () => { const root = page(); if (root) paintButtons(root); syncFold(); };
+    // The All tabs list: its filter hides the rows (and the sections) that do not match; opening the list clears
+    // the filter and puts the caret in it; Enter opens the first row left.
+    const filterTabs = list => {
+        const q = (list.querySelector('input[name="canvasTabFilter"]')?.value || '').trim().toLowerCase();
+        list.querySelectorAll('.w-section').forEach(section => {
+            let shown = 0;
+            section.querySelectorAll('.w-row').forEach(row => {
+                const hit = !q || (row.getAttribute('title') || row.textContent || '').toLowerCase().includes(q);
+                (row.closest('.w-row-wrap') || row).hidden = !hit;
+                if (hit) shown++;
+            });
+            section.hidden = !shown;
+        });
+    };
+    document.addEventListener('input', event => {
+        const list = event.target.closest?.('[data-canvas-all-tabs]');
+        if (list && event.target.name === 'canvasTabFilter') filterTabs(list);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.target.name !== 'canvasTabFilter') return;
+        const list = event.target.closest('[data-canvas-all-tabs]');
+        const first = [...(list?.querySelectorAll('.w-row') ?? [])].find(row => !(row.closest('.w-row-wrap') || row).hidden && !row.closest('.w-section')?.hidden);
+        if (first) { event.preventDefault(); first.click(); }
+    });
+    document.addEventListener('toggle', event => {
+        const list = event.target;
+        if (!(list instanceof Element) || !list.matches('[data-canvas-all-tabs]') || event.newState !== 'open') return;
+        const input = list.querySelector('input[name="canvasTabFilter"]');
+        if (input) { input.value = ''; filterTabs(list); input.focus(); }
+        list.querySelector('.w-row[aria-current]')?.scrollIntoView({ block: 'nearest' });
+    }, true);
+
+    const init = () => { const root = page(); if (root) { paintButtons(root); showActiveTab(root); } syncFold(); };
     document.addEventListener('htmx:after:swap', init);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

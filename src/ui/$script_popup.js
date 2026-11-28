@@ -61,11 +61,18 @@
     // Server fragments can ask to open the permanent host without shipping
     // scripts or creating/removing overlays.
     document.addEventListener('htmx:after:swap', event => {
-        const body = event.detail?.ctx?.target;
+        // HX-Retarget leaves ctx.target as a selector string; resolve it so a server can retarget into the popup.
+        let body = event.detail?.ctx?.target;
+        if (typeof body === 'string') body = document.querySelector(body);
         if (body?.id !== 'app-popup-body') return;
         const content = body.querySelector('[data-popup-content], [data-secure-input]');
         if (content) {
             window.hyperPopup.open(content.dataset.popupTitle || 'Details', content.dataset.popupKind || '');
+            // Optional rich header: <template data-popup-head> inside the content replaces the plain title text
+            // (server HTML, already escaped; e.g. a face + name + task title). Plain data-popup-title stays the fallback.
+            const head = content.querySelector('template[data-popup-head]');
+            const heading = document.getElementById('app-popup-title');
+            if (head && heading) heading.replaceChildren(head.content.cloneNode(true));
             content.querySelector('[autofocus], input, textarea, select')?.focus();
             return;
         }

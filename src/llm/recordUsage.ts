@@ -126,13 +126,8 @@ export default async function (
         Object.assign(windows, previous.windows);
         source = previous.source;
     }
-    const warnedAt = keepWarning(previous, windows, now);
-    const worst = Math.max(windows.primary?.usedPercent ?? 0, windows.secondary?.usedPercent ?? 0);
-    // One warning per window, per credential — not per request. The threshold
-    // deliberately sits well before the wall: crossing it is the last moment at
-    // which switching model is a choice rather than a reaction.
-    const alertAt = Number(await ctx.fns.settings.getNumber({ module: "llm", scopeType: "global", key: "usageAlertPercent", fallback: 75 }));
-    const shouldWarn = !opts.spent && worst >= alertAt && !warnedAt;
+    // Ordinary quota pressure is passive information in the rail, not a toast.
+    // Exhaustion is still handled separately by the agent parking/error path.
     const snapshot: types.llm.UsageSnapshot = {
         provider,
         account,
@@ -141,7 +136,7 @@ export default async function (
         resetCredits: opts.resetCredits === undefined ? (previous?.resetCredits ?? null) : opts.resetCredits,
         updatedAt: now,
         source,
-        warnedAt: shouldWarn ? now : warnedAt,
+        warnedAt: null,
     };
 
     await ctx.fns.procs.db.run({
@@ -169,16 +164,6 @@ export default async function (
             params: [JSON.stringify(opts.resetCredits), key, opts.resetCredits?.checkedAt ?? now],
         });
     }
-    if (shouldWarn) {
-        const resetsAt = windows.primary?.resetsAt ?? windows.secondary?.resetsAt ?? null;
-        await ctx.fns.ui.notify({
-            level: "warn",
-            message: `${provider}${account === "default" ? "" : `/${account}`}: ${Math.round(worst)}% of quota used`,
-            body: resetsAt
-                ? `Resets at ${new Date(resetsAt).toLocaleString()}. Once the quota is exhausted, agents will park until then — you can switch models in advance.`
-                : undefined,
-        }).catch(() => undefined);
-    }
     // The quota ring is a live region on this topic: one refresh signal is all
     // it needs to repaint, and it carries no payload.
     try { ctx.fns.procs.events.refresh({ topic: "llm-usage", reason: "usage recorded" }); } catch {}
@@ -189,18 +174,6 @@ async function read(ctx: Context, key: string): Promise<types.llm.UsageSnapshot 
     const row = ((await ctx.fns.procs.db.select({ sql: "SELECT value FROM kv WHERE key = ?", params: [key] })) as any[])[0];
     if (!row) return null;
     try { return JSON.parse(String(row.value)); } catch { return null; }
-}
-
-// A threshold fires once per window: carrying the mark forward until the window
-// resets is what keeps the warning meaningful instead of constant. The reset to
-// compare against is the one recorded WITH the warning — the incoming snapshot
-// already describes the next window and would keep the old mark alive forever.
-function keepWarning(previous: types.llm.UsageSnapshot | null, _windows: types.llm.UsageSnapshot["windows"], now: number): number | null {
-    const at = previous?.warnedAt ?? null;
-    if (!at) return null;
-    const resets = Math.max(previous?.windows?.primary?.resetsAt ?? 0, previous?.windows?.secondary?.resetsAt ?? 0);
-    if (resets && resets < now) return null;
-    return at;
 }
 
 function headerReader(headers: Headers | Record<string, string> | null | undefined) {

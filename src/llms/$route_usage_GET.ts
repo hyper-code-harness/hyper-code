@@ -1,4 +1,4 @@
-/** Handles the llms usage GET HTTP route — the live subscription quota rings. */
+/** Render the live Dock quota indicator without replacing its open account-details popover. */
 export default async function (ctx: Context, _session: Session | null, _opts: {
     /** Incoming HTTP request. */
     req?: Request;
@@ -22,7 +22,9 @@ export default async function (ctx: Context, _session: Session | null, _opts: {
         url: "/llms/usage",
         topic: "llm-usage",
         every: 60,
-        attrs: 'class="block"',
+        // Keep click/keyboard details stable, including a response already in flight.
+        // Closing the popover lets the next usage signal or watchdog refresh normally.
+        attrs: `hx-on::before:request="if (this.querySelector(':popover-open')) event.preventDefault()" hx-on::before:swap="if (this.querySelector(':popover-open')) event.preventDefault()"`,
         html: ctx.fns.ui.usageDial({ entries }),
     });
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });

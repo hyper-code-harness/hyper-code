@@ -1,15 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkTestCtx } from "../_testCtx.entry";
-import dial from "../ui/usageDial";
 
 const NOW = 1_786_900_000_000;
-const escCtx: any = {
-    fns: {
-        procs: { ui: { escape: ({ text }: any) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!)) } },
-        w: { escape: ({ text }: any) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!)) },
-        ui: { modelLogo: ({ model }: any) => `<span data-logo="${model}"></span>` },
-    },
-};
 
 describe("llm.recordUsage", () => {
     test("reads Anthropic unified headers into both windows", async () => {
@@ -71,25 +63,25 @@ describe("llm.recordUsage", () => {
         expect(snapshot.source).toBe("error");
     });
 
-    test("crossing the alert threshold warns once, not on every request", async () => {
+    test("quota pressure stays recorded without threshold toasts, including later windows", async () => {
         const ctx: any = await mkTestCtx();
         const toasts: any[] = [];
-        // Test registry entries are called raw: (ctx, session, opts).
-        ctx.fns.ui.notify = async (_c: any, _s: any, o: any) => { toasts.push(o ?? _c); };
+        ctx.state.registry.ui.notify = async (_c: any, _s: any, o: any) => { toasts.push(o); };
         const resets = Math.floor((NOW + 3_600_000) / 1000);
-
-        await ctx.fns.llm.recordUsage({ provider: "codex", rateLimits: { primary: { used_percent: 70, resets_at: resets } }, now: NOW });
-        expect(toasts).toHaveLength(0);
-
-        await ctx.fns.llm.recordUsage({ provider: "codex", rateLimits: { primary: { used_percent: 87, resets_at: resets } }, now: NOW });
-        await ctx.fns.llm.recordUsage({ provider: "codex", rateLimits: { primary: { used_percent: 91, resets_at: resets } }, now: NOW });
-        expect(toasts).toHaveLength(1);
-        expect(toasts[0].message).toContain("87%");
-
-        // The window rolled over: the next approach deserves its own warning.
+        for (const percent of [70, 87, 91, 99]) {
+            await ctx.fns.llm.recordUsage({ provider: "codex", rateLimits: { primary: { used_percent: percent, resets_at: resets } }, now: NOW });
+            expect((await ctx.fns.llm.usageOverview({ now: NOW }))[0].usedPercent).toBe(percent);
+        }
         const later = NOW + 4_000_000;
         await ctx.fns.llm.recordUsage({ provider: "codex", rateLimits: { primary: { used_percent: 88, resets_at: Math.floor((later + 3_600_000) / 1000) } }, now: later });
-        expect(toasts).toHaveLength(2);
+        expect(toasts).toHaveLength(0);
+        const exhausted = await ctx.fns.llm.recordUsage({ provider: "codex", spent: true, resetsAt: later + 3_600_000, now: later });
+        expect(exhausted).toMatchObject({ source: "error", windows: { primary: { usedPercent: 100 } } });
+        expect((await ctx.fns.llm.usageOverview({ now: later }))[0].usedPercent).toBe(100);
+        // Suppress only automatic quota thresholds, never global notification delivery.
+        await ctx.fns.ui.notify({ level: "error", message: "A different failure" });
+        expect(toasts).toHaveLength(1);
+        expect(toasts[0].message).toBe("A different failure");
     });
 
     test("accounts of one provider are tracked separately", async () => {
@@ -144,50 +136,94 @@ describe("llm.usageOverview", () => {
 
 describe("ui.usageDial", () => {
     const entry = (over: any = {}) => ({ provider: "codex", account: "default", label: "codex", model: "codex:gpt-5.6-sol", usedPercent: 78, resetsAt: NOW + 7_200_000, planType: "prolite", parkedAgents: 0, tone: "warning", ...over });
+    const render = async (entries: any[]) => {
+        const ctx = await mkTestCtx();
+        return ctx.fns.ui.usageDial({ entries, now: NOW });
+    };
 
-    test("nothing recorded renders nothing", () => {
-        expect(dial(escCtx, null, { entries: [], now: NOW })).toBe("");
+    test("nothing recorded renders nothing", async () => {
+        expect(await render([])).toBe("");
     });
 
-    test("the ring fill is proportional to the spent quota", () => {
-        const html = dial(escCtx, null, { entries: [entry({ usedPercent: 50 })], now: NOW });
-        // Half of the r=12 circumference (75.4). The ring IS the number — there
-        // is no digit to read in a 40px-wide bar.
-        expect(html).toContain('stroke-dasharray="37.7 75.4"');
-        expect(html).not.toMatch(/>\s*50\s*</);
+    test("one proportional ring represents the highest usage without visible digits", async () => {
+        const html = await render([entry({ usedPercent: 20 }), entry({ account: "work", label: "codex · work", usedPercent: 50 })]);
+        expect(html.match(/class="w-ring"/g)).toHaveLength(1);
+        expect(html).toContain('stroke-dasharray="50.0 100"');
+        expect(html).toContain("highest recorded usage: codex · work");
+        const trigger = html.split('</button>')[0];
+        expect(trigger).not.toMatch(/>\s*50(?:% used)?\s*</);
+        expect(html.match(/data-usage-account/g)).toHaveLength(2);
     });
 
-    test("each ring carries its provider mark", () => {
-        const html = dial(escCtx, null, { entries: [entry({ model: "kimi-coding:k3" })], now: NOW });
-        expect(html).toContain('data-logo="kimi-coding:k3"');
+    test("ordinary percentages stay neutral even when upstream tone is warning or error", async () => {
+        for (const usedPercent of [20, 70, 78, 92, 99.99]) {
+            const html = await render([entry({ usedPercent, tone: "error" })]);
+            expect(html).toContain('class="w-ring" data-tone="neutral"');
+            expect(html).not.toMatch(/data-tone="(?:warning|danger)"|data-state="error"|text-error|text-warning/);
+            expect(html).not.toContain("quota exhausted");
+            expect(html).not.toContain("100% used");
+        }
     });
 
-    test("crossing the thresholds changes the colour", () => {
-        expect(dial(escCtx, null, { entries: [entry({ usedPercent: 20, tone: "neutral" })], now: NOW })).toContain("text-faint");
-        expect(dial(escCtx, null, { entries: [entry({ usedPercent: 70, tone: "warning" })], now: NOW })).toContain("text-warning");
-        expect(dial(escCtx, null, { entries: [entry({ usedPercent: 92, tone: "error" })], now: NOW })).toContain("text-error");
+    test("100 percent and parked credentials remain visibly blocked", async () => {
+        const spent = await render([entry({ usedPercent: 100, tone: "neutral" })]);
+        expect(spent).toContain('data-tone="danger"');
+        expect(spent).toContain('data-state="error"');
+        expect(spent).toContain("quota exhausted");
+        const parked = await render([entry({ usedPercent: 95 }), entry({ label: "blocked account", usedPercent: null, parkedAgents: 14 })]);
+        expect(parked).toContain('data-state="error"');
+        expect(parked).toContain("ph-pause");
+        expect(parked).toContain("14 agent(s) parked");
+        expect(parked.split('</button>')[0]).toContain("blocked account");
     });
 
-    test("a parked credential shows the pause mark and says how many wait", () => {
-        const html = dial(escCtx, null, { entries: [entry({ usedPercent: 100, tone: "error", parkedAgents: 14 })], now: NOW });
-        expect(html).toContain("ph-pause");
-        expect(html).toContain("14 agent(s) parked");
+    test("hover and click expose usage, reset and all accounts without redirecting the trigger", async () => {
+        const html = await render([entry()]);
+        expect(html).toContain("78% used");
+        expect(html).toContain("22% remaining");
+        expect(html).toContain("resets in 2h 0m");
+        expect(html).toContain(new Date(NOW + 7_200_000).toLocaleString());
+        expect(html).toContain('popovertarget="llm-usage-popup"');
+        expect(html).toContain('id="llm-usage-popup" popover');
+        expect(html).toContain('role="dialog" aria-label="Subscription quota"');
+        expect(html).toContain('href="/llms"');
+        expect(html).not.toContain("consider switching models");
     });
 
-    test("the tooltip interprets the number instead of just stating it", () => {
-        const calm = dial(escCtx, null, { entries: [entry({ usedPercent: 20, tone: "neutral" })], now: NOW });
-        expect(calm).toContain("80% remaining");
-        expect(calm).toContain("sufficient capacity");
-        expect(calm).toContain("resets in 2h 0m");
-
-        const hot = dial(escCtx, null, { entries: [entry({ usedPercent: 78, tone: "error" })], now: NOW });
-        expect(hot).toContain("22% remaining");
-        expect(hot).toContain("consider switching models");
-    });
-
-    test("no data draws an empty ring instead of a fake zero", () => {
-        const html = dial(escCtx, null, { entries: [entry({ usedPercent: null, tone: "neutral" })], now: NOW });
+    test("missing quota/reset is honest rather than a fake zero", async () => {
+        const html = await render([entry({ usedPercent: null, resetsAt: null })]);
         expect(html).not.toContain("stroke-dasharray");
+        expect(html).not.toContain("0% used");
+        expect(html).toContain("usage unavailable");
         expect(html).toContain("no data yet");
+        expect(html).toContain("reset time unavailable");
+    });
+
+    test("expired reset does not claim a future countdown and account text is escaped", async () => {
+        const html = await render([entry({ label: '<img src=x onerror="bad">', planType: "<script>bad</script>", resetsAt: NOW - 1 })]);
+        expect(html).toContain("reset due — awaiting fresh usage");
+        expect(html).not.toContain("resets in 0m");
+        expect(html).not.toContain("<img");
+        expect(html).not.toContain("<script>");
+        expect(html).toContain("&lt;img");
+    });
+
+    test("the shipped Dock entry uses cached snapshots and the existing live usage route", async () => {
+        const ctx = await mkTestCtx();
+        const item = ctx.state.dock.items["llms.usage"];
+        expect(item).toMatchObject({ label: "Subscription quota", zone: "bottom" });
+        ctx.state.registry.llm.usageOverview = async () => [entry()];
+        ctx.state.registry.llm.refreshUsage = async () => { throw new Error("provider I/O on shell path"); };
+        const html = await item.render(ctx, null);
+        expect(html).toContain('hx-get="/llms/usage"');
+        expect(html).toContain('hx-trigger="load, hyper-live, every 60s"');
+        expect(html).toContain('hx-target="this"');
+        expect(html).toContain('data-live-topic="llm-usage"');
+        // The Dock hides entries without a visible railItem; retain its standard widget.
+        expect(html).toContain('class="w-rail-item"');
+        ctx.state.registry.llm.usageOverview = async () => [];
+        const empty = await item.render(ctx, null);
+        expect(empty).toContain('data-live-topic="llm-usage"');
+        expect(empty).not.toContain('class="w-rail-item"');
     });
 });

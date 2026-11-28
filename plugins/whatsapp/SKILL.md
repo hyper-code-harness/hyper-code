@@ -16,7 +16,7 @@ Postgres schema `whatsapp` (`chats`, `contacts`, `messages`).
 2. `whatsapp.login({})` → `{ qrPath, qrUrl }`. Show the image to the person, e.g. `<img src="{qrUrl}">` in
    respondHtml. They scan it in WhatsApp → Settings → Linked devices → Link a device.
 3. QR rotates every ~20 s; call `login({})` again for a fresh one. Poll `status({ waitMs })` until `open`.
-4. After linking, history sync fills the mirror over a minute or so.
+4. The plugin pairs using the standard Web profile and accepts supported history batches. WhatsApp decides which chats and messages it delivers. Reconnecting an existing session can receive future sync events; it does not force WhatsApp to resend the initial history.
 
 ## Read
 
@@ -24,6 +24,10 @@ Postgres schema `whatsapp` (`chats`, `contacts`, `messages`).
 - `whatsapp.messages({ chat, limit?, query? })` — one chat, oldest→newest; `chat` = JID, phone or name fragment.
 - `whatsapp.search({ query, limit? })` — text search across all chats.
 - `whatsapp.participants({ chat })` — live group members with admin flags.
+
+## Requesting older personal messages
+
+`whatsapp.requestPersonalHistory({ chat, limit? })` asks the linked phone for up to 50 older messages for an exact personal JID returned by `chats`. It returns `requested` when the request was submitted; check the mirror later for results. `no_anchor` means there is no local message to use as a cursor. Contact-only chats cannot be fetched this way. Do not loop or re-pair automatically; neither option guarantees a complete archive.
 
 ## Guarded writes
 

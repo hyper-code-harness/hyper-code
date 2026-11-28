@@ -80,7 +80,10 @@ async function start(ctx: Context, st: WaState) {
     await mkdir(authDir, { recursive: true });
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
     const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined as any }));
-    const sock = makeWASocket({ auth: state, logger: pino({ level: "silent" }) as any, browser: Browsers.macOS("Hyper"), version, markOnlineOnConnect: false, syncFullHistory: false });
+    // Pair using the standard Web profile, while still accepting supported history notifications.
+    const sock = makeWASocket({ auth: state, logger: pino({ level: "silent" }) as any, browser: Browsers.macOS("Hyper"), version, markOnlineOnConnect: false, syncFullHistory: false, shouldSyncHistoryMessage: () => true });
+    st.qr = undefined;
+    st.qrAt = undefined;
     st.sock = sock;
     st.status = "connecting";
     const wake = () => { const w = st.waiters.splice(0); w.forEach((f) => f()); };

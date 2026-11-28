@@ -10,7 +10,7 @@
 export default async function (ctx: Context, _session: Session | null, opts: { sql: string; params?: any }) {
     const query = async () => {
         const sql = await ctx.fns.procs.db.conn();
-        const p = opts.params == null ? [] : Array.isArray(opts.params) ? opts.params : [opts.params];
+        const p = ctx.fns.procs.db.pgParams({ params: opts.params });
         const res: any = await sql.unsafe(ctx.fns.procs.db.toPg({ sql: opts.sql }), p);
         return { changes: Number(res?.count ?? res?.length ?? 0), lastInsertRowid: 0, rows: Array.from(res ?? []) };
     };
